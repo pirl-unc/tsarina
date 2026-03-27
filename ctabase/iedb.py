@@ -236,6 +236,84 @@ def scan_public_ms(
     return pd.DataFrame(rows)
 
 
+def profile_dataset(
+    iedb_path: str | Path | None = None,
+    cedar_path: str | Path | None = None,
+    human_only: bool = True,
+) -> pd.DataFrame:
+    """Profile an entire IEDB/CEDAR MHC ligand export without peptide filtering.
+
+    Scans every row and extracts key fields for summary statistics:
+    MHC class distribution, tissue coverage, cancer type breakdown, etc.
+
+    Parameters
+    ----------
+    iedb_path
+        Path to the IEDB ``mhc_ligand_full.csv`` export.
+    cedar_path
+        Path to the CEDAR ``cedar-mhc-ligand-full.csv`` export.
+    human_only
+        If True (default), keep only human-source rows.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per assay (deduplicated by assay IRI).
+        Columns: ``peptide``, ``mhc_restriction``, ``mhc_class``,
+        ``process_type``, ``disease``, ``source_tissue``, ``cell_name``,
+        ``culture_condition``, ``source_organism``, ``species``,
+        ``src_cancer``, ``src_healthy``, ``src_cell_line``,
+        ``src_ex_vivo``, ``src_ebv_lcl``.
+    """
+    source_paths: list[Path] = []
+    if iedb_path is not None:
+        source_paths.append(Path(iedb_path))
+    if cedar_path is not None:
+        source_paths.append(Path(cedar_path))
+
+    rows: list[dict] = []
+    seen_assay_iris: set[str] = set()
+
+    for source_path in source_paths:
+        if not source_path.exists():
+            continue
+        with open(source_path, newline="") as src:
+            reader = csv.reader(src)
+            next(reader)  # category header
+            next(reader)  # field header
+            for row in reader:
+                assay_iri = row[_COL_ASSAY_IRI] if row else ""
+                if assay_iri in seen_assay_iris:
+                    continue
+                seen_assay_iris.add(assay_iri)
+
+                source_organism = _safe_col(row, _COL_SOURCE_ORGANISM)
+                species = _safe_col(row, _COL_SPECIES)
+                if human_only and "Homo sapiens" not in (source_organism, species):
+                    continue
+
+                process_type = _safe_col(row, _COL_PROCESS_TYPE)
+                disease = _safe_col(row, _COL_DISEASE)
+                culture_condition = _safe_col(row, _COL_CULTURE_CONDITION)
+
+                record = {
+                    "peptide": _safe_col(row, _COL_EPITOPE_NAME),
+                    "mhc_restriction": _safe_col(row, _COL_MHC_RESTRICTION),
+                    "mhc_class": _safe_col(row, _COL_MHC_CLASS),
+                    "process_type": process_type,
+                    "disease": disease,
+                    "source_tissue": _safe_col(row, _COL_SOURCE_TISSUE),
+                    "cell_name": _safe_col(row, _COL_CELL_NAME),
+                    "culture_condition": culture_condition,
+                    "source_organism": source_organism,
+                    "species": species,
+                }
+                record.update(classify_ms_row(process_type, disease, culture_condition))
+                rows.append(record)
+
+    return pd.DataFrame(rows)
+
+
 def peptide_ms_support(
     peptides: set[str],
     iedb_path: str | Path | None = None,
