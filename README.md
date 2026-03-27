@@ -45,10 +45,10 @@ from ctabase import (
 
 ```
 CTA_unfiltered (358 genes)
-├── CTA_filtered (278 genes)
-│   ├── CTA_gene_names (257 genes) ← recommended default
-│   └── CTA_never_expressed (21 genes)
-└── CTA_excluded (80 genes)
++-- CTA_filtered (278 genes)
+|   +-- CTA_gene_names (257 genes) <-- recommended default
+|   +-- CTA_never_expressed (21 genes)
++-- CTA_excluded (80 genes)
 ```
 
 ### Evidence table
@@ -88,7 +88,7 @@ Union of protein-coding CT genes from five source databases (358 genes). Only pr
 
 Each gene is scored against [Human Protein Atlas](https://www.proteinatlas.org/) v23:
 
-- **RNA**: nTPM across 50 normal tissues. A *deflated reproductive fraction* suppresses sub-1 nTPM noise: `(1 + Σ_repro max(0, nTPM-1)) / (1 + Σ_all max(0, nTPM-1))`. Thymus excluded from denominator (AIRE-mediated expression is expected for CTAs).
+- **RNA**: nTPM across 50 normal tissues. A *deflated reproductive fraction* suppresses sub-1 nTPM noise: `(1 + sum_repro max(0, nTPM-1)) / (1 + sum_all max(0, nTPM-1))`. Thymus excluded from denominator (AIRE-mediated expression is expected for CTAs).
 - **Protein**: IHC staining across 63 tissues with antibody reliability scores (Enhanced > Supported > Approved > Uncertain).
 
 ### Step 3: Filter
@@ -117,6 +117,29 @@ Genes with protein detected in non-reproductive tissues always fail. See [curati
 
 #### Deflated fraction distribution
 ![Deflated Fraction Distribution](docs/cta-deflated-frac-dist.png)
+
+## Tissue definitions
+
+Three tiers of reproductive tissue sets for CTA restriction analysis:
+
+```python
+from ctabase.tissues import (
+    CORE_REPRODUCTIVE_TISSUES,      # {testis, ovary, placenta}
+    EXTENDED_REPRODUCTIVE_TISSUES,  # + cervix, endometrium, prostate, ...
+    PERMISSIVE_REPRODUCTIVE_TISSUES,# + breast
+    HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,
+    is_tissue_restricted,
+    adaptive_rna_threshold,
+)
+
+# Check if a gene's detected tissues are restricted to reproductive
+is_tissue_restricted({"testis", "thymus"})        # True (thymus excluded)
+is_tissue_restricted({"testis", "liver"})          # False
+
+# Adaptive RNA thresholds scale with protein evidence quality
+adaptive_rna_threshold("Enhanced")   # 0.80
+adaptive_rna_threshold("Uncertain")  # 0.99
+```
 
 ## Gene partitioning
 
@@ -164,6 +187,22 @@ print(PANEL_SOURCE_CATEGORIES["HLA-B*46:01"])
 | `global48_abc` | 48 | + Latin America, MENA |
 | `global51_abc_ssa` | 51 | + additional Sub-Saharan Africa |
 
+### Regional allele frequencies
+
+Allele panels can be augmented or replaced with custom allele sets. The `regions` module provides per-region allele frequency data from published population studies:
+
+```python
+from ctabase.regions import region_allele_frequencies, REGION_POPULATIONS
+
+# DataFrame with allele frequencies by region, proxy population, and locus
+freq_df = region_allele_frequencies()
+print(freq_df[freq_df["region"] == "East Asia"][["allele", "frequency", "proxy"]].head())
+
+# Regional population estimates (millions, 2024)
+print(REGION_POPULATIONS)
+# {'Europe': 743.9, 'MENA / Arab': 599.9, 'East Asia': 1603.2, ...}
+```
+
 ## IEDB/CEDAR mass spec scanning
 
 Scan downloaded IEDB and CEDAR MHC ligand exports for validated peptide observations:
@@ -171,19 +210,47 @@ Scan downloaded IEDB and CEDAR MHC ligand exports for validated peptide observat
 ```python
 from ctabase.iedb import scan_public_ms, peptide_ms_support
 
-# Scan for specific peptides across both databases
+# Basic scan
 hits = scan_public_ms(
     peptides={"SLYNTVATL", "GILGFVFTL"},
     iedb_path="mhc_ligand_full.csv",
     cedar_path="cedar-mhc-ligand-full.csv",
 )
-print(hits[["peptide", "mhc_restriction", "pmid"]])
+
+# With MHC class I filtering and disease/tissue context classification
+hits = scan_public_ms(
+    peptides=my_peptides,
+    iedb_path="mhc_ligand_full.csv",
+    mhc_class="I",             # MHC class I only
+    classify_source=True,       # adds context columns
+)
+# Context columns: src_cancer, src_healthy, src_cell_line, src_ex_vivo, src_ebv_lcl
+# Additional: disease, source_tissue, cell_name, process_type, culture_condition
 
 # Quick lookup: peptide -> set of MHC restrictions
 support = peptide_ms_support(
-    peptides=my_peptide_set,
+    peptides=my_peptides,
     iedb_path="mhc_ligand_full.csv",
+    mhc_class="I",
 )
+```
+
+## MHCflurry scoring
+
+Score peptide-MHC binding and presentation (requires `mhcflurry`):
+
+```python
+from ctabase.scoring import score_presentation, AFFINITY_THRESHOLDS_NM
+from ctabase.alleles import get_panel
+
+scores = score_presentation(
+    peptides=["SLYNTVATL", "GILGFVFTL"],
+    alleles=get_panel("iedb27_ab"),
+)
+# Columns: peptide, allele, presentation_score, presentation_percentile, affinity_nm
+
+# Filter to strong binders
+strong = scores[scores["presentation_percentile"] <= 1.0]
 ```
 
 ## Peptide generation

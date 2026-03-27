@@ -31,11 +31,21 @@ from .gene_sets import (
     CTA_unfiltered_gene_ids,
     CTA_unfiltered_gene_names,
 )
+from .tissues import (
+    CORE_REPRODUCTIVE_TISSUES,
+    EXTENDED_REPRODUCTIVE_TISSUES,
+    HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,
+    PERMISSIVE_REPRODUCTIVE_TISSUES,
+)
 from .version import __version__
 
 __all__ = [
+    "CORE_REPRODUCTIVE_TISSUES",
+    "EXTENDED_REPRODUCTIVE_TISSUES",
+    "HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS",
     "IEDB27_AB",
     "PANEL_DEFINITIONS",
+    "PERMISSIVE_REPRODUCTIVE_TISSUES",
     "CTA_evidence",
     "CTA_excluded_gene_ids",
     "CTA_excluded_gene_names",
