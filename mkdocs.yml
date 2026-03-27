@@ -1,0 +1,12 @@
+site_name: ctabase
+site_description: Curated cancer-testis antigen gene sets, HLA allele panels, and pMHC utilities
+site_url: https://pirl-unc.github.io/ctabase/
+repo_url: https://github.com/pirl-unc/ctabase
+repo_name: pirl-unc/ctabase
+
+nav:
+  - Home: index.md
+  - Curation: curation.md
+
+theme:
+  name: readthedocs
