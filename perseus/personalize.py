@@ -96,7 +96,7 @@ def personalize(
         - ``ms_hit_count``: number of IEDB/CEDAR MS observations
         - ``ms_alleles``: MHC restrictions observed in public data
         - ``ms_in_cancer``: detected in cancer samples
-        - ``ms_in_healthy_somatic``: detected in normal non-reproductive tissue (safety flag)
+        - ``ms_in_healthy_tissue``: detected in normal non-reproductive tissue (safety flag)
         - ``best_allele``: patient HLA allele with best predicted presentation
         - ``presentation_percentile``: MHCflurry percentile for best allele
         - ``priority_score``: composite prioritization score (higher = better)
@@ -219,8 +219,8 @@ def personalize(
             }
             if "src_cancer" in hits.columns:
                 agg_cols["ms_in_cancer"] = ("src_cancer", "any")
-            if "src_healthy_somatic" in hits.columns:
-                agg_cols["ms_in_healthy_somatic"] = ("src_healthy_somatic", "any")
+            if "src_healthy_tissue" in hits.columns:
+                agg_cols["ms_in_healthy_tissue"] = ("src_healthy_tissue", "any")
 
             hit_agg = hits.groupby("peptide", as_index=False).agg(**agg_cols)
             combined = combined.merge(hit_agg, on="peptide", how="left")
@@ -229,14 +229,14 @@ def personalize(
             combined["ms_alleles"] = ""
             combined["ms_allele_count"] = 0
             combined["ms_in_cancer"] = False
-            combined["ms_in_healthy_somatic"] = False
+            combined["ms_in_healthy_tissue"] = False
 
         for col, default in [
             ("ms_hit_count", 0),
             ("ms_alleles", ""),
             ("ms_allele_count", 0),
             ("ms_in_cancer", False),
-            ("ms_in_healthy_somatic", False),
+            ("ms_in_healthy_tissue", False),
         ]:
             if col in combined.columns:
                 combined[col] = combined[col].fillna(default)
@@ -273,8 +273,8 @@ def personalize(
         combined["priority_score"] += combined["ms_hit_count"].clip(upper=10) * 10
     if "ms_in_cancer" in combined.columns:
         combined["priority_score"] += combined["ms_in_cancer"].astype(float) * 20
-    if "ms_in_healthy_somatic" in combined.columns:
-        combined["priority_score"] -= combined["ms_in_healthy_somatic"].astype(float) * 50
+    if "ms_in_healthy_tissue" in combined.columns:
+        combined["priority_score"] -= combined["ms_in_healthy_tissue"].astype(float) * 50
     if "source_tpm" in combined.columns:
         combined["priority_score"] += combined["source_tpm"].fillna(0).clip(upper=500) * 0.1
     if "presentation_percentile" in combined.columns:

@@ -19,7 +19,9 @@ def test_target_summary_categories():
             "source": ["MAGEA4", "MAGEA4", "HPV-16", "KRAS G12D"],
             "source_detail": ["ENSG1", "ENSG1", "P1", "G12D"],
             "has_ms_evidence": [True, False, True, False],
-            "ms_in_cancer": [True, False, False, False],
+            "ms_cancer": [True, False, False, False],
+            "ms_healthy_tissue": [False, False, False, False],
+            "ms_cell_lines": ["HeLa", "", "A549", ""],
         }
     )
     summary = target_summary(df)

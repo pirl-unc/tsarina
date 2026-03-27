@@ -177,30 +177,32 @@ def target_peptides(
 
         if not hits.empty:
             # Aggregate per peptide
-            agg_dict: dict = {
-                "mhc_restriction": lambda x: ";".join(sorted(set(x))),
-                "peptide": "size",
-            }
-            if classify_source and "src_cancer" in hits.columns:
-                agg_dict["src_cancer"] = "any"
-                agg_dict["src_healthy"] = "any"
-                agg_dict["src_cell_line"] = "any"
-                agg_dict["src_ex_vivo"] = "any"
+            _SRC_COLS = [
+                "src_cancer",
+                "src_healthy_tissue",
+                "src_healthy_thymus",
+                "src_healthy_reproductive",
+                "src_cell_line",
+                "src_ebv_lcl",
+                "src_ex_vivo",
+            ]
+            src_agg = {}
+            if classify_source:
+                for sc in _SRC_COLS:
+                    if sc in hits.columns:
+                        src_agg[f"ms_{sc.removeprefix('src_')}"] = (sc, "any")
+                # Collect cell line names
+                if "cell_line_name" in hits.columns:
+                    src_agg["ms_cell_lines"] = (
+                        "cell_line_name",
+                        lambda x: ";".join(sorted({v for v in x if v})),
+                    )
 
             hit_agg = hits.groupby("peptide", as_index=False).agg(
                 ms_hit_count=("peptide", "size"),
                 ms_alleles=("mhc_restriction", lambda x: ";".join(sorted(set(x)))),
                 ms_allele_count=("mhc_restriction", lambda x: len(set(x))),
-                **(
-                    {
-                        "ms_in_cancer": ("src_cancer", "any"),
-                        "ms_in_healthy": ("src_healthy", "any"),
-                        "ms_in_cell_line": ("src_cell_line", "any"),
-                        "ms_in_ex_vivo": ("src_ex_vivo", "any"),
-                    }
-                    if classify_source and "src_cancer" in hits.columns
-                    else {}
-                ),
+                **src_agg,
             )
 
             combined = combined.merge(hit_agg, on="peptide", how="left")
@@ -211,26 +213,27 @@ def target_peptides(
             combined["ms_alleles"] = combined["ms_alleles"].fillna("")
             combined["ms_allele_count"] = combined["ms_allele_count"].fillna(0).astype(int)
 
-            if classify_source and "ms_in_cancer" in combined.columns:
-                for col in ["ms_in_cancer", "ms_in_healthy", "ms_in_cell_line", "ms_in_ex_vivo"]:
-                    combined[col] = combined[col].fillna(False)
+            if classify_source:
+                for sc in _SRC_COLS:
+                    col = f"ms_{sc.removeprefix('src_')}"
+                    if col in combined.columns:
+                        combined[col] = combined[col].fillna(False)
+                if "ms_cell_lines" in combined.columns:
+                    combined["ms_cell_lines"] = combined["ms_cell_lines"].fillna("")
         else:
             combined["has_ms_evidence"] = False
             combined["ms_hit_count"] = 0
             combined["ms_alleles"] = ""
             combined["ms_allele_count"] = 0
-            if classify_source:
-                for col in ["ms_in_cancer", "ms_in_healthy", "ms_in_cell_line", "ms_in_ex_vivo"]:
-                    combined[col] = False
 
         # ── Filters ─────────────────────────────────────────────────────
         if require_ms_evidence:
             combined = combined[combined["has_ms_evidence"]].reset_index(drop=True)
 
-        if cancer_specific and "ms_in_cancer" in combined.columns:
-            combined = combined[combined["ms_in_cancer"] & ~combined["ms_in_healthy"]].reset_index(
-                drop=True
-            )
+        if cancer_specific and "ms_cancer" in combined.columns:
+            combined = combined[
+                combined["ms_cancer"] & ~combined.get("ms_healthy_tissue", False)
+            ].reset_index(drop=True)
 
     combined = combined.drop(columns=["peptide_unique_id"], errors="ignore")
     return combined
@@ -260,7 +263,14 @@ def target_summary(df: pd.DataFrame) -> pd.DataFrame:
         }
         if "has_ms_evidence" in gdf.columns:
             row["ms_confirmed_peptides"] = gdf[gdf["has_ms_evidence"]]["peptide"].nunique()
-        if "ms_in_cancer" in gdf.columns:
-            row["cancer_ms_peptides"] = gdf[gdf["ms_in_cancer"]]["peptide"].nunique()
+        if "ms_cancer" in gdf.columns:
+            row["cancer_ms_peptides"] = gdf[gdf["ms_cancer"]]["peptide"].nunique()
+        if "ms_healthy_tissue" in gdf.columns:
+            row["healthy_tissue_peptides"] = gdf[gdf["ms_healthy_tissue"]]["peptide"].nunique()
+        if "ms_cell_lines" in gdf.columns:
+            all_lines = set()
+            for v in gdf["ms_cell_lines"].dropna():
+                all_lines.update(cl for cl in str(v).split(";") if cl)
+            row["unique_cell_lines"] = len(all_lines)
         rows.append(row)
     return pd.DataFrame(rows)
