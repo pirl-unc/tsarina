@@ -1,4 +1,4 @@
-from ctabase.alleles import (
+from hitlist.alleles import (
     GLOBAL44_ADDON,
     GLOBAL48_ADDON,
     GLOBAL51_SSA_ADDON,

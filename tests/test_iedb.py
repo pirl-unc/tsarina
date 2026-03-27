@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ctabase.iedb import scan_public_ms
+from hitlist.iedb import scan_public_ms
 
 
 def test_scan_no_sources_returns_empty():

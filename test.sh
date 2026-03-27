@@ -1,1 +1,1 @@
-pytest --cov=ctabase/ --cov-report=term-missing tests
+pytest --cov=hitlist/ --cov-report=term-missing tests

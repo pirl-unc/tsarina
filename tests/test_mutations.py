@@ -1,4 +1,4 @@
-from ctabase.mutations import HOTSPOT_MUTATIONS
+from hitlist.mutations import HOTSPOT_MUTATIONS
 
 
 def test_hotspot_mutations_nonempty():

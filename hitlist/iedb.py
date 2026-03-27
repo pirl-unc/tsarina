@@ -19,7 +19,7 @@ HLA-restricted entries, and deduplicate by assay IRI across both sources.
 
 Typical usage::
 
-    from ctabase.iedb import scan_public_ms
+    from hitlist.iedb import scan_public_ms
 
     hits = scan_public_ms(
         peptides={"SLYNTVATL", "GILGFVFTL"},

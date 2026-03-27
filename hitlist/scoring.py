@@ -12,14 +12,14 @@
 
 """MHC-peptide binding prediction using MHCflurry.
 
-Requires the ``mhcflurry`` package (not a ctabase dependency -- install
+Requires the ``mhcflurry`` package (not a hitlist dependency -- install
 separately with ``pip install mhcflurry`` and download models with
 ``mhcflurry-downloads fetch``).
 
 Typical usage::
 
-    from ctabase.scoring import score_presentation
-    from ctabase.alleles import get_panel
+    from hitlist.scoring import score_presentation
+    from hitlist.alleles import get_panel
 
     scores = score_presentation(
         peptides=["SLYNTVATL", "GILGFVFTL"],

@@ -1,4 +1,4 @@
-from ctabase.downloads import (
+from hitlist.downloads import (
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
     available_datasets,

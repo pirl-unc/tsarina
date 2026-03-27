@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ctabase.regions import (
+from hitlist.regions import (
     REGION_POPULATIONS,
     REGION_PRIORITY_ROWS,
     region_allele_frequencies,

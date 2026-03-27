@@ -1,6 +1,6 @@
 import pytest
 
-from ctabase.scoring import (
+from hitlist.scoring import (
     AFFINITY_THRESHOLDS_NM,
     PRESENTATION_PERCENTILE_THRESHOLDS,
     PRESENTATION_SCORE_THRESHOLDS,
@@ -29,7 +29,7 @@ def test_score_presentation_import_error():
     except ImportError:
         pass
 
-    from ctabase.scoring import score_presentation
+    from hitlist.scoring import score_presentation
 
     with pytest.raises(ImportError, match="mhcflurry"):
         score_presentation(peptides=["SLYNTVATL"], alleles=["HLA-A*02:01"])

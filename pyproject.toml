@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ctabase"
+name = "hitlist"
 dynamic = ["version"]
-description = "Curated cancer-testis antigen gene sets, HLA allele panels, and pMHC utilities"
+description = "Shared cancer immunotherapy targets: CTAs, viral oncoproteins, and recurrent mutant peptides"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -50,25 +50,25 @@ dev = [
 ]
 
 [project.scripts]
-ctabase = "ctabase.cli:main"
+hitlist = "hitlist.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/pirl-unc/ctabase"
-Repository = "https://github.com/pirl-unc/ctabase"
+Homepage = "https://github.com/pirl-unc/hitlist"
+Repository = "https://github.com/pirl-unc/hitlist"
 
 [tool.setuptools.dynamic]
-version = {attr = "ctabase.version.__version__"}
+version = {attr = "hitlist.version.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["ctabase*"]
+include = ["hitlist*"]
 
 [tool.setuptools.package-data]
-ctabase = ["data/*.csv"]
+hitlist = ["data/*.csv"]
 
 [tool.ruff]
 target-version = "py39"
 line-length = 100
-src = ["ctabase", "tests"]
+src = ["hitlist", "tests"]
 exclude = [
     ".git",
     ".venv",
@@ -104,7 +104,7 @@ ignore = [
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ctabase"]
+known-first-party = ["hitlist"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -113,8 +113,8 @@ python_functions = "test_*"
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["ctabase"]
-omit = ["ctabase/version.py"]
+source = ["hitlist"]
+omit = ["hitlist/version.py"]
 
 [tool.coverage.report]
 exclude_lines = [

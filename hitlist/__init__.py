@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""ctabase: curated cancer-testis antigen gene sets, HLA allele panels, and pMHC utilities."""
+"""hitlist: shared cancer immunotherapy targets -- CTAs, viral oncoproteins, and recurrent mutant peptides."""
 
 from .alleles import (
     IEDB27_AB,

@@ -1,8 +1,8 @@
-site_name: ctabase
-site_description: Curated cancer-testis antigen gene sets, HLA allele panels, and pMHC utilities
-site_url: https://pirl-unc.github.io/ctabase/
-repo_url: https://github.com/pirl-unc/ctabase
-repo_name: pirl-unc/ctabase
+site_name: hitlist
+site_description: Shared cancer immunotherapy targets -- CTAs, viral oncoproteins, and recurrent mutant peptides
+site_url: https://pirl-unc.github.io/hitlist/
+repo_url: https://github.com/pirl-unc/hitlist
+repo_name: pirl-unc/hitlist
 
 nav:
   - Home: index.md

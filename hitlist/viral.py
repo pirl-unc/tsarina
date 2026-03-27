@@ -29,7 +29,7 @@ Supported viruses::
 
 Typical usage::
 
-    from ctabase.viral import (
+    from hitlist.viral import (
         ONCOGENIC_VIRUSES,
         viral_peptides,
         human_exclusive_viral_peptides,
@@ -255,7 +255,7 @@ def human_exclusive_viral_peptides(
     any that appear as a substring of any human protein-coding gene's
     protein sequence (from Ensembl).
 
-    Requires ``pyensembl`` (install with ``pip install ctabase[peptides]``).
+    Requires ``pyensembl`` (install with ``pip install hitlist[peptides]``).
 
     Parameters
     ----------
@@ -319,7 +319,7 @@ def cancer_specific_viral_peptides(
     The returned DataFrame includes an ``in_cta_protein`` column indicating
     whether each peptide also occurs in a CTA protein sequence.
 
-    Requires ``pyensembl`` (install with ``pip install ctabase[peptides]``).
+    Requires ``pyensembl`` (install with ``pip install hitlist[peptides]``).
 
     Parameters
     ----------

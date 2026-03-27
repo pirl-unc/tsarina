@@ -2,7 +2,7 @@
 
 set -e
 
-SOURCES="ctabase tests"
+SOURCES="hitlist tests"
 
 echo "Running ruff format..."
 ruff format $SOURCES

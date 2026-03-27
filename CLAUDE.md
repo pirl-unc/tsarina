@@ -1,4 +1,4 @@
-# Claude Code Instructions for ctabase
+# Claude Code Instructions for hitlist
 
 ## Before Completing Any Task
 

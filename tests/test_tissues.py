@@ -1,4 +1,4 @@
-from ctabase.tissues import (
+from hitlist.tissues import (
     CORE_REPRODUCTIVE_TISSUES,
     EXTENDED_REPRODUCTIVE_TISSUES,
     HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,
