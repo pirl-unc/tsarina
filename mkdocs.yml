@@ -1,8 +1,8 @@
-site_name: hitlist
-site_description: Shared cancer immunotherapy targets -- CTAs, viral oncoproteins, and recurrent mutant peptides
-site_url: https://pirl-unc.github.io/hitlist/
-repo_url: https://github.com/pirl-unc/hitlist
-repo_name: pirl-unc/hitlist
+site_name: perseus
+site_description: Personalized cancer immunotherapy target selection from curated shared antigen data
+site_url: https://pirl-unc.github.io/perseus/
+repo_url: https://github.com/pirl-unc/perseus
+repo_name: pirl-unc/perseus
 
 nav:
   - Home: index.md

@@ -1,4 +1,4 @@
-# Claude Code Instructions for hitlist
+# Claude Code Instructions for perseus
 
 ## Before Completing Any Task
 

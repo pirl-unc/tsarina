@@ -1,4 +1,4 @@
-from hitlist.downloads import (
+from perseus.downloads import (
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
     available_datasets,

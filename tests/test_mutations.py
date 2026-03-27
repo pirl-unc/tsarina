@@ -1,4 +1,4 @@
-from hitlist.mutations import HOTSPOT_MUTATIONS
+from perseus.mutations import HOTSPOT_MUTATIONS
 
 
 def test_hotspot_mutations_nonempty():

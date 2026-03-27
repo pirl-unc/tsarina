@@ -1,4 +1,4 @@
-from hitlist.alleles import (
+from perseus.alleles import (
     GLOBAL44_ADDON,
     GLOBAL48_ADDON,
     GLOBAL51_SSA_ADDON,

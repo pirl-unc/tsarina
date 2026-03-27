@@ -19,7 +19,7 @@ HLA-restricted entries, and deduplicate by assay IRI across both sources.
 
 Typical usage::
 
-    from hitlist.iedb import scan_public_ms
+    from perseus.iedb import scan_public_ms
 
     hits = scan_public_ms(
         peptides={"SLYNTVATL", "GILGFVFTL"},
@@ -144,48 +144,88 @@ def _resolve_columns(category_header: list[str], field_header: list[str]) -> dic
 # ── Source context classification ───────────────────────────────────────────
 
 
+# Tissue names in IEDB Source Tissue that map to reproductive or thymus.
+_REPRODUCTIVE_TISSUES_IEDB = frozenset(
+    {
+        "testis",
+        "ovary",
+        "placenta",
+        "cervix",
+        "endometrium",
+        "uterus",
+        "fallopian tube",
+        "prostate",
+        "epididymis",
+        "seminal vesicle",
+        "vagina",
+    }
+)
+_THYMUS_TISSUES_IEDB = frozenset({"thymus"})
+
+
 def classify_ms_row(
     process_type: str,
     disease: str,
     culture_condition: str,
+    source_tissue: str = "",
 ) -> dict[str, bool]:
     """Classify a public-MS row into source-context flags.
 
-    Uses structured IEDB/CEDAR columns (Process Type, Disease,
-    Culture Condition) to determine the biological context in which
-    a peptide was observed.
+    Uses structured IEDB/CEDAR columns to determine the biological context
+    in which a peptide was observed.  Provides granular tissue-level flags
+    needed to distinguish cancer evidence, normal somatic tissue evidence,
+    and expected CTA expression sites (thymus, reproductive tissue).
 
     Parameters
     ----------
     process_type
-        IEDB "Process Type" field (e.g. "Occurrence of cancer",
-        "No immunization").
+        IEDB "Process Type" field.
     disease
-        IEDB "Disease" field (e.g. "healthy", "melanoma").
+        IEDB "Disease" field.
     culture_condition
-        IEDB "Culture Condition" field (e.g. "Cell Line / Clone",
-        "Direct Ex Vivo").
+        IEDB "Culture Condition" field.
+    source_tissue
+        IEDB "Source Tissue" field.
 
     Returns
     -------
     dict[str, bool]
-        Flags: ``src_cancer``, ``src_healthy``, ``src_cell_line``,
-        ``src_ex_vivo``, ``src_ebv_lcl``.
+        Flags:
+
+        - ``src_cancer``: from a cancer sample
+        - ``src_healthy``: from a healthy donor (no disease)
+        - ``src_healthy_somatic``: healthy AND not reproductive/thymus tissue
+        - ``src_reproductive``: source tissue is reproductive
+        - ``src_thymus``: source tissue is thymus
+        - ``src_cell_line``: cultured cell line (any kind)
+        - ``src_ebv_lcl``: EBV-transformed B-LCL specifically
+        - ``src_ex_vivo``: direct ex vivo (highest confidence)
     """
     process_type = str(process_type).strip() if pd.notna(process_type) else ""
     disease = str(disease).strip() if pd.notna(disease) else ""
     culture_condition = str(culture_condition).strip() if pd.notna(culture_condition) else ""
+    source_tissue_lower = str(source_tissue).strip().lower() if pd.notna(source_tissue) else ""
+
+    is_cancer = process_type == "Occurrence of cancer"
+    is_healthy = process_type == "No immunization" and disease in ("healthy", "")
+    is_reproductive = source_tissue_lower in _REPRODUCTIVE_TISSUES_IEDB
+    is_thymus = source_tissue_lower in _THYMUS_TISSUES_IEDB
+    is_cell_line = culture_condition in (
+        "Cell Line / Clone",
+        "Cell Line / Clone (EBV transformed, B-LCL)",
+    )
+    is_ebv_lcl = culture_condition == "Cell Line / Clone (EBV transformed, B-LCL)"
+    is_ex_vivo = culture_condition == "Direct Ex Vivo"
 
     return {
-        "src_cancer": process_type == "Occurrence of cancer",
-        "src_healthy": process_type == "No immunization" and disease in ("healthy", ""),
-        "src_cell_line": culture_condition
-        in (
-            "Cell Line / Clone",
-            "Cell Line / Clone (EBV transformed, B-LCL)",
-        ),
-        "src_ex_vivo": culture_condition == "Direct Ex Vivo",
-        "src_ebv_lcl": culture_condition == "Cell Line / Clone (EBV transformed, B-LCL)",
+        "src_cancer": is_cancer,
+        "src_healthy": is_healthy,
+        "src_healthy_somatic": is_healthy and not is_reproductive and not is_thymus,
+        "src_reproductive": is_reproductive,
+        "src_thymus": is_thymus,
+        "src_cell_line": is_cell_line,
+        "src_ebv_lcl": is_ebv_lcl,
+        "src_ex_vivo": is_ex_vivo,
     }
 
 
@@ -317,10 +357,13 @@ def scan_public_ms(
                 culture_condition = _safe_col(row, c["culture_condition"])
                 record["process_type"] = process_type
                 record["disease"] = disease
-                record["source_tissue"] = _safe_col(row, c["source_tissue"])
+                source_tissue = _safe_col(row, c["source_tissue"])
+                record["source_tissue"] = source_tissue
                 record["cell_name"] = _safe_col(row, c["cell_name"])
                 record["culture_condition"] = culture_condition
-                record.update(classify_ms_row(process_type, disease, culture_condition))
+                record.update(
+                    classify_ms_row(process_type, disease, culture_condition, source_tissue)
+                )
 
             rows.append(record)
 
@@ -390,13 +433,13 @@ def profile_dataset(
                 "mhc_class": _safe_col(row, c["mhc_class"]),
                 "process_type": process_type,
                 "disease": disease,
-                "source_tissue": _safe_col(row, c["source_tissue"]),
+                "source_tissue": (source_tissue := _safe_col(row, c["source_tissue"])),
                 "cell_name": _safe_col(row, c["cell_name"]),
                 "culture_condition": culture_condition,
                 "source_organism": source_organism,
                 "species": species,
             }
-            record.update(classify_ms_row(process_type, disease, culture_condition))
+            record.update(classify_ms_row(process_type, disease, culture_condition, source_tissue))
             rows.append(record)
 
     return pd.DataFrame(rows)

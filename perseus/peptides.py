@@ -12,11 +12,11 @@
 
 """Generate peptides from CTA protein sequences and check CTA exclusivity.
 
-Requires the ``pyensembl`` package (install with ``pip install hitlist[peptides]``).
+Requires the ``pyensembl`` package (install with ``pip install perseus[peptides]``).
 
 Typical usage::
 
-    from hitlist.peptides import cta_peptides, cta_exclusive_peptides
+    from perseus.peptides import cta_peptides, cta_exclusive_peptides
 
     # All 8-11mer peptides from expressed CTAs
     df = cta_peptides()

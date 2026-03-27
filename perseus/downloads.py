@@ -16,11 +16,11 @@ Provides a registry for tracking downloaded data files across sessions,
 auto-fetching for datasets that can be programmatically downloaded (e.g.
 UniProt proteomes), and path resolution for use in analysis pipelines.
 
-Storage location: ``~/.hitlist/`` (override with ``HITLIST_DATA_DIR`` env var).
+Storage location: ``~/.perseus/`` (override with ``PERSEUS_DATA_DIR`` env var).
 
 Typical usage::
 
-    from hitlist.downloads import register, get_path, fetch, list_datasets
+    from perseus.downloads import register, get_path, fetch, list_datasets
 
     # Register a manually downloaded IEDB export
     register("iedb", "/data/mhc_ligand_full.csv")
@@ -36,11 +36,11 @@ Typical usage::
 
 CLI::
 
-    hitlist data register iedb /data/mhc_ligand_full.csv
-    hitlist data register cedar /data/cedar-mhc-ligand-full.csv
-    hitlist data fetch hpv16
-    hitlist data list
-    hitlist data path iedb
+    perseus data register iedb /data/mhc_ligand_full.csv
+    perseus data register cedar /data/cedar-mhc-ligand-full.csv
+    perseus data fetch hpv16
+    perseus data list
+    perseus data path iedb
 """
 
 from __future__ import annotations
@@ -54,12 +54,12 @@ from pathlib import Path
 
 # ── Data directory ──────────────────────────────────────────────────────────
 
-_DEFAULT_DATA_DIR = Path.home() / ".hitlist"
+_DEFAULT_DATA_DIR = Path.home() / ".perseus"
 
 
 def data_dir() -> Path:
-    """Return the hitlist data directory, creating it if needed."""
-    d = Path(os.environ.get("HITLIST_DATA_DIR", str(_DEFAULT_DATA_DIR)))
+    """Return the perseus data directory, creating it if needed."""
+    d = Path(os.environ.get("PERSEUS_DATA_DIR", str(_DEFAULT_DATA_DIR)))
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -221,7 +221,7 @@ def fetch(name: str, force: bool = False) -> Path:
             raise ValueError(
                 f"'{name}' requires manual download from:\n"
                 f"  {info['download_url']}\n"
-                f"Then register with: hitlist data register {name} /path/to/{info['expected_filename']}"
+                f"Then register with: perseus data register {name} /path/to/{info['expected_filename']}"
             )
         available = sorted(set(FETCHABLE_DATASETS) | set(MANUAL_DATASETS))
         raise ValueError(f"Unknown dataset '{name}'. Available: {available}")
@@ -283,12 +283,12 @@ def get_path(name: str) -> Path:
     if entry is None:
         hint = ""
         if name in FETCHABLE_DATASETS:
-            hint = f"\n  Fetch with: hitlist data fetch {name}"
+            hint = f"\n  Fetch with: perseus data fetch {name}"
         elif name in MANUAL_DATASETS:
             info = MANUAL_DATASETS[name]
             hint = (
                 f"\n  Download from: {info['download_url']}"
-                f"\n  Then register: hitlist data register {name} /path/to/file"
+                f"\n  Then register: perseus data register {name} /path/to/file"
             )
         raise KeyError(f"Dataset '{name}' not registered.{hint}")
 

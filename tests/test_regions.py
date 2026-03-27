@@ -1,6 +1,6 @@
 import pandas as pd
 
-from hitlist.regions import (
+from perseus.regions import (
     REGION_POPULATIONS,
     REGION_PRIORITY_ROWS,
     region_allele_frequencies,

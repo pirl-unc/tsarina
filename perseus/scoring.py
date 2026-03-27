@@ -12,14 +12,14 @@
 
 """MHC-peptide binding prediction using MHCflurry.
 
-Requires the ``mhcflurry`` package (not a hitlist dependency -- install
+Requires the ``mhcflurry`` package (not a perseus dependency -- install
 separately with ``pip install mhcflurry`` and download models with
 ``mhcflurry-downloads fetch``).
 
 Typical usage::
 
-    from hitlist.scoring import score_presentation
-    from hitlist.alleles import get_panel
+    from perseus.scoring import score_presentation
+    from perseus.alleles import get_panel
 
     scores = score_presentation(
         peptides=["SLYNTVATL", "GILGFVFTL"],

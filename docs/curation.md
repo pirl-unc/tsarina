@@ -1,6 +1,6 @@
 # Cancer-Testis Antigen (CTA) Curation
 
-This document describes how the hitlist CTA gene set is built, filtered, and maintained.
+This document describes how the perseus CTA gene set is built, filtered, and maintained.
 
 ## Figures
 
@@ -23,7 +23,7 @@ This document describes how the hitlist CTA gene set is built, filtered, and mai
 
 Cancer-testis antigens (CTAs) are proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction makes them attractive targets for cancer immunotherapy because immune responses against them should not damage normal somatic tissues.
 
-The hitlist CTA set is built as an **unbiased union** from multiple published CT antigen databases, then **systematically filtered** using Human Protein Atlas tissue expression data to retain only genes with reproductive-restricted expression.
+The perseus CTA set is built as an **unbiased union** from multiple published CT antigen databases, then **systematically filtered** using Human Protein Atlas tissue expression data to retain only genes with reproductive-restricted expression.
 
 ## Source databases
 

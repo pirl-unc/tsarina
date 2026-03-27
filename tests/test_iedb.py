@@ -1,6 +1,6 @@
 import pandas as pd
 
-from hitlist.iedb import scan_public_ms
+from perseus.iedb import scan_public_ms
 
 
 def test_scan_no_sources_returns_empty():

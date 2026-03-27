@@ -12,7 +12,7 @@
 
 """Three-way partition of all protein-coding genes into CTA / never-expressed / non-CTA.
 
-Requires the ``pyensembl`` package (install with ``pip install hitlist[partition]``).
+Requires the ``pyensembl`` package (install with ``pip install perseus[partition]``).
 """
 
 from __future__ import annotations

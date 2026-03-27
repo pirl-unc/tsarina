@@ -24,11 +24,11 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check hitlist tests
+          ruff check perseus tests
 
       - name: Check formatting with ruff
         run: |
-          ruff format --check hitlist tests
+          ruff format --check perseus tests
 
   test:
     runs-on: ubuntu-latest
@@ -54,4 +54,4 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest tests/ -v --cov=hitlist --cov-report=xml
+          pytest tests/ -v --cov=perseus --cov-report=xml

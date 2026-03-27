@@ -1,1 +1,1 @@
-pytest --cov=hitlist/ --cov-report=term-missing tests
+pytest --cov=perseus/ --cov-report=term-missing tests

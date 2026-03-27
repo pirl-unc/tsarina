@@ -2,7 +2,7 @@
 
 set -e
 
-SOURCES="hitlist tests"
+SOURCES="perseus tests"
 
 echo "Running ruff check..."
 ruff check $SOURCES
