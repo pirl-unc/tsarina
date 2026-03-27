@@ -302,6 +302,102 @@ def human_exclusive_viral_peptides(
     return vdf[mask].reset_index(drop=True)
 
 
+def cancer_specific_viral_peptides(
+    virus: str | None = None,
+    fasta_path: str | Path | None = None,
+    proteins: dict[str, str] | None = None,
+    lengths: tuple[int, ...] = DEFAULT_PEPTIDE_LENGTHS,
+    ensembl_release: int = 112,
+) -> pd.DataFrame:
+    """Return viral peptides NOT found in non-CTA human proteins.
+
+    Unlike :func:`human_exclusive_viral_peptides` which excludes peptides
+    found in *any* human protein, this function only excludes peptides found
+    in **non-CTA** human proteins.  Peptides shared with CTA proteins are
+    kept, since CTAs are themselves cancer-specific targets.
+
+    The returned DataFrame includes an ``in_cta_protein`` column indicating
+    whether each peptide also occurs in a CTA protein sequence.
+
+    Requires ``pyensembl`` (install with ``pip install ctabase[peptides]``).
+
+    Parameters
+    ----------
+    virus, fasta_path, proteins
+        Viral proteome source (see :func:`viral_peptides`).
+    lengths
+        Peptide lengths (default 8-11).
+    ensembl_release
+        Ensembl release for human proteome (default 112).
+
+    Returns
+    -------
+    pd.DataFrame
+        Same columns as :func:`viral_peptides`, plus ``in_cta_protein``.
+    """
+    from pyensembl import EnsemblRelease
+
+    from .partition import CTA_partition_gene_ids
+
+    vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
+    if vdf.empty:
+        vdf["in_cta_protein"] = pd.Series(dtype=bool)
+        return vdf
+
+    ensembl = EnsemblRelease(ensembl_release)
+    partition = CTA_partition_gene_ids(ensembl_release)
+
+    # Build k-mer sets for CTA and non-CTA proteins separately
+    cta_kmers: set[str] = set()
+    noncta_kmers: set[str] = set()
+
+    for gene_id in partition.cta:
+        try:
+            gene = ensembl.gene_by_id(gene_id)
+        except ValueError:
+            continue
+        for t in gene.transcripts:
+            if t.biotype != "protein_coding":
+                continue
+            try:
+                seq = t.protein_sequence
+            except Exception:
+                continue
+            if not seq:
+                continue
+            for k in lengths:
+                for i in range(len(seq) - k + 1):
+                    pep = seq[i : i + k]
+                    if set(pep).issubset(AA20):
+                        cta_kmers.add(pep)
+
+    for gene_id in partition.non_cta:
+        try:
+            gene = ensembl.gene_by_id(gene_id)
+        except ValueError:
+            continue
+        for t in gene.transcripts:
+            if t.biotype != "protein_coding":
+                continue
+            try:
+                seq = t.protein_sequence
+            except Exception:
+                continue
+            if not seq:
+                continue
+            for k in lengths:
+                for i in range(len(seq) - k + 1):
+                    pep = seq[i : i + k]
+                    if set(pep).issubset(AA20):
+                        noncta_kmers.add(pep)
+
+    # Keep peptides NOT in non-CTA proteins
+    mask = ~vdf["peptide"].isin(noncta_kmers)
+    result = vdf[mask].copy().reset_index(drop=True)
+    result["in_cta_protein"] = result["peptide"].isin(cta_kmers)
+    return result
+
+
 def viral_iedb_overlap(
     virus: str | None = None,
     fasta_path: str | Path | None = None,

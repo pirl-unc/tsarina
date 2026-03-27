@@ -10,17 +10,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI for ctabase data management.
+"""CLI for ctabase.
 
 Usage::
 
-    ctabase-data list                           # show registered datasets
-    ctabase-data available                      # show all known datasets
-    ctabase-data register iedb /path/to/file    # register a manual download
-    ctabase-data fetch hpv16                    # auto-download a viral proteome
-    ctabase-data fetch hpv16 --force            # re-download
-    ctabase-data path iedb                      # print path to registered file
-    ctabase-data remove iedb                    # unregister (keeps the file)
+    ctabase data list                           # show registered datasets
+    ctabase data available                      # show all known datasets
+    ctabase data register iedb /path/to/file    # register a manual download
+    ctabase data fetch hpv16                    # auto-download a viral proteome
+    ctabase data fetch hpv16 --force            # re-download
+    ctabase data path iedb                      # print path to registered file
+    ctabase data remove iedb                    # unregister (keeps the file)
 """
 
 from __future__ import annotations
@@ -38,13 +38,15 @@ from .downloads import (
     remove,
 )
 
+# ── data subcommands ────────────────────────────────────────────────────────
 
-def _cmd_list(args: argparse.Namespace) -> None:
+
+def _data_list(args: argparse.Namespace) -> None:
     datasets = list_datasets()
     if not datasets:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
-        print("Run 'ctabase-data available' to see known datasets.")
+        print("Run 'ctabase data available' to see known datasets.")
         return
     print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
     print("-" * 72)
@@ -65,7 +67,7 @@ def _cmd_list(args: argparse.Namespace) -> None:
     print(f"\nData directory: {data_dir()}")
 
 
-def _cmd_available(args: argparse.Namespace) -> None:
+def _data_available(args: argparse.Namespace) -> None:
     datasets = available_datasets()
     registered = set(list_datasets().keys())
     print(f"{'Name':<12} {'Status':<12} Description")
@@ -75,7 +77,7 @@ def _cmd_available(args: argparse.Namespace) -> None:
         print(f"{name:<12} {status:<12} {desc}")
 
 
-def _cmd_register(args: argparse.Namespace) -> None:
+def _data_register(args: argparse.Namespace) -> None:
     try:
         p = register(args.name, args.path, description=args.description)
         print(f"Registered '{args.name}' -> {p}")
@@ -84,7 +86,7 @@ def _cmd_register(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _cmd_fetch(args: argparse.Namespace) -> None:
+def _data_fetch(args: argparse.Namespace) -> None:
     try:
         p = fetch(args.name, force=args.force)
         print(f"Ready: {p}")
@@ -93,7 +95,7 @@ def _cmd_fetch(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _cmd_path(args: argparse.Namespace) -> None:
+def _data_path(args: argparse.Namespace) -> None:
     try:
         p = get_path(args.name)
         print(str(p))
@@ -102,57 +104,68 @@ def _cmd_path(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _cmd_remove(args: argparse.Namespace) -> None:
+def _data_remove(args: argparse.Namespace) -> None:
     remove(args.name)
     print(f"Unregistered '{args.name}' (file not deleted).")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="ctabase-data",
-        description="ctabase data management",
-    )
-    sub = parser.add_subparsers(dest="command")
+def _build_data_parser(sub: argparse._SubParsersAction) -> None:
+    data_parser = sub.add_parser("data", help="Manage external datasets")
+    data_sub = data_parser.add_subparsers(dest="data_command")
 
-    # list
-    sub.add_parser("list", help="Show registered datasets")
+    data_sub.add_parser("list", help="Show registered datasets")
+    data_sub.add_parser("available", help="Show all known datasets")
 
-    # available
-    sub.add_parser("available", help="Show all known datasets")
-
-    # register
-    p_reg = sub.add_parser("register", help="Register a local file")
+    p_reg = data_sub.add_parser("register", help="Register a local file")
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar)")
     p_reg.add_argument("path", help="Path to the file")
     p_reg.add_argument("--description", "-d", help="Optional description")
 
-    # fetch
-    p_fetch = sub.add_parser("fetch", help="Download a fetchable dataset")
+    p_fetch = data_sub.add_parser("fetch", help="Download a fetchable dataset")
     p_fetch.add_argument("name", help="Dataset name (e.g. hpv16, ebv)")
     p_fetch.add_argument("--force", "-f", action="store_true", help="Re-download")
 
-    # path
-    p_path = sub.add_parser("path", help="Print path to a dataset")
+    p_path = data_sub.add_parser("path", help="Print path to a dataset")
     p_path.add_argument("name", help="Dataset name")
 
-    # remove
-    p_rm = sub.add_parser("remove", help="Unregister a dataset (keeps file)")
+    p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file)")
     p_rm.add_argument("name", help="Dataset name")
+
+
+def _handle_data(args: argparse.Namespace) -> None:
+    handlers = {
+        "list": _data_list,
+        "available": _data_available,
+        "register": _data_register,
+        "fetch": _data_fetch,
+        "path": _data_path,
+        "remove": _data_remove,
+    }
+    if args.data_command is None:
+        print("Usage: ctabase data {list,available,register,fetch,path,remove}", file=sys.stderr)
+        sys.exit(1)
+    handlers[args.data_command](args)
+
+
+# ── Main entry point ────────────────────────────────────────────────────────
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="ctabase",
+        description="ctabase: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    _build_data_parser(sub)
 
     args = parser.parse_args()
     if args.command is None:
         parser.print_help()
         sys.exit(1)
 
-    handlers = {
-        "list": _cmd_list,
-        "available": _cmd_available,
-        "register": _cmd_register,
-        "fetch": _cmd_fetch,
-        "path": _cmd_path,
-        "remove": _cmd_remove,
-    }
-    handlers[args.command](args)
+    if args.command == "data":
+        _handle_data(args)
 
 
 if __name__ == "__main__":

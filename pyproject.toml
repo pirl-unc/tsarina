@@ -50,7 +50,7 @@ dev = [
 ]
 
 [project.scripts]
-ctabase-data = "ctabase.cli:main"
+ctabase = "ctabase.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/pirl-unc/ctabase"
