@@ -49,6 +49,9 @@ dev = [
     "pre-commit",
 ]
 
+[project.scripts]
+ctabase-data = "ctabase.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/pirl-unc/ctabase"
 Repository = "https://github.com/pirl-unc/ctabase"

@@ -43,22 +43,102 @@ from pathlib import Path
 
 import pandas as pd
 
-# Column indices in the IEDB/CEDAR MHC ligand full export CSV.
+# ── Column resolution ───────────────────────────────────────────────────────
+#
+# IEDB/CEDAR exports have two header rows: a category row and a field row.
+# The field row contains pipe-separated names like "Epitope | Name".
+# We parse the field header to discover column indices dynamically, falling
+# back to known defaults if the header is missing or unparseable.
 
-_COL_ASSAY_IRI = 0
-_COL_REF_IRI = 1
-_COL_PMID = 3
-_COL_REF_TITLE = 8
-_COL_EPITOPE_NAME = 11
-_COL_SOURCE_ORGANISM = 23
-_COL_SPECIES = 25
-_COL_PROCESS_TYPE = 50
-_COL_DISEASE = 51
-_COL_SOURCE_TISSUE = 102
-_COL_CELL_NAME = 104
-_COL_CULTURE_CONDITION = 106
-_COL_MHC_RESTRICTION = 107
-_COL_MHC_CLASS = 111
+# Mapping from our internal key to the expected IEDB field-header substring.
+# We match by substring so minor header changes (whitespace, case) are
+# tolerated.
+_COLUMN_NAMES: dict[str, list[str]] = {
+    "assay_iri": ["Assay IRI", "Assay - Assay IRI"],
+    "ref_iri": ["Reference IRI", "Reference - Reference IRI", "Reference | IEDB IRI"],
+    "pmid": ["PMID", "Reference | PMID"],
+    "ref_title": ["Title", "Reference | Title"],
+    "epitope_name": ["Epitope | Name", "Epitope Name"],
+    "source_organism": ["Source Organism", "Epitope | Source Organism"],
+    "species": ["Epitope | Species", "Species"],
+    "process_type": ["Process Type", "Host | Process Type"],
+    "disease": ["Disease", "Host | Disease"],
+    "source_tissue": ["Source Tissue", "Effector Cells | Source Tissue"],
+    "cell_name": ["Cell Name", "Effector Cells | Cell Name"],
+    "culture_condition": ["Culture Condition", "Assay | Culture Condition"],
+    "mhc_restriction": ["MHC Restriction | Name", "MHC Restriction Name"],
+    "mhc_class": ["MHC Allele Class", "Class"],
+}
+
+# Fallback hardcoded indices (IEDB mhc_ligand_full.csv as of 2024-2025).
+_FALLBACK_INDICES: dict[str, int] = {
+    "assay_iri": 0,
+    "ref_iri": 1,
+    "pmid": 3,
+    "ref_title": 8,
+    "epitope_name": 11,
+    "source_organism": 23,
+    "species": 25,
+    "process_type": 50,
+    "disease": 51,
+    "source_tissue": 102,
+    "cell_name": 104,
+    "culture_condition": 106,
+    "mhc_restriction": 107,
+    "mhc_class": 111,
+}
+
+
+def _resolve_columns(category_header: list[str], field_header: list[str]) -> dict[str, int]:
+    """Build column key -> index mapping from the IEDB field header row.
+
+    Tries each candidate name for each key, checking both the field header
+    and a combined "category | field" form.  Falls back to hardcoded indices
+    for any key that cannot be resolved from the header.
+    """
+    indices: dict[str, int] = {}
+
+    # Build combined header: "Category | Field" for each column
+    combined = []
+    for i in range(max(len(category_header), len(field_header))):
+        cat = category_header[i].strip() if i < len(category_header) else ""
+        fld = field_header[i].strip() if i < len(field_header) else ""
+        if cat and fld:
+            combined.append(f"{cat} | {fld}")
+        else:
+            combined.append(fld or cat)
+
+    # Lowercase for matching
+    combined_lower = [c.lower() for c in combined]
+    field_lower = [f.strip().lower() for f in field_header]
+
+    for key, candidates in _COLUMN_NAMES.items():
+        found = False
+        for candidate in candidates:
+            cl = candidate.lower()
+            # Try combined header first
+            for i, header_val in enumerate(combined_lower):
+                if cl in header_val or header_val.endswith(cl):
+                    indices[key] = i
+                    found = True
+                    break
+            if found:
+                break
+            # Try field header alone
+            for i, header_val in enumerate(field_lower):
+                if cl in header_val or header_val == cl:
+                    indices[key] = i
+                    found = True
+                    break
+            if found:
+                break
+
+    # Fill in any missing keys with fallback
+    for key, fallback_idx in _FALLBACK_INDICES.items():
+        if key not in indices:
+            indices[key] = fallback_idx
+
+    return indices
 
 
 # ── Source context classification ───────────────────────────────────────────
@@ -114,6 +194,20 @@ def classify_ms_row(
 
 def _safe_col(row: list[str], idx: int) -> str:
     return row[idx] if len(row) > idx else ""
+
+
+def _open_iedb_csv(path: Path) -> tuple[csv.reader, dict[str, int]]:
+    """Open an IEDB/CEDAR CSV and return (reader, column_indices).
+
+    Reads the two header rows, resolves column indices, and returns
+    a reader positioned at the first data row.
+    """
+    fh = open(path, newline="")  # noqa: SIM115
+    reader = csv.reader(fh)
+    category_header = next(reader, [])
+    field_header = next(reader, [])
+    cols = _resolve_columns(category_header, field_header)
+    return reader, cols
 
 
 def scan_public_ms(
@@ -175,63 +269,60 @@ def scan_public_ms(
     for source_path in source_paths:
         if not source_path.exists():
             continue
-        with open(source_path, newline="") as src:
-            reader = csv.reader(src)
-            next(reader)  # category header
-            next(reader)  # field header
-            for row in reader:
-                peptide = _safe_col(row, _COL_EPITOPE_NAME)
-                if peptide not in selected:
+        reader, c = _open_iedb_csv(source_path)
+        for row in reader:
+            peptide = _safe_col(row, c["epitope_name"])
+            if peptide not in selected:
+                continue
+
+            assay_iri = row[c["assay_iri"]] if row else ""
+            if assay_iri in seen_assay_iris:
+                continue
+            seen_assay_iris.add(assay_iri)
+
+            source_organism = _safe_col(row, c["source_organism"])
+            species = _safe_col(row, c["species"])
+            mhc_restriction = _safe_col(row, c["mhc_restriction"])
+
+            if human_only and "Homo sapiens" not in (source_organism, species):
+                continue
+            if hla_only and not mhc_restriction.startswith("HLA-"):
+                continue
+            if mhc_class is not None:
+                row_class = _safe_col(row, c["mhc_class"])
+                if row_class != mhc_class:
                     continue
 
-                assay_iri = row[_COL_ASSAY_IRI] if row else ""
-                if assay_iri in seen_assay_iris:
-                    continue
-                seen_assay_iris.add(assay_iri)
+            raw_pmid = _safe_col(row, c["pmid"]).strip()
+            pmid: str | int = ""
+            if raw_pmid:
+                try:
+                    pmid = int(raw_pmid)
+                except ValueError:
+                    pmid = raw_pmid
 
-                source_organism = _safe_col(row, _COL_SOURCE_ORGANISM)
-                species = _safe_col(row, _COL_SPECIES)
-                mhc_restriction = _safe_col(row, _COL_MHC_RESTRICTION)
+            record: dict = {
+                "reference_iri": _safe_col(row, c["ref_iri"]),
+                "pmid": pmid,
+                "reference_title": _safe_col(row, c["ref_title"]),
+                "peptide": peptide,
+                "source_organism": source_organism,
+                "species": species,
+                "mhc_restriction": mhc_restriction,
+            }
 
-                if human_only and "Homo sapiens" not in (source_organism, species):
-                    continue
-                if hla_only and not mhc_restriction.startswith("HLA-"):
-                    continue
-                if mhc_class is not None:
-                    row_class = _safe_col(row, _COL_MHC_CLASS)
-                    if row_class != mhc_class:
-                        continue
+            if classify_source:
+                process_type = _safe_col(row, c["process_type"])
+                disease = _safe_col(row, c["disease"])
+                culture_condition = _safe_col(row, c["culture_condition"])
+                record["process_type"] = process_type
+                record["disease"] = disease
+                record["source_tissue"] = _safe_col(row, c["source_tissue"])
+                record["cell_name"] = _safe_col(row, c["cell_name"])
+                record["culture_condition"] = culture_condition
+                record.update(classify_ms_row(process_type, disease, culture_condition))
 
-                raw_pmid = _safe_col(row, _COL_PMID).strip()
-                pmid: str | int = ""
-                if raw_pmid:
-                    try:
-                        pmid = int(raw_pmid)
-                    except ValueError:
-                        pmid = raw_pmid
-
-                record: dict = {
-                    "reference_iri": _safe_col(row, _COL_REF_IRI),
-                    "pmid": pmid,
-                    "reference_title": _safe_col(row, _COL_REF_TITLE),
-                    "peptide": peptide,
-                    "source_organism": source_organism,
-                    "species": species,
-                    "mhc_restriction": mhc_restriction,
-                }
-
-                if classify_source:
-                    process_type = _safe_col(row, _COL_PROCESS_TYPE)
-                    disease = _safe_col(row, _COL_DISEASE)
-                    culture_condition = _safe_col(row, _COL_CULTURE_CONDITION)
-                    record["process_type"] = process_type
-                    record["disease"] = disease
-                    record["source_tissue"] = _safe_col(row, _COL_SOURCE_TISSUE)
-                    record["cell_name"] = _safe_col(row, _COL_CELL_NAME)
-                    record["culture_condition"] = culture_condition
-                    record.update(classify_ms_row(process_type, disease, culture_condition))
-
-                rows.append(record)
+            rows.append(record)
 
     return pd.DataFrame(rows)
 
@@ -277,39 +368,36 @@ def profile_dataset(
     for source_path in source_paths:
         if not source_path.exists():
             continue
-        with open(source_path, newline="") as src:
-            reader = csv.reader(src)
-            next(reader)  # category header
-            next(reader)  # field header
-            for row in reader:
-                assay_iri = row[_COL_ASSAY_IRI] if row else ""
-                if assay_iri in seen_assay_iris:
-                    continue
-                seen_assay_iris.add(assay_iri)
+        reader, c = _open_iedb_csv(source_path)
+        for row in reader:
+            assay_iri = row[c["assay_iri"]] if row else ""
+            if assay_iri in seen_assay_iris:
+                continue
+            seen_assay_iris.add(assay_iri)
 
-                source_organism = _safe_col(row, _COL_SOURCE_ORGANISM)
-                species = _safe_col(row, _COL_SPECIES)
-                if human_only and "Homo sapiens" not in (source_organism, species):
-                    continue
+            source_organism = _safe_col(row, c["source_organism"])
+            species = _safe_col(row, c["species"])
+            if human_only and "Homo sapiens" not in (source_organism, species):
+                continue
 
-                process_type = _safe_col(row, _COL_PROCESS_TYPE)
-                disease = _safe_col(row, _COL_DISEASE)
-                culture_condition = _safe_col(row, _COL_CULTURE_CONDITION)
+            process_type = _safe_col(row, c["process_type"])
+            disease = _safe_col(row, c["disease"])
+            culture_condition = _safe_col(row, c["culture_condition"])
 
-                record = {
-                    "peptide": _safe_col(row, _COL_EPITOPE_NAME),
-                    "mhc_restriction": _safe_col(row, _COL_MHC_RESTRICTION),
-                    "mhc_class": _safe_col(row, _COL_MHC_CLASS),
-                    "process_type": process_type,
-                    "disease": disease,
-                    "source_tissue": _safe_col(row, _COL_SOURCE_TISSUE),
-                    "cell_name": _safe_col(row, _COL_CELL_NAME),
-                    "culture_condition": culture_condition,
-                    "source_organism": source_organism,
-                    "species": species,
-                }
-                record.update(classify_ms_row(process_type, disease, culture_condition))
-                rows.append(record)
+            record = {
+                "peptide": _safe_col(row, c["epitope_name"]),
+                "mhc_restriction": _safe_col(row, c["mhc_restriction"]),
+                "mhc_class": _safe_col(row, c["mhc_class"]),
+                "process_type": process_type,
+                "disease": disease,
+                "source_tissue": _safe_col(row, c["source_tissue"]),
+                "cell_name": _safe_col(row, c["cell_name"]),
+                "culture_condition": culture_condition,
+                "source_organism": source_organism,
+                "species": species,
+            }
+            record.update(classify_ms_row(process_type, disease, culture_condition))
+            rows.append(record)
 
     return pd.DataFrame(rows)
 
