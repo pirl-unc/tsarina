@@ -39,9 +39,28 @@ Typical usage::
 from __future__ import annotations
 
 import csv
+import os
 from pathlib import Path
 
 import pandas as pd
+
+try:
+    from tqdm.auto import tqdm as _tqdm
+except ImportError:
+    _tqdm = None
+
+
+def _iter_with_progress(reader, path: Path, desc: str):
+    """Wrap a csv.reader with a tqdm progress bar based on file size."""
+    if _tqdm is None:
+        yield from reader
+        return
+    total = os.path.getsize(path)
+    with _tqdm(total=total, unit="B", unit_scale=True, desc=desc, leave=False) as pbar:
+        for row in reader:
+            pbar.update(sum(len(f) for f in row) + len(row))  # approximate bytes
+            yield row
+
 
 # ── Column resolution ───────────────────────────────────────────────────────
 #
@@ -253,8 +272,8 @@ def _safe_col(row: list[str], idx: int) -> str:
     return row[idx] if len(row) > idx else ""
 
 
-def _open_iedb_csv(path: Path) -> tuple[csv.reader, dict[str, int]]:
-    """Open an IEDB/CEDAR CSV and return (reader, column_indices).
+def _open_iedb_csv(path: Path) -> tuple[csv.reader, dict[str, int], Path]:
+    """Open an IEDB/CEDAR CSV and return (reader, column_indices, path).
 
     Reads the two header rows, resolves column indices, and returns
     a reader positioned at the first data row.
@@ -264,7 +283,7 @@ def _open_iedb_csv(path: Path) -> tuple[csv.reader, dict[str, int]]:
     category_header = next(reader, [])
     field_header = next(reader, [])
     cols = _resolve_columns(category_header, field_header)
-    return reader, cols
+    return reader, cols, path
 
 
 def scan_public_ms(
@@ -326,8 +345,8 @@ def scan_public_ms(
     for source_path in source_paths:
         if not source_path.exists():
             continue
-        reader, c = _open_iedb_csv(source_path)
-        for row in reader:
+        reader, c, p = _open_iedb_csv(source_path)
+        for row in _iter_with_progress(reader, p, f"Scanning {p.name}"):
             peptide = _safe_col(row, c["epitope_name"])
             if peptide not in selected:
                 continue
@@ -431,8 +450,8 @@ def profile_dataset(
     for source_path in source_paths:
         if not source_path.exists():
             continue
-        reader, c = _open_iedb_csv(source_path)
-        for row in reader:
+        reader, c, p = _open_iedb_csv(source_path)
+        for row in _iter_with_progress(reader, p, f"Profiling {p.name}"):
             assay_iri = row[c["assay_iri"]] if row else ""
             if assay_iri in seen_assay_iris:
                 continue

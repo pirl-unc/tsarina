@@ -29,6 +29,7 @@ requires-python = ">=3.9"
 dependencies = [
     "pandas",
     "numpy",
+    "tqdm",
 ]
 
 [project.optional-dependencies]

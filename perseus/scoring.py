@@ -211,3 +211,90 @@ def score_affinity(
 
     cols = [c for c in ["peptide", "allele", "affinity_nm"] if c in result_df.columns]
     return result_df[cols].reset_index(drop=True)
+
+
+def score_netmhcpan(
+    peptides: list[str],
+    alleles: list[str],
+    netmhcpan_path: str = "netMHCpan",
+) -> pd.DataFrame:
+    """Score peptide-allele pairs using NetMHCpan (external binary).
+
+    Requires NetMHCpan 4.1+ installed and accessible at ``netmhcpan_path``.
+
+    Parameters
+    ----------
+    peptides
+        List of peptide sequences.
+    alleles
+        List of HLA allele names (e.g. ``["HLA-A02:01"]``).
+        Note: NetMHCpan uses format without ``*`` (e.g. ``HLA-A02:01``).
+    netmhcpan_path
+        Path to the NetMHCpan binary (default ``"netMHCpan"``).
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``peptide``, ``allele``, ``affinity_nm``,
+        ``rank_el`` (EL %Rank), ``rank_ba`` (BA %Rank).
+
+    Raises
+    ------
+    FileNotFoundError
+        If NetMHCpan binary is not found.
+    RuntimeError
+        If NetMHCpan fails.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    if not shutil.which(netmhcpan_path):
+        raise FileNotFoundError(
+            f"NetMHCpan not found at '{netmhcpan_path}'. "
+            "Download from https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/"
+        )
+
+    # NetMHCpan expects alleles without * (HLA-A02:01 not HLA-A*02:01)
+    def _fmt_allele(a: str) -> str:
+        return a.replace("*", "")
+
+    rows: list[dict] = []
+    for allele in alleles:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pep", delete=False) as f:
+            for pep in peptides:
+                f.write(pep + "\n")
+            pep_file = f.name
+
+        try:
+            result = subprocess.run(
+                [netmhcpan_path, "-p", pep_file, "-a", _fmt_allele(allele), "-BA"],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"NetMHCpan failed: {result.stderr[:500]}")
+
+            for line in result.stdout.splitlines():
+                parts = line.strip().split()
+                if len(parts) < 13 or not parts[0].isdigit():
+                    continue
+                try:
+                    rows.append(
+                        {
+                            "peptide": parts[2],
+                            "allele": allele,
+                            "affinity_nm": float(parts[12]),
+                            "rank_ba": float(parts[13]) if len(parts) > 13 else None,
+                            "rank_el": float(parts[11]),
+                        }
+                    )
+                except (ValueError, IndexError):
+                    continue
+        finally:
+            import os
+
+            os.unlink(pep_file)
+
+    return pd.DataFrame(rows)
