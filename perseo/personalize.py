@@ -19,7 +19,7 @@ presentation scores.
 
 Typical usage::
 
-    from perseus.personalize import personalize
+    from perseo.personalize import personalize
 
     targets = personalize(
         hla_alleles=["HLA-A*02:01", "HLA-B*07:02"],

@@ -1,8 +1,8 @@
-site_name: perseus
+site_name: perseo
 site_description: Personalized cancer immunotherapy target selection from curated shared antigen data
-site_url: https://pirl-unc.github.io/perseus/
-repo_url: https://github.com/pirl-unc/perseus
-repo_name: pirl-unc/perseus
+site_url: https://pirl-unc.github.io/perseo/
+repo_url: https://github.com/pirl-unc/perseo
+repo_name: pirl-unc/perseo
 
 nav:
   - Home: index.md

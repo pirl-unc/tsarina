@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "perseus"
+name = "perseo"
 dynamic = ["version"]
 description = "Personalized cancer immunotherapy target selection from curated shared antigen data"
 readme = "README.md"
@@ -51,25 +51,25 @@ dev = [
 ]
 
 [project.scripts]
-perseus = "perseus.cli:main"
+perseo = "perseo.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/pirl-unc/perseus"
-Repository = "https://github.com/pirl-unc/perseus"
+Homepage = "https://github.com/pirl-unc/perseo"
+Repository = "https://github.com/pirl-unc/perseo"
 
 [tool.setuptools.dynamic]
-version = {attr = "perseus.version.__version__"}
+version = {attr = "perseo.version.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["perseus*"]
+include = ["perseo*"]
 
 [tool.setuptools.package-data]
-perseus = ["data/*.csv"]
+perseo = ["data/*.csv"]
 
 [tool.ruff]
 target-version = "py39"
 line-length = 100
-src = ["perseus", "tests"]
+src = ["perseo", "tests"]
 exclude = [
     ".git",
     ".venv",
@@ -105,7 +105,7 @@ ignore = [
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["perseus"]
+known-first-party = ["perseo"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -114,8 +114,8 @@ python_functions = "test_*"
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["perseus"]
-omit = ["perseus/version.py"]
+source = ["perseo"]
+omit = ["perseo/version.py"]
 
 [tool.coverage.report]
 exclude_lines = [

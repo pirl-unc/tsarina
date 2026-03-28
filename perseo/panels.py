@@ -19,8 +19,8 @@ which alleles across a population.
 
 Typical usage::
 
-    from perseus.panels import build_panel_matrix
-    from perseus.alleles import get_panel
+    from perseo.panels import build_panel_matrix
+    from perseo.alleles import get_panel
 
     # CTA gene x allele matrix with peptide counts
     matrix = build_panel_matrix(

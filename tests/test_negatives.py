@@ -1,4 +1,4 @@
-from perseus.negatives import healthy_tissue_peptide_details, healthy_tissue_peptides
+from perseo.negatives import healthy_tissue_peptide_details, healthy_tissue_peptides
 
 
 def test_healthy_tissue_peptides_no_data():

@@ -1,4 +1,4 @@
-# Claude Code Instructions for perseus
+# Claude Code Instructions for perseo
 
 ## Before Completing Any Task
 

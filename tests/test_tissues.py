@@ -1,4 +1,4 @@
-from perseus.tissues import (
+from perseo.tissues import (
     CORE_REPRODUCTIVE_TISSUES,
     EXTENDED_REPRODUCTIVE_TISSUES,
     HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,

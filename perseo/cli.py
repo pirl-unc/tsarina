@@ -10,17 +10,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI for perseus.
+"""CLI for perseo.
 
 Usage::
 
-    perseus data list                           # show registered datasets
-    perseus data available                      # show all known datasets
-    perseus data register iedb /path/to/file    # register a manual download
-    perseus data fetch hpv16                    # auto-download a viral proteome
-    perseus data fetch hpv16 --force            # re-download
-    perseus data path iedb                      # print path to registered file
-    perseus data remove iedb                    # unregister (keeps the file)
+    perseo data list                           # show registered datasets
+    perseo data available                      # show all known datasets
+    perseo data register iedb /path/to/file    # register a manual download
+    perseo data fetch hpv16                    # auto-download a viral proteome
+    perseo data fetch hpv16 --force            # re-download
+    perseo data path iedb                      # print path to registered file
+    perseo data remove iedb                    # unregister (keeps the file)
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _data_list(args: argparse.Namespace) -> None:
     if not datasets:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
-        print("Run 'perseus data available' to see known datasets.")
+        print("Run 'perseo data available' to see known datasets.")
         return
     print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
     print("-" * 72)
@@ -142,7 +142,7 @@ def _handle_data(args: argparse.Namespace) -> None:
         "remove": _data_remove,
     }
     if args.data_command is None:
-        print("Usage: perseus data {list,available,register,fetch,path,remove}", file=sys.stderr)
+        print("Usage: perseo data {list,available,register,fetch,path,remove}", file=sys.stderr)
         sys.exit(1)
     handlers[args.data_command](args)
 
@@ -152,8 +152,8 @@ def _handle_data(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="perseus",
-        description="perseus: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
+        prog="perseo",
+        description="perseo: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
     )
     sub = parser.add_subparsers(dest="command")
 

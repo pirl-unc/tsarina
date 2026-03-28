@@ -1,1 +1,1 @@
-pytest --cov=perseus/ --cov-report=term-missing tests
+pytest --cov=perseo/ --cov-report=term-missing tests

@@ -1,4 +1,4 @@
-from perseus.downloads import (
+from perseo.downloads import (
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
     available_datasets,

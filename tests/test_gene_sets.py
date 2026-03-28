@@ -1,4 +1,4 @@
-from perseus import (
+from perseo import (
     CTA_evidence,
     CTA_excluded_gene_ids,
     CTA_excluded_gene_names,

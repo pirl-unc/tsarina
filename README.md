@@ -1,4 +1,4 @@
-# perseus
+# perseo
 
 Personalized cancer immunotherapy target selection from curated shared antigen data.
 
@@ -48,10 +48,10 @@ The output is a ranked list of peptide-MHC targets for the individual patient, a
 ## Install
 
 ```bash
-pip install perseus
+pip install perseo
 
 # With full functionality (pyensembl for peptide generation + gene partition):
-pip install perseus[all]
+pip install perseo[all]
 ```
 
 ## Three target categories
@@ -63,7 +63,7 @@ Proteins normally restricted to reproductive tissues (testis, ovary, placenta) t
 **358 genes** from 5 source databases, systematically filtered using Human Protein Atlas v23 tissue expression data to **257 expressed, reproductive-restricted CTAs**.
 
 ```python
-from perseus import CTA_gene_names, CTA_gene_ids, CTA_evidence
+from perseo import CTA_gene_names, CTA_gene_ids, CTA_evidence
 
 genes = CTA_gene_names()    # recommended default set
 df = CTA_evidence()          # full evidence table with HPA columns
@@ -90,7 +90,7 @@ See [full curation documentation](docs/curation.md) for filter logic and figures
 Foreign proteins from oncogenic viruses -- entirely absent from normal human tissue, making them ideal immunotherapy targets when the virus is present in the tumor.
 
 ```python
-from perseus.viral import viral_peptides, cancer_specific_viral_peptides
+from perseo.viral import viral_peptides, cancer_specific_viral_peptides
 
 peps = viral_peptides("hpv16")                    # all peptides
 specific = cancer_specific_viral_peptides("hpv16") # exclude non-CTA human overlaps
@@ -112,7 +112,7 @@ specific = cancer_specific_viral_peptides("hpv16") # exclude non-CTA human overl
 Shared neoantigens from driver mutations that recur across thousands of patients. Unlike private passenger mutations, these produce the same mutant peptide in every patient carrying the same hotspot mutation.
 
 ```python
-from perseus.mutations import HOTSPOT_MUTATIONS, mutant_peptides
+from perseo.mutations import HOTSPOT_MUTATIONS, mutant_peptides
 
 df = mutant_peptides()  # all mutation-spanning 8-11mer peptides
 ```
@@ -154,7 +154,7 @@ Every IEDB/CEDAR mass spec observation is classified by biological context:
 The main entry point for clinical use:
 
 ```python
-from perseus.personalize import personalize
+from perseo.personalize import personalize
 
 targets = personalize(
     # Patient HLA type
@@ -198,8 +198,8 @@ Prioritization is by: (1) public MS evidence strength, (2) source protein abunda
 Pre-computed target x HLA allele matrices for cohort-level analysis:
 
 ```python
-from perseus.targets import target_peptides, target_summary
-from perseus.alleles import get_panel
+from perseo.targets import target_peptides, target_summary
+from perseo.alleles import get_panel
 
 # Build target table for a specific allele panel
 df = target_peptides(
@@ -233,21 +233,21 @@ Perseus manages all external data dependencies through a unified registry:
 
 ```bash
 # See what data is available
-perseus data available
+perseo data available
 
 # Auto-download viral proteomes from UniProt
-perseus data fetch hpv16
-perseus data fetch ebv
+perseo data fetch hpv16
+perseo data fetch ebv
 
 # Register manually downloaded IEDB/CEDAR exports
-perseus data register iedb /data/mhc_ligand_full.csv
-perseus data register cedar /data/cedar-mhc-ligand-full.csv
+perseo data register iedb /data/mhc_ligand_full.csv
+perseo data register cedar /data/cedar-mhc-ligand-full.csv
 
 # Inspect what's installed
-perseus data list
+perseo data list
 
 # Resolve paths for use in scripts
-perseus data path iedb
+perseo data path iedb
 ```
 
 ### Data sources
@@ -256,11 +256,11 @@ perseus data path iedb
 |---|---|---|---|
 | IEDB MHC ligand | [iedb.org](https://www.iedb.org/) | ~2 GB | Manual download (terms of use) |
 | CEDAR MHC ligand | [cedar.iedb.org](https://cedar.iedb.org/) | ~1 GB | Manual download |
-| HPV-16 proteome | [UniProt UP000006729](https://www.uniprot.org/proteomes/UP000006729) | ~3 KB | `perseus data fetch hpv16` |
-| EBV proteome | [UniProt UP000153037](https://www.uniprot.org/proteomes/UP000153037) | ~50 KB | `perseus data fetch ebv` |
-| *(9 viral proteomes total)* | UniProt | varies | `perseus data fetch <name>` |
+| HPV-16 proteome | [UniProt UP000006729](https://www.uniprot.org/proteomes/UP000006729) | ~3 KB | `perseo data fetch hpv16` |
+| EBV proteome | [UniProt UP000153037](https://www.uniprot.org/proteomes/UP000153037) | ~50 KB | `perseo data fetch ebv` |
+| *(9 viral proteomes total)* | UniProt | varies | `perseo data fetch <name>` |
 
-Storage location: `~/.perseus/` (override with `PERSEUS_DATA_DIR` env var).
+Storage location: `~/.perseo/` (override with `PERSEUS_DATA_DIR` env var).
 
 IEDB column indices are resolved dynamically from CSV headers, with fallback to known defaults -- robust to IEDB schema changes.
 
@@ -269,7 +269,7 @@ IEDB column indices are resolved dynamically from CSV headers, with fallback to 
 Three tiers of reproductive tissue sets for CTA restriction analysis:
 
 ```python
-from perseus.tissues import (
+from perseo.tissues import (
     CORE_REPRODUCTIVE_TISSUES,       # {testis, ovary, placenta}
     EXTENDED_REPRODUCTIVE_TISSUES,   # + cervix, endometrium, prostate, ...
     PERMISSIVE_REPRODUCTIVE_TISSUES, # + breast
@@ -281,8 +281,8 @@ from perseus.tissues import (
 ## MHCflurry scoring
 
 ```python
-from perseus.scoring import score_presentation
-from perseus.alleles import get_panel
+from perseo.scoring import score_presentation
+from perseo.alleles import get_panel
 
 scores = score_presentation(
     peptides=["SLYNTVATL", "GILGFVFTL"],

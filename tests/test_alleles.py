@@ -1,4 +1,4 @@
-from perseus.alleles import (
+from perseo.alleles import (
     GLOBAL44_ADDON,
     GLOBAL48_ADDON,
     GLOBAL51_SSA_ADDON,
