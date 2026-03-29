@@ -1,8 +1,8 @@
-site_name: perseo
+site_name: tsarina
 site_description: Personalized cancer immunotherapy target selection from curated shared antigen data
-site_url: https://pirl-unc.github.io/perseo/
-repo_url: https://github.com/pirl-unc/perseo
-repo_name: pirl-unc/perseo
+site_url: https://pirl-unc.github.io/tsarina/
+repo_url: https://github.com/pirl-unc/tsarina
+repo_name: pirl-unc/tsarina
 
 nav:
   - Home: index.md

@@ -1,6 +1,6 @@
 import pytest
 
-from perseo.scoring import (
+from tsarina.scoring import (
     AFFINITY_THRESHOLDS_NM,
     PRESENTATION_PERCENTILE_THRESHOLDS,
     PRESENTATION_SCORE_THRESHOLDS,
@@ -29,7 +29,7 @@ def test_score_presentation_import_error():
     except ImportError:
         pass
 
-    from perseo.scoring import score_presentation
+    from tsarina.scoring import score_presentation
 
     with pytest.raises(ImportError, match="mhcflurry"):
         score_presentation(peptides=["SLYNTVATL"], alleles=["HLA-A*02:01"])

@@ -1,4 +1,4 @@
-# Claude Code Instructions for perseo
+# Claude Code Instructions for tsarina
 
 ## Before Completing Any Task
 

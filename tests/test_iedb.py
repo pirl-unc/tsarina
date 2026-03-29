@@ -1,6 +1,6 @@
 import pandas as pd
 
-from perseo.iedb import scan_public_ms
+from tsarina.iedb import scan_public_ms
 
 
 def test_scan_no_sources_returns_empty():

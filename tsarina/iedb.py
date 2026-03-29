@@ -19,7 +19,7 @@ HLA-restricted entries, and deduplicate by assay IRI across both sources.
 
 Typical usage::
 
-    from perseo.iedb import scan_public_ms
+    from tsarina.iedb import scan_public_ms
 
     hits = scan_public_ms(
         peptides={"SLYNTVATL", "GILGFVFTL"},

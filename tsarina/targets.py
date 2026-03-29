@@ -18,8 +18,8 @@ classification into a single query interface.
 
 Typical usage::
 
-    from perseo.targets import target_peptides
-    from perseo.alleles import get_panel
+    from tsarina.targets import target_peptides
+    from tsarina.alleles import get_panel
 
     # All MS-confirmed, cancer-specific peptides across categories
     df = target_peptides(

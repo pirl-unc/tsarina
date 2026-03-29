@@ -2,7 +2,7 @@
 
 set -e
 
-SOURCES="perseo tests"
+SOURCES="tsarina tests"
 
 echo "Running ruff format..."
 ruff format $SOURCES

@@ -2,16 +2,32 @@
 
 set -e
 
-echo "Running lint checks..."
+VERSION=$(python -c "from tsarina.version import __version__; print(__version__)")
+echo "Deploying tsarina v${VERSION}"
+echo ""
+
+echo "==> Running lint checks..."
 ./lint.sh
 
-echo "Running tests..."
+echo ""
+echo "==> Running tests..."
 ./test.sh
 
-echo "Building distribution..."
+echo ""
+echo "==> Cleaning old builds..."
+rm -f dist/*
+
+echo ""
+echo "==> Building distribution..."
 python -m build
 
-echo "Uploading to PyPI..."
+echo ""
+echo "==> Built artifacts:"
+ls -lh dist/
+
+echo ""
+echo "==> Uploading to PyPI..."
 twine upload dist/*
 
-echo "Deploy complete!"
+echo ""
+echo "Deploy complete! https://pypi.org/project/tsarina/${VERSION}/"

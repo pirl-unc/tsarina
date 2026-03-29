@@ -1,4 +1,4 @@
-from perseo.mutations import HOTSPOT_MUTATIONS
+from tsarina.mutations import HOTSPOT_MUTATIONS
 
 
 def test_hotspot_mutations_nonempty():

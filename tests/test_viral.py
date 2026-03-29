@@ -1,6 +1,6 @@
 import pandas as pd
 
-from perseo.viral import ONCOGENIC_VIRUSES, read_fasta, viral_peptides
+from tsarina.viral import ONCOGENIC_VIRUSES, read_fasta, viral_peptides
 
 
 def test_oncogenic_viruses_has_expected_keys():

@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""perseo: personalized cancer immunotherapy target selection from curated shared antigen data."""
+"""tsarina: personalized cancer immunotherapy target selection from curated shared antigen data."""
 
 from .alleles import (
     IEDB27_AB,

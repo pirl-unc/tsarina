@@ -1,6 +1,6 @@
 import pandas as pd
 
-from perseo.regions import (
+from tsarina.regions import (
     REGION_POPULATIONS,
     REGION_PRIORITY_ROWS,
     region_allele_frequencies,

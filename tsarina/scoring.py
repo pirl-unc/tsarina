@@ -12,14 +12,14 @@
 
 """MHC-peptide binding prediction using MHCflurry.
 
-Requires the ``mhcflurry`` package (not a perseo dependency -- install
+Requires the ``mhcflurry`` package (not a tsarina dependency -- install
 separately with ``pip install mhcflurry`` and download models with
 ``mhcflurry-downloads fetch``).
 
 Typical usage::
 
-    from perseo.scoring import score_presentation
-    from perseo.alleles import get_panel
+    from tsarina.scoring import score_presentation
+    from tsarina.alleles import get_panel
 
     scores = score_presentation(
         peptides=["SLYNTVATL", "GILGFVFTL"],

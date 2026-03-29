@@ -22,7 +22,7 @@ making them attractive off-the-shelf immunotherapy targets.
 
 Typical usage::
 
-    from perseo.mutations import (
+    from tsarina.mutations import (
         HOTSPOT_MUTATIONS,
         mutant_peptides,
         mutant_iedb_overlap,
@@ -289,7 +289,7 @@ def mutant_peptides(
     span the mutated position.  Only peptides that differ from the wildtype
     (i.e., contain the mutant residue) are returned.
 
-    Requires ``pyensembl`` (install with ``pip install perseo[peptides]``).
+    Requires ``pyensembl`` (install with ``pip install tsarina[peptides]``).
 
     Parameters
     ----------

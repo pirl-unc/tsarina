@@ -12,11 +12,11 @@
 
 """Generate peptides from CTA protein sequences and check CTA exclusivity.
 
-Requires the ``pyensembl`` package (install with ``pip install perseo[peptides]``).
+Requires the ``pyensembl`` package (install with ``pip install tsarina[peptides]``).
 
 Typical usage::
 
-    from perseo.peptides import cta_peptides, cta_exclusive_peptides
+    from tsarina.peptides import cta_peptides, cta_exclusive_peptides
 
     # All 8-11mer peptides from expressed CTAs
     df = cta_peptides()

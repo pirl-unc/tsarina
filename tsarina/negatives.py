@@ -23,7 +23,7 @@ distinguishing:
 
 Typical usage::
 
-    from perseo.negatives import healthy_tissue_peptides
+    from tsarina.negatives import healthy_tissue_peptides
 
     # Peptides confirmed on normal somatic tissue (the danger set)
     somatic = healthy_tissue_peptides(

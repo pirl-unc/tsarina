@@ -1,4 +1,4 @@
-from perseo.alleles import (
+from tsarina.alleles import (
     GLOBAL44_ADDON,
     GLOBAL48_ADDON,
     GLOBAL51_SSA_ADDON,

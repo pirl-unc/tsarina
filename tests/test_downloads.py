@@ -1,4 +1,4 @@
-from perseo.downloads import (
+from tsarina.downloads import (
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
     available_datasets,

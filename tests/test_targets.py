@@ -1,6 +1,6 @@
 import pandas as pd
 
-from perseo.targets import target_summary
+from tsarina.targets import target_summary
 
 
 def test_target_summary_on_empty():
