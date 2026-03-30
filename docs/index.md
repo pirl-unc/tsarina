@@ -1,5 +1,8 @@
 # tsarina
 
+[![Tests](https://github.com/pirl-unc/tsarina/actions/workflows/tests.yml/badge.svg)](https://github.com/pirl-unc/tsarina/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/tsarina.svg)](https://pypi.org/project/tsarina/)
+
 Personalized cancer immunotherapy target selection from curated shared antigen data.
 
 Perseus weaves patient-specific tumor characteristics (mutations, CTA expression, viral infections, HLA type) together with curated public mass spectrometry evidence to produce prioritized lists of targetable peptide-MHC complexes. The name reflects the goal: using shared, public knowledge to personalize cancer immunotherapy -- like Perseus using borrowed divine weapons to slay Medusa.
