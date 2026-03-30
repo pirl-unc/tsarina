@@ -11,42 +11,29 @@ Perseus weaves patient-specific tumor characteristics (mutations, CTA expression
 
 The core insight is that many cancer-targetable peptides are **shared across patients**: cancer-testis antigens are recurrently activated in tumors, oncogenic viruses produce the same foreign proteins in every infected cell, and hotspot driver mutations generate identical mutant peptides across thousands of patients. Unlike private passenger-mutation neoantigens that require individual whole-exome sequencing, these shared targets can be curated once and reused.
 
-Perseus maintains three curated target categories and combines them with patient data:
+Perseus combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
 
-```
-                        SHARED PUBLIC DATA
-    ┌──────────────────────────────────────────────────┐
-    │  CTA genes (358 curated, 257 filtered)           │
-    │  Viral proteomes (9 oncogenic viruses)            │
-    │  Hotspot mutations (19 recurrent across 8 genes)  │
-    │  IEDB/CEDAR mass spec evidence (millions of rows) │
-    │  HPA tissue expression (50 tissues, 63 IHC)       │
-    │  HLA allele panels (27-51 alleles, 7 regions)     │
-    └─────────────────────┬────────────────────────────┘
-                          │
-                    ┌─────▼──────┐
-                    │  PERSEUS   │
-                    └─────┬──────┘
-                          │
-    ┌─────────────────────▼────────────────────────────┐
-    │               PATIENT DATA                        │
-    │  HLA type (Class I alleles)                       │
-    │  Tumor RNA-seq (CTA expression in TPM)            │
-    │  Detected mutations (cross-ref hotspot list)      │
-    │  Viral status (HPV, EBV, etc.)                    │
-    └──────────────────────────────────────────────────┘
-                          │
-                    ┌─────▼──────┐
-                    │ PRIORITIZED │
-                    │ TARGET LIST │
-                    └────────────┘
-```
+**Shared targets** (curated once, reused across patients):
+- **CTA genes** — 358 curated from 5 databases, 257 after HPA tissue-restriction filtering
+- **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
+- **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
 
-The output is a ranked list of peptide-MHC targets for the individual patient, annotated with:
-- **Public MS evidence**: number of independent IEDB/CEDAR references, source context (cancer vs. healthy tissue)
-- **Source protein abundance**: RNA expression in TPM, estimated protein abundance where HPA data permits
-- **Predicted presentation**: MHCflurry presentation percentile, NetMHCpan binding affinity
-- **Target category**: CTA, viral, or mutant -- with full provenance
+**Public annotation data** (used to score and filter targets):
+- **Mass spec evidence** — IEDB/CEDAR immunopeptidomics observations
+- **Tissue expression** — HPA RNA (50 tissues) + IHC protein (63 tissues)
+- **HLA allele panels** — population-representative panels (27–51 alleles per region)
+
+**Patient data** (per-individual):
+- HLA type (Class I alleles)
+- Tumor RNA-seq (CTA expression in TPM)
+- Detected mutations (cross-referenced against hotspot list)
+- Viral status (HPV, EBV, etc.)
+
+Perseus filters shared targets through the patient's HLA type and tumor profile, then ranks the results into a **prioritized target list** annotated with:
+- **Public MS evidence** — number of independent IEDB/CEDAR references, source context (cancer vs. healthy tissue)
+- **Source protein abundance** — RNA expression in TPM, estimated protein abundance where HPA data permits
+- **Predicted presentation** — MHCflurry presentation percentile, NetMHCpan binding affinity
+- **Target category** — CTA, viral, or mutant, with full provenance
 
 ## Install
 
@@ -82,11 +69,31 @@ df = CTA_evidence()          # full evidence table with HPA columns
 
 #### CTA curation pipeline
 
-1. **Collect**: union of protein-coding CT genes from all source databases
-2. **Annotate**: score against HPA v23 RNA (50 tissues, deflated reproductive fraction) and protein (63 tissues, IHC with antibody reliability)
-3. **Filter**: tiered RNA thresholds scaled by protein confidence (Enhanced >= 80%, Supported >= 90%, Approved >= 95%, Uncertain >= 99%)
+**Step 1: Collect.** Take the union of protein-coding CT genes across all 5 source databases → **358 genes**. Duplicates are merged; non-protein-coding genes (e.g., lncRNAs) are excluded.
 
-See [full curation documentation](docs/curation.md) for filter logic and figures.
+**Step 2: Annotate for tissue restriction.** The goal is to answer: "is this gene's expression restricted to reproductive tissues?" We use two independent data modalities from Human Protein Atlas v23:
+
+- *RNA expression* (50 tissues): What fraction of total expression comes from reproductive tissues (testis, ovary, placenta)? Raw fractions are misleading because many genes have low-level basal transcription (< 1 nTPM) across dozens of tissues, which inflates the denominator. The **deflated reproductive fraction** fixes this by zeroing out sub-1 nTPM values before computing the ratio, so only tissues with meaningful expression count. Example: CTCFL has testis nTPM = 10.8 but ~40 other tissues at 0.1–0.9 nTPM each. Raw reproductive fraction: 54%. Deflated fraction: 100%, because only testis exceeds 1 nTPM.
+
+- *Protein expression* (63 tissues): Does IHC staining detect protein outside reproductive tissues? Each antibody carries a reliability tier — Enhanced (orthogonal validation), Supported, Approved, or Uncertain — which indicates how much to trust the staining result.
+
+Thymus is excluded from all restriction checks because AIRE drives ectopic expression of tissue-restricted antigens in medullary thymic epithelial cells (mTECs) as part of central tolerance. CTA expression in thymus is expected and does not indicate somatic tissue leakage.
+
+**Step 3: Filter.** Two rules determine whether a gene passes:
+
+1. **Protein exclusion (hard):** If protein is detected in any non-reproductive somatic tissue (excluding thymus), the gene fails — regardless of RNA data.
+2. **RNA threshold (tiered):** The required deflated reproductive fraction scales with protein data confidence. When high-quality protein data confirms reproductive restriction, we can tolerate more RNA noise in other tissues. When protein data is absent or unreliable, we demand near-perfect RNA restriction:
+
+   | Protein evidence | Min. deflated RNA reproductive fraction |
+   |---|---|
+   | Enhanced + reproductive only | >= 80% |
+   | Supported + reproductive only | >= 90% |
+   | Approved + reproductive only | >= 95% |
+   | Uncertain or no protein data | >= 99% |
+
+Result: **257 of 358 genes** pass the filter.
+
+See [full curation documentation](docs/curation.md) for the deflated fraction formula, never-expressed flag, and figures.
 
 ### Viral (oncogenic virus proteins)
 
