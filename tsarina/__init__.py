@@ -18,8 +18,9 @@ from .alleles import (
     get_panel,
     panel_names,
 )
-from .evidence import CTA_evidence
+from .evidence import CTA_detailed_evidence, CTA_evidence
 from .gene_sets import (
+    CTA_by_axes,
     CTA_excluded_gene_ids,
     CTA_excluded_gene_names,
     CTA_filtered_gene_ids,
@@ -28,8 +29,18 @@ from .gene_sets import (
     CTA_gene_names,
     CTA_never_expressed_gene_ids,
     CTA_never_expressed_gene_names,
+    CTA_placental_restricted_gene_ids,
+    CTA_placental_restricted_gene_names,
+    CTA_testis_restricted_gene_ids,
+    CTA_testis_restricted_gene_names,
     CTA_unfiltered_gene_ids,
     CTA_unfiltered_gene_names,
+)
+from .tiers import (
+    CONFIDENCE_VALUES,
+    MS_RESTRICTION_VALUES,
+    RESTRICTION_VALUES,
+    RNA_RESTRICTION_LEVELS,
 )
 from .tissues import (
     CORE_REPRODUCTIVE_TISSUES,
@@ -40,12 +51,18 @@ from .tissues import (
 from .version import __version__
 
 __all__ = [
+    "CONFIDENCE_VALUES",
     "CORE_REPRODUCTIVE_TISSUES",
     "EXTENDED_REPRODUCTIVE_TISSUES",
     "HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS",
     "IEDB27_AB",
+    "MS_RESTRICTION_VALUES",
     "PANEL_DEFINITIONS",
     "PERMISSIVE_REPRODUCTIVE_TISSUES",
+    "RESTRICTION_VALUES",
+    "RNA_RESTRICTION_LEVELS",
+    "CTA_by_axes",
+    "CTA_detailed_evidence",
     "CTA_evidence",
     "CTA_excluded_gene_ids",
     "CTA_excluded_gene_names",
@@ -55,6 +72,12 @@ __all__ = [
     "CTA_gene_names",
     "CTA_never_expressed_gene_ids",
     "CTA_never_expressed_gene_names",
+    "CTA_ovarian_restricted_gene_ids",
+    "CTA_ovarian_restricted_gene_names",
+    "CTA_placental_restricted_gene_ids",
+    "CTA_placental_restricted_gene_names",
+    "CTA_testis_restricted_gene_ids",
+    "CTA_testis_restricted_gene_names",
     "CTA_unfiltered_gene_ids",
     "CTA_unfiltered_gene_names",
     "__version__",

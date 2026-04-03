@@ -144,6 +144,74 @@ The `filtered` column uses tiered deflated RNA reproductive fraction thresholds 
 - Genes with protein detected in **non-reproductive tissues** (excluding thymus) always fail, regardless of RNA fraction
 - Thymus is excluded from both RNA and protein restriction checks
 
+## Three-axis CTA tier system
+
+Every filtered CTA gene is classified along three independent axes: **restriction** (what tissues), **evidence** (how confident), and **ms_safety** (MS evidence in healthy tissue).
+
+### Axis 1: `restriction` — tissue restriction category
+
+Based on IHC protein expression (`protein_strict_expression`). For genes with no protein data, falls back to RNA evidence.
+
+| Value | Count | Criteria | Clinical implication |
+|-------|-------|----------|---------------------|
+| `TESTIS` | 151 | IHC protein detected only in testis | Serum biomarker for anyone (blood-testis barrier) |
+| `PLACENTAL` | 19 | IHC protein in placenta ± testis (no ovary) | Biomarker for non-pregnant individuals |
+| `OVARIAN` | 4 | IHC protein includes ovary | Biomarker for males |
+| `RNA_ONLY` | 83 | No IHC data; RNA says reproductive-restricted | Restriction category uncertain |
+
+Never-expressed and unfiltered genes receive an empty `restriction`.
+
+**Serum biomarker rationale**: The blood-testis barrier (Sertoli cell tight junctions) sequesters testicular proteins from circulation. Placental proteins can leak into maternal blood (hCG, AFP). Ovarian proteins may reach circulation during ovulation. The `TESTIS` restriction is the most clinically actionable for liquid biopsy development.
+
+### Axis 2: `evidence` — evidence quality
+
+| Value | Count | Criteria |
+|-------|-------|----------|
+| `PROTEIN_STRICT` | 105 | Enhanced/Supported IHC + `rna_reproductive` True + deflated frac ≥ 0.99 |
+| `RNA_STRICT` | 76 | No IHC + `rna_reproductive` True + deflated frac ≥ 0.99 |
+| `ADAPTIVE` | 76 | Passes adaptive threshold (protein quality compensates for RNA noise) |
+| `NEVER_EXPRESSED` | 24 | No meaningful HPA signal (no protein + max RNA < 2 nTPM) |
+
+### Axis 3: `ms_safety` — MS evidence classification
+
+Computed at runtime from IEDB/CEDAR data via hitlist; defaults to `NO_MS_DATA` in the shipped CSV.
+
+| Value | Criteria |
+|-------|----------|
+| `CANCER_ONLY` | Gene's peptides found only in cancer MS; zero healthy somatic tissue hits |
+| `EXPECTED_TISSUE` | MS hits only in reproductive/thymic tissue (expected for CTAs) |
+| `SINGLETON_HEALTHY` | 1 peptide in ≤ 1 healthy somatic tissue (possible noise) |
+| `RECURRENT_HEALTHY` | Multiple peptides or tissues in healthy somatic MS (genuine off-target) |
+| `NO_MS_DATA` | No MS evidence available for this gene's peptides |
+
+### Axis-aware API
+
+```python
+from tsarina import (
+    CTA_testis_restricted_gene_names,     # 151 genes
+    CTA_placental_restricted_gene_names,  # 19 genes
+    CTA_by_axes,                          # flexible multi-axis filter
+    RESTRICTION_VALUES, EVIDENCE_VALUES, MS_SAFETY_VALUES,
+)
+
+# Testis-restricted with strict protein evidence
+strict_testis = CTA_by_axes(restriction="TESTIS", evidence="PROTEIN_STRICT")
+
+# All testis + placental genes (serum biomarkers for non-pregnant)
+biomarkers = CTA_by_axes(restriction={"TESTIS", "PLACENTAL"})
+
+# Evidence table — filter by any combination
+from tsarina import CTA_evidence
+df = CTA_evidence()
+testis_strict = df[(df["restriction"] == "TESTIS") & (df["evidence"] == "PROTEIN_STRICT")]
+
+# Full per-tissue detail (requires HPA data files)
+from tsarina import CTA_detailed_evidence
+detailed = CTA_detailed_evidence(hpa_bulk_path="proteinatlas.tsv")
+# Adds: rna_testis_ntpm, rna_ovary_ntpm, rna_placenta_ntpm,
+#        rna_max_somatic_tissue, rna_max_somatic_ntpm, rna_somatic_detected_count
+```
+
 ## Never-expressed flag
 
 The `never_expressed` column flags genes where:
@@ -205,6 +273,12 @@ All Ensembl Gene IDs are validated against Ensembl release 112. Canonical transc
 | `rna_99_pct_filter` | Deflated reproductive fraction >= 99% |
 | `filtered` | Final inclusion flag (see filter logic above) |
 | `never_expressed` | No HPA protein data AND max RNA nTPM < 2 |
+| `restriction` | Tissue restriction axis: `TESTIS`, `PLACENTAL`, `OVARIAN`, `RNA_ONLY`, or empty |
+| `evidence` | Evidence quality axis: `PROTEIN_STRICT`, `RNA_STRICT`, `ADAPTIVE`, `NEVER_EXPRESSED`, or empty |
+| `protein_testis` | IHC protein detected in testis (`True`/`False`/empty if no data) |
+| `protein_ovary` | IHC protein detected in ovary (`True`/`False`/empty if no data) |
+| `protein_placenta` | IHC protein detected in placenta (`True`/`False`/empty if no data) |
+| `ms_safety` | MS safety axis: `NO_MS_DATA` (default); `CANCER_ONLY`, `EXPECTED_TISSUE`, `SINGLETON_HEALTHY`, `RECURRENT_HEALTHY` when computed at runtime |
 
 ## Python API
 

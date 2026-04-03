@@ -49,6 +49,16 @@ def _all_by_column(column: str) -> set[str]:
     return result
 
 
+def _extract_values(df, column: str) -> set[str]:
+    """Extract unique values from a column, splitting semicolons."""
+    result: set[str] = set()
+    if column in df.columns:
+        for x in df[column]:
+            if isinstance(x, str):
+                result.update(xi.strip() for xi in x.split(";"))
+    return result
+
+
 # ── Primary gene set functions ──────────────────────────────────────────────
 
 
@@ -121,3 +131,93 @@ def CTA_excluded_gene_names() -> set[str]:
 def CTA_excluded_gene_ids() -> set[str]:
     """CTA Ensembl gene IDs that FAIL the reproductive-tissue filter."""
     return CTA_unfiltered_gene_ids() - CTA_filtered_gene_ids()
+
+
+# ── Axis-based gene set functions ──────────────────────────────────────────
+
+
+def _axis_filter(column: str, axis_col: str, values: str | set[str]) -> set[str]:
+    """Internal: filter genes by a single axis column value(s)."""
+    df = cta_dataframe()
+    if axis_col not in df.columns:
+        return set()
+    if isinstance(values, str):
+        values = {values}
+    mask = df[axis_col].isin(values)
+    return _extract_values(df[mask], column)
+
+
+def CTA_testis_restricted_gene_names() -> set[str]:
+    """CTA genes with synthesized restriction = TESTIS.
+
+    Includes genes with IHC testis-only protein AND genes where RNA
+    indicates testis-only expression.  The blood-testis barrier prevents
+    testicular proteins from reaching circulation.
+    """
+    return _axis_filter("Symbol", "restriction", "TESTIS")
+
+
+def CTA_testis_restricted_gene_ids() -> set[str]:
+    """Ensembl gene IDs for TESTIS restriction CTAs."""
+    return _axis_filter("Ensembl_Gene_ID", "restriction", "TESTIS")
+
+
+def CTA_placental_restricted_gene_names() -> set[str]:
+    """CTA genes with IHC protein in placenta ± testis (no ovary).
+
+    Serum detection in non-pregnant individuals implies cancer.
+    """
+    return _axis_filter("Symbol", "restriction", "PLACENTAL")
+
+
+def CTA_placental_restricted_gene_ids() -> set[str]:
+    """Ensembl gene IDs for PLACENTAL restriction CTAs."""
+    return _axis_filter("Ensembl_Gene_ID", "restriction", "PLACENTAL")
+
+
+def CTA_by_axes(
+    restriction: str | set[str] | None = None,
+    protein_restriction: str | set[str] | None = None,
+    rna_restriction: str | set[str] | None = None,
+    rna_restriction_level: str | set[str] | None = None,
+    ms_restriction: str | set[str] | None = None,
+    restriction_confidence: str | set[str] | None = None,
+    column: str = "Symbol",
+) -> set[str]:
+    """Return CTA gene identifiers matching specified axis values.
+
+    Parameters
+    ----------
+    restriction
+        Synthesized restriction (None = any).
+    protein_restriction
+        Per-modality protein restriction (None = any).
+    rna_restriction
+        Per-modality RNA restriction (None = any).
+    rna_restriction_level
+        RNA restriction quality: STRICT / MODERATE / PERMISSIVE (None = any).
+    ms_restriction
+        MS restriction classification (None = any).
+    restriction_confidence
+        Synthesized confidence: HIGH / MODERATE / LOW (None = any).
+    column
+        Column to return (``"Symbol"`` or ``"Ensembl_Gene_ID"``).
+    """
+    df = cta_dataframe()
+    mask = True
+
+    for axis_col, values in [
+        ("restriction", restriction),
+        ("protein_restriction", protein_restriction),
+        ("rna_restriction", rna_restriction),
+        ("rna_restriction_level", rna_restriction_level),
+        ("ms_restriction", ms_restriction),
+        ("restriction_confidence", restriction_confidence),
+    ]:
+        if values is not None and axis_col in df.columns:
+            if isinstance(values, str):
+                values = {values}
+            mask = mask & df[axis_col].isin(values)
+
+    subset = df[mask] if not isinstance(mask, bool) else df
+    return _extract_values(subset, column)

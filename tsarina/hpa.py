@@ -40,6 +40,7 @@ from .tissues import (
     EXTENDED_REPRODUCTIVE_TISSUES,
     HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,
     HPA_MARKER_STRICT_MAX_RNA_TISSUES,
+    PERMISSIVE_REPRODUCTIVE_TISSUES,
 )
 
 # Protein reliability ordering (best to worst)
@@ -275,3 +276,50 @@ def enrich_hpa_evidence(
     )
 
     return df
+
+
+# ── Per-tissue detail extraction ───────────────────────────────────────────
+
+
+#: Tissues excluded from "somatic" max calculation.
+_NON_SOMATIC: frozenset[str] = PERMISSIVE_REPRODUCTIVE_TISSUES | frozenset({"thymus"})
+
+
+def extract_per_tissue_detail(ntpm_map: dict[str, float]) -> dict[str, object]:
+    """Extract named per-tissue RNA values from an nTPM map.
+
+    Parameters
+    ----------
+    ntpm_map
+        Dict mapping tissue name (lowercase) to nTPM value, e.g. from
+        ``parse_ntpm_entries()``.
+
+    Returns
+    -------
+    dict
+        Keys: ``rna_testis_ntpm``, ``rna_ovary_ntpm``, ``rna_placenta_ntpm``,
+        ``rna_max_somatic_tissue``, ``rna_max_somatic_ntpm``,
+        ``rna_somatic_detected_count``.
+    """
+    rna_testis = ntpm_map.get("testis", 0.0)
+    rna_ovary = ntpm_map.get("ovary", 0.0)
+    rna_placenta = ntpm_map.get("placenta", 0.0)
+
+    somatic = {t: v for t, v in ntpm_map.items() if t not in _NON_SOMATIC}
+    somatic_detected = {t: v for t, v in somatic.items() if v >= 1.0}
+
+    if somatic:
+        max_tissue = max(somatic, key=somatic.get)  # type: ignore[arg-type]
+        max_ntpm = somatic[max_tissue]
+    else:
+        max_tissue = ""
+        max_ntpm = 0.0
+
+    return {
+        "rna_testis_ntpm": rna_testis,
+        "rna_ovary_ntpm": rna_ovary,
+        "rna_placenta_ntpm": rna_placenta,
+        "rna_max_somatic_tissue": max_tissue,
+        "rna_max_somatic_ntpm": max_ntpm,
+        "rna_somatic_detected_count": len(somatic_detected),
+    }

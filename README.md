@@ -55,8 +55,27 @@ Proteins normally restricted to reproductive tissues (testis, ovary, placenta) t
 ```python
 from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence
 
-genes = CTA_gene_names()    # recommended default set
-df = CTA_evidence()          # full evidence table with HPA columns
+genes = CTA_gene_names()    # recommended default set (257 expressed CTAs)
+df = CTA_evidence()          # full evidence table with HPA columns + 3-axis tiers
+```
+
+**Per-modality restriction** classifies each CTA independently by protein (IHC), RNA, and MS evidence, then synthesizes a unified restriction with confidence:
+
+| Modality | Column | Values |
+|----------|--------|--------|
+| Protein IHC | `protein_restriction` | TESTIS / PLACENTAL / OVARIAN |
+| RNA | `rna_restriction` | TESTIS / PLACENTAL / OVARIAN / REPRODUCTIVE |
+| RNA quality | `rna_restriction_level` | STRICT / MODERATE / PERMISSIVE |
+| MS (runtime) | `ms_restriction` | CANCER_ONLY / EXPECTED_TISSUE / SINGLETON_HEALTHY / RECURRENT_HEALTHY |
+| **Synthesized** | `restriction` | TESTIS / PLACENTAL / OVARIAN / REPRODUCTIVE |
+| **Confidence** | `restriction_confidence` | HIGH / MODERATE / LOW |
+
+```python
+from tsarina import CTA_testis_restricted_gene_names, CTA_by_axes
+
+testis = CTA_testis_restricted_gene_names()  # 229 genes (synthesized TESTIS)
+strict_testis = CTA_by_axes(restriction="TESTIS", rna_restriction_level="STRICT")
+high_conf = CTA_by_axes(restriction="TESTIS", restriction_confidence="HIGH")
 ```
 
 | Source | Genes | Reference |
