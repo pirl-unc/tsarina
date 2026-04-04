@@ -72,8 +72,6 @@ __all__ = [
     "CTA_gene_names",
     "CTA_never_expressed_gene_ids",
     "CTA_never_expressed_gene_names",
-    "CTA_ovarian_restricted_gene_ids",
-    "CTA_ovarian_restricted_gene_names",
     "CTA_placental_restricted_gene_ids",
     "CTA_placental_restricted_gene_names",
     "CTA_testis_restricted_gene_ids",

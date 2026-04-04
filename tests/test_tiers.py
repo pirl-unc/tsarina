@@ -128,7 +128,7 @@ def test_synthesized_restriction_covers_all_genes():
 
 
 def test_synthesized_restriction_expressed_have_tissue():
-    """Expressed genes all have a non-NO_DATA restriction."""
+    """Expressed (filtered + not never_expressed) genes all have a tissue."""
     df = CTA_evidence()
     filt = df["filtered"].astype(str).str.lower() == "true"
     ne = df["never_expressed"].astype(str).str.lower() == "true"

@@ -99,9 +99,8 @@ def test_testis_restricted_nonempty():
     assert len(CTA_testis_restricted_gene_names()) >= 200
 
 
-def test_testis_restricted_includes_expressed():
-    # Synthesized TESTIS includes filtered + unfiltered genes
-    assert len(CTA_testis_restricted_gene_names() & CTA_gene_names()) > 200
+def test_testis_restricted_is_subset_of_filtered():
+    assert CTA_testis_restricted_gene_names() <= CTA_filtered_gene_names()
 
 
 def test_testis_restricted_ids_match_names():
@@ -119,8 +118,16 @@ def test_by_axes_restriction_testis():
     assert CTA_by_axes(restriction="TESTIS") == CTA_testis_restricted_gene_names()
 
 
-def test_by_axes_all_restrictions_covers_all_genes():
+def test_by_axes_all_restrictions_covers_filtered():
     all_r = CTA_by_axes(restriction={"TESTIS", "PLACENTAL", "REPRODUCTIVE", "SOMATIC", "NO_DATA"})
+    assert all_r == CTA_filtered_gene_names()
+
+
+def test_by_axes_unfiltered_covers_all():
+    all_r = CTA_by_axes(
+        restriction={"TESTIS", "PLACENTAL", "REPRODUCTIVE", "SOMATIC", "NO_DATA"},
+        filtered_only=False,
+    )
     assert all_r == CTA_unfiltered_gene_names()
 
 

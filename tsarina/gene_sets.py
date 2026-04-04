@@ -136,7 +136,9 @@ def CTA_excluded_gene_ids() -> set[str]:
 # ── Axis-based gene set functions ──────────────────────────────────────────
 
 
-def _axis_filter(column: str, axis_col: str, values: str | set[str]) -> set[str]:
+def _axis_filter(
+    column: str, axis_col: str, values: str | set[str], filtered_only: bool = True
+) -> set[str]:
     """Internal: filter genes by a single axis column value(s)."""
     df = cta_dataframe()
     if axis_col not in df.columns:
@@ -144,6 +146,8 @@ def _axis_filter(column: str, axis_col: str, values: str | set[str]) -> set[str]
     if isinstance(values, str):
         values = {values}
     mask = df[axis_col].isin(values)
+    if filtered_only and "filtered" in df.columns:
+        mask = mask & (df["filtered"].astype(str).str.lower() == "true")
     return _extract_values(df[mask], column)
 
 
@@ -183,6 +187,7 @@ def CTA_by_axes(
     ms_restriction: str | set[str] | None = None,
     restriction_confidence: str | set[str] | None = None,
     column: str = "Symbol",
+    filtered_only: bool = True,
 ) -> set[str]:
     """Return CTA gene identifiers matching specified axis values.
 
@@ -202,9 +207,15 @@ def CTA_by_axes(
         Synthesized confidence: HIGH / MODERATE / LOW (None = any).
     column
         Column to return (``"Symbol"`` or ``"Ensembl_Gene_ID"``).
+    filtered_only
+        If True (default), restrict to genes passing the HPA filter.
+        Set to False to query the full 358-gene CTA universe.
     """
     df = cta_dataframe()
     mask = True
+
+    if filtered_only and "filtered" in df.columns:
+        mask = df["filtered"].astype(str).str.lower() == "true"
 
     for axis_col, values in [
         ("restriction", restriction),
