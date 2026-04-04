@@ -69,6 +69,33 @@ CONFIDENCE_VALUES: list[str] = ["HIGH", "MODERATE", "LOW"]
 #: Tissues excluded from "somatic" calculations.
 _NON_SOMATIC: frozenset[str] = PERMISSIVE_REPRODUCTIVE_TISSUES | frozenset({"thymus"})
 
+#: Safety-critical tissue groups with nTPM threshold.
+#: Genes with max nTPM >= threshold in any tissue in the group get flagged.
+SAFETY_TISSUE_GROUPS: dict[str, set[str]] = {
+    "brain": {
+        "amygdala",
+        "basal ganglia",
+        "cerebellum",
+        "cerebral cortex",
+        "choroid plexus",
+        "hippocampal formation",
+        "hypothalamus",
+        "medulla oblongata",
+        "midbrain",
+        "pons",
+        "retina",
+        "thalamus",
+        "white matter",
+    },
+    "heart": {"heart muscle"},
+    "lung": {"lung"},
+    "liver": {"liver"},
+    "pancreas": {"pancreas"},
+}
+
+#: Default nTPM threshold for safety flags.
+SAFETY_NTPM_THRESHOLD: float = 5.0
+
 
 # ── Rank functions ─────────────────────────────────────────────────────────
 
@@ -320,7 +347,32 @@ def assign_all_axes(df: pd.DataFrame) -> pd.DataFrame:
     out["restriction"] = synth[0]
     out["restriction_confidence"] = synth[1]
 
+    # Safety flags: semicolon-separated list of tissue groups with nTPM >= threshold
+    out["safety_flags"] = _assign_safety_flags(out)
+
     return out
+
+
+def _assign_safety_flags(
+    df: pd.DataFrame,
+    threshold: float = SAFETY_NTPM_THRESHOLD,
+) -> pd.Series:
+    """Assign safety flags based on per-safety-tissue RNA nTPM.
+
+    Returns a Series of semicolon-separated tissue group names where
+    max nTPM >= threshold, or empty string if none.
+    """
+    flags = []
+    for _, row in df.iterrows():
+        flagged = []
+        for grp in SAFETY_TISSUE_GROUPS:
+            col = f"rna_{grp}_max_ntpm"
+            if col in df.columns:
+                val = float(row.get(col, 0) or 0)
+                if val >= threshold:
+                    flagged.append(grp)
+        flags.append(";".join(flagged))
+    return pd.Series(flags, index=df.index)
 
 
 # ── RNA per-tissue enrichment from HPA ────────────────────────────────────
@@ -359,6 +411,9 @@ def enrich_rna_per_tissue(
     max_somatic_ntpms = []
     somatic_detected_counts = []
 
+    # Per-safety-tissue max nTPM
+    safety_maxes: dict[str, list[float]] = {grp: [] for grp in SAFETY_TISSUE_GROUPS}
+
     for _, row in out.iterrows():
         gene_id = row.get("Ensembl_Gene_ID", "")
         gene_rna = rna[rna["Gene"] == gene_id]
@@ -370,6 +425,8 @@ def enrich_rna_per_tissue(
             max_somatic_tissues.append("")
             max_somatic_ntpms.append(0.0)
             somatic_detected_counts.append(0)
+            for grp in SAFETY_TISSUE_GROUPS:
+                safety_maxes[grp].append(0.0)
             continue
 
         tissue_ntpm = dict(zip(gene_rna["tissue_lower"], gene_rna["nTPM"]))
@@ -390,12 +447,19 @@ def enrich_rna_per_tissue(
 
         somatic_detected_counts.append(len(somatic_detected))
 
+        for grp, tissues in SAFETY_TISSUE_GROUPS.items():
+            grp_vals = [tissue_ntpm.get(t, 0.0) for t in tissues]
+            safety_maxes[grp].append(max(grp_vals) if grp_vals else 0.0)
+
     out["rna_testis_ntpm"] = testis_vals
     out["rna_ovary_ntpm"] = ovary_vals
     out["rna_placenta_ntpm"] = placenta_vals
     out["rna_max_somatic_tissue"] = max_somatic_tissues
     out["rna_max_somatic_ntpm"] = max_somatic_ntpms
     out["rna_somatic_detected_count"] = somatic_detected_counts
+
+    for grp in SAFETY_TISSUE_GROUPS:
+        out[f"rna_{grp}_max_ntpm"] = safety_maxes[grp]
 
     return out
 
