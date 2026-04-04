@@ -300,7 +300,13 @@ def scan_public_ms(
                 record["culture_condition"] = culture_condition
                 record.update(
                     classify_ms_row(
-                        process_type, disease, culture_condition, source_tissue, cell_name
+                        process_type,
+                        disease,
+                        culture_condition,
+                        source_tissue,
+                        cell_name,
+                        pmid=pmid,
+                        mhc_restriction=mhc_restriction,
                     )
                 )
 
@@ -365,10 +371,20 @@ def profile_dataset(
             process_type = _safe_col(row, c["process_type"])
             disease = _safe_col(row, c["disease"])
             culture_condition = _safe_col(row, c["culture_condition"])
+            mhc_restriction = _safe_col(row, c["mhc_restriction"])
+
+            raw_pmid = _safe_col(row, c["pmid"]).strip()
+            pmid: str | int = ""
+            if raw_pmid:
+                try:
+                    pmid = int(raw_pmid)
+                except ValueError:
+                    pmid = raw_pmid
 
             record = {
                 "peptide": _safe_col(row, c["epitope_name"]),
-                "mhc_restriction": _safe_col(row, c["mhc_restriction"]),
+                "pmid": pmid,
+                "mhc_restriction": mhc_restriction,
                 "mhc_class": _safe_col(row, c["mhc_class"]),
                 "process_type": process_type,
                 "disease": disease,
@@ -379,7 +395,15 @@ def profile_dataset(
                 "species": species,
             }
             record.update(
-                classify_ms_row(process_type, disease, culture_condition, source_tissue, cell_name)
+                classify_ms_row(
+                    process_type,
+                    disease,
+                    culture_condition,
+                    source_tissue,
+                    cell_name,
+                    pmid=pmid,
+                    mhc_restriction=mhc_restriction,
+                )
             )
             rows.append(record)
 

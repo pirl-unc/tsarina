@@ -14,7 +14,7 @@ The core insight is that many cancer-targetable peptides are **shared across pat
 Perseus combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
 
 **Shared targets** (curated once, reused across patients):
-- **CTA genes** — 358 curated from 5 databases, 257 after HPA tissue-restriction filtering
+- **CTA genes** — 358 curated from 5 databases, 257 after HPA tissue expression filtering
 - **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
 - **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
 
@@ -50,7 +50,7 @@ pip install tsarina[all]
 
 Proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction means immune responses against them should not damage normal somatic tissues. Thymus expression is expected (AIRE-mediated central tolerance) and excluded from restriction checks.
 
-**358 genes** from 5 source databases, systematically filtered using Human Protein Atlas v23 tissue expression data to **257 expressed, reproductive-restricted CTAs**.
+**358 genes** from 5 source databases, systematically filtered using Human Protein Atlas v23 tissue expression data to **257 expressed CTAs** with predominantly reproductive-restricted expression (some pass the adaptive filter with minor somatic RNA signal).
 
 ```python
 from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence

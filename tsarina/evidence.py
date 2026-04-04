@@ -73,13 +73,13 @@ def CTA_evidence() -> pd.DataFrame:
         True if no HPA protein data AND maximum RNA nTPM < 2.
     protein_restriction : str
         Protein-based tissue restriction: ``TESTIS``, ``PLACENTAL``,
-        ``OVARIAN``, or empty (no protein data).
+        or ``NO_DATA`` (no protein data).
     protein_testis, protein_ovary, protein_placenta : str
         Per-tissue IHC detection: ``"True"`` / ``"False"`` if protein
         data exists, empty string if no protein data.
     rna_restriction : str
         RNA-based tissue restriction: ``TESTIS``, ``PLACENTAL``,
-        ``OVARIAN``, ``REPRODUCTIVE``, or empty.
+        ``REPRODUCTIVE``, or ``NO_DATA``.
     rna_restriction_level : str
         RNA restriction quality: ``STRICT`` / ``MODERATE`` / ``PERMISSIVE``
         or empty.
@@ -96,7 +96,7 @@ def CTA_evidence() -> pd.DataFrame:
         runtime by :func:`CTA_detailed_evidence` when IEDB data available.
     restriction : str
         Synthesized restriction integrating protein + RNA + MS:
-        ``TESTIS`` / ``PLACENTAL`` / ``OVARIAN`` / ``REPRODUCTIVE`` / empty.
+        ``TESTIS`` / ``PLACENTAL`` / ``REPRODUCTIVE`` / ``SOMATIC`` / ``NO_DATA``.
     restriction_confidence : str
         Cross-modality confidence: ``HIGH`` / ``MODERATE`` / ``LOW`` / empty.
     """
