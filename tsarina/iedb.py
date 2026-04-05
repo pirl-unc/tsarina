@@ -87,6 +87,8 @@ _COLUMN_NAMES: dict[str, list[str]] = {
     "culture_condition": ["Culture Condition", "Assay | Culture Condition"],
     "mhc_restriction": ["MHC Restriction | Name", "MHC Restriction Name"],
     "mhc_class": ["MHC Allele Class", "Class"],
+    "host": ["Host", "Host | Name"],
+    "submission_id": ["Submission ID", "Reference | Submission ID"],
 }
 
 # Fallback hardcoded indices (IEDB mhc_ligand_full.csv as of 2024-2025).
@@ -102,6 +104,8 @@ _FALLBACK_INDICES: dict[str, int] = {
     "disease": 51,
     "source_tissue": 102,
     "cell_name": 104,
+    "host": 43,
+    "submission_id": 4,
     "culture_condition": 106,
     "mhc_restriction": 107,
     "mhc_class": 111,
@@ -258,9 +262,12 @@ def scan_public_ms(
 
             source_organism = _safe_col(row, c["source_organism"])
             species = _safe_col(row, c["species"])
+            host = _safe_col(row, c["host"])
             mhc_restriction = _safe_col(row, c["mhc_restriction"])
 
-            if human_only and "Homo sapiens" not in (source_organism, species):
+            # Filter on host (APC organism), not epitope source — so viral
+            # peptides presented on human MHC are correctly retained.
+            if human_only and "Homo sapiens" not in (host, species):
                 continue
             if hla_only and not mhc_restriction.startswith("HLA-"):
                 continue
@@ -277,9 +284,12 @@ def scan_public_ms(
                 except ValueError:
                     pmid = raw_pmid
 
+            submission_id = _safe_col(row, c["submission_id"])
+
             record: dict = {
                 "reference_iri": _safe_col(row, c["ref_iri"]),
                 "pmid": pmid,
+                "submission_id": submission_id,
                 "reference_title": _safe_col(row, c["ref_title"]),
                 "peptide": peptide,
                 "source_organism": source_organism,
@@ -307,6 +317,7 @@ def scan_public_ms(
                         cell_name,
                         pmid=pmid,
                         mhc_restriction=mhc_restriction,
+                        submission_id=submission_id,
                     )
                 )
 
@@ -365,7 +376,8 @@ def profile_dataset(
 
             source_organism = _safe_col(row, c["source_organism"])
             species = _safe_col(row, c["species"])
-            if human_only and "Homo sapiens" not in (source_organism, species):
+            host = _safe_col(row, c["host"])
+            if human_only and "Homo sapiens" not in (host, species):
                 continue
 
             process_type = _safe_col(row, c["process_type"])
@@ -381,9 +393,12 @@ def profile_dataset(
                 except ValueError:
                     pmid = raw_pmid
 
+            submission_id = _safe_col(row, c["submission_id"])
+
             record = {
                 "peptide": _safe_col(row, c["epitope_name"]),
                 "pmid": pmid,
+                "submission_id": submission_id,
                 "mhc_restriction": mhc_restriction,
                 "mhc_class": _safe_col(row, c["mhc_class"]),
                 "process_type": process_type,
@@ -403,6 +418,7 @@ def profile_dataset(
                     cell_name,
                     pmid=pmid,
                     mhc_restriction=mhc_restriction,
+                    submission_id=submission_id,
                 )
             )
             rows.append(record)
