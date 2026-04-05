@@ -184,9 +184,13 @@ def test_protein_flags_for_testis_gene():
 # ── MS defaults ──────────────────────────────────────────────────────────
 
 
-def test_ms_restriction_defaults_to_no_ms_data():
+def test_ms_restriction_has_real_data():
+    """Shipped CSV includes MS restriction from IEDB/CEDAR scan."""
     df = CTA_evidence()
-    assert (df["ms_restriction"] == "NO_MS_DATA").all()
+    values = df["ms_restriction"].value_counts()
+    assert "CANCER_ONLY" in values.index
+    assert "NO_MS_DATA" in values.index
+    assert values["CANCER_ONLY"] >= 100
 
 
 # ── CSV columns ──────────────────────────────────────────────────────────
