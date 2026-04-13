@@ -164,7 +164,7 @@ Every IEDB/CEDAR mass spec observation is classified by biological context:
 The main entry point for clinical use:
 
 ```python
-from tsarina.perseus import personalize
+from tsarina.personalize import personalize
 
 targets = personalize(
     # Patient HLA type

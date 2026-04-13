@@ -462,7 +462,6 @@ def viral_iedb_overlap(
         iedb_path=iedb_path,
         cedar_path=cedar_path,
         mhc_class=mhc_class,
-        human_only=False,  # viral peptides are not human-source
     )
 
     if hits.empty:

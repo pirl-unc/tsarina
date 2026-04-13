@@ -83,7 +83,7 @@ def healthy_tissue_peptides(
 
     from .iedb import profile_dataset
 
-    df = profile_dataset(iedb_path=iedb_path, cedar_path=cedar_path, human_only=True)
+    df = profile_dataset(iedb_path=iedb_path, cedar_path=cedar_path)
 
     if df.empty:
         return set()
@@ -137,7 +137,7 @@ def healthy_tissue_peptide_details(
     """
     from .iedb import profile_dataset
 
-    df = profile_dataset(iedb_path=iedb_path, cedar_path=cedar_path, human_only=True)
+    df = profile_dataset(iedb_path=iedb_path, cedar_path=cedar_path)
 
     if df.empty:
         return pd.DataFrame(

@@ -10,11 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""MHC-peptide binding prediction using MHCflurry.
+"""MHC-peptide binding prediction via topiary + mhctools.
 
-Requires the ``mhcflurry`` package (not a tsarina dependency -- install
-separately with ``pip install mhcflurry`` and download models with
-``mhcflurry-downloads fetch``).
+Topiary wraps mhctools' binding predictors (MHCflurry, NetMHCpan, …) with a
+uniform DataFrame interface.  This module exposes a thin tsarina-shaped API
+over that: one column per kind of prediction (presentation_score,
+presentation_percentile, affinity_nm), wide rather than long.
 
 Typical usage::
 
@@ -24,7 +25,12 @@ Typical usage::
     scores = score_presentation(
         peptides=["SLYNTVATL", "GILGFVFTL"],
         alleles=get_panel("iedb27_ab"),
+        predictor="mhcflurry",
     )
+
+Requires the relevant mhctools backend for the chosen predictor.  MHCflurry:
+``pip install mhcflurry && mhcflurry-downloads fetch``.  NetMHCpan requires
+the external binary from DTU.
 
 Thresholds commonly used for filtering:
 
@@ -56,161 +62,134 @@ Thresholds commonly used for filtering:
 
 from __future__ import annotations
 
+import warnings
+
 import pandas as pd
 
-# Standard affinity and presentation thresholds used in CTA analysis
 AFFINITY_THRESHOLDS_NM: tuple[int, ...] = (50, 150, 500)
 PRESENTATION_SCORE_THRESHOLDS: tuple[float, ...] = (0.90, 0.95)
 PRESENTATION_PERCENTILE_THRESHOLDS: tuple[float, ...] = (0.25, 0.50, 1.0)
 
 
+def _resolve_predictor_class(predictor: str):
+    """Map a predictor key to its mhctools class."""
+    key = predictor.lower().replace("-", "_")
+    try:
+        if key == "mhcflurry":
+            from mhctools import MHCflurry
+
+            return MHCflurry
+        if key in {"netmhcpan", "netmhcpan_ba"}:
+            from mhctools import NetMHCpan
+
+            return NetMHCpan
+        if key == "netmhcpan_el":
+            from mhctools import NetMHCpanEL
+
+            return NetMHCpanEL
+    except ImportError as e:
+        raise ImportError(
+            f"Predictor '{predictor}' requires mhctools + the underlying tool. "
+            f"Install mhctools (`pip install mhctools`) and the backend "
+            f"(`pip install mhcflurry` for mhcflurry; NetMHCpan for netmhcpan*)."
+        ) from e
+    raise ValueError(
+        f"Unknown predictor '{predictor}'. Supported: 'mhcflurry', 'netmhcpan', 'netmhcpan_el'."
+    )
+
+
+def _pivot_topiary(result: pd.DataFrame) -> pd.DataFrame:
+    """Pivot topiary's long (peptide, allele, kind) output to one row per pair.
+
+    Topiary emits one row per (peptide, allele, kind) with kind in
+    {``pMHC_affinity``, ``pMHC_presentation``}.  tsarina's callers expect a
+    single row per (peptide, allele) with separate columns for each kind.
+    """
+    if result.empty:
+        return pd.DataFrame(
+            columns=[
+                "peptide",
+                "allele",
+                "presentation_score",
+                "presentation_percentile",
+                "affinity_nm",
+            ]
+        )
+
+    presentation = result[result["kind"] == "pMHC_presentation"][
+        ["peptide", "allele", "score", "percentile_rank"]
+    ].rename(columns={"score": "presentation_score", "percentile_rank": "presentation_percentile"})
+    affinity = result[result["kind"] == "pMHC_affinity"][["peptide", "allele", "value"]].rename(
+        columns={"value": "affinity_nm"}
+    )
+
+    out = presentation.merge(affinity, on=["peptide", "allele"], how="outer")
+    cols = ["peptide", "allele", "presentation_score", "presentation_percentile", "affinity_nm"]
+    return out[[c for c in cols if c in out.columns]].reset_index(drop=True)
+
+
 def score_presentation(
     peptides: list[str],
     alleles: list[str],
-    include_affinity: bool = True,
-    include_processing: bool = False,
-    n_flanks: list[str] | None = None,
-    c_flanks: list[str] | None = None,
+    predictor: str = "mhcflurry",
+    peptide_lengths: list[int] | None = None,
 ) -> pd.DataFrame:
-    """Score peptide-allele pairs for MHC presentation using MHCflurry.
+    """Score peptide-allele pairs for MHC presentation via topiary.
 
     Parameters
     ----------
     peptides
-        List of peptide sequences.
+        Peptide sequences.  Each peptide is scored against every allele.
     alleles
-        List of HLA allele names (e.g. ``["HLA-A*02:01"]``).  Each
-        peptide is scored against every allele.
-    include_affinity
-        If True (default), include ``affinity_nm`` and ``affinity_score``
-        columns.
-    include_processing
-        If True, include ``processing_score`` column.  Requires flanking
-        sequences for accurate processing prediction.
-    n_flanks
-        N-terminal flanking sequences (one per peptide).  Required if
-        ``include_processing=True``.
-    c_flanks
-        C-terminal flanking sequences (one per peptide).  Required if
-        ``include_processing=True``.
+        HLA allele names (e.g. ``["HLA-A*02:01"]``).  Use mhcgnomes-friendly
+        formatting; topiary passes through to mhctools for normalization.
+    predictor
+        Which mhctools backend to use.  One of ``"mhcflurry"`` (default),
+        ``"netmhcpan"``, ``"netmhcpan_el"``.
+    peptide_lengths
+        Lengths to request when the backend needs them (defaults to the
+        distinct lengths present in ``peptides``).
 
     Returns
     -------
     pd.DataFrame
         Columns: ``peptide``, ``allele``, ``presentation_score``,
-        ``presentation_percentile``, and optionally ``affinity_nm``,
-        ``affinity_score``, ``processing_score``.
-
-    Raises
-    ------
-    ImportError
-        If ``mhcflurry`` is not installed.
+        ``presentation_percentile``, ``affinity_nm``.  A backend that does
+        not emit a given kind leaves that column NaN.
     """
     try:
-        from mhcflurry import Class1PresentationPredictor
+        from topiary import TopiaryPredictor
     except ImportError as e:
         raise ImportError(
-            "MHCflurry is required for scoring. Install with: pip install mhcflurry\n"
-            "Then download models: mhcflurry-downloads fetch"
+            "Topiary is required for scoring. Install with: pip install topiary"
         ) from e
 
-    predictor = Class1PresentationPredictor.load()
+    predictor_cls = _resolve_predictor_class(predictor)
 
-    # Build cross-product
-    all_peptides = []
-    all_alleles = []
-    all_n_flanks = []
-    all_c_flanks = []
-    for i, pep in enumerate(peptides):
-        for allele in alleles:
-            all_peptides.append(pep)
-            all_alleles.append(allele)
-            if n_flanks is not None:
-                all_n_flanks.append(n_flanks[i])
-            if c_flanks is not None:
-                all_c_flanks.append(c_flanks[i])
+    if peptide_lengths is None:
+        peptide_lengths = sorted({len(p) for p in peptides}) or [9]
 
-    predict_kwargs: dict = {
-        "peptides": all_peptides,
-        "alleles": all_alleles,
-    }
-    if n_flanks is not None:
-        predict_kwargs["n_flanks"] = all_n_flanks
-    if c_flanks is not None:
-        predict_kwargs["c_flanks"] = all_c_flanks
-
-    result_df = predictor.predict(**predict_kwargs)
-
-    # Rename columns to standard names
-    rename = {
-        "presentation_score": "presentation_score",
-        "presentation_percentile": "presentation_percentile",
-    }
-    if include_affinity:
-        rename["affinity"] = "affinity_nm"
-
-    cols_to_keep = ["peptide", "allele", "presentation_score", "presentation_percentile"]
-    if include_affinity and "affinity" in result_df.columns:
-        result_df = result_df.rename(columns={"affinity": "affinity_nm"})
-        cols_to_keep.append("affinity_nm")
-    if include_processing and "processing_score" in result_df.columns:
-        cols_to_keep.append("processing_score")
-
-    available = [c for c in cols_to_keep if c in result_df.columns]
-    return result_df[available].reset_index(drop=True)
+    tp = TopiaryPredictor(
+        models=[predictor_cls(alleles=alleles, default_peptide_lengths=peptide_lengths)],
+        alleles=alleles,
+    )
+    name_to_peptide = {f"p{i}": pep for i, pep in enumerate(peptides)}
+    result = tp.predict_from_named_peptides(name_to_peptide)
+    return _pivot_topiary(result)
 
 
 def score_affinity(
     peptides: list[str],
     alleles: list[str],
+    predictor: str = "mhcflurry",
 ) -> pd.DataFrame:
     """Score peptide-allele pairs for MHC binding affinity only.
 
-    Parameters
-    ----------
-    peptides
-        List of peptide sequences.
-    alleles
-        List of HLA allele names.
-
-    Returns
-    -------
-    pd.DataFrame
-        Columns: ``peptide``, ``allele``, ``affinity_nm``,
-        ``affinity_score`` (0-1, higher = stronger binding).
-
-    Raises
-    ------
-    ImportError
-        If ``mhcflurry`` is not installed.
+    Thin convenience wrapper around :func:`score_presentation` that
+    returns just ``affinity_nm``.
     """
-    try:
-        from mhcflurry import Class1AffinityPredictor
-    except ImportError as e:
-        raise ImportError(
-            "MHCflurry is required for scoring. Install with: pip install mhcflurry\n"
-            "Then download models: mhcflurry-downloads fetch"
-        ) from e
-
-    predictor = Class1AffinityPredictor.load()
-
-    all_peptides = []
-    all_alleles = []
-    for pep in peptides:
-        for allele in alleles:
-            all_peptides.append(pep)
-            all_alleles.append(allele)
-
-    result_df = predictor.predict_to_dataframe(
-        peptides=all_peptides,
-        alleles=all_alleles,
-    )
-
-    if "prediction" in result_df.columns:
-        result_df = result_df.rename(columns={"prediction": "affinity_nm"})
-
-    cols = [c for c in ["peptide", "allele", "affinity_nm"] if c in result_df.columns]
-    return result_df[cols].reset_index(drop=True)
+    df = score_presentation(peptides, alleles, predictor=predictor)
+    return df[["peptide", "allele", "affinity_nm"]].reset_index(drop=True)
 
 
 def score_netmhcpan(
@@ -218,33 +197,20 @@ def score_netmhcpan(
     alleles: list[str],
     netmhcpan_path: str = "netMHCpan",
 ) -> pd.DataFrame:
-    """Score peptide-allele pairs using NetMHCpan (external binary).
+    """Score peptide-allele pairs using NetMHCpan via subprocess.
 
-    Requires NetMHCpan 4.1+ installed and accessible at ``netmhcpan_path``.
-
-    Parameters
-    ----------
-    peptides
-        List of peptide sequences.
-    alleles
-        List of HLA allele names (e.g. ``["HLA-A02:01"]``).
-        Note: NetMHCpan uses format without ``*`` (e.g. ``HLA-A02:01``).
-    netmhcpan_path
-        Path to the NetMHCpan binary (default ``"netMHCpan"``).
-
-    Returns
-    -------
-    pd.DataFrame
-        Columns: ``peptide``, ``allele``, ``affinity_nm``,
-        ``rank_el`` (EL %Rank), ``rank_ba`` (BA %Rank).
-
-    Raises
-    ------
-    FileNotFoundError
-        If NetMHCpan binary is not found.
-    RuntimeError
-        If NetMHCpan fails.
+    .. deprecated::
+        Prefer :func:`score_presentation` with ``predictor="netmhcpan"``,
+        which uses mhctools' NetMHCpan wrapper and handles normalization
+        consistently with the MHCflurry path.  This subprocess shim will be
+        removed in a future release.
     """
+    warnings.warn(
+        "score_netmhcpan is deprecated; use "
+        "score_presentation(..., predictor='netmhcpan') instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     import shutil
     import subprocess
     import tempfile
@@ -255,7 +221,6 @@ def score_netmhcpan(
             "Download from https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/"
         )
 
-    # NetMHCpan expects alleles without * (HLA-A02:01 not HLA-A*02:01)
     def _fmt_allele(a: str) -> str:
         return a.replace("*", "")
 

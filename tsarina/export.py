@@ -48,9 +48,11 @@ def build_ms_support_maps(
     peptides
         Set of peptide sequences to look up.
     iedb_path
-        Path to IEDB MHC ligand export.
+        Path to IEDB MHC ligand export.  If None, auto-resolves from the
+        hitlist data registry.
     cedar_path
-        Path to CEDAR MHC ligand export.
+        Path to CEDAR MHC ligand export.  Optional; auto-resolves if
+        registered, else silently skipped.
     mhc_class
         MHC class filter (default ``"I"``).
 
@@ -61,15 +63,28 @@ def build_ms_support_maps(
         - **pmhc_map**: ``{(peptide, allele): {ms_hit_count, ms_ref_count, ...}}``
         - **summary_df**: Per-peptide summary DataFrame.
     """
-    hits = scan(
-        peptides=peptides,
-        iedb_path=iedb_path,
-        cedar_path=cedar_path,
-        mhc_class=mhc_class,
-        classify_source=True,
-        human_only=False,
-        hla_only=True,
-    )
+    if iedb_path is not None or cedar_path is not None:
+        from .datasources import resolve_dataset_paths
+
+        resolved_iedb, resolved_cedar = resolve_dataset_paths(iedb_path, cedar_path)
+        hits = scan(
+            peptides=peptides,
+            iedb_path=str(resolved_iedb),
+            cedar_path=str(resolved_cedar) if resolved_cedar else None,
+            mhc_class=mhc_class,
+            classify_source=True,
+            mhc_species="Homo sapiens",
+        )
+        if "is_binding_assay" in hits.columns:
+            hits = hits[~hits["is_binding_assay"]].copy()
+    else:
+        from .indexing import load_ms_evidence
+
+        hits = load_ms_evidence(
+            peptides=peptides,
+            mhc_class=mhc_class,
+            mhc_species="Homo sapiens",
+        )
 
     # Per-peptide aggregation
     summary_df = aggregate_per_peptide(hits)

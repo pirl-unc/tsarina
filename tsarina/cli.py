@@ -21,6 +21,11 @@ Usage::
     tsarina data fetch hpv16 --force            # re-download
     tsarina data path iedb                      # print path to registered file
     tsarina data remove iedb                    # unregister (keeps the file)
+    tsarina data build                          # build the observations index
+    tsarina data build --force                  # rebuild from scratch
+
+    tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
+    tsarina hits --gene PRAME --allele HLA-A*24:02
 """
 
 from __future__ import annotations
@@ -109,6 +114,13 @@ def _data_remove(args: argparse.Namespace) -> None:
     print(f"Unregistered '{args.name}' (file not deleted).")
 
 
+def _data_build(args: argparse.Namespace) -> None:
+    from .indexing import ensure_index_built
+
+    path = ensure_index_built(force=args.force, verbose=True)
+    print(f"Observations index: {path}")
+
+
 def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     data_parser = sub.add_parser("data", help="Manage external datasets")
     data_sub = data_parser.add_subparsers(dest="data_command")
@@ -131,6 +143,12 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file)")
     p_rm.add_argument("name", help="Dataset name")
 
+    p_build = data_sub.add_parser(
+        "build",
+        help="Build the hitlist observations index (IEDB + CEDAR; cached after first run)",
+    )
+    p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
+
 
 def _handle_data(args: argparse.Namespace) -> None:
     handlers = {
@@ -140,9 +158,13 @@ def _handle_data(args: argparse.Namespace) -> None:
         "fetch": _data_fetch,
         "path": _data_path,
         "remove": _data_remove,
+        "build": _data_build,
     }
     if args.data_command is None:
-        print("Usage: tsarina data {list,available,register,fetch,path,remove}", file=sys.stderr)
+        print(
+            "Usage: tsarina data {list,available,register,fetch,path,remove,build}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     handlers[args.data_command](args)
 
@@ -151,6 +173,8 @@ def _handle_data(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    from . import cli_hits, cli_personalize
+
     parser = argparse.ArgumentParser(
         prog="tsarina",
         description="tsarina: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
@@ -158,6 +182,8 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command")
 
     _build_data_parser(sub)
+    cli_personalize.build_parser(sub)
+    cli_hits.build_parser(sub)
 
     args = parser.parse_args()
     if args.command is None:
@@ -166,6 +192,10 @@ def main() -> None:
 
     if args.command == "data":
         _handle_data(args)
+    elif args.command == "personalize":
+        cli_personalize.handle(args)
+    elif args.command == "hits":
+        cli_hits.handle(args)
 
 
 if __name__ == "__main__":

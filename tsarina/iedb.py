@@ -165,9 +165,14 @@ def _resolve_columns(category_header: list[str], field_header: list[str]) -> dic
 
 
 # ── Source context classification ───────────────────────────────────────────
-# Delegated to hitlist for YAML-driven PMID overrides and tissue categories.
+# Delegated to hitlist for YAML-driven PMID overrides, tissue categories,
+# and mhcgnomes-based species resolution.
 
-from hitlist.curation import classify_ms_row  # noqa: E402
+from hitlist.curation import (  # noqa: E402
+    classify_mhc_species,
+    classify_ms_row,
+    normalize_species,
+)
 
 # ── Core scanning function ──────────────────────────────────────────────────
 
@@ -194,8 +199,7 @@ def scan_public_ms(
     peptides: set[str],
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
-    human_only: bool = True,
-    hla_only: bool = True,
+    mhc_species: str | None = "Homo sapiens",
     mhc_class: str | None = None,
     classify_source: bool = False,
 ) -> pd.DataFrame:
@@ -205,24 +209,23 @@ def scan_public_ms(
     ----------
     peptides
         Set of peptide sequences to search for (matched against the
-        ``Epitope | Name`` column, index 11).
+        ``Epitope | Name`` column).
     iedb_path
         Path to the IEDB ``mhc_ligand_full.csv`` export.  Skipped if None.
     cedar_path
         Path to the CEDAR ``cedar-mhc-ligand-full.csv`` export.  Skipped if None.
-    human_only
-        If True (default), keep only rows where ``Epitope | Source Organism``
-        or ``Epitope | Species`` is ``"Homo sapiens"``.
-    hla_only
-        If True (default), keep only rows where ``MHC Restriction | Name``
-        starts with ``"HLA-"``.
+    mhc_species
+        Keep only rows where the MHC molecule belongs to this species
+        (default ``"Homo sapiens"``).  Resolved via mhcgnomes on the MHC
+        restriction annotation, with a fallback to the host field if the
+        allele name alone is ambiguous.  Pass ``None`` to disable the filter.
     mhc_class
         If set (e.g. ``"I"`` or ``"II"``), filter to rows matching that
-        MHC class (column 111).  None means no class filtering.
+        MHC class.  None means no class filtering.
     classify_source
         If True, add source-context columns (``src_cancer``,
-        ``src_healthy``, ``src_cell_line``, ``src_ex_vivo``,
-        ``src_ebv_lcl``) and additional columns (``disease``,
+        ``src_healthy_tissue``, ``src_cell_line``, ``src_ex_vivo``,
+        ``src_ebv_lcl``, …) and additional columns (``disease``,
         ``source_tissue``, ``cell_name``).
 
     Returns
@@ -232,9 +235,8 @@ def scan_public_ms(
         Base columns: ``reference_iri``, ``pmid``, ``reference_title``,
         ``peptide``, ``source_organism``, ``species``, ``mhc_restriction``.
         With ``classify_source=True``: also ``process_type``, ``disease``,
-        ``source_tissue``, ``cell_name``, ``culture_condition``,
-        ``src_cancer``, ``src_healthy``, ``src_cell_line``,
-        ``src_ex_vivo``, ``src_ebv_lcl``.
+        ``source_tissue``, ``cell_name``, ``culture_condition``, and the
+        full ``src_*`` flag set from ``hitlist.curation.classify_ms_row``.
     """
     source_paths: list[Path] = []
     if iedb_path is not None:
@@ -243,6 +245,8 @@ def scan_public_ms(
         source_paths.append(Path(cedar_path))
 
     selected = set(peptides)
+    target_species = normalize_species(mhc_species) if mhc_species is not None else None
+
     rows: list[dict] = []
     seen_assay_iris: set[str] = set()
 
@@ -265,12 +269,16 @@ def scan_public_ms(
             host = _safe_col(row, c["host"])
             mhc_restriction = _safe_col(row, c["mhc_restriction"])
 
-            # Filter on host (APC organism), not epitope source — so viral
-            # peptides presented on human MHC are correctly retained.
-            if human_only and "Homo sapiens" not in (host, species):
-                continue
-            if hla_only and not mhc_restriction.startswith("HLA-"):
-                continue
+            if target_species is not None:
+                mhc_sp = classify_mhc_species(mhc_restriction)
+                if mhc_sp:
+                    if mhc_sp != target_species:
+                        continue
+                elif target_species not in (
+                    normalize_species(host),
+                    normalize_species(species),
+                ):
+                    continue
             if mhc_class is not None:
                 row_class = _safe_col(row, c["mhc_class"])
                 if row_class != mhc_class:
@@ -329,7 +337,7 @@ def scan_public_ms(
 def profile_dataset(
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
-    human_only: bool = True,
+    mhc_species: str | None = "Homo sapiens",
 ) -> pd.DataFrame:
     """Profile an entire IEDB/CEDAR MHC ligand export without peptide filtering.
 
@@ -342,8 +350,9 @@ def profile_dataset(
         Path to the IEDB ``mhc_ligand_full.csv`` export.
     cedar_path
         Path to the CEDAR ``cedar-mhc-ligand-full.csv`` export.
-    human_only
-        If True (default), keep only human-source rows.
+    mhc_species
+        Keep only rows where the MHC molecule belongs to this species
+        (default ``"Homo sapiens"``).  Pass ``None`` to disable.
 
     Returns
     -------
@@ -352,7 +361,7 @@ def profile_dataset(
         Columns: ``peptide``, ``mhc_restriction``, ``mhc_class``,
         ``process_type``, ``disease``, ``source_tissue``, ``cell_name``,
         ``culture_condition``, ``source_organism``, ``species``,
-        ``src_cancer``, ``src_healthy``, ``src_cell_line``,
+        ``src_cancer``, ``src_healthy_tissue``, ``src_cell_line``,
         ``src_ex_vivo``, ``src_ebv_lcl``.
     """
     source_paths: list[Path] = []
@@ -360,6 +369,8 @@ def profile_dataset(
         source_paths.append(Path(iedb_path))
     if cedar_path is not None:
         source_paths.append(Path(cedar_path))
+
+    target_species = normalize_species(mhc_species) if mhc_species is not None else None
 
     rows: list[dict] = []
     seen_assay_iris: set[str] = set()
@@ -377,13 +388,22 @@ def profile_dataset(
             source_organism = _safe_col(row, c["source_organism"])
             species = _safe_col(row, c["species"])
             host = _safe_col(row, c["host"])
-            if human_only and "Homo sapiens" not in (host, species):
-                continue
+            mhc_restriction = _safe_col(row, c["mhc_restriction"])
+
+            if target_species is not None:
+                mhc_sp = classify_mhc_species(mhc_restriction)
+                if mhc_sp:
+                    if mhc_sp != target_species:
+                        continue
+                elif target_species not in (
+                    normalize_species(host),
+                    normalize_species(species),
+                ):
+                    continue
 
             process_type = _safe_col(row, c["process_type"])
             disease = _safe_col(row, c["disease"])
             culture_condition = _safe_col(row, c["culture_condition"])
-            mhc_restriction = _safe_col(row, c["mhc_restriction"])
 
             raw_pmid = _safe_col(row, c["pmid"]).strip()
             pmid: str | int = ""

@@ -155,11 +155,15 @@ def CTA_detailed_evidence(
             for col in detail_df.columns:
                 df[col] = detail_df[col]
 
-    # MS restriction computation — auto-resolves paths from hitlist registry.
-    # Requires hitlist and pyensembl; import errors are caught gracefully.
+    # MS restriction computation — queries the hitlist observations index
+    # (built on demand).  Missing pyensembl / mhcflurry / an unregistered
+    # IEDB / a missing index are all tolerated so callers without full data
+    # still get the base evidence frame.
     import contextlib
 
-    with contextlib.suppress(ImportError):
+    from .datasources import DatasetNotRegisteredError
+
+    with contextlib.suppress(ImportError, DatasetNotRegisteredError, FileNotFoundError):
         df = _compute_ms_restriction(df, iedb_path, cedar_path, genes=genes)
 
     return df
@@ -172,22 +176,8 @@ def _compute_ms_restriction(
     genes: set[str] | list[str] | None = None,
 ) -> pd.DataFrame:
     """Compute per-gene MS restriction from IEDB/CEDAR data."""
-    import contextlib
-
-    from hitlist.downloads import get_path
-    from hitlist.scanner import scan
-
-    from .tiers import aggregate_gene_ms_safety
-
-    # Auto-resolve paths from hitlist registry if not provided
-    if iedb_path is None:
-        iedb_path = get_path("iedb")
-    if cedar_path is None:
-        with contextlib.suppress(KeyError):
-            cedar_path = get_path("cedar")
-
-    # Get CTA peptide sequences, filtered to genes of interest
     from .peptides import cta_peptides
+    from .tiers import aggregate_gene_ms_safety
 
     pep_df = cta_peptides()
     if pep_df.empty:
@@ -201,14 +191,31 @@ def _compute_ms_restriction(
 
     peptide_set = set(pep_df["peptide"])
 
-    hits = scan(
-        peptides=peptide_set,
-        iedb_path=str(iedb_path),
-        cedar_path=str(cedar_path) if cedar_path else None,
-        classify_source=True,
-        human_only=True,
-        mhc_class="I",
-    )
+    if iedb_path is not None or cedar_path is not None:
+        from hitlist.scanner import scan
+
+        from .datasources import resolve_dataset_paths
+
+        resolved_iedb, resolved_cedar = resolve_dataset_paths(iedb_path, cedar_path)
+        hits = scan(
+            peptides=peptide_set,
+            iedb_path=str(resolved_iedb),
+            cedar_path=str(resolved_cedar) if resolved_cedar else None,
+            classify_source=True,
+            mhc_species="Homo sapiens",
+            mhc_class="I",
+        )
+        if "is_binding_assay" in hits.columns:
+            hits = hits[~hits["is_binding_assay"]].copy()
+    else:
+        from .indexing import load_ms_evidence
+
+        hits = load_ms_evidence(
+            peptides=peptide_set,
+            mhc_class="I",
+            mhc_species="Homo sapiens",
+        )
+
     if hits.empty:
         return df
 

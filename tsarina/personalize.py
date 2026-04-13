@@ -19,7 +19,7 @@ presentation scores.
 
 Typical usage::
 
-    from tsarina.perseus import personalize
+    from tsarina.personalize import personalize
 
     targets = personalize(
         hla_alleles=["HLA-A*02:01", "HLA-B*07:02"],
@@ -49,6 +49,8 @@ def personalize(
     mhc_class: str = "I",
     min_cta_tpm: float = 1.0,
     score_presentation: bool = True,
+    skip_ms_evidence: bool = False,
+    predictor: str = "mhcflurry",
 ) -> pd.DataFrame:
     """Build a personalized target list for a single patient.
 
@@ -72,16 +74,25 @@ def personalize(
     ensembl_release
         Ensembl release (default 112).
     iedb_path
-        Path to IEDB MHC ligand export for MS evidence.
+        Path to IEDB MHC ligand export.  If None (default), auto-resolves
+        from the hitlist data registry (register with
+        ``tsarina data register iedb /path/to/mhc_ligand_full.csv``).
     cedar_path
-        Path to CEDAR MHC ligand export.
+        Path to CEDAR MHC ligand export.  Optional; auto-resolves if
+        registered, otherwise silently skipped.
     mhc_class
         MHC class filter for IEDB scanning (default ``"I"``).
     min_cta_tpm
         Minimum CTA expression in TPM to include (default 1.0).
     score_presentation
-        If True (default), score peptide-allele pairs with MHCflurry
-        for predicted presentation.  Requires ``mhcflurry``.
+        If True (default), score peptide-allele pairs for predicted
+        presentation via topiary + mhctools.
+    skip_ms_evidence
+        If True, do not look up IEDB/CEDAR evidence.  Useful for dry
+        runs when the datasets are not registered.
+    predictor
+        Which mhctools predictor to use for scoring.  One of
+        ``"mhcflurry"`` (default), ``"netmhcpan"``, ``"netmhcpan_el"``.
 
     Returns
     -------
@@ -196,20 +207,30 @@ def personalize(
     combined = pd.concat(frames, ignore_index=True)
 
     # ── IEDB/CEDAR evidence ─────────────────────────────────────────────
-    has_iedb = iedb_path is not None or cedar_path is not None
-    if has_iedb:
-        from .iedb import scan_public_ms
+    if not skip_ms_evidence:
+        from .indexing import load_ms_evidence
 
-        unique_peptides = set(combined["peptide"].unique())
-        hits = scan_public_ms(
-            peptides=unique_peptides,
-            iedb_path=iedb_path,
-            cedar_path=cedar_path,
-            mhc_class=mhc_class,
-            classify_source=True,
-            human_only=False,
-            hla_only=True,
-        )
+        # iedb_path / cedar_path are legacy; if provided, we still pass them
+        # through to a direct scan_public_ms call for users who want to
+        # bypass the cached index.
+        if iedb_path is not None or cedar_path is not None:
+            from .datasources import resolve_dataset_paths
+            from .iedb import scan_public_ms
+
+            resolved_iedb, resolved_cedar = resolve_dataset_paths(iedb_path, cedar_path)
+            hits = scan_public_ms(
+                peptides=set(combined["peptide"].unique()),
+                iedb_path=resolved_iedb,
+                cedar_path=resolved_cedar,
+                mhc_class=mhc_class,
+                classify_source=True,
+            )
+        else:
+            hits = load_ms_evidence(
+                peptides=set(combined["peptide"].unique()),
+                mhc_class=mhc_class,
+                mhc_species="Homo sapiens",
+            )
 
         if not hits.empty:
             agg_cols = {
@@ -241,13 +262,13 @@ def personalize(
             if col in combined.columns:
                 combined[col] = combined[col].fillna(default)
 
-    # ── MHCflurry presentation scoring ──────────────────────────────────
+    # ── Topiary presentation scoring ────────────────────────────────────
     if score_presentation and hla_alleles:
         try:
             from .scoring import score_presentation as _score
 
             unique_peps = combined["peptide"].unique().tolist()
-            scores = _score(peptides=unique_peps, alleles=hla_alleles)
+            scores = _score(peptides=unique_peps, alleles=hla_alleles, predictor=predictor)
 
             # For each peptide, find the best (lowest percentile) allele
             if not scores.empty and "presentation_percentile" in scores.columns:

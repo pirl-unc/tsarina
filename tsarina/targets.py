@@ -171,8 +171,6 @@ def target_peptides(
             cedar_path=cedar_path,
             mhc_class=mhc_class,
             classify_source=classify_source,
-            human_only=False,  # viral peptides may not be human-source
-            hla_only=True,
         )
 
         if not hits.empty:
