@@ -20,6 +20,7 @@ def test_hits_help_exits_zero():
     assert "--species" in r.stdout
     assert "--format" in r.stdout
     assert "--predict" in r.stdout
+    assert "--mono-allelic-only" in r.stdout
 
 
 def test_hits_requires_gene_or_uniprot():

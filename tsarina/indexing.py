@@ -101,19 +101,32 @@ def load_ms_evidence(
     if auto_build and not is_built():
         ensure_index_built()
 
-    df = load_observations(
-        mhc_class=mhc_class,
-        species=mhc_species,
-        gene_name=gene_name,
-        columns=columns,
-    )
+    # Push peptide set down to the parquet reader when possible — hitlist
+    # 1.6.0+ accepts a ``peptide=`` filter.  Fall back to in-memory isin
+    # for older installs.
+    load_kwargs: dict = {
+        "mhc_class": mhc_class,
+        "species": mhc_species,
+        "gene_name": gene_name,
+        "columns": columns,
+    }
+    peptide_list: list[str] | None = None
+    if peptides is not None:
+        peptide_list = (
+            sorted(peptides) if isinstance(peptides, (set, frozenset)) else list(peptides)
+        )
+        load_kwargs["peptide"] = peptide_list
+
+    try:
+        df = load_observations(**load_kwargs)
+    except TypeError:
+        # Older hitlist without ``peptide=`` pushdown.
+        load_kwargs.pop("peptide", None)
+        df = load_observations(**load_kwargs)
+        if peptide_list is not None:
+            df = df[df["peptide"].isin(set(peptide_list))]
 
     if drop_binding_assays and "is_binding_assay" in df.columns:
         df = df[~df["is_binding_assay"]]
-
-    if peptides is not None:
-        if not isinstance(peptides, (set, frozenset)):
-            peptides = set(peptides)
-        df = df[df["peptide"].isin(peptides)]
 
     return df.reset_index(drop=True)

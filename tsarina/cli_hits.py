@@ -12,10 +12,15 @@
 
 """`tsarina hits` CLI — all public MS hits for a protein, with filtering.
 
-Enumerates k-mers from a gene's canonical protein (via
-``hitlist.proteome.ProteomeIndex.from_ensembl``), scans IEDB/CEDAR for those
-peptides, and applies allele / species / serotype filters.  Output can be
-aggregated per-peptide, per-(peptide, allele), or returned as raw scan rows.
+Default path queries the hitlist observations index with
+``load_observations(gene_name=...)`` — multi-mapping peptide → gene
+attribution comes straight from the mappings sidecar, no Ensembl build
+required.
+
+The slower ProteomeIndex-based enumeration is kept for two niche cases:
+``--skip-ms-evidence`` (output the theoretical peptide menu for a gene
+from a fresh Ensembl release) and ``--iedb``/``--cedar`` (raw CSV
+override that bypasses the index).
 """
 
 from __future__ import annotations
@@ -46,10 +51,12 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "hits",
         help="List all public MS hits for a protein, with filtering.",
         description=(
-            "Enumerate k-mers from a gene's canonical protein, scan IEDB/CEDAR "
-            "for matches, and filter by allele / species / serotype / "
-            "resolution.  IEDB/CEDAR paths auto-resolve from the hitlist "
-            "data registry."
+            "List all public MS hits for a gene or protein from the hitlist "
+            "observations index, filtered by allele / species / serotype / "
+            "resolution / MHC class.  Output includes semicolon-joined "
+            "gene_names / gene_ids / protein_ids so paralogous attribution "
+            "is preserved (e.g. MAGE family peptides).  Build the index once "
+            "with `tsarina data build` — it auto-builds on first use otherwise."
         ),
     )
     target = p.add_mutually_exclusive_group(required=True)
@@ -104,6 +111,16 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--include-binding-assays",
         action="store_true",
         help="Keep IEDB binding-assay rows (default: MS only).",
+    )
+    p.add_argument(
+        "--mono-allelic-only",
+        action="store_true",
+        help=(
+            "Keep only hits with direct mono-allelic evidence (observed on a "
+            "cell line expressing a single HLA allele).  Excludes multi-allelic "
+            "studies where the allele was assigned by a predictor (NetMHCpan / "
+            "MHCflurry) rather than observed directly."
+        ),
     )
     p.add_argument(
         "--format",
@@ -214,12 +231,62 @@ def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
 
 
 def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFrame:
+    """Filter observations to the given serotypes.
+
+    hitlist's ``allele_to_serotype`` returns a single canonical label, but
+    an allele can legitimately belong to multiple serotypes (e.g. A*24:02
+    is both A24 and Bw4).  Worse, hitlist#44 currently mislabels A24-family
+    alleles as Bw4 due to a shortest-name tiebreaker.
+
+    Accept both ``A24`` and ``HLA-A24`` as user input.  Match on the
+    official serotype label AND a simple allele-name prefix fallback
+    (e.g. ``HLA-A*24:02`` → matches serotype ``A24``) so the A-locus
+    mislabeling doesn't silently drop results.
+    """
     if not serotypes:
         return hits
     from hitlist.curation import allele_to_serotype
 
-    wanted = {s.strip() for s in serotypes}
-    mask = hits["mhc_restriction"].map(lambda r: allele_to_serotype(r) in wanted)
+    wanted = set()
+    for s in serotypes:
+        s = s.strip()
+        if not s:
+            continue
+        wanted.add(s)
+        if s.startswith("HLA-"):
+            wanted.add(s.removeprefix("HLA-"))
+        else:
+            wanted.add(f"HLA-{s}")
+
+    def _matches(mhc: str) -> bool:
+        # Direct serotype match (canonical or with/without HLA- prefix).
+        sero = allele_to_serotype(mhc)
+        if sero in wanted:
+            return True
+        # Allele-name prefix fallback.  "HLA-A*24:02" → "A*24", "A24".
+        for w in wanted:
+            bare = w.removeprefix("HLA-")
+            # Match molecular: A*24 in "HLA-A*24:02".
+            if f"-{bare[0]}*{bare[1:]}" in mhc:
+                return True
+            # Match serological: A24 in "HLA-A24".
+            if mhc.endswith(f"-{bare}"):
+                return True
+        return False
+
+    mask = hits["mhc_restriction"].map(_matches)
+    return hits[mask].copy()
+
+
+def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:
+    if min_resolution is None or hits.empty:
+        return hits
+    from hitlist.curation import allele_resolution_rank, classify_allele_resolution
+
+    min_rank = allele_resolution_rank(min_resolution)
+    mask = hits["mhc_restriction"].map(
+        lambda r: allele_resolution_rank(classify_allele_resolution(r)) <= min_rank
+    )
     return hits[mask].copy()
 
 
@@ -235,26 +302,31 @@ def handle(args: argparse.Namespace) -> None:
             sys.exit(1)
         print(f"UniProt {args.uniprot} → gene {gene}", file=sys.stderr)
 
-    # ── 2. Enumerate peptides ──────────────────────────────────────────
-    try:
-        pep_df = _enumerate_gene_peptides(gene, args.ensembl_release, args.lengths)
-    except (ValueError, ImportError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    mhc_species = None if args.species.lower() == "any" else args.species
+
+    # ── 2. Proteome-enumeration fallbacks ──────────────────────────────
+    # --skip-ms-evidence outputs the theoretical peptide menu.
+    # --iedb / --cedar overrides still need a peptide list for raw scan.
+    needs_peptide_enumeration = args.skip_ms_evidence or (
+        args.iedb_path is not None or args.cedar_path is not None
+    )
+    pep_df: pd.DataFrame | None = None
+    if needs_peptide_enumeration:
+        try:
+            pep_df = _enumerate_gene_peptides(gene, args.ensembl_release, args.lengths)
+        except (ValueError, ImportError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
     if args.skip_ms_evidence:
-        out = pep_df
-        _write(args.output, out)
+        _write(args.output, pep_df)
         return
 
     # ── 3. Load MS evidence ────────────────────────────────────────────
     from hitlist.aggregate import aggregate_per_peptide, aggregate_per_pmhc
 
-    mhc_species = None if args.species.lower() == "any" else args.species
-    peptide_set = set(pep_df["peptide"].unique())
-
     if args.iedb_path is not None or args.cedar_path is not None:
-        # Explicit raw-CSV override path.
+        # Explicit raw-CSV override path — scan only, no observations index.
         from hitlist.scanner import scan
 
         from .datasources import DatasetNotRegisteredError, resolve_dataset_paths
@@ -264,8 +336,9 @@ def handle(args: argparse.Namespace) -> None:
         except DatasetNotRegisteredError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
+        assert pep_df is not None  # enumerated above
         hits = scan(
-            peptides=peptide_set,
+            peptides=set(pep_df["peptide"].unique()),
             iedb_path=str(iedb_path),
             cedar_path=str(cedar_path) if cedar_path else None,
             mhc_class=args.mhc_class,
@@ -276,46 +349,76 @@ def handle(args: argparse.Namespace) -> None:
         if not args.include_binding_assays and "is_binding_assay" in hits.columns:
             hits = hits[~hits["is_binding_assay"]].copy()
     else:
-        # Fast path: cached observations index.
-        from .indexing import load_ms_evidence
+        # Fast path: direct gene_name pushdown through hitlist's mappings sidecar.
+        from .indexing import ensure_index_built
 
-        hits = load_ms_evidence(
-            peptides=peptide_set,
+        ensure_index_built()
+        from hitlist.observations import load_observations
+
+        hits = load_observations(
+            gene_name=gene,
             mhc_class=args.mhc_class,
-            mhc_species=mhc_species,
-            drop_binding_assays=not args.include_binding_assays,
+            species=mhc_species,
         )
-        if args.min_resolution is not None and not hits.empty:
-            from hitlist.curation import allele_resolution_rank, classify_allele_resolution
-
-            min_rank = allele_resolution_rank(args.min_resolution)
-            mask = hits["mhc_restriction"].map(
-                lambda r: allele_resolution_rank(classify_allele_resolution(r)) <= min_rank
-            )
-            hits = hits[mask].copy()
+        if not args.include_binding_assays and "is_binding_assay" in hits.columns:
+            hits = hits[~hits["is_binding_assay"]].copy()
+        hits = _apply_min_resolution(hits, args.min_resolution)
 
     hits = _filter_by_allele(hits, args.allele)
     hits = _filter_by_serotype(hits, args.serotype)
 
+    if args.mono_allelic_only and not hits.empty and "is_monoallelic" in hits.columns:
+        hits = hits[hits["is_monoallelic"]].copy()
+
+    if hits.empty:
+        _write(args.output, pd.DataFrame({"peptide": pd.Series(dtype=str)}))
+        return
+
     # ── 4. Aggregate per requested format ──────────────────────────────
+    #
+    # The observations index already carries semicolon-joined
+    # gene_names / gene_ids / protein_ids.  For the raw-CSV override path,
+    # join identifiers from the enumeration frame so output shape stays
+    # consistent across paths.
+    gene_ident_cols = [c for c in ("gene_names", "gene_ids", "protein_ids") if c in hits.columns]
     if args.format == "peptides":
         out = aggregate_per_peptide(hits)
-        gene_cols = pep_df[["peptide", "protein_id", "gene_name", "gene_id"]].drop_duplicates(
-            subset="peptide"
-        )
-        out = gene_cols.merge(out, on="peptide", how="inner")
+        if gene_ident_cols:
+            ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
+            out = ids.merge(out, on="peptide", how="inner")
+        elif pep_df is not None:
+            legacy = pep_df[["peptide", "protein_id", "gene_name", "gene_id"]].drop_duplicates(
+                subset="peptide"
+            )
+            out = legacy.merge(out, on="peptide", how="inner")
     elif args.format == "pmhc":
         out = aggregate_per_pmhc(hits)
-        gene_cols = pep_df[["peptide", "protein_id", "gene_name", "gene_id"]].drop_duplicates(
-            subset="peptide"
-        )
-        out = gene_cols.merge(out, on="peptide", how="inner")
+        if gene_ident_cols:
+            ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
+            out = ids.merge(out, on="peptide", how="inner")
+        elif pep_df is not None:
+            legacy = pep_df[["peptide", "protein_id", "gene_name", "gene_id"]].drop_duplicates(
+                subset="peptide"
+            )
+            out = legacy.merge(out, on="peptide", how="inner")
     else:
-        # raw: join gene context per peptide
-        gene_cols = pep_df[
-            ["peptide", "protein_id", "gene_name", "gene_id", "position", "n_flank", "c_flank"]
-        ].drop_duplicates(subset=["peptide", "protein_id", "position"])
-        out = hits.merge(gene_cols, on="peptide", how="left")
+        # raw: observations already carry gene columns; only the raw-CSV
+        # path needs the ProteomeIndex join for flanking context.
+        if pep_df is not None and not gene_ident_cols:
+            legacy = pep_df[
+                [
+                    "peptide",
+                    "protein_id",
+                    "gene_name",
+                    "gene_id",
+                    "position",
+                    "n_flank",
+                    "c_flank",
+                ]
+            ].drop_duplicates(subset=["peptide", "protein_id", "position"])
+            out = hits.merge(legacy, on="peptide", how="left")
+        else:
+            out = hits
 
     # ── 5. Optional topiary scoring ────────────────────────────────────
     if args.predict and not out.empty:
