@@ -233,49 +233,54 @@ def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
 def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFrame:
     """Filter observations to the given serotypes.
 
-    hitlist's ``allele_to_serotype`` returns a single canonical label, but
-    an allele can legitimately belong to multiple serotypes (e.g. A*24:02
-    is both A24 and Bw4).  Worse, hitlist#44 currently mislabels A24-family
-    alleles as Bw4 due to a shortest-name tiebreaker.
+    Uses mhcgnomes to expand each requested serotype into its full allele
+    list, then checks membership.  Handles three cases:
 
-    Accept both ``A24`` and ``HLA-A24`` as user input.  Match on the
-    official serotype label AND a simple allele-name prefix fallback
-    (e.g. ``HLA-A*24:02`` → matches serotype ``A24``) so the A-locus
-    mislabeling doesn't silently drop results.
+    1. Molecular restriction (``HLA-A*02:01``) — matches if the parsed allele
+       is in the requested serotype's ``alleles`` list.
+    2. Serological restriction (``HLA-A2``) — matches if the parsed serotype
+       name equals the requested name.
+    3. Unparseable / class-only — skipped.
+
+    Workaround for hitlist#44 (``allele_to_serotype`` mis-reports A-locus
+    Bw4-carrying alleles): we don't depend on the canonical-serotype label,
+    we go straight to mhcgnomes membership.
     """
     if not serotypes:
         return hits
-    from hitlist.curation import allele_to_serotype
+    from mhcgnomes import parse as mhc_parse
+    from mhcgnomes.allele import Allele
+    from mhcgnomes.serotype import Serotype
 
-    wanted = set()
-    for s in serotypes:
-        s = s.strip()
+    wanted_allele_keys: set[tuple[str, tuple[str, ...]]] = set()
+    wanted_serotype_names: set[str] = set()
+    for raw in serotypes:
+        s = raw.strip()
         if not s:
             continue
-        wanted.add(s)
-        if s.startswith("HLA-"):
-            wanted.add(s.removeprefix("HLA-"))
-        else:
-            wanted.add(f"HLA-{s}")
+        wanted_serotype_names.add(s.removeprefix("HLA-"))
+        try:
+            parsed = mhc_parse(s if s.startswith("HLA-") else f"HLA-{s}")
+        except Exception:
+            continue
+        if isinstance(parsed, Serotype):
+            for a in parsed.alleles:
+                wanted_allele_keys.add((a.gene.name, a.allele_fields))
 
     def _matches(mhc: str) -> bool:
-        # Direct serotype match (canonical or with/without HLA- prefix).
-        sero = allele_to_serotype(mhc)
-        if sero in wanted:
-            return True
-        # Allele-name prefix fallback.  "HLA-A*24:02" → "A*24", "A24".
-        for w in wanted:
-            bare = w.removeprefix("HLA-")
-            # Match molecular: A*24 in "HLA-A*24:02".
-            if f"-{bare[0]}*{bare[1:]}" in mhc:
-                return True
-            # Match serological: A24 in "HLA-A24".
-            if mhc.endswith(f"-{bare}"):
-                return True
+        if not isinstance(mhc, str) or not mhc:
+            return False
+        try:
+            parsed = mhc_parse(mhc)
+        except Exception:
+            return False
+        if isinstance(parsed, Allele):
+            return (parsed.gene.name, parsed.allele_fields) in wanted_allele_keys
+        if isinstance(parsed, Serotype):
+            return parsed.name in wanted_serotype_names
         return False
 
-    mask = hits["mhc_restriction"].map(_matches)
-    return hits[mask].copy()
+    return hits[hits["mhc_restriction"].map(_matches)].copy()
 
 
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:
