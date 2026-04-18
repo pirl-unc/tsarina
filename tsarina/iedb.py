@@ -20,11 +20,11 @@ in the hitlist registry, or an ad-hoc subset for testing).
 
 Historically this module reimplemented hitlist's scanner loop.  It no longer
 does — every real behavior (two-header parsing, column resolution, species
-filter via mhcgnomes, source classification, binding-assay detection,
-allele-resolution filtering, assay-IRI dedup) lives in
-``hitlist.scanner.scan``.  These wrappers exist to (a) keep a stable tsarina
-import path and (b) translate tsarina's historical ``mhc_species`` argument
-onto hitlist's ``human_only`` / ``mhc_species`` kwargs.
+filter via mhcgnomes + host-field fallback, source classification,
+binding-assay detection, allele-resolution filtering, assay-IRI dedup) lives
+in ``hitlist.scanner.scan``.  Requires hitlist >= 1.9.0; earlier versions
+used a split ``human_only`` / ``mhc_species`` API that tsarina had to
+papered over with a translation shim (retired alongside hitlist#72).
 """
 
 from __future__ import annotations
@@ -32,36 +32,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from hitlist.curation import normalize_species
 from hitlist.scanner import scan as _hitlist_scan
-
-
-def _species_kwargs(mhc_species: str | None) -> dict:
-    """Translate tsarina's ``mhc_species`` argument onto hitlist scanner kwargs.
-
-    For ``"Homo sapiens"`` (tsarina's historical default) use ``human_only=True``,
-    which applies the host/species fallback when an MHC restriction string
-    cannot be resolved via mhcgnomes (e.g. bare ``"HLA class I"``).  For any
-    other species, use the strict ``mhc_species`` path.  For ``None``, disable
-    species filtering entirely.
-    """
-    # hitlist.scanner.scan exposes two filter paths with *different* fallback
-    # semantics — we pick between them here:
-    #
-    #   human_only=True  → Homo sapiens-only, and when mhcgnomes can't parse
-    #                      the MHC restriction string (e.g. "HLA class I")
-    #                      it falls back to the host / species text columns.
-    #   mhc_species=X    → strict mhcgnomes match, NO host/species fallback;
-    #                      rows with unparseable MHC restriction are dropped.
-    #
-    # tsarina's legacy behavior at mhc_species="Homo sapiens" relied on the
-    # fallback, so we route that to human_only=True.  For every other species
-    # the strict path is the right default.
-    if mhc_species is None:
-        return {"human_only": False}
-    if normalize_species(mhc_species) == "Homo sapiens":
-        return {"human_only": True}
-    return {"mhc_species": mhc_species, "human_only": False}
 
 
 def scan_public_ms(
@@ -109,10 +80,10 @@ def scan_public_ms(
         peptides=peptides,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
+        mhc_species=mhc_species,
         mhc_class=mhc_class,
         classify_source=classify_source,
         min_allele_resolution=min_allele_resolution,
-        **_species_kwargs(mhc_species),
     )
 
 
@@ -134,6 +105,6 @@ def profile_dataset(
         peptides=None,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
+        mhc_species=mhc_species,
         classify_source=True,
-        **_species_kwargs(mhc_species),
     )

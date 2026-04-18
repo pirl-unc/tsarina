@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "hitlist>=1.6.0",
+    "hitlist>=1.9.0",
     "mhcgnomes>=3.20.0",
     "pandas",
     "numpy",
