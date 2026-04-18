@@ -27,16 +27,14 @@ def test_hits_help_exits_zero():
     assert "--mono-allelic-only" in r.stdout
 
 
-def test_hits_help_warns_about_include_binding_assays_cached_noop():
-    """tsarina#4 part 1: the flag is a no-op on the cached path (hitlist
-    purges binding rows at build time).  Help text must say so explicitly
-    — otherwise users silently get MS-only output when they asked for both."""
+def test_hits_help_describes_include_binding_assays_union():
+    """tsarina#4 closed: cached path now routes through hitlist's
+    load_all_evidence() union; help text should describe the UNION
+    behavior and the evidence_kind tagging, not the old no-op limitation."""
     r = _run_cli("hits", "--help")
     assert r.returncode == 0
     assert "--include-binding-assays" in r.stdout
-    # Must mention both the limitation and the escape hatch.
-    assert "no-op" in r.stdout
-    assert "--iedb" in r.stdout
+    assert "evidence_kind" in r.stdout
 
 
 def test_hits_requires_gene_or_uniprot():
@@ -58,10 +56,11 @@ def test_hits_gene_and_uniprot_are_mutually_exclusive():
     assert r.returncode != 0
 
 
-def test_include_binding_assays_on_cached_path_warns(capsys, tmp_path):
-    """Calling handle() with --include-binding-assays on the default cached
-    path must emit a stderr warning, not silently succeed.  Tracks tsarina#4
-    until hitlist#47 ships a separate binding-assay index."""
+def test_include_binding_assays_routes_to_load_all_evidence(tmp_path):
+    """tsarina#4 closed via hitlist 1.10.0: --include-binding-assays on the
+    cached path must call load_all_evidence (union of MS + binding), not
+    load_observations (MS-only).  This is the contract that makes the flag
+    actually honor its name."""
     from tsarina import cli_hits
 
     args = argparse.Namespace(
@@ -88,15 +87,50 @@ def test_include_binding_assays_on_cached_path_warns(capsys, tmp_path):
         {
             "peptide": pd.Series(dtype=str),
             "mhc_restriction": pd.Series(dtype=str),
-            "is_binding_assay": pd.Series(dtype=bool),
+            "evidence_kind": pd.Series(dtype=str),
         }
     )
     with (
         patch("tsarina.indexing.ensure_index_built"),
-        patch("hitlist.observations.load_observations", return_value=empty),
+        patch("hitlist.observations.load_all_evidence", return_value=empty) as all_ev,
+        patch("hitlist.observations.load_observations") as ms_only,
     ):
         cli_hits.handle(args)
-    err = capsys.readouterr().err
-    assert "--include-binding-assays" in err
-    assert "cached" in err
-    assert "--iedb" in err
+    all_ev.assert_called_once()
+    ms_only.assert_not_called()
+
+
+def test_default_cached_path_uses_load_observations_not_union(tmp_path):
+    """Regression guard: without --include-binding-assays, the cached path
+    must still use load_observations (MS-only), not the union."""
+    from tsarina import cli_hits
+
+    args = argparse.Namespace(
+        gene="PRAME",
+        uniprot=None,
+        allele=[],
+        serotype=[],
+        species="Homo sapiens",
+        mhc_class="I",
+        min_resolution=None,
+        lengths=(8, 9, 10, 11),
+        ensembl_release=112,
+        include_binding_assays=False,
+        mono_allelic_only=False,
+        format="pmhc",
+        predict=False,
+        predictor="mhcflurry",
+        iedb_path=None,
+        cedar_path=None,
+        skip_ms_evidence=False,
+        output=str(tmp_path / "out.csv"),
+    )
+    empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=empty) as ms_only,
+        patch("hitlist.observations.load_all_evidence") as all_ev,
+    ):
+        cli_hits.handle(args)
+    ms_only.assert_called_once()
+    all_ev.assert_not_called()
