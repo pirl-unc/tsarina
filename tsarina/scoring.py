@@ -32,6 +32,16 @@ Requires the relevant mhctools backend for the chosen predictor.  MHCflurry:
 ``pip install mhcflurry && mhcflurry-downloads fetch``.  NetMHCpan requires
 the external binary from DTU.
 
+.. note::
+   A legacy ``score_netmhcpan`` subprocess shim lived here through v0.5.x.
+   It was deleted in v0.6.0 after a side-by-side validation (HLA-A\\*02:01,
+   5 known binders + 3 non-binder controls) showed its hand-rolled stdout
+   parser returned the wrong output column on NetMHCpan 4.2c — affinities
+   were off by ~1000x and qualitatively inverted (strong binders looked
+   sub-nanomolar, polyA ranked like a moderate binder).  Topiary/mhctools'
+   NetMHCpan adapter correctly detects the 4.2c output format, so
+   ``score_presentation(..., predictor="netmhcpan")`` is the only path now.
+
 Thresholds commonly used for filtering:
 
 .. list-table::
@@ -61,8 +71,6 @@ Thresholds commonly used for filtering:
 """
 
 from __future__ import annotations
-
-import warnings
 
 import pandas as pd
 
@@ -190,76 +198,3 @@ def score_affinity(
     """
     df = score_presentation(peptides, alleles, predictor=predictor)
     return df[["peptide", "allele", "affinity_nm"]].reset_index(drop=True)
-
-
-def score_netmhcpan(
-    peptides: list[str],
-    alleles: list[str],
-    netmhcpan_path: str = "netMHCpan",
-) -> pd.DataFrame:
-    """Score peptide-allele pairs using NetMHCpan via subprocess.
-
-    .. deprecated::
-        Prefer :func:`score_presentation` with ``predictor="netmhcpan"``,
-        which uses mhctools' NetMHCpan wrapper and handles normalization
-        consistently with the MHCflurry path.  This subprocess shim will be
-        removed in a future release.
-    """
-    warnings.warn(
-        "score_netmhcpan is deprecated; use "
-        "score_presentation(..., predictor='netmhcpan') instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    import shutil
-    import subprocess
-    import tempfile
-
-    if not shutil.which(netmhcpan_path):
-        raise FileNotFoundError(
-            f"NetMHCpan not found at '{netmhcpan_path}'. "
-            "Download from https://services.healthtech.dtu.dk/services/NetMHCpan-4.1/"
-        )
-
-    def _fmt_allele(a: str) -> str:
-        return a.replace("*", "")
-
-    rows: list[dict] = []
-    for allele in alleles:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".pep", delete=False) as f:
-            for pep in peptides:
-                f.write(pep + "\n")
-            pep_file = f.name
-
-        try:
-            result = subprocess.run(
-                [netmhcpan_path, "-p", pep_file, "-a", _fmt_allele(allele), "-BA"],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(f"NetMHCpan failed: {result.stderr[:500]}")
-
-            for line in result.stdout.splitlines():
-                parts = line.strip().split()
-                if len(parts) < 13 or not parts[0].isdigit():
-                    continue
-                try:
-                    rows.append(
-                        {
-                            "peptide": parts[2],
-                            "allele": allele,
-                            "affinity_nm": float(parts[12]),
-                            "rank_ba": float(parts[13]) if len(parts) > 13 else None,
-                            "rank_el": float(parts[11]),
-                        }
-                    )
-                except (ValueError, IndexError):
-                    continue
-        finally:
-            import os
-
-            os.unlink(pep_file)
-
-    return pd.DataFrame(rows)

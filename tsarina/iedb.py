@@ -10,189 +10,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Scan IEDB and CEDAR MHC ligand exports for validated peptide-MHC observations.
+"""Thin adapter over :func:`hitlist.scanner.scan`.
 
-Both IEDB (https://www.iedb.org/) and CEDAR (https://cedar.iedb.org/) provide
-downloadable full MHC ligand assay exports.  This module provides utilities
-to scan those exports for a set of peptides of interest, extract human-source
-HLA-restricted entries, and deduplicate by assay IRI across both sources.
+For default queries, prefer :func:`tsarina.indexing.load_ms_evidence` — it
+reads the cached hitlist observations parquet and is sub-second after the
+first build.  The functions here stay around for callers that need to point
+at a *non-registered* IEDB/CEDAR snapshot (e.g. a newer export than the one
+in the hitlist registry, or an ad-hoc subset for testing).
 
-Typical usage::
-
-    from tsarina.iedb import scan_public_ms
-
-    hits = scan_public_ms(
-        peptides={"SLYNTVATL", "GILGFVFTL"},
-        iedb_path="mhc_ligand_full.csv",
-        cedar_path="cedar-mhc-ligand-full.csv",
-    )
-
-    # With disease/tissue context classification
-    hits = scan_public_ms(
-        peptides=my_peptides,
-        iedb_path="mhc_ligand_full.csv",
-        classify_source=True,   # adds src_cancer, src_healthy, etc.
-        mhc_class="I",          # MHC class I only
-    )
+Historically this module reimplemented hitlist's scanner loop.  It no longer
+does — every real behavior (two-header parsing, column resolution, species
+filter via mhcgnomes, source classification, binding-assay detection,
+allele-resolution filtering, assay-IRI dedup) lives in
+``hitlist.scanner.scan``.  These wrappers exist to (a) keep a stable tsarina
+import path and (b) translate tsarina's historical ``mhc_species`` argument
+onto hitlist's ``human_only`` / ``mhc_species`` kwargs.
 """
 
 from __future__ import annotations
 
-import csv
-import os
 from pathlib import Path
 
 import pandas as pd
-
-try:
-    from tqdm.auto import tqdm as _tqdm
-except ImportError:
-    _tqdm = None
+from hitlist.curation import normalize_species
+from hitlist.scanner import scan as _hitlist_scan
 
 
-def _iter_with_progress(reader, path: Path, desc: str):
-    """Wrap a csv.reader with a tqdm progress bar based on file size."""
-    if _tqdm is None:
-        yield from reader
-        return
-    total = os.path.getsize(path)
-    with _tqdm(total=total, unit="B", unit_scale=True, desc=desc, leave=False) as pbar:
-        for row in reader:
-            pbar.update(sum(len(f) for f in row) + len(row))  # approximate bytes
-            yield row
+def _species_kwargs(mhc_species: str | None) -> dict:
+    """Translate tsarina's ``mhc_species`` argument onto hitlist scanner kwargs.
 
-
-# ── Column resolution ───────────────────────────────────────────────────────
-#
-# IEDB/CEDAR exports have two header rows: a category row and a field row.
-# The field row contains pipe-separated names like "Epitope | Name".
-# We parse the field header to discover column indices dynamically, falling
-# back to known defaults if the header is missing or unparseable.
-
-# Mapping from our internal key to the expected IEDB field-header substring.
-# We match by substring so minor header changes (whitespace, case) are
-# tolerated.
-_COLUMN_NAMES: dict[str, list[str]] = {
-    "assay_iri": ["Assay IRI", "Assay - Assay IRI"],
-    "ref_iri": ["Reference IRI", "Reference - Reference IRI", "Reference | IEDB IRI"],
-    "pmid": ["PMID", "Reference | PMID"],
-    "ref_title": ["Title", "Reference | Title"],
-    "epitope_name": ["Epitope | Name", "Epitope Name"],
-    "source_organism": ["Source Organism", "Epitope | Source Organism"],
-    "species": ["Epitope | Species", "Species"],
-    "process_type": ["Process Type", "Host | Process Type"],
-    "disease": ["Disease", "Host | Disease"],
-    "source_tissue": ["Source Tissue", "Effector Cells | Source Tissue"],
-    "cell_name": ["Cell Name", "Effector Cells | Cell Name"],
-    "culture_condition": ["Culture Condition", "Assay | Culture Condition"],
-    "mhc_restriction": ["MHC Restriction | Name", "MHC Restriction Name"],
-    "mhc_class": ["MHC Allele Class", "Class"],
-    "host": ["Host", "Host | Name"],
-    "submission_id": ["Submission ID", "Reference | Submission ID"],
-}
-
-# Fallback hardcoded indices (IEDB mhc_ligand_full.csv as of 2024-2025).
-_FALLBACK_INDICES: dict[str, int] = {
-    "assay_iri": 0,
-    "ref_iri": 1,
-    "pmid": 3,
-    "ref_title": 8,
-    "epitope_name": 11,
-    "source_organism": 23,
-    "species": 25,
-    "process_type": 50,
-    "disease": 51,
-    "source_tissue": 102,
-    "cell_name": 104,
-    "host": 43,
-    "submission_id": 4,
-    "culture_condition": 106,
-    "mhc_restriction": 107,
-    "mhc_class": 111,
-}
-
-
-def _resolve_columns(category_header: list[str], field_header: list[str]) -> dict[str, int]:
-    """Build column key -> index mapping from the IEDB field header row.
-
-    Tries each candidate name for each key, checking both the field header
-    and a combined "category | field" form.  Falls back to hardcoded indices
-    for any key that cannot be resolved from the header.
+    For ``"Homo sapiens"`` (tsarina's historical default) use ``human_only=True``,
+    which applies the host/species fallback when an MHC restriction string
+    cannot be resolved via mhcgnomes (e.g. bare ``"HLA class I"``).  For any
+    other species, use the strict ``mhc_species`` path.  For ``None``, disable
+    species filtering entirely.
     """
-    indices: dict[str, int] = {}
-
-    # Build combined header: "Category | Field" for each column
-    combined = []
-    for i in range(max(len(category_header), len(field_header))):
-        cat = category_header[i].strip() if i < len(category_header) else ""
-        fld = field_header[i].strip() if i < len(field_header) else ""
-        if cat and fld:
-            combined.append(f"{cat} | {fld}")
-        else:
-            combined.append(fld or cat)
-
-    # Lowercase for matching
-    combined_lower = [c.lower() for c in combined]
-    field_lower = [f.strip().lower() for f in field_header]
-
-    for key, candidates in _COLUMN_NAMES.items():
-        found = False
-        for candidate in candidates:
-            cl = candidate.lower()
-            # Try combined header first
-            for i, header_val in enumerate(combined_lower):
-                if cl in header_val or header_val.endswith(cl):
-                    indices[key] = i
-                    found = True
-                    break
-            if found:
-                break
-            # Try field header alone
-            for i, header_val in enumerate(field_lower):
-                if cl in header_val or header_val == cl:
-                    indices[key] = i
-                    found = True
-                    break
-            if found:
-                break
-
-    # Fill in any missing keys with fallback
-    for key, fallback_idx in _FALLBACK_INDICES.items():
-        if key not in indices:
-            indices[key] = fallback_idx
-
-    return indices
-
-
-# ── Source context classification ───────────────────────────────────────────
-# Delegated to hitlist for YAML-driven PMID overrides, tissue categories,
-# and mhcgnomes-based species resolution.
-
-from hitlist.curation import (  # noqa: E402
-    classify_mhc_species,
-    classify_ms_row,
-    normalize_species,
-)
-
-# ── Core scanning function ──────────────────────────────────────────────────
-
-
-def _safe_col(row: list[str], idx: int) -> str:
-    return row[idx] if len(row) > idx else ""
-
-
-def _open_iedb_csv(path: Path) -> tuple[csv.reader, dict[str, int], Path]:
-    """Open an IEDB/CEDAR CSV and return (reader, column_indices, path).
-
-    Reads the two header rows, resolves column indices, and returns
-    a reader positioned at the first data row.
-    """
-    fh = open(path, newline="")  # noqa: SIM115
-    reader = csv.reader(fh)
-    category_header = next(reader, [])
-    field_header = next(reader, [])
-    cols = _resolve_columns(category_header, field_header)
-    return reader, cols, path
+    # hitlist.scanner.scan exposes two filter paths with *different* fallback
+    # semantics — we pick between them here:
+    #
+    #   human_only=True  → Homo sapiens-only, and when mhcgnomes can't parse
+    #                      the MHC restriction string (e.g. "HLA class I")
+    #                      it falls back to the host / species text columns.
+    #   mhc_species=X    → strict mhcgnomes match, NO host/species fallback;
+    #                      rows with unparseable MHC restriction are dropped.
+    #
+    # tsarina's legacy behavior at mhc_species="Homo sapiens" relied on the
+    # fallback, so we route that to human_only=True.  For every other species
+    # the strict path is the right default.
+    if mhc_species is None:
+        return {"human_only": False}
+    if normalize_species(mhc_species) == "Homo sapiens":
+        return {"human_only": True}
+    return {"mhc_species": mhc_species, "human_only": False}
 
 
 def scan_public_ms(
@@ -202,136 +71,49 @@ def scan_public_ms(
     mhc_species: str | None = "Homo sapiens",
     mhc_class: str | None = None,
     classify_source: bool = False,
+    min_allele_resolution: str | None = None,
 ) -> pd.DataFrame:
-    """Scan IEDB and/or CEDAR MHC ligand exports for matching peptides.
+    """Scan IEDB/CEDAR MHC ligand exports for matching peptides.
+
+    Thin wrapper over :func:`hitlist.scanner.scan`.  Prefer
+    :func:`tsarina.indexing.load_ms_evidence` when querying against the
+    registered snapshot — it hits a cached parquet and is much faster.
 
     Parameters
     ----------
     peptides
-        Set of peptide sequences to search for (matched against the
-        ``Epitope | Name`` column).
-    iedb_path
-        Path to the IEDB ``mhc_ligand_full.csv`` export.  Skipped if None.
-    cedar_path
-        Path to the CEDAR ``cedar-mhc-ligand-full.csv`` export.  Skipped if None.
+        Peptide sequences to match against ``Epitope | Name``.
+    iedb_path, cedar_path
+        Paths to IEDB / CEDAR exports.  Missing paths are silently skipped;
+        if both are None the function returns an empty DataFrame.
     mhc_species
-        Keep only rows where the MHC molecule belongs to this species
-        (default ``"Homo sapiens"``).  Resolved via mhcgnomes on the MHC
-        restriction annotation, with a fallback to the host field if the
-        allele name alone is ambiguous.  Pass ``None`` to disable the filter.
+        Species whose MHC molecules to keep.  Default ``"Homo sapiens"``;
+        ``None`` disables filtering.
     mhc_class
-        If set (e.g. ``"I"`` or ``"II"``), filter to rows matching that
-        MHC class.  None means no class filtering.
+        ``"I"`` or ``"II"`` to filter; ``None`` keeps both.
     classify_source
-        If True, add source-context columns (``src_cancer``,
-        ``src_healthy_tissue``, ``src_cell_line``, ``src_ex_vivo``,
-        ``src_ebv_lcl``, …) and additional columns (``disease``,
-        ``source_tissue``, ``cell_name``).
+        Emit ``src_*`` source-context flags (cancer / healthy tissue / cell
+        line / ex vivo / EBV-LCL) via ``hitlist.curation.classify_ms_row``.
+    min_allele_resolution
+        One of ``"four_digit"``, ``"two_digit"``, ``"serological"``,
+        ``"class_only"``.  Rows with coarser resolution are dropped.
 
     Returns
     -------
     pd.DataFrame
         Deduplicated by assay IRI across both sources.
-        Base columns: ``reference_iri``, ``pmid``, ``reference_title``,
-        ``peptide``, ``source_organism``, ``species``, ``mhc_restriction``.
-        With ``classify_source=True``: also ``process_type``, ``disease``,
-        ``source_tissue``, ``cell_name``, ``culture_condition``, and the
-        full ``src_*`` flag set from ``hitlist.curation.classify_ms_row``.
     """
-    source_paths: list[Path] = []
-    if iedb_path is not None:
-        source_paths.append(Path(iedb_path))
-    if cedar_path is not None:
-        source_paths.append(Path(cedar_path))
-
-    selected = set(peptides)
-    target_species = normalize_species(mhc_species) if mhc_species is not None else None
-
-    rows: list[dict] = []
-    seen_assay_iris: set[str] = set()
-
-    for source_path in source_paths:
-        if not source_path.exists():
-            continue
-        reader, c, p = _open_iedb_csv(source_path)
-        for row in _iter_with_progress(reader, p, f"Scanning {p.name}"):
-            peptide = _safe_col(row, c["epitope_name"])
-            if peptide not in selected:
-                continue
-
-            assay_iri = row[c["assay_iri"]] if row else ""
-            if assay_iri in seen_assay_iris:
-                continue
-            seen_assay_iris.add(assay_iri)
-
-            source_organism = _safe_col(row, c["source_organism"])
-            species = _safe_col(row, c["species"])
-            host = _safe_col(row, c["host"])
-            mhc_restriction = _safe_col(row, c["mhc_restriction"])
-
-            if target_species is not None:
-                mhc_sp = classify_mhc_species(mhc_restriction)
-                if mhc_sp:
-                    if mhc_sp != target_species:
-                        continue
-                elif target_species not in (
-                    normalize_species(host),
-                    normalize_species(species),
-                ):
-                    continue
-            if mhc_class is not None:
-                row_class = _safe_col(row, c["mhc_class"])
-                if row_class != mhc_class:
-                    continue
-
-            raw_pmid = _safe_col(row, c["pmid"]).strip()
-            pmid: str | int = ""
-            if raw_pmid:
-                try:
-                    pmid = int(raw_pmid)
-                except ValueError:
-                    pmid = raw_pmid
-
-            submission_id = _safe_col(row, c["submission_id"])
-
-            record: dict = {
-                "reference_iri": _safe_col(row, c["ref_iri"]),
-                "pmid": pmid,
-                "submission_id": submission_id,
-                "reference_title": _safe_col(row, c["ref_title"]),
-                "peptide": peptide,
-                "source_organism": source_organism,
-                "species": species,
-                "mhc_restriction": mhc_restriction,
-            }
-
-            if classify_source:
-                process_type = _safe_col(row, c["process_type"])
-                disease = _safe_col(row, c["disease"])
-                culture_condition = _safe_col(row, c["culture_condition"])
-                record["process_type"] = process_type
-                record["disease"] = disease
-                source_tissue = _safe_col(row, c["source_tissue"])
-                cell_name = _safe_col(row, c["cell_name"])
-                record["source_tissue"] = source_tissue
-                record["cell_name"] = cell_name
-                record["culture_condition"] = culture_condition
-                record.update(
-                    classify_ms_row(
-                        process_type,
-                        disease,
-                        culture_condition,
-                        source_tissue,
-                        cell_name,
-                        pmid=pmid,
-                        mhc_restriction=mhc_restriction,
-                        submission_id=submission_id,
-                    )
-                )
-
-            rows.append(record)
-
-    return pd.DataFrame(rows)
+    if iedb_path is None and cedar_path is None:
+        return pd.DataFrame()
+    return _hitlist_scan(
+        peptides=peptides,
+        iedb_path=iedb_path,
+        cedar_path=cedar_path,
+        mhc_class=mhc_class,
+        classify_source=classify_source,
+        min_allele_resolution=min_allele_resolution,
+        **_species_kwargs(mhc_species),
+    )
 
 
 def profile_dataset(
@@ -339,143 +121,19 @@ def profile_dataset(
     cedar_path: str | Path | None = None,
     mhc_species: str | None = "Homo sapiens",
 ) -> pd.DataFrame:
-    """Profile an entire IEDB/CEDAR MHC ligand export without peptide filtering.
+    """Profile an entire IEDB/CEDAR export with no peptide filter.
 
-    Scans every row and extracts key fields for summary statistics:
-    MHC class distribution, tissue coverage, cancer type breakdown, etc.
-
-    Parameters
-    ----------
-    iedb_path
-        Path to the IEDB ``mhc_ligand_full.csv`` export.
-    cedar_path
-        Path to the CEDAR ``cedar-mhc-ligand-full.csv`` export.
-    mhc_species
-        Keep only rows where the MHC molecule belongs to this species
-        (default ``"Homo sapiens"``).  Pass ``None`` to disable.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per assay (deduplicated by assay IRI).
-        Columns: ``peptide``, ``mhc_restriction``, ``mhc_class``,
-        ``process_type``, ``disease``, ``source_tissue``, ``cell_name``,
-        ``culture_condition``, ``source_organism``, ``species``,
-        ``src_cancer``, ``src_healthy_tissue``, ``src_cell_line``,
-        ``src_ex_vivo``, ``src_ebv_lcl``.
+    Equivalent to :func:`scan_public_ms` with ``peptides=None``.  Always
+    includes source classification columns (``src_cancer``, ``src_healthy_*``,
+    ``src_cell_line``, ``src_ebv_lcl``, ``src_ex_vivo``), which
+    :mod:`tsarina.negatives` consumes.
     """
-    source_paths: list[Path] = []
-    if iedb_path is not None:
-        source_paths.append(Path(iedb_path))
-    if cedar_path is not None:
-        source_paths.append(Path(cedar_path))
-
-    target_species = normalize_species(mhc_species) if mhc_species is not None else None
-
-    rows: list[dict] = []
-    seen_assay_iris: set[str] = set()
-
-    for source_path in source_paths:
-        if not source_path.exists():
-            continue
-        reader, c, p = _open_iedb_csv(source_path)
-        for row in _iter_with_progress(reader, p, f"Profiling {p.name}"):
-            assay_iri = row[c["assay_iri"]] if row else ""
-            if assay_iri in seen_assay_iris:
-                continue
-            seen_assay_iris.add(assay_iri)
-
-            source_organism = _safe_col(row, c["source_organism"])
-            species = _safe_col(row, c["species"])
-            host = _safe_col(row, c["host"])
-            mhc_restriction = _safe_col(row, c["mhc_restriction"])
-
-            if target_species is not None:
-                mhc_sp = classify_mhc_species(mhc_restriction)
-                if mhc_sp:
-                    if mhc_sp != target_species:
-                        continue
-                elif target_species not in (
-                    normalize_species(host),
-                    normalize_species(species),
-                ):
-                    continue
-
-            process_type = _safe_col(row, c["process_type"])
-            disease = _safe_col(row, c["disease"])
-            culture_condition = _safe_col(row, c["culture_condition"])
-
-            raw_pmid = _safe_col(row, c["pmid"]).strip()
-            pmid: str | int = ""
-            if raw_pmid:
-                try:
-                    pmid = int(raw_pmid)
-                except ValueError:
-                    pmid = raw_pmid
-
-            submission_id = _safe_col(row, c["submission_id"])
-
-            record = {
-                "peptide": _safe_col(row, c["epitope_name"]),
-                "pmid": pmid,
-                "submission_id": submission_id,
-                "mhc_restriction": mhc_restriction,
-                "mhc_class": _safe_col(row, c["mhc_class"]),
-                "process_type": process_type,
-                "disease": disease,
-                "source_tissue": (source_tissue := _safe_col(row, c["source_tissue"])),
-                "cell_name": (cell_name := _safe_col(row, c["cell_name"])),
-                "culture_condition": culture_condition,
-                "source_organism": source_organism,
-                "species": species,
-            }
-            record.update(
-                classify_ms_row(
-                    process_type,
-                    disease,
-                    culture_condition,
-                    source_tissue,
-                    cell_name,
-                    pmid=pmid,
-                    mhc_restriction=mhc_restriction,
-                    submission_id=submission_id,
-                )
-            )
-            rows.append(record)
-
-    return pd.DataFrame(rows)
-
-
-def peptide_ms_support(
-    peptides: set[str],
-    iedb_path: str | Path | None = None,
-    cedar_path: str | Path | None = None,
-    mhc_class: str | None = None,
-) -> dict[str, set[str]]:
-    """Return a mapping from peptide to the set of MHC restrictions observed.
-
-    This is a convenience wrapper around :func:`scan_public_ms` that groups
-    results by peptide.
-
-    Parameters
-    ----------
-    peptides
-        Set of peptide sequences to search for.
-    iedb_path
-        Path to the IEDB MHC ligand export.
-    cedar_path
-        Path to the CEDAR MHC ligand export.
-    mhc_class
-        If set, filter to this MHC class (e.g. ``"I"``).
-
-    Returns
-    -------
-    dict[str, set[str]]
-        Mapping from peptide sequence to set of MHC restriction names
-        (e.g. ``{"SLYNTVATL": {"HLA-A*02:01", "HLA-B*08:01"}}``).
-    """
-    df = scan_public_ms(peptides, iedb_path=iedb_path, cedar_path=cedar_path, mhc_class=mhc_class)
-    result: dict[str, set[str]] = {}
-    for peptide, mhc in zip(df["peptide"], df["mhc_restriction"]):
-        result.setdefault(peptide, set()).add(mhc)
-    return result
+    if iedb_path is None and cedar_path is None:
+        return pd.DataFrame()
+    return _hitlist_scan(
+        peptides=None,
+        iedb_path=iedb_path,
+        cedar_path=cedar_path,
+        classify_source=True,
+        **_species_kwargs(mhc_species),
+    )
