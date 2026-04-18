@@ -45,6 +45,18 @@ def _species_kwargs(mhc_species: str | None) -> dict:
     other species, use the strict ``mhc_species`` path.  For ``None``, disable
     species filtering entirely.
     """
+    # hitlist.scanner.scan exposes two filter paths with *different* fallback
+    # semantics — we pick between them here:
+    #
+    #   human_only=True  → Homo sapiens-only, and when mhcgnomes can't parse
+    #                      the MHC restriction string (e.g. "HLA class I")
+    #                      it falls back to the host / species text columns.
+    #   mhc_species=X    → strict mhcgnomes match, NO host/species fallback;
+    #                      rows with unparseable MHC restriction are dropped.
+    #
+    # tsarina's legacy behavior at mhc_species="Homo sapiens" relied on the
+    # fallback, so we route that to human_only=True.  For every other species
+    # the strict path is the right default.
     if mhc_species is None:
         return {"human_only": False}
     if normalize_species(mhc_species) == "Homo sapiens":

@@ -32,6 +32,16 @@ Requires the relevant mhctools backend for the chosen predictor.  MHCflurry:
 ``pip install mhcflurry && mhcflurry-downloads fetch``.  NetMHCpan requires
 the external binary from DTU.
 
+.. note::
+   A legacy ``score_netmhcpan`` subprocess shim lived here through v0.5.x.
+   It was deleted in v0.6.0 after a side-by-side validation (HLA-A\\*02:01,
+   5 known binders + 3 non-binder controls) showed its hand-rolled stdout
+   parser returned the wrong output column on NetMHCpan 4.2c — affinities
+   were off by ~1000x and qualitatively inverted (strong binders looked
+   sub-nanomolar, polyA ranked like a moderate binder).  Topiary/mhctools'
+   NetMHCpan adapter correctly detects the 4.2c output format, so
+   ``score_presentation(..., predictor="netmhcpan")`` is the only path now.
+
 Thresholds commonly used for filtering:
 
 .. list-table::
