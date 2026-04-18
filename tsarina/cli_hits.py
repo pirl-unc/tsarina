@@ -111,11 +111,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--include-binding-assays",
         action="store_true",
         help=(
-            "Keep IEDB binding-assay rows (default: MS only).  Only effective "
-            "on the raw-CSV override path (--iedb / --cedar); the cached "
-            "observations index purges binding-assay rows at hitlist build "
-            "time, so this flag is a no-op there and will warn.  Tracked in "
-            "hitlist#47 / tsarina#4."
+            "Include IEDB/CEDAR binding-assay rows in addition to MS "
+            "observations (default: MS only).  On the cached-index path this "
+            "routes through hitlist's load_all_evidence() union; rows are "
+            "tagged with an evidence_kind column ('ms' vs 'binding')."
         ),
     )
     p.add_argument(
@@ -364,30 +363,25 @@ def handle(args: argparse.Namespace) -> None:
         from .indexing import ensure_index_built
 
         ensure_index_built()
-        from hitlist.observations import load_observations
 
         if args.include_binding_assays:
-            # The cached observations.parquet is built with binding-assay rows
-            # already purged (hitlist builder.py), so there is nothing to
-            # include here.  Warn explicitly rather than silently no-op; the
-            # user can reach binding rows via --iedb / --cedar (raw-CSV scan)
-            # until hitlist#47 ships a separate binding-assay index.
-            print(
-                "warning: --include-binding-assays has no effect on the "
-                "cached observations index; binding-assay rows are dropped "
-                "at hitlist build time (see hitlist#47).  Pass --iedb "
-                "(and optionally --cedar) to scan the raw CSVs, which do "
-                "include binding rows.",
-                file=sys.stderr,
-            )
+            # hitlist 1.10.0+ exposes load_all_evidence() — UNION of MS
+            # observations + binding-assay rows, tagged with evidence_kind.
+            from hitlist.observations import load_all_evidence
 
-        hits = load_observations(
-            gene_name=gene,
-            mhc_class=args.mhc_class,
-            species=mhc_species,
-        )
-        if not args.include_binding_assays and "is_binding_assay" in hits.columns:
-            hits = hits[~hits["is_binding_assay"]].copy()
+            hits = load_all_evidence(
+                gene_name=gene,
+                mhc_class=args.mhc_class,
+                species=mhc_species,
+            )
+        else:
+            from hitlist.observations import load_observations
+
+            hits = load_observations(
+                gene_name=gene,
+                mhc_class=args.mhc_class,
+                species=mhc_species,
+            )
         hits = _apply_min_resolution(hits, args.min_resolution)
 
     hits = _filter_by_allele(hits, args.allele)
