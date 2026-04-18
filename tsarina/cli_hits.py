@@ -110,7 +110,13 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--include-binding-assays",
         action="store_true",
-        help="Keep IEDB binding-assay rows (default: MS only).",
+        help=(
+            "Keep IEDB binding-assay rows (default: MS only).  Only effective "
+            "on the raw-CSV override path (--iedb / --cedar); the cached "
+            "observations index purges binding-assay rows at hitlist build "
+            "time, so this flag is a no-op there and will warn.  Tracked in "
+            "hitlist#47 / tsarina#4."
+        ),
     )
     p.add_argument(
         "--mono-allelic-only",
@@ -359,6 +365,21 @@ def handle(args: argparse.Namespace) -> None:
 
         ensure_index_built()
         from hitlist.observations import load_observations
+
+        if args.include_binding_assays:
+            # The cached observations.parquet is built with binding-assay rows
+            # already purged (hitlist builder.py), so there is nothing to
+            # include here.  Warn explicitly rather than silently no-op; the
+            # user can reach binding rows via --iedb / --cedar (raw-CSV scan)
+            # until hitlist#47 ships a separate binding-assay index.
+            print(
+                "warning: --include-binding-assays has no effect on the "
+                "cached observations index; binding-assay rows are dropped "
+                "at hitlist build time (see hitlist#47).  Pass --iedb "
+                "(and optionally --cedar) to scan the raw CSVs, which do "
+                "include binding rows.",
+                file=sys.stderr,
+            )
 
         hits = load_observations(
             gene_name=gene,
