@@ -440,3 +440,191 @@ def test_empty_inputs_return_canonical_columns():
 
     assert list(out.columns) == list(_OUTPUT_COLUMNS)
     assert out.empty
+
+
+# ── enforce_tumor_specificity=False keeps healthy-tissue hits ──────────
+
+
+def test_enforce_tumor_specificity_false_keeps_healthy_tissue_hit(monkeypatch):
+    """Opt-out path: user explicitly wants healthy-tissue hits retained
+    (e.g. for diagnostic inspection)."""
+    exclusive = pd.DataFrame(
+        {
+            "peptide": ["SAFE9PEP", "RISKYPEP9"],
+            "length": [9, 9],
+            "virus": ["hpv16", "hpv16"],
+            "protein_id": ["E6", "E6"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.viral.human_exclusive_viral_peptides",
+        lambda **kw: exclusive,
+        raising=True,
+    )
+
+    def _fake_load_ms_evidence(peptides, **kwargs):
+        return pd.DataFrame(
+            {
+                "peptide": ["RISKYPEP9"],
+                "mhc_restriction": ["HLA-A*02:01"],
+                "src_cancer": [False],
+                "src_healthy_tissue": [True],
+            }
+        )
+
+    monkeypatch.setattr("tsarina.indexing.load_ms_evidence", _fake_load_ms_evidence, raising=True)
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        viruses=["hpv16"],
+        score_presentation=False,
+        enforce_tumor_specificity=False,
+        drop_weak_tier=False,
+    )
+    peptides = set(out["peptide"])
+    assert "RISKYPEP9" in peptides
+    assert "SAFE9PEP" in peptides
+    # Safety flag is still surfaced on the row even when not filtered.
+    risky_row = out[out["peptide"] == "RISKYPEP9"].iloc[0]
+    assert bool(risky_row["ms_in_healthy_tissue"]) is True
+
+
+# ── mtec_matrix_path gates CTAs by thymic expression ──────────────────
+
+
+def test_mtec_matrix_path_filters_ctas(tmp_path, monkeypatch):
+    """PR-F: when an mTEC matrix is provided, CTAs with mean mTEC TPM above
+    mtec_max_tpm must be dropped. Confirms filter_by_mtec is actually wired
+    in (personalize.py:222-225 was uncovered)."""
+    mtec_tsv = tmp_path / "mtec.tsv"
+    mtec_tsv.write_text(
+        "gene_symbol\tsample1\tsample2\nLOWMTEC_GENE\t0.1\t0.2\nHIGHMTEC_GENE\t50.0\t60.0\n"
+    )
+
+    exclusive = pd.DataFrame(
+        {
+            "peptide": ["LOWPEP9LEN", "HIGHPEP9LN"],
+            "length": [9, 9],
+            "gene_name": ["LOWMTEC_GENE", "HIGHMTEC_GENE"],
+            "gene_id": ["ENSG_L", "ENSG_H"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides", lambda **kw: exclusive, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"LOWMTEC_GENE", "HIGHMTEC_GENE"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_by_axes",
+        lambda **kw: {"LOWMTEC_GENE", "HIGHMTEC_GENE"},
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"LOWMTEC_GENE": 10.0, "HIGHMTEC_GENE": 10.0},
+        mtec_matrix_path=str(mtec_tsv),
+        mtec_max_tpm=1.0,
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    peptides = set(out["peptide"])
+    assert "LOWPEP9LEN" in peptides
+    assert "HIGHPEP9LN" not in peptides
+
+
+# ── min_restriction_confidence=None bypasses the confidence gate ──────
+
+
+def test_min_restriction_confidence_none_bypasses_gate(monkeypatch):
+    """PR-G opt-out: passing None must skip CTA_by_axes entirely and admit
+    genes regardless of restriction_confidence (LOW-confidence CTAs allowed)."""
+    exclusive = pd.DataFrame(
+        {
+            "peptide": ["LOWCONF9PEP"],
+            "length": [9],
+            "gene_name": ["LOWCONF_CTA"],
+            "gene_id": ["ENSG_LC"],
+        }
+    )
+
+    axes_calls: list[dict] = []
+
+    def _fake_by_axes(**kwargs):
+        axes_calls.append(kwargs)
+        # Pretend this gene would NOT pass a HIGH/MODERATE filter if asked.
+        return set()
+
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides", lambda **kw: exclusive, raising=True
+    )
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"LOWCONF_CTA"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", _fake_by_axes, raising=True)
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"LOWCONF_CTA": 10.0},
+        min_restriction_confidence=None,
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    assert axes_calls == [], "CTA_by_axes must not be called when confidence gate is disabled"
+    assert "LOWCONF9PEP" in out["peptide"].tolist()
+
+
+# ── Non-mhcflurry predictor still populates tiers correctly ───────────
+
+
+def test_non_mhcflurry_predictor_populates_tiers(monkeypatch):
+    """Combines PR-H warning with end-to-end tier correctness: the warning
+    should not compromise tier assignment for an otherwise-strong candidate."""
+    exclusive = pd.DataFrame(
+        {
+            "peptide": ["STRONGVIR9"],
+            "length": [9],
+            "virus": ["hpv16"],
+            "protein_id": ["E6"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.viral.human_exclusive_viral_peptides",
+        lambda **kw: exclusive,
+        raising=True,
+    )
+
+    def _fake_score(**kwargs):
+        return pd.DataFrame(
+            {
+                "peptide": ["STRONGVIR9"],
+                "allele": ["HLA-A*02:01"],
+                "presentation_score": [0.98],
+                "presentation_percentile": [0.1],
+                "affinity_nm": [8.0],
+            }
+        )
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", _fake_score, raising=True)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        out = personalize(
+            hla_alleles=["HLA-A*02:01"],
+            viruses=["hpv16"],
+            predictor="netmhcpan_el",
+            score_presentation=True,
+            skip_ms_evidence=True,
+        )
+
+    assert any("netmhcpan_el" in str(m.message) for m in w if issubclass(m.category, UserWarning))
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert int(row["tier"]) == 1  # viral @ 0.1 percentile → STRONG
+    assert row["tier_label"] == "STRONG"
+    assert row["tier_reason"] == "strong_presentation+viral"
+    assert row["best_allele"] == "HLA-A*02:01"
+    assert float(row["presentation_percentile"]) == 0.1

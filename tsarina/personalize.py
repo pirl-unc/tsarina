@@ -59,6 +59,7 @@ import warnings
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from .scoring import PRESENTATION_PERCENTILE_THRESHOLDS
@@ -473,45 +474,42 @@ def _assign_tiers(combined: pd.DataFrame) -> pd.DataFrame:
     - **T4 (WEAK)**: otherwise (including rows with no percentile).
     """
     t1_cut, t2_cut, t3_cut = PRESENTATION_PERCENTILE_THRESHOLDS
+    idx = combined.index
 
     pct = pd.to_numeric(combined.get("presentation_percentile"), errors="coerce")
-    ms_cancer = combined.get("ms_in_cancer", False)
+    ms_cancer = (
+        combined["ms_in_cancer"].astype(bool)
+        if "ms_in_cancer" in combined.columns
+        else pd.Series(False, index=idx)
+    )
     ms_hits = pd.to_numeric(combined.get("ms_hit_count", 0), errors="coerce").fillna(0)
-    category = combined["category"]
+    category = combined["category"].astype(str)
     non_self_category = category.isin(("mutant", "viral"))
 
-    t1_mask = pct.le(t1_cut) & (ms_cancer.astype(bool) | non_self_category)
+    t1_mask = pct.le(t1_cut) & (ms_cancer | non_self_category)
     t2_mask = pct.le(t2_cut) & ((ms_hits > 0) | non_self_category)
     t3_mask = pct.le(t3_cut)
 
-    tier = pd.Series(4, index=combined.index, dtype="int64")
+    tier = pd.Series(4, index=idx, dtype="int64")
     tier = tier.mask(t3_mask, 3)
     tier = tier.mask(t2_mask, 2)
     tier = tier.mask(t1_mask, 1)
 
-    reasons = []
-    for idx in combined.index:
-        t = int(tier.loc[idx])
-        cat = category.loc[idx]
-        if t == 1:
-            driver = (
-                "cancer_ms"
-                if bool(ms_cancer.loc[idx] if hasattr(ms_cancer, "loc") else False)
-                else cat
-            )
-            reasons.append(f"strong_presentation+{driver}")
-        elif t == 2:
-            if cat in ("mutant", "viral"):
-                reasons.append(f"moderate_presentation+{cat}")
-            else:
-                reasons.append("moderate_presentation+any_ms")
-        elif t == 3:
-            reasons.append("presentation_only")
-        else:
-            reasons.append("unscored" if pd.isna(pct.loc[idx]) else "below_threshold")
+    # Vectorized tier_reason assembly — prefix + per-tier driver, chained .mask
+    t1_driver = pd.Series(
+        np.where(ms_cancer.to_numpy(), "cancer_ms", category.to_numpy()), index=idx
+    )
+    t2_driver = pd.Series(
+        np.where(non_self_category.to_numpy(), category.to_numpy(), "any_ms"), index=idx
+    )
+    t4_driver = pd.Series(np.where(pct.isna().to_numpy(), "unscored", "below_threshold"), index=idx)
+    reasons = t4_driver.copy()
+    reasons = reasons.mask(tier == 3, "presentation_only")
+    reasons = reasons.mask(tier == 2, "moderate_presentation+" + t2_driver)
+    reasons = reasons.mask(tier == 1, "strong_presentation+" + t1_driver)
 
     combined = combined.copy()
     combined["tier"] = tier
     combined["tier_label"] = combined["tier"].map(_TIER_LABELS)
-    combined["tier_reason"] = reasons
+    combined["tier_reason"] = reasons.to_numpy()
     return combined
