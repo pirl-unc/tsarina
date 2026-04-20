@@ -27,6 +27,7 @@ Typical usage::
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Union
 
 import pandas as pd
@@ -34,6 +35,54 @@ import pandas as pd
 AA20 = set("ACDEFGHIKLMNPQRSTVWY")
 
 DEFAULT_PEPTIDE_LENGTHS = (8, 9, 10, 11)
+
+
+@lru_cache(maxsize=4)
+def _non_cta_proteome_kmers(
+    ensembl_release: int,
+    lengths: tuple[int, ...],
+) -> frozenset[str]:
+    """Return every k-mer found in any non-CTA protein-coding transcript.
+
+    Shared between :func:`cta_exclusive_peptides` and other cancer-specific
+    callers that need to subtract the non-CTA self-peptide background.
+    The set depends only on ``(ensembl_release, lengths)`` and is expensive
+    to build (~10-30s walking every non-CTA transcript in an Ensembl
+    release), so the result is process-wide ``@lru_cache``'d behind a
+    ``frozenset`` — the second call within a process returns immediately
+    with no additional work.
+
+    Cache holds up to 4 ``(release, lengths)`` combinations (typical use
+    hits one).  Clear via ``_non_cta_proteome_kmers.cache_clear()``.
+    """
+    from pyensembl import EnsemblRelease
+
+    from .partition import CTA_partition_gene_ids
+
+    ensembl = EnsemblRelease(ensembl_release)
+    partition = CTA_partition_gene_ids(ensembl_release)
+
+    kmers: set[str] = set()
+    for gene_id in partition.non_cta:
+        try:
+            gene = ensembl.gene_by_id(gene_id)
+        except ValueError:
+            continue
+        for t in gene.transcripts:
+            if t.biotype != "protein_coding":
+                continue
+            try:
+                seq = t.protein_sequence
+            except Exception:
+                continue
+            if not seq:
+                continue
+            for k in lengths:
+                for i in range(len(seq) - k + 1):
+                    pep = seq[i : i + k]
+                    if set(pep).issubset(AA20):
+                        kmers.add(pep)
+    return frozenset(kmers)
 
 
 def cta_peptides(
@@ -141,37 +190,15 @@ def cta_exclusive_peptides(
     -------
     pd.DataFrame
         Same columns as :func:`cta_peptides`, filtered to exclusive peptides.
+
+    Notes
+    -----
+    The non-CTA k-mer set is computed once per ``(ensembl_release, lengths)``
+    via :func:`_non_cta_proteome_kmers` and cached for the life of the
+    process.  First call pays ~10-30s walking the non-CTA transcript set;
+    subsequent calls with the same inputs return in sub-millisecond time.
     """
-    from pyensembl import EnsemblRelease
-
-    from .partition import CTA_partition_gene_ids
-
-    ensembl = EnsemblRelease(ensembl_release)
-    partition = CTA_partition_gene_ids(ensembl_release)
-
-    # Build set of all peptide k-mers from non-CTA proteins
-    noncta_peptides: set[str] = set()
-    for gene_id in partition.non_cta:
-        try:
-            gene = ensembl.gene_by_id(gene_id)
-        except ValueError:
-            continue
-        for t in gene.transcripts:
-            if t.biotype != "protein_coding":
-                continue
-            try:
-                seq = t.protein_sequence
-            except Exception:
-                continue
-            if not seq:
-                continue
-            for k in lengths:
-                for i in range(len(seq) - k + 1):
-                    pep = seq[i : i + k]
-                    if set(pep).issubset(AA20):
-                        noncta_peptides.add(pep)
-
-    # Generate CTA peptides and filter
+    noncta_peptides = _non_cta_proteome_kmers(ensembl_release, tuple(lengths))
     cta_df = cta_peptides(ensembl_release=ensembl_release, lengths=lengths)
     mask = ~cta_df["peptide"].isin(noncta_peptides)
     return cta_df[mask].reset_index(drop=True)

@@ -48,11 +48,55 @@ Typical usage::
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 
 from .peptides import AA20
+
+
+@lru_cache(maxsize=4)
+def _human_proteome_kmers(
+    ensembl_release: int,
+    lengths: tuple[int, ...],
+) -> frozenset[str]:
+    """Return every k-mer found in any human protein-coding transcript.
+
+    Shared by :func:`human_exclusive_viral_peptides` and any other caller
+    that needs to subtract the full human self-peptide background.  The
+    set depends only on ``(ensembl_release, lengths)`` and is expensive
+    to build (~20-60s walking every protein-coding transcript in an
+    Ensembl release), so the result is process-wide ``@lru_cache``'d
+    behind a ``frozenset`` — the second call within a process returns
+    immediately with no additional work.
+
+    Cache holds up to 4 ``(release, lengths)`` combinations.  Clear via
+    ``_human_proteome_kmers.cache_clear()``.
+    """
+    from pyensembl import EnsemblRelease
+
+    ensembl = EnsemblRelease(ensembl_release)
+    kmers: set[str] = set()
+    for gene in ensembl.genes():
+        if gene.biotype != "protein_coding":
+            continue
+        for t in gene.transcripts:
+            if t.biotype != "protein_coding":
+                continue
+            try:
+                seq = t.protein_sequence
+            except Exception:
+                continue
+            if not seq:
+                continue
+            for k in lengths:
+                for i in range(len(seq) - k + 1):
+                    pep = seq[i : i + k]
+                    if set(pep).issubset(AA20):
+                        kmers.add(pep)
+    return frozenset(kmers)
+
 
 # ── Virus definitions ───────────────────────────────────────────────────────
 
@@ -270,34 +314,19 @@ def human_exclusive_viral_peptides(
     -------
     pd.DataFrame
         Same columns as :func:`viral_peptides`, filtered to human-exclusive.
-    """
-    from pyensembl import EnsemblRelease
 
+    Notes
+    -----
+    The human k-mer set is computed once per
+    ``(ensembl_release, lengths)`` via :func:`_human_proteome_kmers` and
+    cached for the life of the process.  First call pays ~20-60s walking
+    every protein-coding transcript in the Ensembl release; subsequent
+    calls with the same inputs return in sub-millisecond time.
+    """
     vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
     if vdf.empty:
         return vdf
-
-    # Build set of all human protein k-mers
-    ensembl = EnsemblRelease(ensembl_release)
-    human_kmers: set[str] = set()
-    for gene in ensembl.genes():
-        if gene.biotype != "protein_coding":
-            continue
-        for t in gene.transcripts:
-            if t.biotype != "protein_coding":
-                continue
-            try:
-                seq = t.protein_sequence
-            except Exception:
-                continue
-            if not seq:
-                continue
-            for k in lengths:
-                for i in range(len(seq) - k + 1):
-                    pep = seq[i : i + k]
-                    if set(pep).issubset(AA20):
-                        human_kmers.add(pep)
-
+    human_kmers = _human_proteome_kmers(ensembl_release, tuple(lengths))
     mask = ~vdf["peptide"].isin(human_kmers)
     return vdf[mask].reset_index(drop=True)
 
