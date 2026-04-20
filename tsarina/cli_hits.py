@@ -30,7 +30,7 @@ import sys
 
 import pandas as pd
 
-_SUPPORTED_FORMATS = ("peptides", "pmhc", "raw")
+_SUPPORTED_FORMATS = ("peptides", "pmhc", "refs", "raw")
 _SUPPORTED_PREDICTORS = ("mhcflurry", "netmhcpan", "netmhcpan_el")
 _SUPPORTED_RESOLUTIONS = ("four_digit", "two_digit", "serological", "class_only")
 
@@ -131,7 +131,11 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--format",
         choices=_SUPPORTED_FORMATS,
         default="pmhc",
-        help="Output aggregation (default pmhc).",
+        help=(
+            "Output aggregation (default pmhc). 'refs' adds per-pMHC columns "
+            "for ref_count, pmids, tissues, diseases, cell_lines, and the "
+            "cancer / healthy-tissue source flags."
+        ),
     )
     p.add_argument(
         "--predict",
@@ -288,6 +292,85 @@ def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFram
     return hits[hits["mhc_restriction"].map(_matches)].copy()
 
 
+def _aggregate_refs(hits: pd.DataFrame) -> pd.DataFrame:
+    """Per-(peptide, allele) aggregation focused on references + tissues.
+
+    Produces a leaner alternative to :func:`hitlist.aggregate_per_pmhc` that
+    exposes the provenance columns reviewers usually want on a pMHC row:
+    reference count, the actual PMID list, and the distinct tissues /
+    diseases / cell lines where the peptide was observed.  The
+    source-context booleans (``in_cancer`` / ``in_healthy_tissue``) are
+    preserved for quick filtering.
+
+    Parameters
+    ----------
+    hits
+        Raw scan / observations rows with at minimum ``peptide`` and
+        ``mhc_restriction`` columns.  Optional columns (``pmid``,
+        ``source_tissue``, ``disease``, ``cell_line_name``,
+        ``src_cancer``, ``src_healthy_tissue``, ``is_monoallelic``) are
+        used when present and silently skipped when absent.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per (peptide, mhc_restriction).  Columns:
+        ``peptide``, ``length``, ``mhc_restriction``, ``hit_count``,
+        ``ref_count``, ``pmids``, ``tissues``, ``diseases``,
+        ``cell_lines``, ``in_cancer``, ``in_healthy_tissue``,
+        ``mono_allelic_hit_count``.
+    """
+    if hits.empty:
+        return pd.DataFrame(
+            columns=[
+                "peptide",
+                "length",
+                "mhc_restriction",
+                "hit_count",
+                "ref_count",
+                "pmids",
+                "tissues",
+                "diseases",
+                "cell_lines",
+                "in_cancer",
+                "in_healthy_tissue",
+                "mono_allelic_hit_count",
+            ]
+        )
+
+    def _join_unique(series: pd.Series) -> str:
+        values = {
+            str(v).strip() for v in series.dropna() if str(v).strip() and str(v).lower() != "nan"
+        }
+        return ";".join(sorted(values))
+
+    def _count_unique(series: pd.Series) -> int:
+        return len(
+            {str(v).strip() for v in series.dropna() if str(v).strip() and str(v).lower() != "nan"}
+        )
+
+    agg_cols: dict[str, tuple] = {"hit_count": ("peptide", "size")}
+    if "pmid" in hits.columns:
+        agg_cols["ref_count"] = ("pmid", _count_unique)
+        agg_cols["pmids"] = ("pmid", _join_unique)
+    if "source_tissue" in hits.columns:
+        agg_cols["tissues"] = ("source_tissue", _join_unique)
+    if "disease" in hits.columns:
+        agg_cols["diseases"] = ("disease", _join_unique)
+    if "cell_line_name" in hits.columns:
+        agg_cols["cell_lines"] = ("cell_line_name", _join_unique)
+    if "src_cancer" in hits.columns:
+        agg_cols["in_cancer"] = ("src_cancer", "any")
+    if "src_healthy_tissue" in hits.columns:
+        agg_cols["in_healthy_tissue"] = ("src_healthy_tissue", "any")
+    if "is_monoallelic" in hits.columns:
+        agg_cols["mono_allelic_hit_count"] = ("is_monoallelic", "sum")
+
+    out = hits.groupby(["peptide", "mhc_restriction"], as_index=False).agg(**agg_cols)
+    out.insert(1, "length", out["peptide"].str.len())
+    return out
+
+
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:
     if min_resolution is None or hits.empty:
         return hits
@@ -413,6 +496,16 @@ def handle(args: argparse.Namespace) -> None:
             out = legacy.merge(out, on="peptide", how="inner")
     elif args.format == "pmhc":
         out = aggregate_per_pmhc(hits)
+        if gene_ident_cols:
+            ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
+            out = ids.merge(out, on="peptide", how="inner")
+        elif pep_df is not None:
+            legacy = pep_df[["peptide", "protein_id", "gene_name", "gene_id"]].drop_duplicates(
+                subset="peptide"
+            )
+            out = legacy.merge(out, on="peptide", how="inner")
+    elif args.format == "refs":
+        out = _aggregate_refs(hits)
         if gene_ident_cols:
             ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
             out = ids.merge(out, on="peptide", how="inner")
