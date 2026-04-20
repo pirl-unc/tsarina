@@ -314,11 +314,14 @@ def _aggregate_refs(hits: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        One row per (peptide, mhc_restriction).  Columns:
-        ``peptide``, ``length``, ``mhc_restriction``, ``hit_count``,
-        ``ref_count``, ``pmids``, ``tissues``, ``diseases``,
+        One row per (peptide, mhc_restriction).  **Output columns depend on
+        which optional inputs were supplied:** only ``peptide``, ``length``,
+        ``mhc_restriction``, and ``hit_count`` are guaranteed.  The rest
+        (``ref_count``, ``pmids``, ``tissues``, ``diseases``,
         ``cell_lines``, ``in_cancer``, ``in_healthy_tissue``,
-        ``mono_allelic_hit_count``.
+        ``mono_allelic_hit_count``) appear only when the corresponding
+        input column was present.  The empty-frame path returns the full
+        canonical column list for downstream shape stability.
     """
     if hits.empty:
         return pd.DataFrame(
@@ -349,10 +352,22 @@ def _aggregate_refs(hits: pd.DataFrame) -> pd.DataFrame:
             {str(v).strip() for v in series.dropna() if str(v).strip() and str(v).lower() != "nan"}
         )
 
+    def _join_unique_numeric(series: pd.Series) -> str:
+        """Like ``_join_unique`` but sorts numerically — use for integer
+        identifiers like PMIDs so a 9-digit PMID doesn't land before an
+        8-digit one under lexicographic ordering."""
+        values: set[int] = set()
+        for v in series.dropna():
+            try:
+                values.add(int(v))
+            except (TypeError, ValueError):
+                continue
+        return ";".join(str(x) for x in sorted(values))
+
     agg_cols: dict[str, tuple] = {"hit_count": ("peptide", "size")}
     if "pmid" in hits.columns:
         agg_cols["ref_count"] = ("pmid", _count_unique)
-        agg_cols["pmids"] = ("pmid", _join_unique)
+        agg_cols["pmids"] = ("pmid", _join_unique_numeric)
     if "source_tissue" in hits.columns:
         agg_cols["tissues"] = ("source_tissue", _join_unique)
     if "disease" in hits.columns:

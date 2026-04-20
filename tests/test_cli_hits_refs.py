@@ -128,3 +128,33 @@ def test_refs_is_in_cli_format_choices():
     from tsarina.cli_hits import _SUPPORTED_FORMATS
 
     assert "refs" in _SUPPORTED_FORMATS
+
+
+def test_refs_pmids_sorted_numerically_not_lexicographically():
+    """PMIDs are integers. Lexicographic sort would place a 9-digit PMID
+    before an 8-digit one (``"1000000000" < "999999999"`` as strings)."""
+    hits = pd.DataFrame(
+        {
+            "peptide": ["SAME9PEP"] * 3,
+            "mhc_restriction": ["HLA-A*02:01"] * 3,
+            "pmid": [999999999, 38000001, 1000000000],
+        }
+    )
+    out = _aggregate_refs(hits)
+    assert out.loc[0, "pmids"] == "38000001;999999999;1000000000"
+    assert int(out.loc[0, "ref_count"]) == 3
+
+
+def test_refs_in_healthy_tissue_true_when_any_row_flagged():
+    """Positive-case coverage for the ``in_healthy_tissue`` aggregation."""
+    hits = pd.DataFrame(
+        {
+            "peptide": ["RISKY9PEP", "RISKY9PEP"],
+            "mhc_restriction": ["HLA-A*02:01", "HLA-A*02:01"],
+            "src_cancer": [True, False],
+            "src_healthy_tissue": [False, True],
+        }
+    )
+    out = _aggregate_refs(hits)
+    assert bool(out.loc[0, "in_cancer"]) is True
+    assert bool(out.loc[0, "in_healthy_tissue"]) is True
