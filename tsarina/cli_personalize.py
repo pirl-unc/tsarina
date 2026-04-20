@@ -105,8 +105,47 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--min-cta-tpm",
         type=float,
+        default=2.0,
+        help="Minimum CTA expression in TPM to include (default 2.0).",
+    )
+    p.add_argument(
+        "--min-restriction-confidence",
+        type=_split_csv,
+        default=["HIGH", "MODERATE"],
+        help=(
+            "Allowed CTA restriction_confidence bins, comma-separated "
+            "(default 'HIGH,MODERATE'; pass 'ANY' to disable)."
+        ),
+    )
+    p.add_argument(
+        "--mtec-matrix",
+        dest="mtec_matrix_path",
+        default=None,
+        help="Path to mTEC gene TPM matrix (TSV); gates CTAs by thymic expression.",
+    )
+    p.add_argument(
+        "--mtec-max-tpm",
+        type=float,
         default=1.0,
-        help="Minimum CTA expression in TPM to include (default 1.0).",
+        help="Maximum mean mTEC TPM when --mtec-matrix is given (default 1.0).",
+    )
+    p.add_argument(
+        "--no-require-human-exclusive-viral",
+        dest="require_human_exclusive_viral",
+        action="store_false",
+        help="Include viral k-mers even if they match a human protein.",
+    )
+    p.add_argument(
+        "--no-enforce-tumor-specificity",
+        dest="enforce_tumor_specificity",
+        action="store_false",
+        help="Keep peptides observed on healthy tissue (default: drop them).",
+    )
+    p.add_argument(
+        "--keep-weak-tier",
+        dest="drop_weak_tier",
+        action="store_false",
+        help="Retain tier-4 (WEAK/unscored) rows in the output.",
     )
     p.add_argument(
         "--no-score",
@@ -149,6 +188,12 @@ def handle(args: argparse.Namespace) -> None:
     from .datasources import DatasetNotRegisteredError
     from .personalize import personalize
 
+    min_restriction_confidence: tuple[str, ...] | None
+    if any(v.upper() == "ANY" for v in args.min_restriction_confidence):
+        min_restriction_confidence = None
+    else:
+        min_restriction_confidence = tuple(v.upper() for v in args.min_restriction_confidence)
+
     try:
         df = personalize(
             hla_alleles=args.hla,
@@ -161,9 +206,15 @@ def handle(args: argparse.Namespace) -> None:
             cedar_path=args.cedar_path,
             mhc_class=args.mhc_class,
             min_cta_tpm=args.min_cta_tpm,
+            min_restriction_confidence=min_restriction_confidence,
+            mtec_matrix_path=args.mtec_matrix_path,
+            mtec_max_tpm=args.mtec_max_tpm,
+            require_human_exclusive_viral=args.require_human_exclusive_viral,
+            enforce_tumor_specificity=args.enforce_tumor_specificity,
             score_presentation=not args.no_score,
             skip_ms_evidence=args.skip_ms_evidence,
             predictor=args.predictor,
+            drop_weak_tier=args.drop_weak_tier,
         )
     except DatasetNotRegisteredError as e:
         print(f"Error: {e}", file=sys.stderr)
