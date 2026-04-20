@@ -50,6 +50,7 @@ def target_peptides(
     require_ms_evidence: bool = False,
     classify_source: bool = True,
     cancer_specific: bool = False,
+    require_human_exclusive_viral: bool = True,
 ) -> pd.DataFrame:
     """Build a unified peptide table across CTA, viral, and mutant targets.
 
@@ -83,6 +84,11 @@ def target_peptides(
         (``src_cancer=True``) and without healthy-tissue evidence
         (``src_healthy=False``).  Only applies when MS evidence is
         available.
+    require_human_exclusive_viral
+        If True (default), viral k-mers are filtered to those that do not
+        appear in any human protein (via
+        :func:`tsarina.viral.human_exclusive_viral_peptides`).  Set False
+        to include all viral k-mers regardless of human-proteome overlap.
 
     Returns
     -------
@@ -114,11 +120,20 @@ def target_peptides(
 
     # ── Viral peptides ──────────────────────────────────────────────────
     if viruses:
-        from .viral import ONCOGENIC_VIRUSES, viral_peptides
+        from .viral import (
+            ONCOGENIC_VIRUSES,
+            human_exclusive_viral_peptides,
+            viral_peptides,
+        )
 
         virus_keys = sorted(ONCOGENIC_VIRUSES.keys()) if viruses is True else list(viruses)
         for vk in virus_keys:
-            vdf = viral_peptides(virus=vk, lengths=lengths)
+            if require_human_exclusive_viral:
+                vdf = human_exclusive_viral_peptides(
+                    virus=vk, lengths=lengths, ensembl_release=ensembl_release
+                )
+            else:
+                vdf = viral_peptides(virus=vk, lengths=lengths)
             if not vdf.empty:
                 frames.append(
                     pd.DataFrame(

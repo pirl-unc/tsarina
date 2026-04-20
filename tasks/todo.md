@@ -1,3 +1,188 @@
+# Audit — Hitlist Alignment And TSA Goal
+
+## Goal
+
+Audit the current tsarina pipeline against two questions:
+
+1. Do the recent hitlist-driven changes preserve the intended semantics of
+   "MS-supported" evidence?
+2. Does tsarina, as currently implemented, actually produce a
+   high-confidence set of tumor-specific antigens suitable for vaccine and TCR
+   therapy prioritization?
+
+The audit should distinguish between:
+
+- correctness of the code relative to the current hitlist/data interfaces
+- scientific/product-fit of the resulting target set
+- missing guardrails that could let non-tumor-specific or weakly supported
+  candidates survive ranking/export
+
+## Audit Plan
+
+- [x] Review recent tsarina changes that touched hitlist integration, cached
+      observations loading, public-MS scanning, and target ranking/export.
+- [x] Trace the end-to-end pipeline from peptide generation through evidence
+      collection, tissue-specificity filters, scoring, and target assembly.
+- [x] Compare implemented filters and scoring rules against the stated goal of
+      high-confidence MS-supported tumor-specific antigens for vaccines/TCRs.
+- [x] Identify concrete failure modes, missing controls, and places where the
+      current implementation could overstate confidence or tumor specificity.
+- [x] Record findings with file/line references and recommended follow-up work.
+
+## Verification
+
+- [x] Read-only audit — no repo edits, so `format.sh`/`lint.sh`/`test.sh` N/A.
+
+## Review
+
+### Answers to the two audit questions
+
+**Q1: Do recent hitlist-driven changes preserve the intended semantics of
+"MS-supported" evidence?**  Yes. The refactor across v0.5.2 → v0.7.0 is clean:
+
+- `is_binding_assay` filtering is consistent across fast path
+  (`indexing.load_ms_evidence` drops binding rows by default) and slow path
+  (`export.py:78-79`, `evidence.py:208-209`, `cli_hits.py:359-360` all filter
+  after `scan()`).
+- `--include-binding-assays` correctly routes to
+  `hitlist.observations.load_all_evidence` on fast path (`cli_hits.py:367-376`)
+  and skips the post-scan drop on slow path.
+- `mhc_species="Homo sapiens"` is hardcoded in every library entry point
+  (`personalize.py:232`, `export.py:86`, `evidence.py:205,216`); CLI exposes
+  `--species`. No silent widening.
+- `_species_kwargs`, `hla_only`, `human_only` shims fully removed (grep-clean).
+- `resolve_cedar_path` silent-None on unregistered is by design.
+
+**Q2: Does tsarina, as currently implemented, produce a high-confidence set of
+tumor-specific antigens for vaccine / TCR prioritization?**  No — not via the
+`personalize()` entry point.  The `targets()` path is closer but still has the
+viral-exclusivity hole.  Several guardrails are missing, miswired, or defined
+but unenforced.
+
+---
+
+### Findings — severity ordered, with file:line refs
+
+#### CRITICAL (can let non-tumor-specific peptides into final output)
+
+1. **`personalize.py:120,129` uses `cta_peptides()` instead of
+   `cta_exclusive_peptides()`.** A 9-mer from MAGEA4 that also appears in a
+   ubiquitously-expressed housekeeping protein is ranked as a CTA target.
+   `targets.py:99,101` already uses the exclusive variant — the two paths
+   diverge silently. `peptides.py:122-177` defines exclusivity as "peptide
+   does not appear as a substring in any non-CTA protein-coding transcript".
+
+2. **`personalize.py:177,180` AND `targets.py:117,121` both use
+   `viral_peptides()` instead of `human_exclusive_viral_peptides()`.**
+   `viral.py:245-302` defines the exclusive variant (filters viral k-mers
+   that also match the human proteome); it exists and is documented but is
+   never called from the main pipelines. An HPV16 E6 k-mer that collides
+   with a human self-peptide can be ranked as a viral target.
+
+3. **`personalize.py:266-288` — MHC scoring is effectively optional.**
+   Scores are merged `how="left"` (line 286); `except ImportError: pass`
+   (line 287-288) silently swallows an mhctools/mhcflurry install failure.
+   A peptide with missing `presentation_percentile` then falls through to
+   `line 303`: `(100 - percentile.fillna(100)).clip(lower=0) * 0.5`, which
+   evaluates to 0 rather than excluding the row. The candidate still carries
+   any MS-driven score and lands in the output with `best_allele=NaN`.
+
+4. **`personalize.py:292-305` `priority_score` conflates modalities with
+   uncalibrated weights and no tiering.**  A single MS hit anywhere earns
+   `+10` (line 294); a peptide observed in cancer earns `+20` (line 296);
+   a 0.5%-percentile prediction earns `~+49.75` (line 303-305). One MS hit
+   plus `ms_in_cancer=True` (+30) beats a strong prediction with no public
+   observation. There is no tier column, no minimum-confidence gate, and no
+   distinction between "seen in one cell line" and "seen across many tissues".
+   `scoring.py` defines `PRESENTATION_PERCENTILE_THRESHOLDS = (0.25, 0.50,
+   1.0)` but nothing downstream consumes them.
+
+#### MAJOR
+
+5. **Healthy-tissue evidence is a soft penalty, not a gate
+   (`personalize.py:297-298`: `-= ms_in_healthy_tissue * 50`).**  A peptide
+   observed in normal tissue can still rank positively if MS-in-cancer,
+   hit-count, and presentation contributions outweigh it. `targets.py:231-234`
+   exposes a `cancer_specific` keyword that *does* hard-filter, but
+   `personalize()` never wires one through.
+
+6. **`mtec.py` and `negatives.healthy_tissue_peptides` are not wired into
+   `personalize()`.**  mTEC is used in `selection.py:89,121` (sort-tiebreak)
+   and joined by `export.py:127-133`, but the clinical `personalize()` →
+   CSV path skips it. Thymic-self peptides (likely to be tolerized, so
+   clinically useless as vaccine / TCR targets) are not flagged.
+   `negatives.healthy_tissue_peptides` is defined but has zero callers
+   outside its own docstring example.
+
+7. **`personalize.py:307` — single-key sort, no deterministic tiebreak.**
+   `sort_values("priority_score", ascending=False)`. Many candidates tie at
+   `ms_hit_count * 10` values; pandas preserves insertion order, which
+   depends on frame concat order in lines 115-194. Re-running the same patient
+   inputs can reshuffle the top of the list.
+
+8. **No per-CTA restriction / confidence gate in `personalize()`.**
+   `personalize.py:122-126` admits any gene in `CTA_gene_names()` at
+   `tpm >= min_cta_tpm`. Per-gene `restriction_level` / `restriction_confidence`
+   computed in `tiers.py` are reporting-only in this path.  A LEAKY / LOW-
+   confidence CTA contributes peptides indistinguishably from a STRICT / HIGH-
+   confidence one.
+
+9. **`min_cta_tpm=1.0` default (`personalize.py:50`) is below the
+   `never_expressed < 2 nTPM` cutoff used to build the CTA CSV.**  Aligning
+   runtime to 2.0 would close a small gap where a borderline-expressed CTA
+   passes both filters.
+
+#### MINOR
+
+10. **Predictor-aware calibration is absent.**  `--predictor
+    netmhcpan|netmhcpan_el` swaps the scorer, but `personalize.py:303` still
+    treats percentile on a 0-100 scale with a fixed `*0.5` weight. NetMHCpan's
+    percentile distribution differs from MHCflurry's; no warning is emitted.
+
+11. **CEDAR silent-None** (`datasources.py:70-81`). Intentional per docstring,
+    but a one-line stderr note when CEDAR is unregistered would help users
+    distinguish "no CEDAR data" from "I forgot to register CEDAR".
+
+#### POSITIVE (no action)
+
+- `mutations.py:355-356` guards `mut_pep == wt_pep` → "mutant" peptides that
+  are actually self are dropped.
+- Fast-path ↔ slow-path parity for MS filters is clean.
+- `_species_kwargs` / `hla_only` / `human_only` traces fully removed.
+- `datasources.resolve_*` is the single registry entry point.
+
+---
+
+### Recommended follow-ups (grouped for separate PRs)
+
+- **PR A (CRITICAL, 2 lines):** `personalize.py:120,129` → use
+  `cta_exclusive_peptides`.  Add regression test that a peptide present in
+  both MAGEA4 and a non-CTA protein does not appear in personalize output.
+- **PR B (CRITICAL, ~6 lines):** `personalize.py:177` and `targets.py:117`
+  → default to `human_exclusive_viral_peptides`. Add a kwarg
+  `require_human_exclusive: bool = True` for explicitness.
+- **PR C (CRITICAL):** Mandatory MHC-prediction gate in `personalize()`.
+  Either drop NaN-percentile rows or annotate them with `tier="UNSCORED"`
+  and exclude from top tiers. Fail loudly (not silently) on mhctools
+  ImportError when `score_presentation=True` was requested.
+- **PR D (CRITICAL + MAJOR):** Replace `priority_score` arithmetic with an
+  explicit tier system consuming `scoring.PRESENTATION_PERCENTILE_THRESHOLDS`.
+  Tier 1 = (MS cancer-only AND percentile ≤ 0.5) OR (≥3 MS hits AND ≤1%);
+  Tier 2 = MS OR ≤2%; Tier 3 = else. Export a `tier` column. Deterministic
+  sort `[tier, -ms_hit_count, presentation_percentile, peptide, best_allele]`.
+- **PR E (MAJOR):** Add `enforce_tumor_specificity: bool = True` to
+  `personalize()` that drops `ms_in_healthy_tissue=True` rows (mirrors
+  `targets.py:231-234`'s `cancer_specific`).
+- **PR F (MAJOR):** Wire `mtec.load_mtec_gene_table` and
+  `negatives.healthy_tissue_peptides` into `personalize()` as flags-on-by-
+  default filters; annotate excluded peptides in a diagnostic CSV.
+- **PR G (MAJOR):** Add `restriction_level` / `restriction_confidence` gate
+  for CTAs (default: require HIGH or MODERATE).
+- **PR H (MINOR):** Raise `min_cta_tpm` default to 2.0; log CEDAR-missing
+  once per invocation; emit a warning when `--predictor != mhcflurry`.
+
+---
+
 # CLI Expansion + Hitlist API Alignment
 
 ## Goal
