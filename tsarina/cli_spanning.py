@@ -167,6 +167,9 @@ def handle(args: argparse.Namespace) -> None:
     else:
         min_restriction_confidence = tuple(v.upper() for v in args.min_restriction_confidence)
 
+    def _on_progress(msg: str) -> None:
+        print(msg, file=sys.stderr)
+
     df = spanning_pmhc_set(
         cta_count=args.cta_count,
         cta_rank_by=args.cta_rank_by,
@@ -181,6 +184,7 @@ def handle(args: argparse.Namespace) -> None:
         predictor=args.predictor,
         max_percentile=args.max_percentile,
         output_format=args.format,
+        on_progress=_on_progress,
     )
 
     if args.output:
