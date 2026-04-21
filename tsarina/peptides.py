@@ -37,37 +37,63 @@ AA20 = set("ACDEFGHIKLMNPQRSTVWY")
 DEFAULT_PEPTIDE_LENGTHS = (8, 9, 10, 11)
 
 
-@lru_cache(maxsize=4)
-def _non_cta_proteome_kmers(
+@lru_cache(maxsize=8)
+def _proteome_kmers(
     ensembl_release: int,
     lengths: tuple[int, ...],
+    gene_ids: frozenset[str] | None = None,
 ) -> frozenset[str]:
-    """Return every k-mer found in any non-CTA protein-coding transcript.
+    """Return every k-mer found in the requested subset of the Ensembl proteome.
 
-    Shared between :func:`cta_exclusive_peptides` and other cancer-specific
-    callers that need to subtract the non-CTA self-peptide background.
-    The set depends only on ``(ensembl_release, lengths)`` and is expensive
-    to build (~10-30s walking every non-CTA transcript in an Ensembl
-    release), so the result is process-wide ``@lru_cache``'d behind a
-    ``frozenset`` — the second call within a process returns immediately
-    with no additional work.
+    Single cached primitive behind every tsarina function that needs to
+    subtract a self-peptide background — CTA exclusivity, viral human-
+    exclusivity, and viral cancer-specificity all call this with
+    different ``gene_ids`` filters.
 
-    Cache holds up to 4 ``(release, lengths)`` combinations (typical use
-    hits one).  Clear via ``_non_cta_proteome_kmers.cache_clear()``.
+    Parameters
+    ----------
+    ensembl_release
+        Ensembl release (e.g. 112).
+    lengths
+        Peptide lengths to enumerate.
+    gene_ids
+        Frozenset of Ensembl gene IDs to restrict the walk to.  ``None``
+        (default) iterates every protein-coding gene in the release,
+        matching what a full-proteome background walk would produce.
+
+    Returns
+    -------
+    frozenset[str]
+        Unique k-mers at the requested lengths across the chosen gene
+        subset, with any non-AA20 residue stretches dropped.
+
+    Notes
+    -----
+    The walk is expensive (~10-60s depending on release + length mix +
+    gene subset size).  Result is ``@lru_cache``'d keyed on
+    ``(ensembl_release, lengths, gene_ids)``, so a second call with the
+    same arguments returns in sub-millisecond time.  Cache holds up to
+    8 combinations — enough for a handful of common partitions
+    (non-CTA, CTA, full proteome) across 1-2 releases.  Clear via
+    ``_proteome_kmers.cache_clear()``.
+
+    Long-term this primitive is a candidate to move upstream into
+    ``hitlist.proteome`` (tracked in hitlist#99) so sibling packages
+    can share a cross-package cache.  Call sites would collapse from
+    ``_proteome_kmers(r, l, gene_ids)`` to the one-line
+    ``hitlist.proteome_kmer_set(r, l, gene_ids=gene_ids)``.
     """
     from pyensembl import EnsemblRelease
 
-    from .partition import CTA_partition_gene_ids
-
     ensembl = EnsemblRelease(ensembl_release)
-    partition = CTA_partition_gene_ids(ensembl_release)
+
+    if gene_ids is None:
+        genes = (g for g in ensembl.genes() if g.biotype == "protein_coding")
+    else:
+        genes = _genes_by_id(ensembl, gene_ids)
 
     kmers: set[str] = set()
-    for gene_id in partition.non_cta:
-        try:
-            gene = ensembl.gene_by_id(gene_id)
-        except ValueError:
-            continue
+    for gene in genes:
         for t in gene.transcripts:
             if t.biotype != "protein_coding":
                 continue
@@ -83,6 +109,41 @@ def _non_cta_proteome_kmers(
                     if set(pep).issubset(AA20):
                         kmers.add(pep)
     return frozenset(kmers)
+
+
+def _genes_by_id(ensembl, gene_ids):
+    """Yield ``ensembl.gene_by_id`` results for each id, skipping those
+    that fail lookup or are non-protein-coding."""
+    for gene_id in gene_ids:
+        try:
+            gene = ensembl.gene_by_id(gene_id)
+        except ValueError:
+            continue
+        if gene.biotype != "protein_coding":
+            continue
+        yield gene
+
+
+@lru_cache(maxsize=4)
+def _non_cta_gene_ids(ensembl_release: int) -> frozenset[str]:
+    """Cached frozenset of non-CTA Ensembl gene IDs for a release.
+
+    Pre-building the frozenset means downstream ``_proteome_kmers``
+    lookups reuse a single hashable instance rather than rebuilding
+    from the mutable ``CTA_partition_gene_ids(...).non_cta`` set on
+    every call.
+    """
+    from .partition import CTA_partition_gene_ids
+
+    return frozenset(CTA_partition_gene_ids(ensembl_release).non_cta)
+
+
+@lru_cache(maxsize=4)
+def _cta_gene_ids(ensembl_release: int) -> frozenset[str]:
+    """Cached frozenset of CTA Ensembl gene IDs for a release."""
+    from .partition import CTA_partition_gene_ids
+
+    return frozenset(CTA_partition_gene_ids(ensembl_release).cta)
 
 
 def cta_peptides(
@@ -194,11 +255,13 @@ def cta_exclusive_peptides(
     Notes
     -----
     The non-CTA k-mer set is computed once per ``(ensembl_release, lengths)``
-    via :func:`_non_cta_proteome_kmers` and cached for the life of the
-    process.  First call pays ~10-30s walking the non-CTA transcript set;
-    subsequent calls with the same inputs return in sub-millisecond time.
+    via :func:`_proteome_kmers` and cached for the life of the process.
+    First call pays ~10-30s walking the non-CTA transcript set; subsequent
+    calls with the same inputs return in sub-millisecond time.
     """
-    noncta_peptides = _non_cta_proteome_kmers(ensembl_release, tuple(lengths))
+    noncta_peptides = _proteome_kmers(
+        ensembl_release, tuple(lengths), _non_cta_gene_ids(ensembl_release)
+    )
     cta_df = cta_peptides(ensembl_release=ensembl_release, lengths=lengths)
     mask = ~cta_df["peptide"].isin(noncta_peptides)
     return cta_df[mask].reset_index(drop=True)
