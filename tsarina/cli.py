@@ -173,7 +173,7 @@ def _handle_data(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    from . import cli_hits, cli_personalize
+    from . import cli_hits, cli_personalize, cli_spanning
 
     parser = argparse.ArgumentParser(
         prog="tsarina",
@@ -184,6 +184,7 @@ def main() -> None:
     _build_data_parser(sub)
     cli_personalize.build_parser(sub)
     cli_hits.build_parser(sub)
+    cli_spanning.build_parser(sub)
 
     args = parser.parse_args()
     if args.command is None:
@@ -196,6 +197,8 @@ def main() -> None:
         cli_personalize.handle(args)
     elif args.command == "hits":
         cli_hits.handle(args)
+    elif args.command == "spanning":
+        cli_spanning.handle(args)
 
 
 if __name__ == "__main__":
