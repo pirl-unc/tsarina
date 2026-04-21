@@ -81,7 +81,9 @@ def spanning_pmhc_set(
     ctas
         Explicit list of gene symbols.  Overrides ``cta_count`` /
         ``cta_rank_by``.  Genes not present in the bundled CTA CSV are
-        silently dropped.
+        silently dropped.  Note: ``min_restriction_confidence`` and
+        ``restriction_levels`` gates do **not** apply on this path —
+        the explicit list wins verbatim.
     min_restriction_confidence
         Allowed ``restriction_confidence`` bins (e.g. ``("HIGH",
         "MODERATE")``).  Pass ``None`` to disable.  Applied before

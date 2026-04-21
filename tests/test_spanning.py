@@ -280,12 +280,16 @@ def test_no_ctas_pass_filter_returns_canonical_empty_frame():
     assert df.empty
 
 
-def test_size_within_target_envelope_for_default_args():
+def test_size_within_target_envelope_for_default_args(monkeypatch):
     """The headline use case: defaults (25 CTAs x 27 alleles, max 2%)
     should produce a wide table whose count of filled cells is in the
     100-1000 spanning-set range. Stub gives exactly 25*27=675 candidate
     cells; with the stub's 0.1 / 1.5 percentile baselines, every cell
     passes the 2.0 cutoff, so all 675 are filled — comfortably in range.
+
+    Uses ``monkeypatch.setattr`` (not raw attribute assignment) so the
+    expanded stubs are torn down after this test and don't leak into the
+    rest of the test session.
     """
     # Expand the stub CTA pool so cta_count=25 has enough candidates.
     extra_genes = [f"GENE{i:03d}" for i in range(25)]
@@ -297,13 +301,6 @@ def test_size_within_target_envelope_for_default_args():
             "gene_id": [f"E{i + 10}" for i in range(25)],
         }
     )
-
-    import tsarina.peptides
-
-    tsarina.peptides.cta_exclusive_peptides = lambda **kw: pd.concat(
-        [_stub_peptides(), extra_peps], ignore_index=True
-    )
-
     all_genes = ["MAGEA4", "PRAME", "CTAG1B", *extra_genes]
     cta_csv = pd.DataFrame(
         {
@@ -316,11 +313,14 @@ def test_size_within_target_envelope_for_default_args():
             "ms_cancer_peptide_count": list(range(28, 0, -1)),
         }
     )
-    import tsarina.gene_sets
-    import tsarina.loader
 
-    tsarina.loader.cta_dataframe = lambda: cta_csv
-    tsarina.gene_sets.CTA_gene_names = lambda: set(all_genes)
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.concat([_stub_peptides(), extra_peps], ignore_index=True),
+        raising=True,
+    )
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: set(all_genes), raising=True)
 
     df = spanning_pmhc_set(
         cta_count=25,
