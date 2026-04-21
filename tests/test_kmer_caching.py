@@ -10,19 +10,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for k-mer enumeration caching (tsarina#12).
+"""Tests for the unified k-mer enumeration primitive (tsarina#12 + #19).
 
-``_non_cta_proteome_kmers`` and ``_human_proteome_kmers`` walk every
-protein-coding transcript in an Ensembl release and produce a frozenset
-of all k-mers at the requested lengths. The walk is ~10-60s depending on
-release + length mix, so both helpers are ``@lru_cache``'d keyed on
-``(ensembl_release, lengths)``.
+``peptides._proteome_kmers(release, lengths, gene_ids)`` walks protein-
+coding transcripts in an Ensembl release and produces a ``frozenset`` of
+every k-mer at the requested lengths within the gene subset.  The walk
+is ~10-60s, so the helper is ``@lru_cache``'d on
+``(release, lengths, gene_ids)``.
 
-These tests exercise the caching behavior without actually loading
-Ensembl data: pyensembl is monkeypatched to a stub that tracks how many
-times the proteome is traversed, so we can directly assert that two
-calls with the same arguments produce a single traversal and that a
-different argument triggers a second.
+These tests exercise:
+
+1. The unified ``_proteome_kmers`` primitive directly — cache behavior,
+   gene-subset respect, full-proteome path (``gene_ids=None``).
+2. The thin frozenset wrappers (``_non_cta_gene_ids`` /
+   ``_cta_gene_ids``) that memoize the partition-derived sets.
+3. End-to-end caching through the public callers
+   (``cta_exclusive_peptides``, ``human_exclusive_viral_peptides``,
+   ``cancer_specific_viral_peptides``).
+
+A stubbed ``EnsemblRelease`` tracks ``.genes()`` / ``.gene_by_id()``
+call counts so we can assert cache hits vs traversal without pulling
+real Ensembl data.
 """
 
 from __future__ import annotations
@@ -78,86 +86,218 @@ class _FakePartition:
 
 @pytest.fixture(autouse=True)
 def _reset_caches_and_counts(monkeypatch):
-    peptides._non_cta_proteome_kmers.cache_clear()
-    viral._human_proteome_kmers.cache_clear()
+    peptides._proteome_kmers.cache_clear()
+    peptides._non_cta_gene_ids.cache_clear()
+    peptides._cta_gene_ids.cache_clear()
     _FakeEnsembl.call_counts = {"genes": 0, "gene_by_id": 0}
     monkeypatch.setattr("pyensembl.EnsemblRelease", _FakeEnsembl)
     monkeypatch.setattr("tsarina.partition.CTA_partition_gene_ids", lambda r: _FakePartition())
     yield
 
 
-# ── _non_cta_proteome_kmers (peptides.py) ──────────────────────────────
+# ── _proteome_kmers primitive ──────────────────────────────────────────
 
 
-def test_non_cta_helper_is_lru_cached():
-    assert hasattr(peptides._non_cta_proteome_kmers, "cache_info")
-    assert hasattr(peptides._non_cta_proteome_kmers, "cache_clear")
+def test_proteome_kmers_is_lru_cached():
+    assert hasattr(peptides._proteome_kmers, "cache_info")
+    assert hasattr(peptides._proteome_kmers, "cache_clear")
 
 
-def test_non_cta_returns_frozenset_of_kmers_from_non_cta_genes():
-    result = peptides._non_cta_proteome_kmers(112, (8,))
+def test_proteome_kmers_full_proteome_uses_genes_iteration():
+    """gene_ids=None walks every gene via ensembl.genes() rather than
+    looking up IDs one-by-one."""
+    result = peptides._proteome_kmers(112, (8,), None)
     assert isinstance(result, frozenset)
-    # ENSG_B = "MCCCCCCCCC" (10 chars) → three 8-mers: MCCCCCCC, CCCCCCCC, CCCCCCCC
-    # But CCCCCCCC appears as both second and third (same k-mer, deduped).
-    # ENSG_C = "MDDDDDDDDD" → analogous.
-    # ENSG_A is CTA → excluded from this helper.
-    assert "MCCCCCCC" in result
-    assert "MDDDDDDD" in result
-    assert "MAAAAAAA" not in result  # ENSG_A is CTA, excluded
-
-
-def test_non_cta_caches_across_calls_with_same_args():
-    r1 = peptides._non_cta_proteome_kmers(112, (8,))
-    gene_by_id_calls_after_first = _FakeEnsembl.call_counts["gene_by_id"]
-    assert gene_by_id_calls_after_first > 0  # first call did real work
-
-    r2 = peptides._non_cta_proteome_kmers(112, (8,))
-    # Second call hit cache — no additional traversal
-    assert _FakeEnsembl.call_counts["gene_by_id"] == gene_by_id_calls_after_first
-    # Identical frozenset object (lru_cache returns cached value)
-    assert r1 is r2
-
-
-def test_non_cta_different_args_compute_separately():
-    peptides._non_cta_proteome_kmers(112, (8,))
-    peptides._non_cta_proteome_kmers(112, (9,))  # different lengths → new cache key
-    info = peptides._non_cta_proteome_kmers.cache_info()
-    assert info.misses == 2
-    assert info.hits == 0
-
-
-# ── _human_proteome_kmers (viral.py) ───────────────────────────────────
-
-
-def test_human_helper_is_lru_cached():
-    assert hasattr(viral._human_proteome_kmers, "cache_info")
-    assert hasattr(viral._human_proteome_kmers, "cache_clear")
-
-
-def test_human_returns_frozenset_of_kmers_from_all_protein_coding_genes():
-    result = viral._human_proteome_kmers(112, (8,))
-    assert isinstance(result, frozenset)
-    # ENSG_A (CTA) + ENSG_B + ENSG_C are all protein_coding, all included here
-    # (the human helper does NOT exclude CTAs — that's the whole proteome).
+    assert _FakeEnsembl.call_counts["genes"] == 1
+    assert _FakeEnsembl.call_counts["gene_by_id"] == 0
+    # All three fake genes are protein_coding → all appear.
     assert "MAAAAAAA" in result
     assert "MCCCCCCC" in result
     assert "MDDDDDDD" in result
 
 
-def test_human_caches_across_calls_with_same_args():
-    r1 = viral._human_proteome_kmers(112, (8,))
-    genes_calls_after_first = _FakeEnsembl.call_counts["genes"]
-    assert genes_calls_after_first == 1
+def test_proteome_kmers_gene_subset_uses_gene_by_id():
+    """A supplied gene_ids frozenset goes through gene_by_id()."""
+    result = peptides._proteome_kmers(112, (8,), frozenset({"ENSG_B", "ENSG_C"}))
+    assert "MCCCCCCC" in result
+    assert "MDDDDDDD" in result
+    assert "MAAAAAAA" not in result  # ENSG_A excluded by filter
+    assert _FakeEnsembl.call_counts["genes"] == 0
+    assert _FakeEnsembl.call_counts["gene_by_id"] == 2
 
-    r2 = viral._human_proteome_kmers(112, (8,))
-    # Second call hit cache — .genes() not called a second time
-    assert _FakeEnsembl.call_counts["genes"] == 1
+
+def test_proteome_kmers_caches_by_gene_ids():
+    """Same (release, lengths) with different gene_ids keys must produce
+    separate cache entries; repeat lookups are cache hits."""
+    peptides._proteome_kmers(112, (8,), frozenset({"ENSG_B"}))
+    peptides._proteome_kmers(112, (8,), frozenset({"ENSG_C"}))
+    info_after_two_distinct = peptides._proteome_kmers.cache_info()
+    assert info_after_two_distinct.misses == 2
+    assert info_after_two_distinct.hits == 0
+
+    # Repeat — both should hit the cache
+    peptides._proteome_kmers(112, (8,), frozenset({"ENSG_B"}))
+    peptides._proteome_kmers(112, (8,), frozenset({"ENSG_C"}))
+    info_after_repeat = peptides._proteome_kmers.cache_info()
+    assert info_after_repeat.misses == 2
+    assert info_after_repeat.hits == 2
+
+
+def test_proteome_kmers_caches_by_lengths():
+    peptides._proteome_kmers(112, (8,), None)
+    peptides._proteome_kmers(112, (9,), None)
+    info = peptides._proteome_kmers.cache_info()
+    assert info.misses == 2
+    assert info.hits == 0
+
+
+# ── Gene-ID frozenset wrappers ─────────────────────────────────────────
+
+
+def test_non_cta_gene_ids_returns_frozenset_of_non_cta_partition():
+    result = peptides._non_cta_gene_ids(112)
+    assert isinstance(result, frozenset)
+    assert result == frozenset({"ENSG_B", "ENSG_C"})
+
+
+def test_cta_gene_ids_returns_frozenset_of_cta_partition():
+    result = peptides._cta_gene_ids(112)
+    assert isinstance(result, frozenset)
+    assert result == frozenset({"ENSG_A"})
+
+
+def test_gene_id_wrappers_cache_per_release():
+    """Calling the wrapper twice with the same release returns the same
+    frozenset instance — so downstream _proteome_kmers lookups reuse
+    the cached hash rather than rebuilding."""
+    r1 = peptides._non_cta_gene_ids(112)
+    r2 = peptides._non_cta_gene_ids(112)
     assert r1 is r2
 
 
-def test_human_different_release_triggers_recompute():
-    viral._human_proteome_kmers(112, (8,))
-    viral._human_proteome_kmers(113, (8,))  # different release → new cache key
-    info = viral._human_proteome_kmers.cache_info()
-    assert info.misses == 2
-    assert info.hits == 0
+# ── End-to-end caching through public callers ──────────────────────────
+
+
+def test_cta_exclusive_peptides_hits_cache_on_repeat(monkeypatch):
+    """The public wrapper must dispatch through _proteome_kmers — second
+    call with the same args does NOT re-walk the proteome."""
+    import pandas as pd
+
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["MAAAAAAA", "NEVERSEEN"],
+                "length": [8, 8],
+                "gene_name": ["G1", "G1"],
+                "gene_id": ["X", "X"],
+            }
+        ),
+        raising=True,
+    )
+    peptides.cta_exclusive_peptides(ensembl_release=112, lengths=(8,))
+    gene_by_id_after_first = _FakeEnsembl.call_counts["gene_by_id"]
+    peptides.cta_exclusive_peptides(ensembl_release=112, lengths=(8,))
+    assert _FakeEnsembl.call_counts["gene_by_id"] == gene_by_id_after_first
+
+
+def test_human_exclusive_viral_peptides_hits_cache_on_repeat(monkeypatch):
+    import pandas as pd
+
+    monkeypatch.setattr(
+        "tsarina.viral.viral_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["VIRALMER", "MAAAAAAA"],
+                "length": [8, 8],
+                "virus": ["test", "test"],
+                "protein_id": ["P1", "P1"],
+            }
+        ),
+        raising=True,
+    )
+    viral.human_exclusive_viral_peptides(virus="test", lengths=(8,), ensembl_release=112)
+    genes_after_first = _FakeEnsembl.call_counts["genes"]
+    viral.human_exclusive_viral_peptides(virus="test", lengths=(8,), ensembl_release=112)
+    assert _FakeEnsembl.call_counts["genes"] == genes_after_first
+
+
+def test_cancer_specific_viral_peptides_hits_cache_on_repeat(monkeypatch):
+    """PR D headline: cancer_specific_viral_peptides now shares the
+    cached _proteome_kmers primitive instead of walking the proteome
+    on every call."""
+    import pandas as pd
+
+    monkeypatch.setattr(
+        "tsarina.viral.viral_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["VIRALMER", "MAAAAAAA", "MCCCCCCC"],
+                "length": [8, 8, 8],
+                "virus": ["test", "test", "test"],
+                "protein_id": ["P1", "P1", "P1"],
+            }
+        ),
+        raising=True,
+    )
+    result_1 = viral.cancer_specific_viral_peptides(virus="test", lengths=(8,), ensembl_release=112)
+    gene_by_id_after_first = _FakeEnsembl.call_counts["gene_by_id"]
+    assert gene_by_id_after_first > 0  # first call did real work
+
+    result_2 = viral.cancer_specific_viral_peptides(virus="test", lengths=(8,), ensembl_release=112)
+    # Second call hits the cache — no additional gene_by_id lookups
+    assert _FakeEnsembl.call_counts["gene_by_id"] == gene_by_id_after_first
+
+    # Functional equivalence between the two calls
+    assert list(result_1["peptide"]) == list(result_2["peptide"])
+    # in_cta_protein flag set correctly: MAAAAAAA comes from ENSG_A (CTA),
+    # VIRALMER is viral-only, MCCCCCCC comes from ENSG_B (non-CTA → dropped
+    # by the noncta subtraction).
+    kept = set(result_1["peptide"])
+    assert "VIRALMER" in kept
+    assert "MAAAAAAA" in kept  # in CTA proteins, not in non-CTA — kept
+    assert "MCCCCCCC" not in kept  # in non-CTA proteins — filtered
+    maaaaaaa_row = result_1[result_1["peptide"] == "MAAAAAAA"].iloc[0]
+    assert bool(maaaaaaa_row["in_cta_protein"]) is True
+    viralmer_row = result_1[result_1["peptide"] == "VIRALMER"].iloc[0]
+    assert bool(viralmer_row["in_cta_protein"]) is False
+
+
+def test_cta_and_non_cta_share_proteome_kmers_cache(monkeypatch):
+    """cta_exclusive_peptides and cancer_specific_viral_peptides both
+    query _proteome_kmers(non_cta). The second function should hit the
+    cache populated by the first — no re-walk across functions."""
+    import pandas as pd
+
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["MAAAAAAA"],
+                "length": [8],
+                "gene_name": ["G1"],
+                "gene_id": ["X"],
+            }
+        ),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.viral.viral_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["VIRALMER"],
+                "length": [8],
+                "virus": ["test"],
+                "protein_id": ["P1"],
+            }
+        ),
+        raising=True,
+    )
+    peptides.cta_exclusive_peptides(ensembl_release=112, lengths=(8,))
+    calls_after_cta = _FakeEnsembl.call_counts["gene_by_id"]
+    viral.cancer_specific_viral_peptides(virus="test", lengths=(8,), ensembl_release=112)
+    # cancer_specific_viral_peptides additionally needs the CTA k-mer set,
+    # so it will do ONE new walk (for the CTA partition) — but NOT re-walk
+    # the non-CTA partition that cta_exclusive_peptides already cached.
+    # CTA partition has 1 gene (ENSG_A) → 1 additional gene_by_id call.
+    assert _FakeEnsembl.call_counts["gene_by_id"] == calls_after_cta + 1
