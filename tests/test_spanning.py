@@ -329,3 +329,151 @@ def test_size_within_target_envelope_for_default_args(monkeypatch):
         output_format="long",
     )
     assert 100 < len(df) <= 1000
+
+
+# ── require_cta_exclusive routing ──────────────────────────────────────
+
+
+def test_require_cta_exclusive_true_calls_exclusive(monkeypatch):
+    """Default True path must dispatch to cta_exclusive_peptides, not
+    cta_peptides."""
+    calls = {"exclusive": 0, "non_exclusive": 0}
+
+    def _exclusive(**kw):
+        calls["exclusive"] += 1
+        return _stub_peptides()
+
+    def _non_exclusive(**kw):
+        calls["non_exclusive"] += 1
+        return _stub_peptides()
+
+    monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", _exclusive, raising=True)
+    monkeypatch.setattr("tsarina.peptides.cta_peptides", _non_exclusive, raising=True)
+
+    spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        require_cta_exclusive=True,
+        max_percentile=10.0,
+    )
+    assert calls == {"exclusive": 1, "non_exclusive": 0}
+
+
+def test_require_cta_exclusive_false_calls_cta_peptides(monkeypatch):
+    """False path must dispatch to cta_peptides (full CTA k-mers, no
+    exclusivity gate), never the exclusive fn."""
+    calls = {"exclusive": 0, "non_exclusive": 0}
+
+    def _exclusive(**kw):
+        calls["exclusive"] += 1
+        return _stub_peptides()
+
+    def _non_exclusive(**kw):
+        calls["non_exclusive"] += 1
+        return _stub_peptides()
+
+    monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", _exclusive, raising=True)
+    monkeypatch.setattr("tsarina.peptides.cta_peptides", _non_exclusive, raising=True)
+
+    spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        require_cta_exclusive=False,
+        max_percentile=10.0,
+    )
+    assert calls == {"exclusive": 0, "non_exclusive": 1}
+
+
+# ── Multi-length best-per-cell ─────────────────────────────────────────
+
+
+def _stub_peptides_multi_length() -> pd.DataFrame:
+    """Mixed 9-mer and 10-mer peptides so the best-per-cell selection
+    must reach across lengths."""
+    return pd.DataFrame(
+        {
+            "peptide": [
+                "MAGEAPEP9M",  # 10-mer; stub gives it percentile 0.3
+                "MAGEAPEP1",  # 9-mer; stub gives it percentile 0.1 (wins)
+                "PRAMEPEP0X",  # 10-mer; stub gives it percentile 0.05 (wins)
+                "PRAMEPEP2",  # 9-mer; stub gives it percentile 1.5
+            ],
+            "length": [10, 9, 10, 9],
+            "gene_name": ["MAGEA4", "MAGEA4", "PRAME", "PRAME"],
+            "gene_id": ["E1", "E1", "E2", "E2"],
+        }
+    )
+
+
+def _stub_scores_multi_length(peptides, alleles, **kwargs) -> pd.DataFrame:
+    """Deterministic percentile per peptide — chosen so the 10-mer wins
+    for PRAME and the 9-mer wins for MAGEA4, regardless of allele."""
+    percentile_by_peptide = {
+        "MAGEAPEP9M": 0.3,
+        "MAGEAPEP1": 0.1,
+        "PRAMEPEP0X": 0.05,
+        "PRAMEPEP2": 1.5,
+    }
+    rows = []
+    for pep in peptides:
+        pct = percentile_by_peptide.get(pep, 5.0)
+        for allele in alleles:
+            rows.append(
+                {
+                    "peptide": pep,
+                    "allele": allele,
+                    "presentation_percentile": pct,
+                    "presentation_score": 0.95 - pct / 10,
+                    "affinity_nm": 50.0 + pct * 100,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_multi_length_best_per_cell_winner_can_be_any_length(monkeypatch):
+    """With lengths=(9, 10), each cell's winner should be the
+    lowest-percentile peptide across BOTH lengths — not length-biased."""
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: _stub_peptides_multi_length(),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.scoring.score_presentation", _stub_scores_multi_length, raising=True
+    )
+
+    df = spanning_pmhc_set(
+        ctas=["MAGEA4", "PRAME"],
+        alleles=["HLA-A*02:01"],
+        lengths=(9, 10),
+        max_percentile=2.0,
+    )
+    indexed = df.set_index("cta")
+    # MAGEA4: MAGEAPEP1 (9-mer, 0.1%) beats MAGEAPEP9M (10-mer, 0.3%)
+    assert indexed.loc["MAGEA4", "HLA-A*02:01"] == "MAGEAPEP1"
+    # PRAME: PRAMEPEP0X (10-mer, 0.05%) beats PRAMEPEP2 (9-mer, 1.5%)
+    assert indexed.loc["PRAME", "HLA-A*02:01"] == "PRAMEPEP0X"
+
+
+def test_multi_length_long_format_preserves_winner_length(monkeypatch):
+    """In long format, the length column should reflect the winning
+    peptide's length, not a default."""
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: _stub_peptides_multi_length(),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.scoring.score_presentation", _stub_scores_multi_length, raising=True
+    )
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4", "PRAME"],
+        alleles=["HLA-A*02:01"],
+        lengths=(9, 10),
+        max_percentile=2.0,
+        output_format="long",
+    )
+    rows = {r["cta"]: r for _, r in long.iterrows()}
+    assert int(rows["MAGEA4"]["length"]) == 9  # MAGEAPEP1
+    assert int(rows["PRAME"]["length"]) == 10  # PRAMEPEP0X
