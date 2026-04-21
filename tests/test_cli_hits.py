@@ -37,6 +37,26 @@ def test_hits_help_describes_include_binding_assays_union():
     assert "evidence_kind" in r.stdout
 
 
+def test_hits_format_refs_is_listed_as_choice():
+    """The argparse ``--format`` help text should advertise ``refs`` as
+    a valid choice alongside the older peptides / pmhc / raw options."""
+    r = _run_cli("hits", "--help")
+    assert r.returncode == 0
+    # argparse renders choices inline with the flag, e.g. "{peptides,pmhc,refs,raw}"
+    assert "refs" in r.stdout
+    # Sibling options should still be advertised
+    assert "peptides" in r.stdout
+    assert "pmhc" in r.stdout
+
+
+def test_hits_format_refs_rejects_unknown_value():
+    r = _run_cli("hits", "--gene", "PRAME", "--format", "not-a-format", check=False)
+    assert r.returncode != 0
+    combined = r.stderr + r.stdout
+    # argparse error message surfaces the valid choices on invalid input
+    assert "refs" in combined and "peptides" in combined
+
+
 def test_hits_requires_gene_or_uniprot():
     r = _run_cli("hits", check=False)
     assert r.returncode != 0
