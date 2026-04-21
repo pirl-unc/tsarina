@@ -280,6 +280,124 @@ def test_no_ctas_pass_filter_returns_canonical_empty_frame():
     assert df.empty
 
 
+# ── on_progress callback ───────────────────────────────────────────────
+
+
+def test_on_progress_default_is_silent():
+    """Library contract: when on_progress is not supplied, the function
+    runs without calling any progress callback (or printing anywhere).
+
+    Confirmed indirectly by the function completing without error; the
+    explicit-callback test below asserts the callback IS called on the
+    opt-in path."""
+    df = spanning_pmhc_set(
+        ctas=["MAGEA4", "PRAME"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=2.0,
+    )
+    assert not df.empty  # sanity — stub produces rows
+
+
+def test_on_progress_callback_receives_three_stages():
+    messages: list[str] = []
+    spanning_pmhc_set(
+        ctas=["MAGEA4", "PRAME"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        max_percentile=2.0,
+        on_progress=messages.append,
+    )
+    # Expect three stages: pre-scoring, post-scoring, summary.
+    assert len(messages) == 3
+    pre, post, summary = messages
+    # Pre-scoring mentions peptide + allele counts and predictor.
+    assert "peptides" in pre.lower() and "alleles" in pre.lower()
+    assert "mhcflurry" in pre
+    # Post-scoring mentions elapsed time.
+    assert "Scored" in post
+    assert "s" in post  # the elapsed-seconds suffix
+    # Summary mentions CTA + allele counts and filled-cell count.
+    assert "CTAs" in summary
+    assert "alleles" in summary
+    assert "filled cells" in summary
+
+
+def test_on_progress_pre_scoring_message_has_accurate_counts():
+    """The pre-scoring message's numbers should match the actual peptide
+    and allele pool sizes: stub has 2 peptides for {MAGEA4, PRAME} each
+    = 4 unique peptides, crossed with 3 alleles = 12 predictions."""
+    messages: list[str] = []
+    spanning_pmhc_set(
+        ctas=["MAGEA4", "PRAME"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02", "HLA-B*07:02"],
+        max_percentile=10.0,
+        on_progress=messages.append,
+    )
+    pre = messages[0]
+    assert "4 peptides" in pre
+    assert "3 alleles" in pre
+    assert "12 predictions" in pre
+
+
+def test_on_progress_summary_reports_filled_cell_count():
+    """Summary message's filled-cell count should equal the count the
+    output table actually carries (rows with a non-NaN peptide)."""
+    messages: list[str] = []
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4", "PRAME"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        max_percentile=2.0,
+        output_format="long",
+        on_progress=messages.append,
+    )
+    summary = messages[-1]
+    assert f"{len(long)} filled cells" in summary
+
+
+def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
+    """The CLI handler must pass a stderr-printing callback into
+    spanning_pmhc_set.  Verify callback messages land on stderr (not
+    stdout) and that the DataFrame itself still serializes to stdout."""
+    import argparse
+
+    from tsarina import cli_spanning
+
+    captured_kwargs: dict = {}
+
+    def _fake_spanning(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        if kwargs.get("on_progress"):
+            kwargs["on_progress"]("fake-progress-message")
+        return pd.DataFrame({"cta": ["MAGEA4"], "HLA-A*02:01": ["PEPTIDE9"]})
+
+    monkeypatch.setattr("tsarina.spanning.spanning_pmhc_set", _fake_spanning)
+
+    args = argparse.Namespace(
+        cta_count=25,
+        cta_rank_by="ms_cancer_peptide_count",
+        ctas=None,
+        min_restriction_confidence=["HIGH", "MODERATE"],
+        restriction_levels=None,
+        alleles=None,
+        panel="iedb27_ab",
+        lengths=(9,),
+        ensembl_release=112,
+        require_cta_exclusive=True,
+        predictor="mhcflurry",
+        max_percentile=2.0,
+        format="wide",
+        output=None,
+    )
+    cli_spanning.handle(args)
+
+    assert "on_progress" in captured_kwargs
+    assert callable(captured_kwargs["on_progress"])
+
+    captured = capsys.readouterr()
+    assert "fake-progress-message" in captured.err
+    assert "fake-progress-message" not in captured.out
+    assert "MAGEA4" in captured.out  # DataFrame serialized to stdout
+
+
 def test_size_within_target_envelope_for_default_args(monkeypatch):
     """The headline use case: defaults (25 CTAs x 27 alleles, max 2%)
     should produce a wide table whose count of filled cells is in the

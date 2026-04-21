@@ -35,7 +35,8 @@ Typical usage::
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 
 import pandas as pd
 
@@ -66,6 +67,7 @@ def spanning_pmhc_set(
     predictor: str = "mhcflurry",
     max_percentile: float = 2.0,
     output_format: str = "wide",
+    on_progress: Callable[[str], None] | None = None,
 ) -> pd.DataFrame:
     """Build a CTA x HLA spanning pMHC table.
 
@@ -119,6 +121,14 @@ def spanning_pmhc_set(
         the chosen peptide as the cell value.
         ``"long"`` — one row per filled cell with peptide, length,
         percentile, score, and affinity columns.
+    on_progress
+        Optional callable invoked with a human-readable status string at
+        each pipeline stage (pre-scoring, post-scoring with elapsed
+        seconds, post-pivot summary).  Used by the CLI handler to emit
+        stderr progress lines on multi-minute runs; library callers
+        leave it ``None`` (default) for silent operation.  The library
+        itself never prints — it only formats messages and hands them
+        to the callback.
 
     Returns
     -------
@@ -161,9 +171,27 @@ def spanning_pmhc_set(
     from .scoring import score_presentation
 
     unique_peptides = pep_df["peptide"].unique().tolist()
+    n_predictions = len(unique_peptides) * len(allele_list)
+    if on_progress is not None:
+        on_progress(
+            f"Scoring {len(unique_peptides)} peptides x {len(allele_list)} alleles "
+            f"(~{n_predictions} predictions) via {predictor}..."
+        )
+
+    scoring_start = time.perf_counter()
     scores = score_presentation(peptides=unique_peptides, alleles=allele_list, predictor=predictor)
+    scoring_elapsed = time.perf_counter() - scoring_start
+
+    if on_progress is not None:
+        on_progress(f"Scored {n_predictions} predictions in {scoring_elapsed:.1f}s")
 
     best = _best_per_cell(scores, pep_df, max_percentile)
+
+    if on_progress is not None:
+        on_progress(
+            f"Spanning set: {len(cta_list)} CTAs x {len(allele_list)} alleles, "
+            f"{len(best)} filled cells at percentile <= {max_percentile}"
+        )
 
     if output_format == "wide":
         return _to_wide(best, cta_list, allele_list)
