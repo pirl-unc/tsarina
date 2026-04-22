@@ -52,7 +52,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .peptides import AA20, _cta_gene_ids, _non_cta_gene_ids, _proteome_kmers
+from .peptides import AA20, _cta_gene_ids, _non_cta_gene_ids
 
 # ── Virus definitions ───────────────────────────────────────────────────────
 
@@ -274,15 +274,18 @@ def human_exclusive_viral_peptides(
     Notes
     -----
     The human k-mer set is computed once per
-    ``(ensembl_release, lengths)`` via :func:`tsarina.peptides._proteome_kmers`
-    and cached for the life of the process.  First call pays ~20-60s walking
-    every protein-coding transcript in the Ensembl release; subsequent
-    calls with the same inputs return in sub-millisecond time.
+    ``(ensembl_release, lengths)`` via
+    :func:`hitlist.proteome.proteome_kmer_set` and cached process-wide.
+    First call pays the Ensembl walk once; subsequent calls with the
+    same inputs return immediately.  The cache is shared across any
+    sibling pirl-unc package that calls the same primitive.
     """
+    from hitlist.proteome import proteome_kmer_set
+
     vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
     if vdf.empty:
         return vdf
-    human_kmers = _proteome_kmers(ensembl_release, tuple(lengths), None)
+    human_kmers = proteome_kmer_set(release=ensembl_release, lengths=tuple(lengths), gene_ids=None)
     mask = ~vdf["peptide"].isin(human_kmers)
     return vdf[mask].reset_index(drop=True)
 
@@ -323,20 +326,26 @@ def cancer_specific_viral_peptides(
     Notes
     -----
     Both the CTA and non-CTA k-mer sets are computed via
-    :func:`tsarina.peptides._proteome_kmers` and cached for the life of
-    the process, shared with :func:`cta_exclusive_peptides` /
+    :func:`hitlist.proteome.proteome_kmer_set` and cached process-wide,
+    shared with :func:`cta_exclusive_peptides` /
     :func:`human_exclusive_viral_peptides` where their gene filters
     overlap.  First call pays the Ensembl walk; subsequent calls with
     the same ``(release, lengths)`` return in sub-millisecond time.
     """
+    from hitlist.proteome import proteome_kmer_set
+
     vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
     if vdf.empty:
         vdf["in_cta_protein"] = pd.Series(dtype=bool)
         return vdf
 
     lengths_t = tuple(lengths)
-    noncta_kmers = _proteome_kmers(ensembl_release, lengths_t, _non_cta_gene_ids(ensembl_release))
-    cta_kmers = _proteome_kmers(ensembl_release, lengths_t, _cta_gene_ids(ensembl_release))
+    noncta_kmers = proteome_kmer_set(
+        release=ensembl_release, lengths=lengths_t, gene_ids=_non_cta_gene_ids(ensembl_release)
+    )
+    cta_kmers = proteome_kmer_set(
+        release=ensembl_release, lengths=lengths_t, gene_ids=_cta_gene_ids(ensembl_release)
+    )
 
     # Keep peptides NOT in non-CTA proteins; annotate which also occur in CTA proteins.
     mask = ~vdf["peptide"].isin(noncta_kmers)
