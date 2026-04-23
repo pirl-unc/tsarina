@@ -266,11 +266,46 @@ def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
     assert got_lengths == {9, 11}
 
 
-def test_cached_path_omitted_lengths_skips_bounds_pushdown(tmp_path):
-    """When --lengths is omitted (args.lengths is None), the cached path
-    must NOT push length_min / length_max - otherwise an MHC-I-flavored
-    default would silently drop MHC-II rows for users who don't pass the
-    flag.  Preserves pre-v1.2.0 behavior for that invocation shape."""
+def test_cached_path_omitted_lengths_and_class_skips_bounds_pushdown(tmp_path):
+    """When neither --lengths nor --mhc-class is set, the cached path
+    must NOT push length_min / length_max.  Preserves "load everything"
+    semantics for unqualified queries so off-window rows aren't silently
+    dropped by an opinionated default."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=None, mhc_class=None)
+    empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=empty) as ms_only,
+    ):
+        cli_hits.handle(args)
+    kwargs = ms_only.call_args.kwargs
+    assert kwargs.get("length_min") is None
+    assert kwargs.get("length_max") is None
+
+
+def test_cached_path_class_I_derives_8_to_15_bounds(tmp_path):
+    """--mhc-class I without --lengths populates length bounds as 8-15
+    (wider than textbook 8-11 to catch phospho-extended class I ligands
+    hitlist actually curates).  Explicit --lengths would override."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=None, mhc_class="I")
+    empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=empty) as ms_only,
+    ):
+        cli_hits.handle(args)
+    kwargs = ms_only.call_args.kwargs
+    assert kwargs.get("length_min") == 8
+    assert kwargs.get("length_max") == 15
+
+
+def test_cached_path_class_II_derives_12_to_45_bounds(tmp_path):
+    """--mhc-class II without --lengths populates length bounds as 12-45
+    (wider than textbook 12-25 to accommodate long class II tails)."""
     from tsarina import cli_hits
 
     args = _base_cached_args(tmp_path, lengths=None, mhc_class="II")
@@ -281,5 +316,23 @@ def test_cached_path_omitted_lengths_skips_bounds_pushdown(tmp_path):
     ):
         cli_hits.handle(args)
     kwargs = ms_only.call_args.kwargs
-    assert kwargs.get("length_min") is None
-    assert kwargs.get("length_max") is None
+    assert kwargs.get("length_min") == 12
+    assert kwargs.get("length_max") == 45
+
+
+def test_cached_path_explicit_lengths_override_class_default(tmp_path):
+    """Explicit --lengths must win over the --mhc-class-derived default:
+    requesting --lengths 9,10 with --mhc-class I should push [9, 10],
+    not the class I default [8, 15]."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(9, 10), mhc_class="I")
+    empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=empty) as ms_only,
+    ):
+        cli_hits.handle(args)
+    kwargs = ms_only.call_args.kwargs
+    assert kwargs.get("length_min") == 9
+    assert kwargs.get("length_max") == 10

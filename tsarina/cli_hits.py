@@ -46,6 +46,32 @@ def _parse_lengths(value: str) -> tuple[int, ...]:
         raise argparse.ArgumentTypeError(f"--lengths must be integers: {value!r}") from e
 
 
+# Class-default peptide length windows used when --lengths is omitted.
+# Intentionally wider than textbook 8-11 / 12-25 to catch non-canonical
+# ligands hitlist actually curates (phospho-extended class I, long class
+# II tails).  An explicit --lengths overrides these.
+_CLASS_I_DEFAULT_LENGTHS = tuple(range(8, 16))  # 8-15
+_CLASS_II_DEFAULT_LENGTHS = tuple(range(12, 46))  # 12-45
+
+
+def _resolve_lengths(args: argparse.Namespace) -> tuple[int, ...] | None:
+    """Resolve --lengths with --mhc-class fallbacks.
+
+    - Explicit --lengths always wins.
+    - Otherwise derive from --mhc-class: class I -> 8-15, class II -> 12-45.
+    - If neither is set, return None so the cached observations path skips
+      length bounds (preserves "load everything" semantics for unqualified
+      queries rather than silently dropping off-window rows).
+    """
+    if args.lengths is not None:
+        return args.lengths
+    if args.mhc_class == "I":
+        return _CLASS_I_DEFAULT_LENGTHS
+    if args.mhc_class == "II":
+        return _CLASS_II_DEFAULT_LENGTHS
+    return None
+
+
 def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = sub.add_parser(
         "hits",
@@ -104,10 +130,9 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "--iedb / --cedar) controls the k-mer walk; on the cached "
             "observations path bounds the loader's length filter "
             "(hitlist>=1.15.1). If omitted, defaults are derived from "
-            "--mhc-class: 8-11 for class I or unspecified, 12-25 for "
-            "class II. The cached path skips length bounds entirely when "
-            "--lengths is not explicitly set, so MHC-II rows are not "
-            "silently dropped."
+            "--mhc-class: 8-15 for class I, 12-45 for class II. When "
+            "neither --lengths nor --mhc-class is set, the cached path "
+            "skips length bounds entirely so nothing is silently dropped."
         ),
     )
     p.add_argument(
@@ -335,12 +360,12 @@ def handle(args: argparse.Namespace) -> None:
     needs_peptide_enumeration = args.skip_ms_evidence or (
         args.iedb_path is not None or args.cedar_path is not None
     )
-    # Enumeration needs a concrete length set; the cached path does not.
-    # When --lengths is omitted, fall back to an MHC-class-appropriate
-    # default for enumeration only.
-    enumeration_lengths = args.lengths
-    if enumeration_lengths is None:
-        enumeration_lengths = tuple(range(12, 26)) if args.mhc_class == "II" else (8, 9, 10, 11)
+    # Single resolution pass used by both the cached path (for bounds
+    # pushdown) and the enumeration path (for the k-mer walk).  May be
+    # None when neither --lengths nor --mhc-class was given; enumeration
+    # can't run with None, so fall back to the class-I window there.
+    resolved_lengths = _resolve_lengths(args)
+    enumeration_lengths = resolved_lengths or _CLASS_I_DEFAULT_LENGTHS
     pep_df: pd.DataFrame | None = None
     if needs_peptide_enumeration:
         try:
@@ -389,14 +414,16 @@ def handle(args: argparse.Namespace) -> None:
 
         ensure_index_built()
 
-        # hitlist 1.15.1+ length_min/length_max pushdown.  Only applied when
-        # the user explicitly passed --lengths; leaving it off preserves the
-        # historical "load everything, let --mhc-class / downstream filters
-        # do the rest" behavior so MHC-II rows aren't silently dropped by
-        # an MHC-I-flavored default.  For non-contiguous --lengths the
-        # exact-set filter below restores enumeration-path parity.
-        length_min = min(args.lengths) if args.lengths else None
-        length_max = max(args.lengths) if args.lengths else None
+        # hitlist 1.15.1+ length_min/length_max pushdown.  Applied when
+        # lengths were explicitly given OR a class was specified (in
+        # which case _resolve_lengths picked a class-appropriate window).
+        # When neither was set resolved_lengths is None and no bounds
+        # are pushed, preserving the "load everything" behavior so
+        # unqualified queries don't silently drop off-window rows.
+        # Non-contiguous --lengths are restored to exact-set semantics
+        # by the post-filter below.
+        length_min = min(resolved_lengths) if resolved_lengths else None
+        length_max = max(resolved_lengths) if resolved_lengths else None
 
         if args.include_binding_assays:
             # hitlist 1.10.0+ exposes load_all_evidence() — UNION of MS
@@ -420,8 +447,8 @@ def handle(args: argparse.Namespace) -> None:
                 length_min=length_min,
                 length_max=length_max,
             )
-        if args.lengths and not hits.empty:
-            hits = hits[hits["peptide"].str.len().isin(args.lengths)].copy()
+        if resolved_lengths and not hits.empty:
+            hits = hits[hits["peptide"].str.len().isin(resolved_lengths)].copy()
         hits = _apply_min_resolution(hits, args.min_resolution)
 
     hits = _filter_by_allele(hits, args.allele)
