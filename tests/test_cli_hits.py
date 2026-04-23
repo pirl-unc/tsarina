@@ -154,3 +154,100 @@ def test_default_cached_path_uses_load_observations_not_union(tmp_path):
         cli_hits.handle(args)
     ms_only.assert_called_once()
     all_ev.assert_not_called()
+
+
+def _base_cached_args(tmp_path, lengths, *, include_binding_assays=False):
+    return argparse.Namespace(
+        gene="PRAME",
+        uniprot=None,
+        allele=[],
+        serotype=[],
+        species="Homo sapiens",
+        mhc_class="I",
+        min_resolution=None,
+        lengths=lengths,
+        ensembl_release=112,
+        include_binding_assays=include_binding_assays,
+        mono_allelic_only=False,
+        format="pmhc",
+        predict=False,
+        predictor="mhcflurry",
+        iedb_path=None,
+        cedar_path=None,
+        skip_ms_evidence=False,
+        output=str(tmp_path / "out.csv"),
+    )
+
+
+def test_cached_path_pushes_length_bounds_to_load_observations(tmp_path):
+    """hitlist 1.15.1+ exposes length_min/length_max on load_observations.
+    tsarina's --lengths flag controls enumeration; on the cached path those
+    bounds must also push down so we don't silently pull e.g. 13-mer MHC-II
+    rows when the user asked for 8-11."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(8, 9, 10, 11))
+    empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=empty) as ms_only,
+    ):
+        cli_hits.handle(args)
+    kwargs = ms_only.call_args.kwargs
+    assert kwargs.get("length_min") == 8
+    assert kwargs.get("length_max") == 11
+
+
+def test_cached_path_pushes_length_bounds_to_load_all_evidence(tmp_path):
+    """Parity with load_observations: the union path must also forward
+    length_min/length_max derived from --lengths."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(12, 13, 14, 15), include_binding_assays=True)
+    empty = pd.DataFrame(
+        {
+            "peptide": pd.Series(dtype=str),
+            "mhc_restriction": pd.Series(dtype=str),
+            "evidence_kind": pd.Series(dtype=str),
+        }
+    )
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_all_evidence", return_value=empty) as all_ev,
+    ):
+        cli_hits.handle(args)
+    kwargs = all_ev.call_args.kwargs
+    assert kwargs.get("length_min") == 12
+    assert kwargs.get("length_max") == 15
+
+
+def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
+    """--lengths 9,11 (non-contiguous) pushes a [9, 11] bound to hitlist
+    but must post-filter to the exact set so 10-mers don't leak through."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(9, 11))
+    hits = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA", "AAAAAAAAAA", "AAAAAAAAAAA"],  # 9, 10, 11
+            "mhc_restriction": ["HLA-A*02:01"] * 3,
+        }
+    )
+    captured: dict[str, pd.DataFrame] = {}
+
+    def _capture_write(path, df):
+        captured["df"] = df
+
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=hits),
+        patch("tsarina.cli_hits._write", side_effect=_capture_write),
+        patch(
+            "hitlist.aggregate.aggregate_per_pmhc",
+            side_effect=lambda df: df[["peptide", "mhc_restriction"]].copy(),
+        ),
+    ):
+        cli_hits.handle(args)
+    out = captured["df"]
+    got_lengths = {len(p) for p in out["peptide"]}
+    assert got_lengths == {9, 11}

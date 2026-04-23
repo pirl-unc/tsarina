@@ -374,6 +374,13 @@ def handle(args: argparse.Namespace) -> None:
 
         ensure_index_built()
 
+        # hitlist 1.15.1+ length_min/length_max pushdown - keeps the cached
+        # path from pulling e.g. 13-mer MHC-II rows when the user asked for
+        # 8-11.  Bounds are [min(lengths), max(lengths)]; for non-contiguous
+        # --lengths an exact-set filter below restores enumeration parity.
+        length_min = min(args.lengths) if args.lengths else None
+        length_max = max(args.lengths) if args.lengths else None
+
         if args.include_binding_assays:
             # hitlist 1.10.0+ exposes load_all_evidence() — UNION of MS
             # observations + binding-assay rows, tagged with evidence_kind.
@@ -383,6 +390,8 @@ def handle(args: argparse.Namespace) -> None:
                 gene_name=gene,
                 mhc_class=args.mhc_class,
                 species=mhc_species,
+                length_min=length_min,
+                length_max=length_max,
             )
         else:
             from hitlist.observations import load_observations
@@ -391,7 +400,11 @@ def handle(args: argparse.Namespace) -> None:
                 gene_name=gene,
                 mhc_class=args.mhc_class,
                 species=mhc_species,
+                length_min=length_min,
+                length_max=length_max,
             )
+        if args.lengths and not hits.empty:
+            hits = hits[hits["peptide"].str.len().isin(args.lengths)].copy()
         hits = _apply_min_resolution(hits, args.min_resolution)
 
     hits = _filter_by_allele(hits, args.allele)
