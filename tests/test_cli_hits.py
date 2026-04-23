@@ -156,14 +156,14 @@ def test_default_cached_path_uses_load_observations_not_union(tmp_path):
     all_ev.assert_not_called()
 
 
-def _base_cached_args(tmp_path, lengths, *, include_binding_assays=False):
+def _base_cached_args(tmp_path, lengths, *, include_binding_assays=False, mhc_class="I"):
     return argparse.Namespace(
         gene="PRAME",
         uniprot=None,
         allele=[],
         serotype=[],
         species="Homo sapiens",
-        mhc_class="I",
+        mhc_class=mhc_class,
         min_resolution=None,
         lengths=lengths,
         ensembl_release=112,
@@ -200,10 +200,16 @@ def test_cached_path_pushes_length_bounds_to_load_observations(tmp_path):
 
 def test_cached_path_pushes_length_bounds_to_load_all_evidence(tmp_path):
     """Parity with load_observations: the union path must also forward
-    length_min/length_max derived from --lengths."""
+    length_min/length_max derived from --lengths.  Use an MHC-II window
+    so the class / length pairing matches realistic usage."""
     from tsarina import cli_hits
 
-    args = _base_cached_args(tmp_path, lengths=(12, 13, 14, 15), include_binding_assays=True)
+    args = _base_cached_args(
+        tmp_path,
+        lengths=(12, 13, 14, 15),
+        include_binding_assays=True,
+        mhc_class="II",
+    )
     empty = pd.DataFrame(
         {
             "peptide": pd.Series(dtype=str),
@@ -223,7 +229,9 @@ def test_cached_path_pushes_length_bounds_to_load_all_evidence(tmp_path):
 
 def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
     """--lengths 9,11 (non-contiguous) pushes a [9, 11] bound to hitlist
-    but must post-filter to the exact set so 10-mers don't leak through."""
+    but must post-filter to the exact set so 10-mers don't leak through.
+    Verifies both the bound-forwarding and the post-filter independently
+    so a refactor that drops one and keeps the other still fails a test."""
     from tsarina import cli_hits
 
     args = _base_cached_args(tmp_path, lengths=(9, 11))
@@ -240,7 +248,7 @@ def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
 
     with (
         patch("tsarina.indexing.ensure_index_built"),
-        patch("hitlist.observations.load_observations", return_value=hits),
+        patch("hitlist.observations.load_observations", return_value=hits) as ms_only,
         patch("tsarina.cli_hits._write", side_effect=_capture_write),
         patch(
             "hitlist.aggregate.aggregate_per_pmhc",
@@ -248,6 +256,30 @@ def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
         ),
     ):
         cli_hits.handle(args)
+
+    kwargs = ms_only.call_args.kwargs
+    assert kwargs.get("length_min") == 9
+    assert kwargs.get("length_max") == 11
+
     out = captured["df"]
     got_lengths = {len(p) for p in out["peptide"]}
     assert got_lengths == {9, 11}
+
+
+def test_cached_path_omitted_lengths_skips_bounds_pushdown(tmp_path):
+    """When --lengths is omitted (args.lengths is None), the cached path
+    must NOT push length_min / length_max - otherwise an MHC-I-flavored
+    default would silently drop MHC-II rows for users who don't pass the
+    flag.  Preserves pre-v1.2.0 behavior for that invocation shape."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=None, mhc_class="II")
+    empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=empty) as ms_only,
+    ):
+        cli_hits.handle(args)
+    kwargs = ms_only.call_args.kwargs
+    assert kwargs.get("length_min") is None
+    assert kwargs.get("length_max") is None

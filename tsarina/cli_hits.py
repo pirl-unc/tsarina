@@ -98,8 +98,17 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--lengths",
         type=_parse_lengths,
-        default=(8, 9, 10, 11),
-        help="Peptide lengths to enumerate (default 8,9,10,11).",
+        default=None,
+        help=(
+            "Peptide lengths. On the enumeration paths (--skip-ms-evidence / "
+            "--iedb / --cedar) controls the k-mer walk; on the cached "
+            "observations path bounds the loader's length filter "
+            "(hitlist>=1.15.1). If omitted, defaults are derived from "
+            "--mhc-class: 8-11 for class I or unspecified, 12-25 for "
+            "class II. The cached path skips length bounds entirely when "
+            "--lengths is not explicitly set, so MHC-II rows are not "
+            "silently dropped."
+        ),
     )
     p.add_argument(
         "--ensembl-release",
@@ -326,10 +335,16 @@ def handle(args: argparse.Namespace) -> None:
     needs_peptide_enumeration = args.skip_ms_evidence or (
         args.iedb_path is not None or args.cedar_path is not None
     )
+    # Enumeration needs a concrete length set; the cached path does not.
+    # When --lengths is omitted, fall back to an MHC-class-appropriate
+    # default for enumeration only.
+    enumeration_lengths = args.lengths
+    if enumeration_lengths is None:
+        enumeration_lengths = tuple(range(12, 26)) if args.mhc_class == "II" else (8, 9, 10, 11)
     pep_df: pd.DataFrame | None = None
     if needs_peptide_enumeration:
         try:
-            pep_df = _enumerate_gene_peptides(gene, args.ensembl_release, args.lengths)
+            pep_df = _enumerate_gene_peptides(gene, args.ensembl_release, enumeration_lengths)
         except (ValueError, ImportError) as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -374,10 +389,12 @@ def handle(args: argparse.Namespace) -> None:
 
         ensure_index_built()
 
-        # hitlist 1.15.1+ length_min/length_max pushdown - keeps the cached
-        # path from pulling e.g. 13-mer MHC-II rows when the user asked for
-        # 8-11.  Bounds are [min(lengths), max(lengths)]; for non-contiguous
-        # --lengths an exact-set filter below restores enumeration parity.
+        # hitlist 1.15.1+ length_min/length_max pushdown.  Only applied when
+        # the user explicitly passed --lengths; leaving it off preserves the
+        # historical "load everything, let --mhc-class / downstream filters
+        # do the rest" behavior so MHC-II rows aren't silently dropped by
+        # an MHC-I-flavored default.  For non-contiguous --lengths the
+        # exact-set filter below restores enumeration-path parity.
         length_min = min(args.lengths) if args.lengths else None
         length_max = max(args.lengths) if args.lengths else None
 
