@@ -1,3 +1,22 @@
+# PR — Spanning Alias CLI Smoke Tests (2026-04-30)
+
+## Goal
+
+Close #23 by pinning down the deprecated `tsarina spanning` CLI alias with
+subprocess smoke tests equivalent to the visible `tsarina panel` command tests.
+
+## Plan
+
+- [x] Add headline `spanning --help` assertions for the requested flags.
+- [x] Add invalid `--panel` and `--format` tests for the alias.
+- [x] Bump patch version and run full verification.
+
+## Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 251 passed
+
 # PR — Panel Version And Peptide Progress (2026-04-30)
 
 ## Goal
