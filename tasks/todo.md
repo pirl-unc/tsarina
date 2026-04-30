@@ -10,7 +10,7 @@ duplicate call paths. Keep each PR reviewable, with one version bump per PR.
 - [x] PR 1: Centralize public-MS loading and HLA normalization helpers; fix
       `target_peptides()` default evidence filtering (#31) and
       `tsarina hits --allele` normalization (#33).
-- [ ] PR 2: Rework panel matrix metrics to use the centralized helpers, fail
+- [x] PR 2: Rework panel matrix metrics to use the centralized helpers, fail
       loudly when scoring is unavailable, and count literal HLA restrictions
       instead of regex strings (#34).
 - [ ] PR 3: Refresh README/docs around hitlist data location and the default
@@ -33,6 +33,12 @@ duplicate call paths. Keep each PR reviewable, with one version bump per PR.
 - [x] `./format.sh`
 - [x] `./lint.sh`
 - [x] `./test.sh` — 229 passed
+
+## PR 2 Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 235 passed
 
 # Audit — Hitlist Changes And Full Tsarina Pass (2026-04-29)
 

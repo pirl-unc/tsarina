@@ -101,6 +101,12 @@ def build_panel_matrix(
         columns include ``source``, ``category``, plus one column per
         HLA allele with the selected metric.
     """
+    valid_metrics = {"peptide_count", "ms_peptide_count", "best_percentile", "has_peptide"}
+    if metric not in valid_metrics:
+        raise ValueError(
+            f"Unknown metric '{metric}'. Supported: {', '.join(sorted(valid_metrics))}."
+        )
+
     if alleles is None:
         alleles = list(IEDB27_AB)
 
@@ -110,9 +116,15 @@ def build_panel_matrix(
     include_viral = category in ("viral", "all")
     include_mutant = category in ("mutant", "all")
 
+    viral_targets: list[str] | bool
+    if include_viral:
+        viral_targets = True if viruses is None else viruses
+    else:
+        viral_targets = False
+
     df = target_peptides(
         cta=include_cta,
-        viruses=viruses if include_viral else False,
+        viruses=viral_targets,
         mutations=include_mutant,
         lengths=lengths,
         ensembl_release=ensembl_release,
@@ -120,6 +132,7 @@ def build_panel_matrix(
         cedar_path=cedar_path,
         mhc_class=mhc_class,
         require_ms_evidence=ms_confirmed_only,
+        attach_ms_evidence=metric == "ms_peptide_count",
     )
 
     if df.empty:
@@ -130,16 +143,12 @@ def build_panel_matrix(
     sources = df[["source", "category"]].drop_duplicates().sort_values(["category", "source"])
 
     if metric in ("peptide_count", "best_percentile"):
-        # Need MHCflurry scoring
-        try:
-            from .scoring import score_presentation
+        # Need MHCflurry scoring; import/setup failures must surface because
+        # allele-agnostic fallback values look valid but are scientifically wrong.
+        from .scoring import score_presentation
 
-            unique_peps = df["peptide"].unique().tolist()
-            scores = score_presentation(peptides=unique_peps, alleles=alleles)
-        except ImportError:
-            # Fall back to simple peptide count (no allele specificity)
-            scores = None
-
+        unique_peps = df["peptide"].unique().tolist()
+        scores = score_presentation(peptides=unique_peps, alleles=alleles)
         if scores is not None and not scores.empty:
             # Join scores back to source info
             pep_sources = df[["peptide", "source", "category"]].drop_duplicates()
@@ -166,9 +175,20 @@ def build_panel_matrix(
                 rows.append(row)
             return pd.DataFrame(rows)
 
+        empty_rows = []
+        for _, src_row in sources.iterrows():
+            row = {"source": src_row["source"], "category": src_row["category"]}
+            for allele in alleles:
+                row[allele] = 0 if metric == "peptide_count" else None
+            empty_rows.append(row)
+        return pd.DataFrame(empty_rows)
+
     # Simple metrics that don't need MHCflurry
     if metric == "ms_peptide_count" and "has_ms_evidence" in df.columns:
+        from .mhc import mhc_restriction_matches_any, normalize_mhc_restriction_set
+
         ms_df = df[df["has_ms_evidence"]].copy()
+        wanted_by_allele = {allele: normalize_mhc_restriction_set([allele]) for allele in alleles}
         rows = []
         for _, src_row in sources.iterrows():
             src = src_row["source"]
@@ -178,16 +198,21 @@ def build_panel_matrix(
             for allele in alleles:
                 # Count peptides with MS evidence for this allele
                 if "ms_alleles" in src_peps.columns:
-                    count = src_peps[src_peps["ms_alleles"].str.contains(allele, na=False)][
-                        "peptide"
-                    ].nunique()
+                    wanted = wanted_by_allele[allele]
+                    mask = src_peps["ms_alleles"].map(
+                        lambda value, wanted=wanted: mhc_restriction_matches_any(value, wanted)
+                    )
+                    count = src_peps[mask]["peptide"].nunique()
                 else:
                     count = 0
                 row[allele] = count
             rows.append(row)
         return pd.DataFrame(rows)
 
-    # Fallback: simple peptide count per source (allele-agnostic)
+    if metric == "ms_peptide_count":
+        raise ValueError("metric='ms_peptide_count' requires MS evidence columns.")
+
+    # Fallback: simple peptide presence per source (allele-agnostic).
     rows = []
     for _, src_row in sources.iterrows():
         src = src_row["source"]
@@ -196,6 +221,6 @@ def build_panel_matrix(
         n = src_peps["peptide"].nunique()
         row = {"source": src, "category": cat}
         for allele in alleles:
-            row[allele] = n
+            row[allele] = bool(n) if metric == "has_peptide" else n
         rows.append(row)
     return pd.DataFrame(rows)
