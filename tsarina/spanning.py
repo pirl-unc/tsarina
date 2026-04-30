@@ -55,6 +55,31 @@ _DEFAULT_SAMPLE_ALLELE_MS_MAX_PERCENTILE = 1.0
 _DEFAULT_UNRESTRICTED_MS_MAX_PERCENTILE = 0.5
 _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE = 0.1
 _DEFAULT_PEPTIDES_PER_CELL = 3
+_DEFAULT_SELECTION_ALLOWLIST = ("PRAME", "NY-ESO-1", "MAGEA4")
+_DEFAULT_VITAL_TISSUE_MAX_NTPM = 0.0
+
+_CTA_GROUPS: dict[str, tuple[str, ...]] = {
+    "NY-ESO-1": ("CTAG1A", "CTAG1B"),
+}
+
+_VITAL_TISSUE_RNA_COLUMNS: tuple[str, ...] = (
+    "rna_brain_max_ntpm",
+    "rna_heart_max_ntpm",
+    "rna_lung_max_ntpm",
+    "rna_liver_max_ntpm",
+    "rna_pancreas_max_ntpm",
+)
+_VITAL_TISSUE_MS_NAMES: frozenset[str] = frozenset(
+    {
+        "brain",
+        "central nervous system (cns)",
+        "cerebellum",
+        "heart",
+        "lung",
+        "liver",
+        "pancreas",
+    }
+)
 
 _EVIDENCE_TIER_RANKS: dict[str, int] = {
     "monoallelic_ms": 0,
@@ -86,6 +111,9 @@ def spanning_pmhc_set(
     ctas: Iterable[str] | None = None,
     min_restriction_confidence: Iterable[str] | None = ("HIGH", "MODERATE"),
     restriction_levels: Iterable[str] | None = None,
+    selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
+    exclude_vital_tissue_expression: bool = True,
+    vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
     alleles: Iterable[str] | None = None,
     panel: str | None = _DEFAULT_PANEL,
     lengths: tuple[int, ...] = _DEFAULT_LENGTHS,
@@ -127,10 +155,22 @@ def spanning_pmhc_set(
     min_restriction_confidence
         Allowed ``restriction_confidence`` bins (e.g. ``("HIGH",
         "MODERATE")``).  Pass ``None`` to disable.  Applied before
-        ranking.
+        ranking. CTAs in ``selection_allowlist`` bypass this gate.
     restriction_levels
         Optional set of ``restriction`` values to keep (e.g.
         ``("TESTIS", "PLACENTAL")``).  ``None`` (default) keeps all.
+    selection_allowlist
+        CTA names allowed through automatic safety/confidence gates. Defaults
+        to clinically anchored CTAs ``("PRAME", "NY-ESO-1", "MAGEA4")``.
+        Aliases such as ``"MAGE-A4"`` and ``"CTAG1B"`` are normalized.
+    exclude_vital_tissue_expression
+        If True (default), automatic CTA selection excludes genes with RNA
+        above ``vital_tissue_max_ntpm`` or public healthy-MS observations in
+        brain/CNS/cerebellum, heart, lung, liver, or pancreas, unless the CTA
+        is in ``selection_allowlist``.
+    vital_tissue_max_ntpm
+        Maximum allowed RNA nTPM in vital tissues for automatic CTA selection.
+        Default 0.0.
     alleles
         Explicit allele list.  Overrides ``panel``.
     panel
@@ -236,6 +276,9 @@ def spanning_pmhc_set(
         cta_rank_by=cta_rank_by,
         min_restriction_confidence=min_restriction_confidence,
         restriction_levels=restriction_levels,
+        selection_allowlist=selection_allowlist,
+        exclude_vital_tissue_expression=exclude_vital_tissue_expression,
+        vital_tissue_max_ntpm=vital_tissue_max_ntpm,
     )
     cta_rank_values = _cta_rank_values(cta_list, cta_rank_by)
 
@@ -424,6 +467,9 @@ def _resolve_ctas(
     cta_rank_by: str,
     min_restriction_confidence: Iterable[str] | None,
     restriction_levels: Iterable[str] | None,
+    selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
+    exclude_vital_tissue_expression: bool = True,
+    vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
 ) -> list[str]:
     """Pick the CTA gene set per the resolution order: explicit override
     wins; else filter the bundled CTA CSV and take top-N by rank."""
@@ -431,11 +477,17 @@ def _resolve_ctas(
     from .loader import cta_dataframe
 
     valid = CTA_gene_names()
+    allowlist = _normalize_cta_labels(selection_allowlist, valid)
 
     if ctas is not None:
-        return [g for g in ctas if g in valid]
+        return _normalize_cta_labels(ctas, valid)
 
     df = cta_dataframe()
+    if "Symbol" not in df.columns:
+        return []
+    df = df.copy()
+    df["_cta_display"] = df["Symbol"].map(_cta_display_name)
+    df["_is_selection_allowlisted"] = df["_cta_display"].isin(allowlist)
     if "filtered" in df.columns:
         df = df[df["filtered"].astype(str).str.lower() == "true"]
     if "never_expressed" in df.columns:
@@ -443,11 +495,19 @@ def _resolve_ctas(
 
     if min_restriction_confidence is not None and "restriction_confidence" in df.columns:
         wanted = {c.upper() for c in min_restriction_confidence}
-        df = df[df["restriction_confidence"].astype(str).str.upper().isin(wanted)]
+        confidence_ok = df["restriction_confidence"].astype(str).str.upper().isin(wanted)
+        df = df[confidence_ok | df["_is_selection_allowlisted"]]
 
     if restriction_levels is not None and "restriction" in df.columns:
         wanted_levels = set(restriction_levels)
         df = df[df["restriction"].isin(wanted_levels)]
+
+    if exclude_vital_tissue_expression:
+        vital_ok = ~df.apply(
+            lambda row: _has_vital_tissue_expression(row, vital_tissue_max_ntpm),
+            axis=1,
+        )
+        df = df[vital_ok | df["_is_selection_allowlisted"]]
 
     if cta_rank_by in df.columns and df[cta_rank_by].notna().any():
         df = df.sort_values(cta_rank_by, ascending=False, na_position="last")
@@ -455,7 +515,85 @@ def _resolve_ctas(
         df = df.sort_values("Symbol")
 
     df = df[df["Symbol"].isin(valid)]
-    return df["Symbol"].head(cta_count).tolist()
+    df = df.drop_duplicates(subset=["_cta_display"], keep="first")
+    return df["_cta_display"].head(cta_count).tolist()
+
+
+def _compact_cta_name(value: object) -> str:
+    return "".join(ch for ch in str(value).upper() if ch.isalnum())
+
+
+def _cta_display_name(symbol: object) -> str:
+    token = str(symbol).strip()
+    compact = _compact_cta_name(token)
+    if compact in {"NYESO1", "NYESO", "CTAG1", "CTAG1A", "CTAG1B"}:
+        return "NY-ESO-1"
+    if compact.startswith("MAGEA") and compact[5:].isdigit():
+        return compact
+    return token
+
+
+def _normalize_cta_labels(values: Iterable[str] | None, valid_symbols: set[str]) -> list[str]:
+    if values is None:
+        return []
+
+    valid_by_compact = {_compact_cta_name(symbol): symbol for symbol in valid_symbols}
+    labels: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        compact = _compact_cta_name(value)
+        if not compact:
+            continue
+        if compact in {"NYESO1", "NYESO", "CTAG1", "CTAG1A", "CTAG1B"}:
+            label = "NY-ESO-1"
+        elif compact in valid_by_compact:
+            label = _cta_display_name(valid_by_compact[compact])
+        else:
+            continue
+        if label in seen:
+            continue
+        if not any(symbol in valid_symbols for symbol in _cta_member_symbols(label)):
+            continue
+        labels.append(label)
+        seen.add(label)
+    return labels
+
+
+def _cta_member_symbols(label: str) -> tuple[str, ...]:
+    return _CTA_GROUPS.get(label, (label,))
+
+
+def _expand_cta_symbols(labels: Iterable[str]) -> list[str]:
+    expanded: list[str] = []
+    seen: set[str] = set()
+    for label in labels:
+        for symbol in _cta_member_symbols(label):
+            if symbol not in seen:
+                expanded.append(symbol)
+                seen.add(symbol)
+    return expanded
+
+
+def _split_semicolon_values(value: object) -> set[str]:
+    if not isinstance(value, str):
+        return set()
+    return {part.strip() for part in value.split(";") if part.strip()}
+
+
+def _has_vital_tissue_expression(row: pd.Series, max_ntpm: float) -> bool:
+    for column in _VITAL_TISSUE_RNA_COLUMNS:
+        value = row.get(column)
+        try:
+            ntpm = float(value)
+        except (TypeError, ValueError):
+            continue
+        if pd.notna(ntpm) and ntpm > max_ntpm:
+            return True
+
+    healthy_ms_tissues = {
+        tissue.lower() for tissue in _split_semicolon_values(row.get("ms_healthy_somatic_tissues"))
+    }
+    return bool(healthy_ms_tissues & _VITAL_TISSUE_MS_NAMES)
 
 
 def _cta_rank_values(cta_list: list[str], cta_rank_by: str) -> dict[str, float | str]:
@@ -469,12 +607,15 @@ def _cta_rank_values(cta_list: list[str], cta_rank_by: str) -> dict[str, float |
         return {}
 
     rank_values: dict[str, float | str] = {}
-    for symbol, value in df[df["Symbol"].isin(cta_list)][["Symbol", cta_rank_by]].itertuples(
-        index=False,
-        name=None,
-    ):
-        if pd.notna(value):
-            rank_values[str(symbol)] = value
+    for cta in cta_list:
+        values = df[df["Symbol"].isin(_cta_member_symbols(cta))][cta_rank_by].dropna()
+        if values.empty:
+            continue
+        numeric = pd.to_numeric(values, errors="coerce")
+        if numeric.notna().any():
+            rank_values[cta] = float(numeric.max())
+        else:
+            rank_values[cta] = str(values.iloc[0])
     return rank_values
 
 
@@ -487,13 +628,14 @@ def _resolve_peptides(
     progress_bar: bool = False,
     progress_file: TextIO | None = None,
 ) -> pd.DataFrame:
+    cta_symbols = _expand_cta_symbols(cta_list)
     if require_cta_exclusive:
         from .peptides import cta_exclusive_peptides
 
         all_peps = cta_exclusive_peptides(
             ensembl_release=ensembl_release,
             lengths=tuple(lengths),
-            gene_names=cta_list,
+            gene_names=cta_symbols,
             on_progress=on_progress,
             progress_bar=progress_bar,
             progress_file=progress_file,
@@ -504,14 +646,16 @@ def _resolve_peptides(
         all_peps = cta_peptides(
             ensembl_release=ensembl_release,
             lengths=tuple(lengths),
-            gene_names=cta_list,
+            gene_names=cta_symbols,
             on_progress=on_progress,
             progress_bar=progress_bar,
             progress_file=progress_file,
         )
     if all_peps.empty:
         return all_peps
-    return all_peps[all_peps["gene_name"].isin(cta_list)].copy()
+    out = all_peps[all_peps["gene_name"].isin(cta_symbols)].copy()
+    out["gene_name"] = out["gene_name"].map(_cta_display_name)
+    return out[out["gene_name"].isin(cta_list)].copy()
 
 
 def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list[str]:
