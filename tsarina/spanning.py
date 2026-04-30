@@ -222,6 +222,10 @@ def spanning_pmhc_set(
         sample_allele_ms_max_percentile = max_percentile
         unrestricted_ms_max_percentile = max_percentile
 
+    from .version import __version__
+
+    _report_progress(on_progress, f"tsarina v{__version__}")
+
     allele_list = _resolve_alleles(alleles, panel)
     allele_frequencies = _weighted_allele_frequencies(allele_list)
     if alleles is None:
@@ -258,6 +262,9 @@ def spanning_pmhc_set(
         lengths=lengths,
         ensembl_release=ensembl_release,
         require_cta_exclusive=require_cta_exclusive,
+        on_progress=on_progress,
+        progress_bar=progress_bar,
+        progress_file=progress_file,
     )
     if pep_df.empty:
         _report_progress(on_progress, "No CTA peptides survived peptide enumeration.")
@@ -476,15 +483,32 @@ def _resolve_peptides(
     lengths: tuple[int, ...],
     ensembl_release: int,
     require_cta_exclusive: bool,
+    on_progress: Callable[[str], None] | None = None,
+    progress_bar: bool = False,
+    progress_file: TextIO | None = None,
 ) -> pd.DataFrame:
     if require_cta_exclusive:
         from .peptides import cta_exclusive_peptides
 
-        all_peps = cta_exclusive_peptides(ensembl_release=ensembl_release, lengths=tuple(lengths))
+        all_peps = cta_exclusive_peptides(
+            ensembl_release=ensembl_release,
+            lengths=tuple(lengths),
+            gene_names=cta_list,
+            on_progress=on_progress,
+            progress_bar=progress_bar,
+            progress_file=progress_file,
+        )
     else:
         from .peptides import cta_peptides
 
-        all_peps = cta_peptides(ensembl_release=ensembl_release, lengths=tuple(lengths))
+        all_peps = cta_peptides(
+            ensembl_release=ensembl_release,
+            lengths=tuple(lengths),
+            gene_names=cta_list,
+            on_progress=on_progress,
+            progress_bar=progress_bar,
+            progress_file=progress_file,
+        )
     if all_peps.empty:
         return all_peps
     return all_peps[all_peps["gene_name"].isin(cta_list)].copy()

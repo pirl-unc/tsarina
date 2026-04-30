@@ -582,6 +582,7 @@ def test_on_progress_callback_receives_three_stages():
         max_percentile=2.0,
         on_progress=messages.append,
     )
+    assert messages[0].startswith("tsarina v")
     assert any("Panel inputs" in msg for msg in messages)
     assert any("Enumerating CTA-exclusive peptides" in msg for msg in messages)
     assert any("Loading public MS evidence" in msg for msg in messages)
@@ -589,6 +590,26 @@ def test_on_progress_callback_receives_three_stages():
     assert any("Scored" in msg and msg.endswith("s.") for msg in messages)
     assert any("Built MS evidence tiers" in msg for msg in messages)
     assert any("Panel selected" in msg for msg in messages)
+
+
+def test_on_progress_threads_into_peptide_resolution(monkeypatch):
+    messages: list[str] = []
+
+    def _exclusive(**kw):
+        kw["on_progress"]("inner-peptide-progress")
+        assert kw["progress_bar"] is False
+        assert kw["gene_names"] == ["MAGEA4"]
+        return _stub_peptides()
+
+    monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", _exclusive, raising=True)
+
+    spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=2.0,
+        on_progress=messages.append,
+    )
+    assert "inner-peptide-progress" in messages
 
 
 def test_on_progress_pre_scoring_message_has_accurate_counts():
@@ -867,10 +888,12 @@ def test_require_cta_exclusive_true_calls_exclusive(monkeypatch):
 
     def _exclusive(**kw):
         calls["exclusive"] += 1
+        assert kw["gene_names"] == ["MAGEA4"]
         return _stub_peptides()
 
     def _non_exclusive(**kw):
         calls["non_exclusive"] += 1
+        assert kw["gene_names"] == ["MAGEA4"]
         return _stub_peptides()
 
     monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", _exclusive, raising=True)
@@ -892,10 +915,12 @@ def test_require_cta_exclusive_false_calls_cta_peptides(monkeypatch):
 
     def _exclusive(**kw):
         calls["exclusive"] += 1
+        assert kw["gene_names"] == ["MAGEA4"]
         return _stub_peptides()
 
     def _non_exclusive(**kw):
         calls["non_exclusive"] += 1
+        assert kw["gene_names"] == ["MAGEA4"]
         return _stub_peptides()
 
     monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", _exclusive, raising=True)

@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from tsarina.scoring import (
@@ -34,5 +36,6 @@ def test_score_presentation_import_error(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", _block_topiary)
     from tsarina.scoring import score_presentation
 
-    with pytest.raises(ImportError, match="topiary"):
+    with pytest.raises(ImportError, match="Python running tsarina") as excinfo:
         score_presentation(peptides=["SLYNTVATL"], alleles=["HLA-A*02:01"])
+    assert sys.executable in str(excinfo.value)

@@ -10,22 +10,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for tsarina's delegation to ``hitlist.proteome.proteome_kmer_set``.
+"""Tests for tsarina's proteome k-mer filtering glue.
 
-As of v1.1.0 the proteome-walk primitive lives in hitlist (shipped in
-hitlist 1.14.2).  Tsarina owns only:
+Tsarina owns:
 
 1. The tsarina-specific CTA / non-CTA gene-ID partition frozensets
    (``_non_cta_gene_ids`` / ``_cta_gene_ids``) — memoized wrappers
    around :func:`tsarina.partition.CTA_partition_gene_ids`.
-2. Thin call-site glue in ``cta_exclusive_peptides`` /
-   ``human_exclusive_viral_peptides`` / ``cancer_specific_viral_peptides``
-   that invokes the hitlist primitive with the right gene filter.
+2. Candidate-driven CTA exclusivity filtering that streams non-CTA proteins
+   against the much smaller CTA peptide set.
+3. Thin viral call-site glue in ``human_exclusive_viral_peptides`` /
+   ``cancer_specific_viral_peptides`` that invokes hitlist's primitive with
+   the right gene filter.
 
-These tests exercise the partition memoization and pin down the
-dispatch contract (hitlist gets the right ``gene_ids`` frozenset per
-caller).  The proteome walk itself is tested in hitlist's own test
-suite — tsarina doesn't re-test the primitive.
+These tests exercise partition memoization and pin down those dispatch
+contracts.  The full hitlist proteome index is tested in hitlist's own suite.
 """
 
 from __future__ import annotations
@@ -82,42 +81,122 @@ def test_gene_id_wrappers_separate_entries_per_release():
     assert r1 == r2  # stub ignores release; values are equal
 
 
+def test_cta_gene_ids_for_names_limits_to_requested_symbols(monkeypatch):
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_ids",
+        lambda: {"ENSG_A", "ENSG_B", "ENSG_C"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.loader.cta_dataframe",
+        lambda: pd.DataFrame(
+            {
+                "Symbol": ["MAGEA4", "PRAME;PRAME_ALT", "NONCTA"],
+                "Ensembl_Gene_ID": ["ENSG_A", "ENSG_B;ENSG_C", "ENSG_D"],
+            }
+        ),
+        raising=True,
+    )
+
+    assert peptides._cta_gene_ids_for_names(["PRAME"]) == ["ENSG_B", "ENSG_C"]
+
+
 # ── Dispatch to hitlist.proteome.proteome_kmer_set ────────────────────
 
 
-def test_cta_exclusive_peptides_delegates_to_hitlist_with_non_cta_gene_ids(monkeypatch):
-    """cta_exclusive_peptides must call hitlist.proteome.proteome_kmer_set
-    with gene_ids=_non_cta_gene_ids(release), not rebuild the walk
-    locally."""
+def test_cta_exclusive_peptides_streams_candidate_overlap(monkeypatch):
+    """cta_exclusive_peptides should filter by streaming non-CTA overlaps,
+    avoiding hitlist's full proteome_kmer_set posting-index build."""
     calls: list[dict] = []
+    cta_calls: list[dict] = []
 
-    def _spy(release, lengths, gene_ids=None, **kw):
-        calls.append({"release": release, "lengths": lengths, "gene_ids": gene_ids})
-        return frozenset({"UNWANTEDK"})
+    def _hitlist_should_not_be_called(*args, **kwargs):
+        raise AssertionError("cta_exclusive_peptides should not build full hitlist k-mer set")
 
-    monkeypatch.setattr("hitlist.proteome.proteome_kmer_set", _spy, raising=True)
+    def _overlap_spy(candidate_peptides, **kw):
+        calls.append(
+            {
+                "candidate_peptides": set(candidate_peptides),
+                "ensembl_release": kw["ensembl_release"],
+                "lengths": kw["lengths"],
+            }
+        )
+        return {"UNWANTEDK"}
+
+    monkeypatch.setattr("hitlist.proteome.proteome_kmer_set", _hitlist_should_not_be_called)
     monkeypatch.setattr(
-        "tsarina.peptides.cta_peptides",
-        lambda **kw: pd.DataFrame(
+        "tsarina.peptides._non_cta_overlapping_peptides",
+        _overlap_spy,
+        raising=True,
+    )
+
+    def _cta_peptides_spy(**kw):
+        cta_calls.append(kw)
+        return pd.DataFrame(
             {
                 "peptide": ["GOODPEPTI", "UNWANTEDK"],
                 "length": [9, 9],
                 "gene_name": ["MAGEA4", "MAGEA4"],
                 "gene_id": ["E1", "E1"],
             }
-        ),
+        )
+
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_peptides",
+        _cta_peptides_spy,
         raising=True,
     )
 
-    out = peptides.cta_exclusive_peptides(ensembl_release=112, lengths=(9,))
+    out = peptides.cta_exclusive_peptides(
+        ensembl_release=112,
+        lengths=(9,),
+        gene_names=["MAGEA4"],
+    )
 
+    assert cta_calls[0]["gene_names"] == ["MAGEA4"]
     assert len(calls) == 1
-    assert calls[0]["release"] == 112
+    assert calls[0]["ensembl_release"] == 112
     assert calls[0]["lengths"] == (9,)
-    assert calls[0]["gene_ids"] == frozenset({"ENSG_B", "ENSG_C"})
-    # The peptide that appeared in the hitlist-returned background set
-    # must be filtered out.
+    assert calls[0]["candidate_peptides"] == {"GOODPEPTI", "UNWANTEDK"}
+    # The peptide that appeared in the streamed non-CTA overlap set must be filtered out.
     assert list(out["peptide"]) == ["GOODPEPTI"]
+
+
+def test_non_cta_overlap_streaming_finds_candidate_in_transcript(monkeypatch):
+    class _Transcript:
+        biotype = "protein_coding"
+
+        def __init__(self, protein_sequence: str):
+            self.protein_sequence = protein_sequence
+
+    class _Gene:
+        def __init__(self, transcripts):
+            self.transcripts = transcripts
+
+    class _FakeEnsembl:
+        def __init__(self, release):
+            self.release = release
+
+        def gene_by_id(self, gene_id):
+            if gene_id == "ENSG_B":
+                return _Gene([_Transcript("AAAAUNWANTEDKBBBB")])
+            if gene_id == "ENSG_C":
+                return _Gene([_Transcript("CCCCCCCCCCCC")])
+            raise ValueError(gene_id)
+
+    messages: list[str] = []
+    monkeypatch.setattr("pyensembl.EnsemblRelease", _FakeEnsembl)
+
+    seen = peptides._non_cta_overlapping_peptides(
+        {"GOODPEPTI", "UNWANTEDK"},
+        ensembl_release=112,
+        lengths=(9,),
+        on_progress=messages.append,
+    )
+
+    assert seen == {"UNWANTEDK"}
+    assert any("Scanning 2 non-CTA genes" in msg for msg in messages)
+    assert any("Found 1 CTA candidate peptides" in msg for msg in messages)
 
 
 def test_human_exclusive_viral_peptides_delegates_with_none_gene_ids(monkeypatch):
@@ -203,10 +282,8 @@ def test_cancer_specific_viral_peptides_delegates_twice_non_cta_and_cta(monkeypa
     assert bool(unique_row["in_cta_protein"]) is False
 
 
-def test_non_cta_gene_ids_frozenset_is_reused_across_callers(monkeypatch):
-    """Both cta_exclusive_peptides and cancer_specific_viral_peptides
-    query the non-CTA partition.  They should pass the SAME frozenset
-    instance so hitlist's cache keying is stable across callers."""
+def test_cancer_specific_viral_peptides_reuses_non_cta_frozenset(monkeypatch):
+    """The viral path still passes the memoized non-CTA frozenset to hitlist."""
     received_gene_ids: list[frozenset] = []
 
     def _spy(release, lengths, gene_ids=None, **kw):
@@ -215,18 +292,6 @@ def test_non_cta_gene_ids_frozenset_is_reused_across_callers(monkeypatch):
         return frozenset()
 
     monkeypatch.setattr("hitlist.proteome.proteome_kmer_set", _spy, raising=True)
-    monkeypatch.setattr(
-        "tsarina.peptides.cta_peptides",
-        lambda **kw: pd.DataFrame(
-            {
-                "peptide": ["X" * 9],
-                "length": [9],
-                "gene_name": ["MAGEA4"],
-                "gene_id": ["E1"],
-            }
-        ),
-        raising=True,
-    )
     monkeypatch.setattr(
         "tsarina.viral.viral_peptides",
         lambda **kw: pd.DataFrame(
@@ -240,10 +305,7 @@ def test_non_cta_gene_ids_frozenset_is_reused_across_callers(monkeypatch):
         raising=True,
     )
 
-    peptides.cta_exclusive_peptides(ensembl_release=112, lengths=(9,))
     viral.cancer_specific_viral_peptides(virus="test", lengths=(9,), ensembl_release=112)
 
-    assert len(received_gene_ids) == 2
-    # Both callers receive the SAME frozenset object (not just equal —
-    # identical), so hitlist's cache treats them as one lookup.
-    assert received_gene_ids[0] is received_gene_ids[1]
+    assert len(received_gene_ids) == 1
+    assert received_gene_ids[0] is peptides._non_cta_gene_ids(112)
