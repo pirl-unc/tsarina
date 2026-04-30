@@ -26,6 +26,7 @@ Usage::
 
     tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
     tsarina hits --gene PRAME --allele HLA-A*24:02
+    tsarina panel -o panel.csv
 """
 
 from __future__ import annotations
@@ -186,7 +187,15 @@ def main() -> None:
     cli_hits.build_parser(sub)
     cli_spanning.build_parser(sub)
 
-    args = parser.parse_args()
+    argv = sys.argv[1:]
+    deprecated_spanning = bool(argv and argv[0] == "spanning")
+    if deprecated_spanning:
+        argv = ["panel", *argv[1:]]
+
+    args = parser.parse_args(argv)
+    if deprecated_spanning:
+        args.deprecated_spanning = True
+
     if args.command is None:
         parser.print_help()
         sys.exit(1)
@@ -197,7 +206,7 @@ def main() -> None:
         cli_personalize.handle(args)
     elif args.command == "hits":
         cli_hits.handle(args)
-    elif args.command == "spanning":
+    elif args.command == "panel":
         cli_spanning.handle(args)
 
 

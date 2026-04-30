@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``tsarina spanning`` CLI — population-spanning CTA x HLA pMHC table.
+"""``tsarina panel`` CLI — CTA x HLA pMHC panel matrix.
 
 Wraps :func:`tsarina.spanning.spanning_pmhc_set` with argparse.
 """
@@ -29,6 +29,8 @@ _SUPPORTED_PANELS = (
     "global48_abc",
     "global51_abc_ssa",
 )
+_DEFAULT_PANEL = "global51_abc_ssa"
+_DEFAULT_LENGTHS = (8, 9, 10, 11)
 
 
 def _split_csv(value: str) -> list[str]:
@@ -42,19 +44,7 @@ def _parse_lengths(value: str) -> tuple[int, ...]:
         raise argparse.ArgumentTypeError(f"--lengths must be integers: {value!r}") from e
 
 
-def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    p = sub.add_parser(
-        "spanning",
-        help="Build a population-spanning CTA x HLA pMHC table.",
-        description=(
-            "Produce a CTA x HLA pivot table where each cell is the best-presented "
-            "peptide for that CTA on that HLA allele. Defaults to top-25 CTAs (ranked "
-            "by ms_cancer_peptide_count) crossed with the IEDB-27 panel at 9-mer "
-            "length and a 2.0%% presentation-percentile cutoff — typically yielding "
-            "200-400 filled cells, suitable as a baseline spanning set for off-the-"
-            "shelf vaccine / TCR programs."
-        ),
-    )
+def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
     p.add_argument(
         "--cta-count",
         type=int,
@@ -106,14 +96,14 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--panel",
         choices=_SUPPORTED_PANELS,
-        default="iedb27_ab",
-        help="Named panel from tsarina.alleles (default 'iedb27_ab').",
+        default=_DEFAULT_PANEL,
+        help=f"Named panel from tsarina.alleles (default '{_DEFAULT_PANEL}').",
     )
     p.add_argument(
         "--lengths",
         type=_parse_lengths,
-        default=(9,),
-        help="Peptide lengths to enumerate (default 9).",
+        default=_DEFAULT_LENGTHS,
+        help="Peptide lengths to enumerate (default 8,9,10,11).",
     )
     p.add_argument(
         "--ensembl-release",
@@ -134,10 +124,55 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="mhctools predictor (default mhcflurry).",
     )
     p.add_argument(
-        "--max-percentile",
+        "--monoallelic-ms-max-percentile",
         type=float,
         default=2.0,
-        help="Maximum presentation percentile for a cell to be filled (default 2.0).",
+        help="Max percentile for mono-allelic MS-supported pMHCs (default 2.0).",
+    )
+    p.add_argument(
+        "--sample-allele-ms-max-percentile",
+        type=float,
+        default=1.0,
+        help=(
+            "Max percentile for multi-allelic sample-genotype MS support where the "
+            "panel allele is best among sample alleles (default 1.0)."
+        ),
+    )
+    p.add_argument(
+        "--unrestricted-ms-max-percentile",
+        type=float,
+        default=0.5,
+        help="Max percentile for peptide-level MS support without usable allele (default 0.5).",
+    )
+    p.add_argument(
+        "--include-predicted-only",
+        action="store_true",
+        help="Allow prediction-only candidates as last-priority fillers.",
+    )
+    p.add_argument(
+        "--predicted-only-max-percentile",
+        type=float,
+        default=0.1,
+        help="Max percentile for prediction-only candidates when enabled (default 0.1).",
+    )
+    p.add_argument(
+        "--max-percentile",
+        type=float,
+        default=None,
+        help=(
+            "Deprecated shortcut: set all MS-supported tier cutoffs to this value. "
+            "Does not enable predicted-only candidates."
+        ),
+    )
+    p.add_argument(
+        "--iedb-path",
+        default=None,
+        help="Optional explicit IEDB ligand CSV; default uses cached hitlist observations.",
+    )
+    p.add_argument(
+        "--cedar-path",
+        default=None,
+        help="Optional explicit CEDAR CSV; default uses cached hitlist observations.",
     )
     p.add_argument(
         "--format",
@@ -146,7 +181,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help=(
             "Output format (default 'wide'). 'wide' = CTA rows x allele cols with "
             "peptide as cell value. 'long' = one row per filled cell with peptide / "
-            "length / percentile / score / affinity columns."
+            "evidence tier / MS provenance / percentile / score / affinity columns."
         ),
     )
     p.add_argument(
@@ -158,8 +193,29 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     return p
 
 
+def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    p = sub.add_parser(
+        "panel",
+        help="Build a CTA x HLA pMHC matrix for a population HLA panel.",
+        description=(
+            "Produce a CTA x HLA pivot table where each cell is the best MS-supported "
+            "peptide-HLA candidate for that CTA and allele. Defaults to top-25 CTAs "
+            "crossed with the Global-51 HLA-A/B/C panel, 8-11mers, and tier-specific "
+            "presentation-percentile cutoffs: mono-allelic MS <=2.0, multi-allelic "
+            "sample-genotype MS <=1.0, unrestricted MS <=0.5. Prediction-only "
+            "candidates are excluded unless --include-predicted-only is supplied."
+        ),
+    )
+    _configure_parser(p)
+
+    return p
+
+
 def handle(args: argparse.Namespace) -> None:
     from .spanning import spanning_pmhc_set
+
+    if getattr(args, "deprecated_spanning", False):
+        print("Warning: `tsarina spanning` is deprecated; use `tsarina panel`.", file=sys.stderr)
 
     min_restriction_confidence: tuple[str, ...] | None
     if any(v.upper() == "ANY" for v in args.min_restriction_confidence):
@@ -182,7 +238,14 @@ def handle(args: argparse.Namespace) -> None:
         ensembl_release=args.ensembl_release,
         require_cta_exclusive=args.require_cta_exclusive,
         predictor=args.predictor,
+        monoallelic_ms_max_percentile=args.monoallelic_ms_max_percentile,
+        sample_allele_ms_max_percentile=args.sample_allele_ms_max_percentile,
+        unrestricted_ms_max_percentile=args.unrestricted_ms_max_percentile,
+        include_predicted_only=args.include_predicted_only,
+        predicted_only_max_percentile=args.predicted_only_max_percentile,
         max_percentile=args.max_percentile,
+        iedb_path=args.iedb_path,
+        cedar_path=args.cedar_path,
         output_format=args.format,
         on_progress=_on_progress,
     )

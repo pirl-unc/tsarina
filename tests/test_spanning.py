@@ -13,9 +13,9 @@
 """Unit tests for ``tsarina.spanning.spanning_pmhc_set``.
 
 The library function pulls peptides through ``cta_exclusive_peptides``,
-scores them via ``score_presentation``, and pivots the best result per
-(CTA, allele) cell. Tests stub each of those upstream calls so they run
-without Ensembl / mhcflurry installed.
+loads public MS evidence, scores them via ``score_presentation``, and
+pivots the best result per (CTA, allele) cell. Tests stub each upstream
+call so they run without Ensembl / hitlist data / mhcflurry installed.
 """
 
 from __future__ import annotations
@@ -68,6 +68,23 @@ def _stub_scores(peptides, alleles, **kwargs) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _stub_ms_hits(peptides, **kwargs) -> pd.DataFrame:
+    """Default test evidence: every peptide has unrestricted MS support."""
+    return pd.DataFrame(
+        {
+            "peptide": list(peptides),
+            "mhc_restriction": ["HLA class I"] * len(peptides),
+            "mhc_allele_provenance": ["unmatched"] * len(peptides),
+            "mhc_allele_set": [""] * len(peptides),
+            "is_monoallelic": [False] * len(peptides),
+            "pmid": ["1"] * len(peptides),
+            "cell_line_name": [""] * len(peptides),
+            "cell_name": [""] * len(peptides),
+            "source_tissue": [""] * len(peptides),
+        }
+    )
+
+
 @pytest.fixture(autouse=True)
 def _stub_pipeline(monkeypatch):
     """Wire stubs for every upstream call spanning_pmhc_set makes."""
@@ -84,6 +101,11 @@ def _stub_pipeline(monkeypatch):
     monkeypatch.setattr(
         "tsarina.scoring.score_presentation",
         _stub_scores,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits",
+        _stub_ms_hits,
         raising=True,
     )
     monkeypatch.setattr(
@@ -172,13 +194,13 @@ def test_restriction_levels_filter():
 
 
 def test_panel_default_resolves_via_get_panel():
-    """Default panel='iedb27_ab' should produce a 27-column wide table
-    plus the 'cta' index column = 28 cols."""
+    """Default panel='global51_abc_ssa' should produce a 51-column wide table
+    plus the 'cta' index column = 52 cols."""
     df = spanning_pmhc_set(
         cta_count=2,
         max_percentile=10.0,
     )
-    assert df.shape[1] == 28  # 1 cta + 27 alleles
+    assert df.shape[1] == 52  # 1 cta + 51 alleles
 
 
 def test_explicit_alleles_override_panel():
@@ -223,6 +245,150 @@ def test_max_percentile_filters_weak_cells():
     assert pd.isna(indexed.loc["MAGEA4", "HLA-A*24:02"])
 
 
+def test_monoallelic_ms_tier_and_threshold(monkeypatch):
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1"],
+            "mhc_restriction": ["HLA-A*02:01"],
+            "mhc_allele_provenance": ["exact"],
+            "mhc_allele_set": ["HLA-A*02:01"],
+            "is_monoallelic": [True],
+            "pmid": ["111"],
+            "cell_line_name": ["K562-A*02:01"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        monoallelic_ms_max_percentile=0.2,
+        output_format="long",
+    )
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["evidence_tier"] == "monoallelic_ms"
+    assert row["ms_hit_count"] == 1
+    assert row["ms_pmids"] == "111"
+
+    blocked = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        monoallelic_ms_max_percentile=0.05,
+        output_format="long",
+    )
+    assert blocked.empty
+
+
+def test_sample_allele_ms_requires_best_among_sample_alleles(monkeypatch):
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1"],
+            "mhc_restriction": ["HLA class I"],
+            "mhc_allele_provenance": ["sample_allele_match"],
+            "mhc_allele_set": ["HLA-A*02:01;HLA-B*07:02"],
+            "is_monoallelic": [False],
+            "pmid": ["222"],
+            "cell_line_name": ["tumor sample"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01", "HLA-B*07:02"],
+        sample_allele_ms_max_percentile=1.0,
+        output_format="long",
+    )
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["allele"] == "HLA-A*02:01"
+    assert row["evidence_tier"] == "sample_allele_ms"
+    assert row["ms_pmids"] == "222"
+
+
+def test_unrestricted_ms_tier_uses_processing_evidence(monkeypatch):
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1"],
+            "mhc_restriction": ["HLA class I"],
+            "mhc_allele_provenance": ["unmatched"],
+            "mhc_allele_set": [""],
+            "is_monoallelic": [False],
+            "pmid": ["333"],
+            "source_tissue": ["tumor"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        unrestricted_ms_max_percentile=0.5,
+        output_format="long",
+    )
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["allele"] == "HLA-A*02:01"
+    assert row["evidence_tier"] == "unrestricted_ms"
+    assert row["ms_samples"] == "tumor"
+
+
+def test_predicted_only_is_optional_and_last_priority(monkeypatch):
+    empty_hits = pd.DataFrame(
+        columns=[
+            "peptide",
+            "mhc_restriction",
+            "mhc_allele_provenance",
+            "mhc_allele_set",
+            "is_monoallelic",
+        ]
+    )
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: empty_hits
+    )
+
+    default = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        output_format="long",
+    )
+    assert default.empty
+
+    predicted = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        include_predicted_only=True,
+        predicted_only_max_percentile=0.2,
+        output_format="long",
+    )
+    assert len(predicted) == 1
+    assert predicted.iloc[0]["evidence_tier"] == "predicted_only"
+
+    ms_hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP2"],
+            "mhc_restriction": ["HLA-A*02:01"],
+            "mhc_allele_provenance": ["exact"],
+            "mhc_allele_set": ["HLA-A*02:01"],
+            "is_monoallelic": [True],
+            "pmid": ["444"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: ms_hits)
+    ms_first = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        include_predicted_only=True,
+        predicted_only_max_percentile=0.2,
+        monoallelic_ms_max_percentile=2.0,
+        output_format="long",
+    )
+    assert len(ms_first) == 1
+    assert ms_first.iloc[0]["peptide"] == "MAGEAPEP2"
+    assert ms_first.iloc[0]["evidence_tier"] == "monoallelic_ms"
+
+
 # ── Output formats ─────────────────────────────────────────────────────
 
 
@@ -240,6 +406,11 @@ def test_long_format_has_one_row_per_filled_cell():
         "allele",
         "peptide",
         "length",
+        "evidence_tier",
+        "ms_hit_count",
+        "ms_alleles",
+        "ms_pmids",
+        "ms_samples",
         "presentation_percentile",
         "presentation_score",
         "affinity_nm",
@@ -378,12 +549,19 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         min_restriction_confidence=["HIGH", "MODERATE"],
         restriction_levels=None,
         alleles=None,
-        panel="iedb27_ab",
-        lengths=(9,),
+        panel="global51_abc_ssa",
+        lengths=(8, 9, 10, 11),
         ensembl_release=112,
         require_cta_exclusive=True,
         predictor="mhcflurry",
-        max_percentile=2.0,
+        monoallelic_ms_max_percentile=2.0,
+        sample_allele_ms_max_percentile=1.0,
+        unrestricted_ms_max_percentile=0.5,
+        include_predicted_only=False,
+        predicted_only_max_percentile=0.1,
+        max_percentile=None,
+        iedb_path=None,
+        cedar_path=None,
         format="wide",
         output=None,
     )
