@@ -19,6 +19,18 @@ def test_filter_by_allele_exact_match():
     assert out["mhc_restriction"].tolist() == ["HLA-A*24:02"]
 
 
+def test_filter_by_allele_normalizes_user_input():
+    df = _hits(["HLA-A*02:01", "HLA-A*24:02", "HLA-B*07:02"])
+    out = _filter_by_allele(df, ["A*02:01"])
+    assert out["mhc_restriction"].tolist() == ["HLA-A*02:01"]
+
+
+def test_filter_by_allele_matches_semicolon_joined_restrictions():
+    df = _hits(["HLA-A*02:01;HLA-B*07:02", "HLA-A*24:02"])
+    out = _filter_by_allele(df, ["B*07:02"])
+    assert out["mhc_restriction"].tolist() == ["HLA-A*02:01;HLA-B*07:02"]
+
+
 def test_filter_by_allele_empty_passthrough():
     df = _hits(["HLA-A*02:01"])
     assert _filter_by_allele(df, []).equals(df)

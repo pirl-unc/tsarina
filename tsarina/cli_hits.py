@@ -271,8 +271,12 @@ def _resolve_uniprot_to_gene(uniprot: str) -> str:
 def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
     if not alleles:
         return hits
-    wanted = {a.strip() for a in alleles}
-    return hits[hits["mhc_restriction"].isin(wanted)].copy()
+    from .mhc import mhc_restriction_matches_any, normalize_mhc_restriction_set
+
+    wanted = normalize_mhc_restriction_set(alleles)
+    return hits[
+        hits["mhc_restriction"].map(lambda value: mhc_restriction_matches_any(value, wanted))
+    ].copy()
 
 
 def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFrame:

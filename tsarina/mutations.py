@@ -410,7 +410,7 @@ def mutant_iedb_overlap(
         Mutant peptide DataFrame with ``has_iedb_hit``, ``iedb_alleles``,
         ``iedb_hit_count`` columns.
     """
-    from .iedb import scan_public_ms
+    from .ms_evidence import aggregate_ms_hits_for_iedb_columns, load_public_ms_hits
 
     mdf = mutant_peptides(
         mutations=mutations,
@@ -424,11 +424,13 @@ def mutant_iedb_overlap(
         return mdf
 
     unique_peptides = set(mdf["peptide"].unique())
-    hits = scan_public_ms(
+    hits = load_public_ms_hits(
         peptides=unique_peptides,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
         mhc_class=mhc_class,
+        classify_source=False,
+        drop_binding_assays=True,
     )
 
     if hits.empty:
@@ -437,14 +439,7 @@ def mutant_iedb_overlap(
         mdf["iedb_hit_count"] = 0
         return mdf
 
-    hit_summary = (
-        hits.groupby("peptide")
-        .agg(
-            iedb_hit_count=("peptide", "size"),
-            iedb_alleles=("mhc_restriction", lambda x: ";".join(sorted(set(x)))),
-        )
-        .reset_index()
-    )
+    hit_summary = aggregate_ms_hits_for_iedb_columns(hits)
 
     mdf = mdf.merge(hit_summary, on="peptide", how="left")
     mdf["has_iedb_hit"] = mdf["iedb_hit_count"].notna() & (mdf["iedb_hit_count"] > 0)

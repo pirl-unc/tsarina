@@ -374,43 +374,30 @@ def _attach_ms_evidence(
             combined[col] = default
         return combined
 
-    if iedb_path is not None or cedar_path is not None:
-        from .datasources import resolve_dataset_paths
-        from .iedb import scan_public_ms
+    from .ms_evidence import aggregate_ms_hits_by_peptide, load_public_ms_hits
 
-        resolved_iedb, resolved_cedar = resolve_dataset_paths(iedb_path, cedar_path)
-        hits = scan_public_ms(
-            peptides=set(combined["peptide"].unique()),
-            iedb_path=resolved_iedb,
-            cedar_path=resolved_cedar,
-            mhc_class=mhc_class,
-            classify_source=True,
-        )
-    else:
-        from .indexing import load_ms_evidence
-
-        hits = load_ms_evidence(
-            peptides=set(combined["peptide"].unique()),
-            mhc_class=mhc_class,
-            mhc_species="Homo sapiens",
-        )
+    hits = load_public_ms_hits(
+        peptides=set(combined["peptide"].unique()),
+        iedb_path=iedb_path,
+        cedar_path=cedar_path,
+        mhc_class=mhc_class,
+        classify_source=True,
+        drop_binding_assays=True,
+    )
 
     if hits.empty:
         for col, default in defaults.items():
             combined[col] = default
         return combined
 
-    agg_cols: dict[str, tuple] = {
-        "ms_hit_count": ("peptide", "size"),
-        "ms_alleles": ("mhc_restriction", lambda x: ";".join(sorted(set(x)))),
-        "ms_allele_count": ("mhc_restriction", lambda x: len(set(x))),
-    }
-    if "src_cancer" in hits.columns:
-        agg_cols["ms_in_cancer"] = ("src_cancer", "any")
-    if "src_healthy_tissue" in hits.columns:
-        agg_cols["ms_in_healthy_tissue"] = ("src_healthy_tissue", "any")
-
-    hit_agg = hits.groupby("peptide", as_index=False).agg(**agg_cols)
+    hit_agg = aggregate_ms_hits_by_peptide(
+        hits,
+        source_flag_outputs={
+            "src_cancer": "ms_in_cancer",
+            "src_healthy_tissue": "ms_in_healthy_tissue",
+        },
+        cell_line_output=None,
+    )
     combined = combined.merge(hit_agg, on="peptide", how="left")
 
     int_cols = {"ms_hit_count", "ms_allele_count"}

@@ -175,69 +175,43 @@ def target_peptides(
     combined["peptide_unique_id"] = combined["peptide"]
 
     # ── IEDB/CEDAR evidence lookup ──────────────────────────────────────
-    has_iedb = iedb_path is not None or cedar_path is not None
-    if has_iedb:
-        from .iedb import scan_public_ms
+    needs_ms_evidence = require_ms_evidence or cancer_specific or iedb_path is not None
+    needs_ms_evidence = needs_ms_evidence or cedar_path is not None
+    if needs_ms_evidence:
+        from .ms_evidence import (
+            SOURCE_FLAG_OUTPUTS,
+            aggregate_ms_hits_by_peptide,
+            load_public_ms_hits,
+        )
 
-        unique_peptides = set(combined["peptide"].unique())
-        hits = scan_public_ms(
-            peptides=unique_peptides,
+        source_flag_outputs = SOURCE_FLAG_OUTPUTS if classify_source or cancer_specific else {}
+        hits = load_public_ms_hits(
+            peptides=set(combined["peptide"].unique()),
             iedb_path=iedb_path,
             cedar_path=cedar_path,
             mhc_class=mhc_class,
-            classify_source=classify_source,
+            mhc_species="Homo sapiens",
+            classify_source=classify_source or cancer_specific,
+            drop_binding_assays=True,
         )
+        hit_agg = aggregate_ms_hits_by_peptide(
+            hits,
+            source_flag_outputs=source_flag_outputs,
+            cell_line_output="ms_cell_lines" if source_flag_outputs else None,
+        )
+        combined = combined.merge(hit_agg, on="peptide", how="left")
+        combined["has_ms_evidence"] = combined["ms_hit_count"].notna() & (
+            combined["ms_hit_count"] > 0
+        )
+        combined["ms_hit_count"] = combined["ms_hit_count"].fillna(0).astype(int)
+        combined["ms_alleles"] = combined["ms_alleles"].fillna("")
+        combined["ms_allele_count"] = combined["ms_allele_count"].fillna(0).astype(int)
 
-        if not hits.empty:
-            # Aggregate per peptide
-            _SRC_COLS = [
-                "src_cancer",
-                "src_healthy_tissue",
-                "src_healthy_thymus",
-                "src_healthy_reproductive",
-                "src_cell_line",
-                "src_ebv_lcl",
-                "src_ex_vivo",
-            ]
-            src_agg = {}
-            if classify_source:
-                for sc in _SRC_COLS:
-                    if sc in hits.columns:
-                        src_agg[f"ms_{sc.removeprefix('src_')}"] = (sc, "any")
-                # Collect cell line names
-                if "cell_line_name" in hits.columns:
-                    src_agg["ms_cell_lines"] = (
-                        "cell_line_name",
-                        lambda x: ";".join(sorted({v for v in x if v})),
-                    )
-
-            hit_agg = hits.groupby("peptide", as_index=False).agg(
-                ms_hit_count=("peptide", "size"),
-                ms_alleles=("mhc_restriction", lambda x: ";".join(sorted(set(x)))),
-                ms_allele_count=("mhc_restriction", lambda x: len(set(x))),
-                **src_agg,
-            )
-
-            combined = combined.merge(hit_agg, on="peptide", how="left")
-            combined["has_ms_evidence"] = combined["ms_hit_count"].notna() & (
-                combined["ms_hit_count"] > 0
-            )
-            combined["ms_hit_count"] = combined["ms_hit_count"].fillna(0).astype(int)
-            combined["ms_alleles"] = combined["ms_alleles"].fillna("")
-            combined["ms_allele_count"] = combined["ms_allele_count"].fillna(0).astype(int)
-
-            if classify_source:
-                for sc in _SRC_COLS:
-                    col = f"ms_{sc.removeprefix('src_')}"
-                    if col in combined.columns:
-                        combined[col] = combined[col].fillna(False)
-                if "ms_cell_lines" in combined.columns:
-                    combined["ms_cell_lines"] = combined["ms_cell_lines"].fillna("")
-        else:
-            combined["has_ms_evidence"] = False
-            combined["ms_hit_count"] = 0
-            combined["ms_alleles"] = ""
-            combined["ms_allele_count"] = 0
+        for col in source_flag_outputs.values():
+            if col in combined.columns:
+                combined[col] = combined[col].where(combined[col].notna(), False).astype(bool)
+        if "ms_cell_lines" in combined.columns:
+            combined["ms_cell_lines"] = combined["ms_cell_lines"].fillna("")
 
         # ── Filters ─────────────────────────────────────────────────────
         if require_ms_evidence:

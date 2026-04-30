@@ -393,7 +393,7 @@ def viral_iedb_overlap(
         ``iedb_alleles`` (semicolon-separated MHC restrictions),
         ``iedb_hit_count``.
     """
-    from .iedb import scan_public_ms
+    from .ms_evidence import aggregate_ms_hits_for_iedb_columns, load_public_ms_hits
 
     if human_exclusive_only:
         vdf = human_exclusive_viral_peptides(
@@ -413,11 +413,13 @@ def viral_iedb_overlap(
         return vdf
 
     unique_peptides = set(vdf["peptide"].unique())
-    hits = scan_public_ms(
+    hits = load_public_ms_hits(
         peptides=unique_peptides,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
         mhc_class=mhc_class,
+        classify_source=False,
+        drop_binding_assays=True,
     )
 
     if hits.empty:
@@ -427,14 +429,7 @@ def viral_iedb_overlap(
         return vdf
 
     # Aggregate IEDB hits per peptide
-    hit_summary = (
-        hits.groupby("peptide")
-        .agg(
-            iedb_hit_count=("peptide", "size"),
-            iedb_alleles=("mhc_restriction", lambda x: ";".join(sorted(set(x)))),
-        )
-        .reset_index()
-    )
+    hit_summary = aggregate_ms_hits_for_iedb_columns(hits)
 
     vdf = vdf.merge(hit_summary, on="peptide", how="left")
     vdf["has_iedb_hit"] = vdf["iedb_hit_count"].notna() & (vdf["iedb_hit_count"] > 0)

@@ -1,3 +1,138 @@
+# PR Series — Evidence And CLI Cleanup (2026-04-30)
+
+## Goal
+
+Start a stacked set of small PRs that fixes the audit issues while reducing
+duplicate call paths. Keep each PR reviewable, with one version bump per PR.
+
+## Planned Stack
+
+- [x] PR 1: Centralize public-MS loading and HLA normalization helpers; fix
+      `target_peptides()` default evidence filtering (#31) and
+      `tsarina hits --allele` normalization (#33).
+- [ ] PR 2: Rework panel matrix metrics to use the centralized helpers, fail
+      loudly when scoring is unavailable, and count literal HLA restrictions
+      instead of regex strings (#34).
+- [ ] PR 3: Refresh README/docs around hitlist data location and the default
+      human-exclusive viral helper (#32).
+
+## Design Notes
+
+- Add one public-MS loader that chooses the cached hitlist observations path by
+  default and the raw scanner path only when explicit IEDB/CEDAR paths are
+  supplied.
+- Keep binding-assay exclusion in that loader so target, export, evidence, and
+  panel paths cannot diverge.
+- Add shared MHC restriction normalization/matching helpers and call them from
+  CLI filters and panel MS metrics.
+- Preserve existing output columns where callers may depend on them; add tests
+  for each fixed behavior before opening PRs.
+
+## PR 1 Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 229 passed
+
+# Audit — Hitlist Changes And Full Tsarina Pass (2026-04-29)
+
+## Goal
+
+Inspect the current hitlist state that tsarina depends on, then read through
+tsarina end to end looking for bugs, API mismatches, stale assumptions,
+documentation drift, test gaps, and simple improvement opportunities.
+
+## Plan
+
+- [x] Inspect local hitlist checkout, installed hitlist version, and recent
+      hitlist API changes relevant to tsarina.
+- [x] Review tsarina package metadata, public modules, CLIs, tests, and task
+      notes so the audit is grounded in current code rather than prior reports.
+- [x] Trace hitlist-facing paths: data registry, observation loading, scanning,
+      aggregation, proteome k-mer delegation, and CLI filters.
+- [x] Record concrete findings with file/line references and classify them by
+      severity.
+- [x] Decide whether any findings are clearly safe to fix now; otherwise leave
+      an actionable review section.
+
+## Review
+
+### Context Checked
+
+- Local `hitlist` import points at `/Users/iskander/code/hitlist`; package
+  attribute reports `1.30.4`, while installed metadata reports `1.30.0`.
+- Sibling `hitlist` checkout is on `feat/pmhc-sample-paired` with one
+  modified file: `hitlist/pmhc_query.py`.
+- Current `tsarina` main includes PR #30 / v1.2.0:
+  hitlist `>=1.15.1`, `tsarina hits --lengths` pushdown, and
+  class-derived length defaults.
+
+### Findings
+
+1. **High — `target_peptides()` ignores the cached hitlist evidence path.**
+   `tsarina/targets.py:177-249` only attaches MS evidence when explicit
+   `iedb_path` or `cedar_path` is supplied. With defaults, both
+   `require_ms_evidence=True` and `cancer_specific=True` are no-ops.
+   When explicit raw CSVs are supplied, binding-assay rows are not dropped
+   before MS aggregation. Filed as
+   https://github.com/pirl-unc/tsarina/issues/31.
+
+2. **High — panel MS metrics are not reliable.**
+   `tsarina/panels.py:113-188` inherits the `target_peptides()` evidence
+   no-op for `ms_confirmed_only=True`; `metric="ms_peptide_count"` uses
+   regex `str.contains(allele)` against HLA strings with `*`, so literal
+   alleles such as `HLA-A*02:01` do not match; and `metric="best_percentile"`
+   silently falls back to allele-agnostic peptide counts if scoring imports
+   fail. Filed as https://github.com/pirl-unc/tsarina/issues/34.
+
+3. **Medium — `tsarina hits --allele` does not normalize user allele input.**
+   `tsarina/cli_hits.py:271-275` post-filters by exact string. Current
+   hitlist normalizes loaded `mhc_restriction` values, but tsarina does not
+   normalize requested alleles, so `--allele A*02:01` drops canonical
+   `HLA-A*02:01` rows. Filed as
+   https://github.com/pirl-unc/tsarina/issues/33.
+
+4. **Medium — legacy overlap helpers still treat scanner output as MS-only.**
+   `tsarina/viral.py:416-442` and `tsarina/mutations.py:427-449` call
+   `scan_public_ms()` and aggregate all hits without dropping
+   `is_binding_assay`. This is the same class of issue as #31 but on older
+   per-category helper APIs.
+
+5. **Medium — local `hitlist` change has per-sample edge-case bugs.**
+   `hitlist/pmhc_query.py:296-354` adds `query_by_samples()`, but a sample
+   with an empty allele list is passed through to `query()`, where empty
+   alleles mean "all alleles." The comment that empty sub-results remain
+   visible to `groupby("sample_name")` is also false: inserting a scalar
+   column into an empty frame still leaves zero rows. Filed as
+   https://github.com/pirl-unc/hitlist/issues/188.
+
+6. **Low — docs still carry stale pre-hitlist delegation details.**
+   `README.md:121-125`, `README.md:292`, `docs/index.md:102-106`, and
+   `docs/index.md:273` still mention `~/.tsarina` / `PERSEUS_DATA_DIR`
+   and foreground `cancer_specific_viral_peptides()` where the current
+   clinical default is stricter human-exclusive viral filtering. Filed as
+   https://github.com/pirl-unc/tsarina/issues/32.
+
+### Immediate Recommendation
+
+Fix #31 first. It is foundational: `target_peptides()` feeds
+`build_panel_matrix()`, the README's target-table example, and older target
+selection APIs. The most direct fix is to mirror `personalize()` /
+`export.build_ms_support_maps()`:
+
+- default path: `indexing.load_ms_evidence(peptides=..., mhc_class=...,
+  mhc_species="Homo sapiens")`
+- explicit raw path: `scan_public_ms(...)`, then drop `is_binding_assay`
+- keep source-flag aggregation shape stable for existing callers
+
+Then fix #34 with targeted panel tests.
+
+### Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 214 passed
+
 # Audit — Hitlist Alignment And TSA Goal
 
 ## Goal
