@@ -32,6 +32,7 @@ _SUPPORTED_PANELS = (
 )
 _DEFAULT_PANEL = "global51_abc_ssa"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
+_DEFAULT_SELECTION_ALLOWLIST = "PRAME,NY-ESO-1,MAGEA4"
 
 
 def _split_csv(value: str) -> list[str]:
@@ -87,6 +88,33 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "Restriction levels to keep, comma-separated (e.g. 'TESTIS,PLACENTAL'). "
             "Default keeps all levels."
         ),
+    )
+    p.add_argument(
+        "--selection-allowlist",
+        type=_split_csv,
+        default=_split_csv(_DEFAULT_SELECTION_ALLOWLIST),
+        help=(
+            "CTA names allowed through automatic safety/confidence gates "
+            f"(default '{_DEFAULT_SELECTION_ALLOWLIST}'). Aliases such as NY-ESO-1 "
+            "and MAGE-A4 are normalized."
+        ),
+    )
+    p.add_argument(
+        "--no-vital-tissue-filter",
+        dest="exclude_vital_tissue_expression",
+        action="store_false",
+        help=(
+            "Disable the automatic vital-tissue expression filter. By default, panel "
+            "excludes CTAs with RNA above --vital-tissue-max-ntpm or public healthy-MS "
+            "observations in brain/CNS/cerebellum, heart, lung, liver, or pancreas, "
+            "unless allowlisted."
+        ),
+    )
+    p.add_argument(
+        "--vital-tissue-max-ntpm",
+        type=float,
+        default=0.0,
+        help="Maximum allowed RNA nTPM in vital tissues for automatic CTA selection (default 0.0).",
     )
     p.add_argument(
         "--alleles",
@@ -282,6 +310,9 @@ def handle(args: argparse.Namespace) -> None:
         ctas=args.ctas,
         min_restriction_confidence=min_restriction_confidence,
         restriction_levels=tuple(args.restriction_levels) if args.restriction_levels else None,
+        selection_allowlist=tuple(args.selection_allowlist),
+        exclude_vital_tissue_expression=args.exclude_vital_tissue_expression,
+        vital_tissue_max_ntpm=args.vital_tissue_max_ntpm,
         alleles=tuple(args.alleles) if args.alleles else None,
         panel=args.panel,
         lengths=args.lengths,

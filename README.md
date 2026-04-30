@@ -241,6 +241,10 @@ tsarina panel
 Defaults:
 
 - top 25 CTAs ranked by cancer MS peptide count
+- automatic safety gates remove CTAs with vital-tissue RNA / healthy-MS
+  evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
+- `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
+  `CTAG1B`
 - `global51_abc_ssa` HLA-A/B/C panel
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
@@ -259,6 +263,10 @@ The CLI prints progress for peptide enumeration, public-MS evidence loading,
 scoring, evidence-tier construction, and final selection. Interactive terminals
 also get a `tqdm` scoring progress bar; use `--no-progress` or
 `--no-progress-bars` to suppress it.
+
+Use `--selection-allowlist`, `--no-vital-tissue-filter`, and
+`--vital-tissue-max-ntpm` to tune automatic CTA safety filtering. Explicit
+`--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4`.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 

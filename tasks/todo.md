@@ -1,3 +1,30 @@
+# PR — Panel CTA Safety And NY-ESO-1 Grouping (2026-04-30)
+
+## Goal
+
+Make `tsarina panel` select a less MAGE-heavy, clinically anchored CTA set by
+grouping `CTAG1A`/`CTAG1B` as one `NY-ESO-1` target and filtering automatic CTA
+selection against vital-tissue RNA expression unless explicitly allowed.
+
+## Plan
+
+- [x] Add CTA alias/group resolution so `NY-ESO-1` expands to `CTAG1A` and
+      `CTAG1B`, then collapses peptide rows back to a single display CTA.
+- [x] Add an automatic vital-tissue RNA/MS gate using existing CTA table
+      columns, with default allow-list exceptions for `PRAME`, `NY-ESO-1`, and
+      `MAGEA4`.
+- [x] Expose CLI parameters for the vital-tissue gate and allow-list.
+- [x] Document the updated panel defaults and alias handling.
+- [x] Add tests for PRAME inclusion, NY-ESO-1 grouping, MAGE alias handling,
+      and CLI wiring.
+- [x] Bump patch version and run full verification.
+
+## Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 254 passed
+
 # PR — Spanning Alias CLI Smoke Tests (2026-04-30)
 
 ## Goal
