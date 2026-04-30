@@ -13,7 +13,7 @@ duplicate call paths. Keep each PR reviewable, with one version bump per PR.
 - [x] PR 2: Rework panel matrix metrics to use the centralized helpers, fail
       loudly when scoring is unavailable, and count literal HLA restrictions
       instead of regex strings (#34).
-- [ ] PR 3: Refresh README/docs around hitlist data location and the default
+- [x] PR 3: Refresh README/docs around hitlist data location and the default
       human-exclusive viral helper (#32).
 
 ## Design Notes
@@ -35,6 +35,12 @@ duplicate call paths. Keep each PR reviewable, with one version bump per PR.
 - [x] `./test.sh` — 229 passed
 
 ## PR 2 Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 235 passed
+
+## PR 3 Verification
 
 - [x] `./format.sh`
 - [x] `./lint.sh`
