@@ -1,3 +1,5 @@
+import pandas as pd
+
 from tsarina.mutations import HOTSPOT_MUTATIONS
 
 
@@ -57,3 +59,43 @@ def test_gene_ids_are_ensembl():
 def test_transcript_ids_are_ensembl():
     for mut in HOTSPOT_MUTATIONS:
         assert mut["transcript_id"].startswith("ENST"), f"{mut['label']}: bad transcript_id"
+
+
+def test_mutant_iedb_overlap_uses_public_ms_loader(monkeypatch):
+    from tsarina.mutations import mutant_iedb_overlap
+
+    calls = {}
+    monkeypatch.setattr(
+        "tsarina.mutations.mutant_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["MSPEPTIDE", "NOEVIDENC"],
+                "mutation": ["G12D", "G12D"],
+            }
+        ),
+        raising=True,
+    )
+
+    def _fake_load_public_ms_hits(peptides, **kwargs):
+        calls["peptides"] = peptides
+        calls["kwargs"] = kwargs
+        return pd.DataFrame(
+            {
+                "peptide": ["MSPEPTIDE"],
+                "mhc_restriction": ["HLA-A*02:01"],
+            }
+        )
+
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits",
+        _fake_load_public_ms_hits,
+        raising=True,
+    )
+
+    out = mutant_iedb_overlap()
+
+    assert calls["peptides"] == {"MSPEPTIDE", "NOEVIDENC"}
+    assert calls["kwargs"]["drop_binding_assays"] is True
+    hit_row = out[out["peptide"] == "MSPEPTIDE"].iloc[0]
+    assert bool(hit_row["has_iedb_hit"]) is True
+    assert hit_row["iedb_alleles"] == "HLA-A*02:01"

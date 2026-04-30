@@ -32,7 +32,7 @@ duplicate call paths. Keep each PR reviewable, with one version bump per PR.
 
 - [x] `./format.sh`
 - [x] `./lint.sh`
-- [x] `./test.sh` — 223 passed
+- [x] `./test.sh` — 229 passed
 
 # Audit — Hitlist Changes And Full Tsarina Pass (2026-04-29)
 

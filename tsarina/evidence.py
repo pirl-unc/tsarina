@@ -191,30 +191,16 @@ def _compute_ms_restriction(
 
     peptide_set = set(pep_df["peptide"])
 
-    if iedb_path is not None or cedar_path is not None:
-        from hitlist.scanner import scan
+    from .ms_evidence import load_public_ms_hits
 
-        from .datasources import resolve_dataset_paths
-
-        resolved_iedb, resolved_cedar = resolve_dataset_paths(iedb_path, cedar_path)
-        hits = scan(
-            peptides=peptide_set,
-            iedb_path=str(resolved_iedb),
-            cedar_path=str(resolved_cedar) if resolved_cedar else None,
-            classify_source=True,
-            mhc_species="Homo sapiens",
-            mhc_class="I",
-        )
-        if "is_binding_assay" in hits.columns:
-            hits = hits[~hits["is_binding_assay"]].copy()
-    else:
-        from .indexing import load_ms_evidence
-
-        hits = load_ms_evidence(
-            peptides=peptide_set,
-            mhc_class="I",
-            mhc_species="Homo sapiens",
-        )
+    hits = load_public_ms_hits(
+        peptides=peptide_set,
+        iedb_path=iedb_path,
+        cedar_path=cedar_path,
+        mhc_class="I",
+        classify_source=True,
+        drop_binding_assays=True,
+    )
 
     if hits.empty:
         return df

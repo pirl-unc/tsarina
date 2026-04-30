@@ -2,7 +2,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from tsarina.ms_evidence import aggregate_ms_hits_by_peptide, load_public_ms_hits
+from tsarina.ms_evidence import (
+    aggregate_ms_hits_by_peptide,
+    aggregate_ms_hits_for_iedb_columns,
+    load_public_ms_hits,
+)
 
 
 def test_load_public_ms_hits_raw_path_drops_binding_assays(monkeypatch):
@@ -56,3 +60,40 @@ def test_aggregate_ms_hits_by_peptide_carries_source_flags_and_cell_lines():
     assert bool(row["ms_cancer"]) is True
     assert bool(row["ms_healthy_tissue"]) is True
     assert row["ms_cell_lines"] == "A375"
+
+
+def test_aggregate_ms_hits_by_peptide_ignores_blank_and_missing_strings():
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MSPEPTIDE", "MSPEPTIDE", "MSPEPTIDE"],
+            "mhc_restriction": ["HLA-A*02:01", None, ""],
+            "cell_line_name": ["A375", None, ""],
+        }
+    )
+
+    out = aggregate_ms_hits_by_peptide(hits)
+
+    row = out.iloc[0]
+    assert row["ms_hit_count"] == 3
+    assert row["ms_alleles"] == "HLA-A*02:01"
+    assert row["ms_allele_count"] == 1
+    assert row["ms_cell_lines"] == "A375"
+
+
+def test_aggregate_ms_hits_for_iedb_columns_keeps_legacy_shape():
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MSPEPTIDE"],
+            "mhc_restriction": ["HLA-A*02:01"],
+        }
+    )
+
+    out = aggregate_ms_hits_for_iedb_columns(hits)
+
+    assert out.to_dict(orient="records") == [
+        {
+            "peptide": "MSPEPTIDE",
+            "iedb_hit_count": 1,
+            "iedb_alleles": "HLA-A*02:01",
+        }
+    ]

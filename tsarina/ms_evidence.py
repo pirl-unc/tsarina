@@ -33,6 +33,17 @@ def _peptide_set(peptides: set[str] | list[str] | tuple[str, ...]) -> set[str]:
     return set(peptides)
 
 
+def _nonempty_strings(values) -> set[str]:
+    strings = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        stripped = value.strip()
+        if stripped:
+            strings.add(stripped)
+    return strings
+
+
 def load_public_ms_hits(
     peptides: set[str] | list[str] | tuple[str, ...],
     *,
@@ -103,8 +114,8 @@ def aggregate_ms_hits_by_peptide(
 
     agg: dict[str, tuple] = {
         "ms_hit_count": ("peptide", "size"),
-        "ms_alleles": ("mhc_restriction", lambda x: ";".join(sorted({v for v in x if v}))),
-        "ms_allele_count": ("mhc_restriction", lambda x: len({v for v in x if v})),
+        "ms_alleles": ("mhc_restriction", lambda x: ";".join(sorted(_nonempty_strings(x)))),
+        "ms_allele_count": ("mhc_restriction", lambda x: len(_nonempty_strings(x))),
     }
     for source_col, output_col in source_flag_outputs.items():
         if source_col in hits.columns:
@@ -112,7 +123,24 @@ def aggregate_ms_hits_by_peptide(
     if cell_line_output is not None and "cell_line_name" in hits.columns:
         agg[cell_line_output] = (
             "cell_line_name",
-            lambda x: ";".join(sorted({v for v in x if v})),
+            lambda x: ";".join(sorted(_nonempty_strings(x))),
         )
 
     return hits.groupby("peptide", as_index=False).agg(**agg)
+
+
+def aggregate_ms_hits_for_iedb_columns(hits: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate hits to the legacy ``iedb_*`` peptide columns."""
+    aggregated = aggregate_ms_hits_by_peptide(
+        hits,
+        source_flag_outputs={},
+        cell_line_output=None,
+    )
+    if aggregated.empty:
+        return pd.DataFrame(columns=["peptide", "iedb_hit_count", "iedb_alleles"])
+    return aggregated.rename(
+        columns={
+            "ms_hit_count": "iedb_hit_count",
+            "ms_alleles": "iedb_alleles",
+        }
+    )[["peptide", "iedb_hit_count", "iedb_alleles"]]
