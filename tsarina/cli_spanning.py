@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 _SUPPORTED_PREDICTORS = ("mhcflurry", "netmhcpan", "netmhcpan_el")
-_SUPPORTED_FORMATS = ("wide", "long")
+_SUPPORTED_FORMATS = ("table", "wide", "long")
 _SUPPORTED_PANELS = (
     "iedb27_ab",
     "iedb36_abc",
@@ -165,6 +166,15 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--peptides-per-cell",
+        type=int,
+        default=3,
+        help=(
+            "Maximum peptides to keep per CTA x HLA cell, ranked by MS source count, "
+            "MS hit count, then prediction percentile (default 3)."
+        ),
+    )
+    p.add_argument(
         "--iedb-path",
         default=None,
         help="Optional explicit IEDB ligand CSV; default uses cached hitlist observations.",
@@ -177,18 +187,52 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
     p.add_argument(
         "--format",
         choices=_SUPPORTED_FORMATS,
-        default="wide",
+        default="table",
         help=(
-            "Output format (default 'wide'). 'wide' = CTA rows x allele cols with "
-            "peptide as cell value. 'long' = one row per filled cell with peptide / "
-            "evidence tier / MS provenance / percentile / score / affinity columns."
+            "Output format (default 'table'). 'table' = readable terminal report; "
+            "'wide' = CTA rows x allele cols with selected peptides as cell values; "
+            "'long' = one row per selected peptide with evidence tier / MS provenance / "
+            "percentile / score / affinity columns."
+        ),
+    )
+    p.add_argument(
+        "--no-summary",
+        dest="summary",
+        action="store_false",
+        help="Do not append the panel coverage summary.",
+    )
+    p.add_argument(
+        "--no-progress",
+        dest="progress",
+        action="store_false",
+        help="Suppress progress messages and scoring progress bars.",
+    )
+    p.add_argument(
+        "--progress-bars",
+        dest="progress_bars",
+        action="store_true",
+        default=None,
+        help="Force tqdm progress bars for chunked scoring.",
+    )
+    p.add_argument(
+        "--no-progress-bars",
+        dest="progress_bars",
+        action="store_false",
+        help="Disable tqdm progress bars while keeping progress messages.",
+    )
+    p.add_argument(
+        "--score-chunk-size",
+        type=int,
+        default=None,
+        help=(
+            "Number of HLA alleles per scoring chunk when progress bars are enabled (default 1)."
         ),
     )
     p.add_argument(
         "-o",
         "--output",
         default=None,
-        help="Write CSV to this path (default: stdout).",
+        help="Write output to this path (CSV for wide/long, text for table; default stdout).",
     )
     return p
 
@@ -201,9 +245,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "Produce a CTA x HLA pivot table where each cell is the best MS-supported "
             "peptide-HLA candidate for that CTA and allele. Defaults to top-25 CTAs "
             "crossed with the Global-51 HLA-A/B/C panel, 8-11mers, and tier-specific "
-            "presentation-percentile cutoffs: mono-allelic MS <=2.0, multi-allelic "
-            "sample-genotype MS <=1.0, unrestricted MS <=0.5. Prediction-only "
-            "candidates are excluded unless --include-predicted-only is supplied."
+            "presentation-percentile cutoffs: mono-allelic MS <2.0, multi-allelic "
+            "sample-genotype MS <1.0, unrestricted MS <0.5. Prediction-only "
+            "candidates are excluded unless --include-predicted-only is supplied. "
+            "The default output is a readable table plus coverage summary."
         ),
     )
     _configure_parser(p)
@@ -226,6 +271,11 @@ def handle(args: argparse.Namespace) -> None:
     def _on_progress(msg: str) -> None:
         print(msg, file=sys.stderr)
 
+    progress_bar = False
+    if args.progress:
+        progress_bar = sys.stderr.isatty() if args.progress_bars is None else args.progress_bars
+
+    output_format = "long" if args.format == "table" else args.format
     df = spanning_pmhc_set(
         cta_count=args.cta_count,
         cta_rank_by=args.cta_rank_by,
@@ -244,14 +294,201 @@ def handle(args: argparse.Namespace) -> None:
         include_predicted_only=args.include_predicted_only,
         predicted_only_max_percentile=args.predicted_only_max_percentile,
         max_percentile=args.max_percentile,
+        peptides_per_cell=args.peptides_per_cell,
         iedb_path=args.iedb_path,
         cedar_path=args.cedar_path,
-        output_format=args.format,
-        on_progress=_on_progress,
+        output_format=output_format,
+        on_progress=_on_progress if args.progress else None,
+        progress_bar=progress_bar,
+        score_chunk_size=args.score_chunk_size,
+        progress_file=sys.stderr,
     )
+
+    if args.format == "table":
+        text = format_panel_table(df)
+        if args.summary:
+            text = f"{text}\n\n{format_panel_summary(df)}"
+        if args.output:
+            Path(args.output).write_text(f"{text}\n")
+            print(f"Wrote panel report to {args.output}", file=sys.stderr)
+        else:
+            print(text)
+        return
 
     if args.output:
         df.to_csv(args.output, index=False)
         print(f"Wrote {len(df)} rows to {args.output}", file=sys.stderr)
     else:
         df.to_csv(sys.stdout, index=False)
+
+    if args.summary:
+        print(format_panel_summary(df), file=sys.stderr)
+
+
+def _format_percent(value: object) -> str:
+    try:
+        return f"{100.0 * float(value):.1f}%"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _format_rank_value(value: object) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "" if value is None else str(value)
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.2f}"
+
+
+def _format_optional_float(value: object, digits: int) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    return f"{number:.{digits}f}"
+
+
+def _pmid_count(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return "0"
+    return str(len([part for part in value.split(";") if part.strip()]))
+
+
+def _plain_table(headers: list[str], rows: list[list[str]]) -> str:
+    widths = [
+        max(len(str(header)), *(len(str(row[i])) for row in rows)) if rows else len(str(header))
+        for i, header in enumerate(headers)
+    ]
+    header_line = "  ".join(str(header).ljust(widths[i]) for i, header in enumerate(headers))
+    rule_line = "  ".join("-" * width for width in widths)
+    body = ["  ".join(str(value).ljust(widths[i]) for i, value in enumerate(row)) for row in rows]
+    return "\n".join([header_line, rule_line, *body])
+
+
+def format_panel_table(df) -> str:
+    if df.empty:
+        return "No panel peptides selected."
+
+    cta_order = {cta: i for i, cta in enumerate(df.attrs.get("cta_order", []))}
+    allele_order = {allele: i for i, allele in enumerate(df.attrs.get("allele_order", []))}
+    cta_rank_values = df.attrs.get("cta_rank_values", {})
+    allele_frequencies = df.attrs.get("allele_frequencies", {})
+
+    out = df.copy()
+    out["_cta_order"] = out["cta"].map(cta_order).fillna(len(cta_order))
+    out["_allele_order"] = out["allele"].map(allele_order).fillna(len(allele_order))
+    out = out.sort_values(["_cta_order", "_allele_order", "peptide_rank_in_cell"])
+
+    rows: list[list[str]] = []
+    previous_cta = None
+    previous_cell: tuple[str, str] | None = None
+    for row in out.itertuples(index=False):
+        cta = str(row.cta)
+        allele = str(row.allele)
+        cell = (cta, allele)
+        show_cta = cta != previous_cta
+        show_allele = cell != previous_cell
+        rows.append(
+            [
+                cta if show_cta else "",
+                _format_rank_value(cta_rank_values.get(cta)) if show_cta else "",
+                allele if show_allele else "",
+                _format_percent(allele_frequencies.get(allele)) if show_allele else "",
+                str(row.peptide),
+                str(row.evidence_tier),
+                str(row.ms_source_count),
+                str(row.ms_hit_count),
+                _pmid_count(row.ms_pmids),
+                _format_optional_float(row.presentation_percentile, 3),
+                _format_optional_float(row.presentation_score, 3),
+                _format_optional_float(row.affinity_nm, 1),
+            ]
+        )
+        previous_cta = cta
+        previous_cell = cell
+
+    return _plain_table(
+        [
+            "CTA",
+            "CTA rank",
+            "HLA",
+            "HLA freq",
+            "Peptide",
+            "Tier",
+            "Sources",
+            "MS hits",
+            "PMIDs",
+            "%Rank",
+            "Score",
+            "nM",
+        ],
+        rows,
+    )
+
+
+def format_panel_summary(df) -> str:
+    summary = df.attrs.get("panel_summary")
+    if not summary:
+        return "Summary unavailable."
+
+    lines = [
+        "Summary",
+        f"  HLA alleles: {summary['hla_allele_count']}",
+        f"  CTAs: {summary['cta_count']}",
+        f"  Selected unique peptides: {summary['selected_peptide_count']}",
+        (
+            "  Filled CTA x HLA cells: "
+            f"{summary['filled_cell_count']}/{summary['possible_cell_count']} "
+            f"({_format_percent(summary['filled_cell_fraction'])})"
+        ),
+        (
+            "  Mean peptides per filled cell: "
+            f"{float(summary['average_peptides_per_filled_cell']):.2f}"
+        ),
+    ]
+
+    tier_counts = summary.get("evidence_tier_counts", {})
+    if tier_counts:
+        lines.append(
+            "  Evidence tiers: "
+            + ", ".join(f"{tier}={count}" for tier, count in sorted(tier_counts.items()))
+        )
+    lines.append(f"  Coverage note: {summary['coverage_note']}")
+
+    cta_rows = [
+        [
+            str(row["cta"]),
+            str(row["covered_hla_count"]),
+            str(row["selected_peptide_count"]),
+            _format_percent(row["estimated_population_coverage"]),
+        ]
+        for row in summary["cta_coverage"]
+    ]
+    lines.extend(
+        [
+            "",
+            "Expected Population Coverage Per CTA",
+            _plain_table(["CTA", "HLA hits", "Peptides", "Est. coverage"], cta_rows),
+        ]
+    )
+
+    hla_rows = [
+        [
+            str(row["allele"]),
+            _format_percent(row["weighted_allele_frequency"]),
+            str(row["covered_cta_count"]),
+            _format_percent(row["covered_cta_fraction"]),
+            str(row["selected_peptide_count"]),
+        ]
+        for row in summary["hla_coverage"]
+    ]
+    lines.extend(
+        [
+            "",
+            "CTA Coverage Per HLA",
+            _plain_table(["HLA", "HLA freq", "CTAs", "CTA frac", "Peptides"], hla_rows),
+        ]
+    )
+    return "\n".join(lines)

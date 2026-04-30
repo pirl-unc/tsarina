@@ -1,3 +1,36 @@
+# PR — Panel Progress, Table Output, And Summary (2026-04-30)
+
+## Goal
+
+Make `tsarina panel` useful as an interactive default command, not just a CSV
+generator: show meaningful progress while long scoring work runs, print a
+readable terminal table by default, keep CSV output for automation, and append
+coverage-style summary statistics.
+
+## Plan
+
+- [x] Add richer panel progress stages for CTA resolution, peptide enumeration,
+      public-MS evidence loading, scoring, candidate selection, and summary.
+- [x] Score in chunks when CLI progress bars are enabled so `tqdm` can report
+      the slow prediction stage instead of a single quiet blocking call.
+- [x] Support a configurable top-N peptide cap per CTA x HLA cell, default 3,
+      ranked by MS source count first, then MS hit count, then prediction.
+- [x] Preserve current wide/long CSV modes while adding a default text table
+      CLI mode with CTA rows ordered by CTA rank and HLA alleles ordered by
+      weighted population frequency when built-in frequency data exist.
+- [x] Add summary statistics for HLA allele count, CTA count, selected peptide
+      count, filled cells, expected population coverage per CTA, and fraction
+      of CTAs covered per HLA.
+- [x] Update CLI help/docs and bump the package patch version.
+- [x] Add focused tests for default CLI table output, progress behavior,
+      top-N selection/ranking, weighted ordering, and summary calculation.
+
+## Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 246 passed
+
 # PR — Panel Command And MS Evidence Tiers (2026-04-30)
 
 ## Goal

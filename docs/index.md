@@ -216,7 +216,7 @@ Prioritization is by: (1) public MS evidence strength, (2) source protein abunda
 Build a CTA x HLA pMHC matrix for off-the-shelf panel design:
 
 ```bash
-tsarina panel -o panel.csv
+tsarina panel
 ```
 
 Defaults:
@@ -226,6 +226,20 @@ Defaults:
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
 - MS-evidence-first cell selection
+- up to 3 peptides per CTA x HLA cell, ranked by MS source count, then prediction
+- readable terminal table plus coverage summary
+
+Use CSV formats for scripts:
+
+```bash
+tsarina panel --format long -o panel-long.csv
+tsarina panel --format wide -o panel-wide.csv
+```
+
+The CLI prints progress for peptide enumeration, public-MS evidence loading,
+scoring, evidence-tier construction, and final selection. Interactive terminals
+also get a `tqdm` scoring progress bar; use `--no-progress` or
+`--no-progress-bars` to suppress it.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 
@@ -250,7 +264,7 @@ Regional allele frequency data from 7 geographic regions supports population-wei
 
 ## Data management
 
-Perseus manages all external data dependencies through a unified registry:
+Tsarina uses the shared hitlist data registry for external datasets:
 
 ```bash
 # See what data is available

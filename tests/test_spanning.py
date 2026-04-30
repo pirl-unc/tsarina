@@ -20,6 +20,8 @@ call so they run without Ensembl / hitlist data / mhcflurry installed.
 
 from __future__ import annotations
 
+import io
+
 import pandas as pd
 import pytest
 
@@ -227,6 +229,7 @@ def test_lowest_percentile_peptide_wins_each_cell():
         ctas=["MAGEA4", "PRAME"],
         alleles=["HLA-A*02:01"],
         max_percentile=2.0,
+        peptides_per_cell=1,
     )
     assert df.set_index("cta").loc["MAGEA4", "HLA-A*02:01"] == "MAGEAPEP1"
     assert df.set_index("cta").loc["PRAME", "HLA-A*02:01"] == "PRAMEPEP1"
@@ -239,6 +242,7 @@ def test_max_percentile_filters_weak_cells():
         ctas=["MAGEA4", "PRAME"],
         alleles=["HLA-A*02:01", "HLA-A*24:02"],
         max_percentile=0.5,
+        peptides_per_cell=1,
     )
     indexed = df.set_index("cta")
     assert indexed.loc["MAGEA4", "HLA-A*02:01"] == "MAGEAPEP1"
@@ -389,6 +393,51 @@ def test_predicted_only_is_optional_and_last_priority(monkeypatch):
     assert ms_first.iloc[0]["evidence_tier"] == "monoallelic_ms"
 
 
+def test_peptides_per_cell_keeps_ranked_top_n():
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=2,
+        output_format="long",
+    )
+    assert list(long["peptide"]) == ["MAGEAPEP1", "MAGEAPEP2"]
+    assert list(long["peptide_rank_in_cell"]) == [1, 2]
+
+    wide = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=2,
+    )
+    assert wide.set_index("cta").loc["MAGEA4", "HLA-A*02:01"] == "MAGEAPEP1; MAGEAPEP2"
+
+
+def test_peptides_per_cell_ranks_ms_support_before_prediction(monkeypatch):
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1", "MAGEAPEP2", "MAGEAPEP2"],
+            "mhc_restriction": ["HLA class I", "HLA class I", "HLA class I"],
+            "mhc_allele_provenance": ["unmatched", "unmatched", "unmatched"],
+            "mhc_allele_set": ["", "", ""],
+            "is_monoallelic": [False, False, False],
+            "pmid": ["111", "222", "333"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=2,
+        output_format="long",
+    )
+    assert list(long["peptide"]) == ["MAGEAPEP2", "MAGEAPEP1"]
+    assert list(long["ms_hit_count"]) == [2, 1]
+    assert list(long["ms_source_count"]) == [2, 1]
+
+
 # ── Output formats ─────────────────────────────────────────────────────
 
 
@@ -397,6 +446,7 @@ def test_long_format_has_one_row_per_filled_cell():
         ctas=["MAGEA4", "PRAME"],
         alleles=["HLA-A*02:01", "HLA-A*24:02"],
         max_percentile=2.0,
+        peptides_per_cell=1,
         output_format="long",
     )
     # 2 CTAs * 2 alleles = 4 cells, all pass with max=2.0
@@ -408,12 +458,14 @@ def test_long_format_has_one_row_per_filled_cell():
         "length",
         "evidence_tier",
         "ms_hit_count",
+        "ms_source_count",
         "ms_alleles",
         "ms_pmids",
         "ms_samples",
         "presentation_percentile",
         "presentation_score",
         "affinity_nm",
+        "peptide_rank_in_cell",
     }
     # Sorted by cta then allele in the supplied order
     assert list(long["cta"]) == ["MAGEA4", "MAGEA4", "PRAME", "PRAME"]
@@ -425,6 +477,7 @@ def test_long_format_drops_filtered_cells_entirely():
         ctas=["MAGEA4"],
         alleles=["HLA-A*02:01", "HLA-A*24:02"],
         max_percentile=0.5,
+        peptides_per_cell=1,
         output_format="long",
     )
     assert len(long) == 1
@@ -434,6 +487,58 @@ def test_long_format_drops_filtered_cells_entirely():
 def test_unrecognized_output_format_raises():
     with pytest.raises(ValueError, match="output_format"):
         spanning_pmhc_set(output_format="grid")
+
+
+def test_output_attrs_include_summary_and_order_metadata():
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        max_percentile=10.0,
+        peptides_per_cell=2,
+        output_format="long",
+    )
+    summary = long.attrs["panel_summary"]
+    assert long.attrs["cta_order"] == ["MAGEA4"]
+    assert long.attrs["allele_order"] == ["HLA-A*02:01", "HLA-A*24:02"]
+    assert summary["hla_allele_count"] == 2
+    assert summary["cta_count"] == 1
+    assert summary["filled_cell_count"] == 2
+    assert summary["selected_peptide_count"] == 2
+    assert summary["cta_coverage"][0]["covered_hla_count"] == 2
+    assert summary["hla_coverage"][0]["covered_cta_fraction"] == 1.0
+
+
+def test_panel_alleles_are_ordered_by_weighted_frequency(monkeypatch):
+    monkeypatch.setattr(
+        "tsarina.alleles.get_panel",
+        lambda panel: ["HLA-A*24:02", "HLA-A*02:01"],
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.regions.REGION_POPULATIONS",
+        {"test-region": 1.0},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.regions.region_allele_frequencies",
+        lambda: pd.DataFrame(
+            {
+                "region": ["test-region", "test-region"],
+                "allele": ["HLA-A*24:02", "HLA-A*02:01"],
+                "frequency": [0.1, 0.3],
+            }
+        ),
+        raising=True,
+    )
+
+    df = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        panel="test-panel",
+        max_percentile=10.0,
+        peptides_per_cell=1,
+    )
+    assert list(df.columns) == ["cta", "HLA-A*02:01", "HLA-A*24:02"]
+    assert df.attrs["allele_order"] == ["HLA-A*02:01", "HLA-A*24:02"]
 
 
 # ── Edge cases ─────────────────────────────────────────────────────────
@@ -477,19 +582,13 @@ def test_on_progress_callback_receives_three_stages():
         max_percentile=2.0,
         on_progress=messages.append,
     )
-    # Expect three stages: pre-scoring, post-scoring, summary.
-    assert len(messages) == 3
-    pre, post, summary = messages
-    # Pre-scoring mentions peptide + allele counts and predictor.
-    assert "peptides" in pre.lower() and "alleles" in pre.lower()
-    assert "mhcflurry" in pre
-    # Post-scoring mentions elapsed time.
-    assert "Scored" in post
-    assert "s" in post  # the elapsed-seconds suffix
-    # Summary mentions CTA + allele counts and filled-cell count.
-    assert "CTAs" in summary
-    assert "alleles" in summary
-    assert "filled cells" in summary
+    assert any("Panel inputs" in msg for msg in messages)
+    assert any("Enumerating CTA-exclusive peptides" in msg for msg in messages)
+    assert any("Loading public MS evidence" in msg for msg in messages)
+    assert any("Scoring" in msg and "mhcflurry" in msg for msg in messages)
+    assert any("Scored" in msg and msg.endswith("s.") for msg in messages)
+    assert any("Built MS evidence tiers" in msg for msg in messages)
+    assert any("Panel selected" in msg for msg in messages)
 
 
 def test_on_progress_pre_scoring_message_has_accurate_counts():
@@ -503,7 +602,7 @@ def test_on_progress_pre_scoring_message_has_accurate_counts():
         max_percentile=10.0,
         on_progress=messages.append,
     )
-    pre = messages[0]
+    pre = next(msg for msg in messages if msg.startswith("Scoring "))
     assert "4 peptides" in pre
     assert "3 alleles" in pre
     assert "12 predictions" in pre
@@ -513,7 +612,7 @@ def test_on_progress_summary_reports_filled_cell_count():
     """Summary message's filled-cell count should equal the count the
     output table actually carries (rows with a non-NaN peptide)."""
     messages: list[str] = []
-    long = spanning_pmhc_set(
+    spanning_pmhc_set(
         ctas=["MAGEA4", "PRAME"],
         alleles=["HLA-A*02:01", "HLA-A*24:02"],
         max_percentile=2.0,
@@ -521,7 +620,30 @@ def test_on_progress_summary_reports_filled_cell_count():
         on_progress=messages.append,
     )
     summary = messages[-1]
-    assert f"{len(long)} filled cells" in summary
+    assert "4/4 CTA x HLA cells" in summary
+
+
+def test_progress_bar_scores_in_chunks(monkeypatch):
+    calls: list[tuple[str, ...]] = []
+
+    def _chunked_scores(peptides, alleles, **kwargs):
+        calls.append(tuple(alleles))
+        return _stub_scores(peptides, alleles, **kwargs)
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", _chunked_scores, raising=True)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+        progress_bar=True,
+        score_chunk_size=1,
+        progress_file=io.StringIO(),
+    )
+    assert not long.empty
+    assert calls == [("HLA-A*02:01",), ("HLA-A*24:02",)]
 
 
 def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
@@ -560,10 +682,15 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         include_predicted_only=False,
         predicted_only_max_percentile=0.1,
         max_percentile=None,
+        peptides_per_cell=3,
         iedb_path=None,
         cedar_path=None,
         format="wide",
         output=None,
+        summary=True,
+        progress=True,
+        progress_bars=False,
+        score_chunk_size=None,
     )
     cli_spanning.handle(args)
 
@@ -574,6 +701,109 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     assert "fake-progress-message" in captured.err
     assert "fake-progress-message" not in captured.out
     assert "MAGEA4" in captured.out  # DataFrame serialized to stdout
+
+
+def test_cli_handler_default_table_report(monkeypatch, capsys):
+    import argparse
+
+    from tsarina import cli_spanning
+
+    def _fake_spanning(*args, **kwargs):
+        if kwargs.get("on_progress"):
+            kwargs["on_progress"]("fake-progress-message")
+        df = pd.DataFrame(
+            {
+                "cta": ["MAGEA4", "MAGEA4"],
+                "allele": ["HLA-A*02:01", "HLA-A*02:01"],
+                "peptide": ["MAGEAPEP2", "MAGEAPEP1"],
+                "length": [9, 9],
+                "evidence_tier": ["unrestricted_ms", "unrestricted_ms"],
+                "ms_hit_count": [2, 1],
+                "ms_source_count": [2, 1],
+                "ms_alleles": ["", ""],
+                "ms_pmids": ["222;333", "111"],
+                "ms_samples": ["", ""],
+                "presentation_percentile": [1.5, 0.1],
+                "presentation_score": [0.8, 0.9],
+                "affinity_nm": [200.0, 60.0],
+                "peptide_rank_in_cell": [1, 2],
+            }
+        )
+        df.attrs["cta_order"] = ["MAGEA4"]
+        df.attrs["allele_order"] = ["HLA-A*02:01"]
+        df.attrs["cta_rank_values"] = {"MAGEA4": 50}
+        df.attrs["allele_frequencies"] = {"HLA-A*02:01": 0.2}
+        df.attrs["panel_summary"] = {
+            "hla_allele_count": 1,
+            "cta_count": 1,
+            "selected_peptide_count": 2,
+            "selected_row_count": 2,
+            "filled_cell_count": 1,
+            "possible_cell_count": 1,
+            "filled_cell_fraction": 1.0,
+            "average_peptides_per_filled_cell": 2.0,
+            "evidence_tier_counts": {"unrestricted_ms": 2},
+            "coverage_note": "test coverage note",
+            "cta_coverage": [
+                {
+                    "cta": "MAGEA4",
+                    "covered_hla_count": 1,
+                    "selected_peptide_count": 2,
+                    "estimated_population_coverage": 0.36,
+                }
+            ],
+            "hla_coverage": [
+                {
+                    "allele": "HLA-A*02:01",
+                    "weighted_allele_frequency": 0.2,
+                    "covered_cta_count": 1,
+                    "covered_cta_fraction": 1.0,
+                    "selected_peptide_count": 2,
+                }
+            ],
+        }
+        return df
+
+    monkeypatch.setattr("tsarina.spanning.spanning_pmhc_set", _fake_spanning)
+
+    args = argparse.Namespace(
+        cta_count=25,
+        cta_rank_by="ms_cancer_peptide_count",
+        ctas=None,
+        min_restriction_confidence=["HIGH", "MODERATE"],
+        restriction_levels=None,
+        alleles=None,
+        panel="global51_abc_ssa",
+        lengths=(8, 9, 10, 11),
+        ensembl_release=112,
+        require_cta_exclusive=True,
+        predictor="mhcflurry",
+        monoallelic_ms_max_percentile=2.0,
+        sample_allele_ms_max_percentile=1.0,
+        unrestricted_ms_max_percentile=0.5,
+        include_predicted_only=False,
+        predicted_only_max_percentile=0.1,
+        max_percentile=None,
+        peptides_per_cell=3,
+        iedb_path=None,
+        cedar_path=None,
+        format="table",
+        output=None,
+        summary=True,
+        progress=True,
+        progress_bars=False,
+        score_chunk_size=None,
+    )
+    cli_spanning.handle(args)
+
+    captured = capsys.readouterr()
+    assert "fake-progress-message" in captured.err
+    assert "CTA rank" in captured.out
+    assert "Sources" in captured.out
+    assert "MAGEAPEP2" in captured.out
+    assert "Summary" in captured.out
+    assert "Expected Population Coverage Per CTA" in captured.out
+    assert "CTA Coverage Per HLA" in captured.out
 
 
 def test_size_within_target_envelope_for_default_args(monkeypatch):
@@ -743,6 +973,7 @@ def test_multi_length_best_per_cell_winner_can_be_any_length(monkeypatch):
         alleles=["HLA-A*02:01"],
         lengths=(9, 10),
         max_percentile=2.0,
+        peptides_per_cell=1,
     )
     indexed = df.set_index("cta")
     # MAGEA4: MAGEAPEP1 (9-mer, 0.1%) beats MAGEAPEP9M (10-mer, 0.3%)
@@ -768,6 +999,7 @@ def test_multi_length_long_format_preserves_winner_length(monkeypatch):
         alleles=["HLA-A*02:01"],
         lengths=(9, 10),
         max_percentile=2.0,
+        peptides_per_cell=1,
         output_format="long",
     )
     rows = {r["cta"]: r for _, r in long.iterrows()}
