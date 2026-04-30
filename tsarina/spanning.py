@@ -39,9 +39,11 @@ Typical usage::
 
 from __future__ import annotations
 
+import sys
 import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import TextIO
 
 import pandas as pd
 
@@ -52,6 +54,7 @@ _DEFAULT_MONOALLELIC_MS_MAX_PERCENTILE = 2.0
 _DEFAULT_SAMPLE_ALLELE_MS_MAX_PERCENTILE = 1.0
 _DEFAULT_UNRESTRICTED_MS_MAX_PERCENTILE = 0.5
 _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE = 0.1
+_DEFAULT_PEPTIDES_PER_CELL = 3
 
 _EVIDENCE_TIER_RANKS: dict[str, int] = {
     "monoallelic_ms": 0,
@@ -67,6 +70,7 @@ _LONG_OUTPUT_COLUMNS: tuple[str, ...] = (
     "length",
     "evidence_tier",
     "ms_hit_count",
+    "ms_source_count",
     "ms_alleles",
     "ms_pmids",
     "ms_samples",
@@ -94,10 +98,14 @@ def spanning_pmhc_set(
     include_predicted_only: bool = False,
     predicted_only_max_percentile: float = _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE,
     max_percentile: float | None = None,
+    peptides_per_cell: int = _DEFAULT_PEPTIDES_PER_CELL,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     output_format: str = "wide",
     on_progress: Callable[[str], None] | None = None,
+    progress_bar: bool = False,
+    score_chunk_size: int | None = None,
+    progress_file: TextIO | None = None,
 ) -> pd.DataFrame:
     """Build a CTA x HLA pMHC panel matrix.
 
@@ -161,6 +169,10 @@ def spanning_pmhc_set(
         Deprecated compatibility shortcut. When supplied, sets all three
         MS-supported tier cutoffs to the same value. It does not enable or
         relax prediction-only candidates.
+    peptides_per_cell
+        Maximum number of ranked peptides to keep for each CTA x HLA cell.
+        Default 3. Candidates are ranked by MS source count first, then
+        MS hit count, then prediction percentile.
     iedb_path, cedar_path
         Optional explicit raw public-MS files. Defaults use hitlist's cached
         observations path.
@@ -171,12 +183,20 @@ def spanning_pmhc_set(
         percentile, score, and affinity columns.
     on_progress
         Optional callable invoked with a human-readable status string at
-        each pipeline stage (pre-scoring, post-scoring with elapsed
-        seconds, post-pivot summary).  Used by the CLI handler to emit
+        each pipeline stage.  Used by the CLI handler to emit
         stderr progress lines on multi-minute runs; library callers
         leave it ``None`` (default) for silent operation.  The library
         itself never prints — it only formats messages and hands them
         to the callback.
+    progress_bar
+        If True, score alleles in chunks and render a tqdm progress bar for
+        the scoring stage. Default False so library calls remain quiet.
+    score_chunk_size
+        Number of HLA alleles per scoring chunk when ``progress_bar`` is
+        enabled. Defaults to one allele per chunk for visible progress.
+    progress_file
+        File handle for tqdm progress bars. Defaults to ``sys.stderr`` when
+        ``progress_bar`` is True.
 
     Returns
     -------
@@ -194,6 +214,8 @@ def spanning_pmhc_set(
     """
     if output_format not in ("wide", "long"):
         raise ValueError(f"output_format must be 'wide' or 'long', got {output_format!r}")
+    if peptides_per_cell < 1:
+        raise ValueError(f"peptides_per_cell must be >= 1, got {peptides_per_cell!r}")
 
     if max_percentile is not None:
         monoallelic_ms_max_percentile = max_percentile
@@ -201,6 +223,9 @@ def spanning_pmhc_set(
         unrestricted_ms_max_percentile = max_percentile
 
     allele_list = _resolve_alleles(alleles, panel)
+    allele_frequencies = _weighted_allele_frequencies(allele_list)
+    if alleles is None:
+        allele_list = _order_alleles_by_frequency(allele_list, allele_frequencies)
     cta_list = _resolve_ctas(
         ctas=ctas,
         cta_count=cta_count,
@@ -208,10 +233,26 @@ def spanning_pmhc_set(
         min_restriction_confidence=min_restriction_confidence,
         restriction_levels=restriction_levels,
     )
+    cta_rank_values = _cta_rank_values(cta_list, cta_rank_by)
+
+    _report_progress(
+        on_progress,
+        f"Panel inputs: {len(cta_list)} CTAs x {len(allele_list)} HLA alleles; "
+        f"lengths {','.join(str(length) for length in lengths)}; "
+        f"keeping up to {peptides_per_cell} peptides per CTA x HLA cell.",
+    )
 
     if not cta_list or not allele_list:
-        return _empty_output(cta_list, allele_list, output_format)
+        return _empty_output(
+            cta_list, allele_list, output_format, allele_frequencies, cta_rank_values
+        )
 
+    _report_progress(
+        on_progress,
+        "Enumerating CTA-exclusive peptides..."
+        if require_cta_exclusive
+        else "Enumerating CTA peptides without the exclusivity gate...",
+    )
     pep_df = _resolve_peptides(
         cta_list=cta_list,
         lengths=lengths,
@@ -219,11 +260,19 @@ def spanning_pmhc_set(
         require_cta_exclusive=require_cta_exclusive,
     )
     if pep_df.empty:
-        return _empty_output(cta_list, allele_list, output_format)
+        _report_progress(on_progress, "No CTA peptides survived peptide enumeration.")
+        return _empty_output(
+            cta_list, allele_list, output_format, allele_frequencies, cta_rank_values
+        )
 
     from .ms_evidence import load_public_ms_hits
 
     unique_peptides = pep_df["peptide"].unique().tolist()
+    _report_progress(
+        on_progress,
+        f"Enumerated {len(pep_df)} CTA peptide rows ({len(unique_peptides)} unique peptides).",
+    )
+    _report_progress(on_progress, "Loading public MS evidence for enumerated peptides...")
     hits = load_public_ms_hits(
         unique_peptides,
         iedb_path=iedb_path,
@@ -231,27 +280,36 @@ def spanning_pmhc_set(
         mhc_class="I",
         mhc_species="Homo sapiens",
     )
-
-    from .scoring import score_presentation
+    _report_progress(on_progress, f"Loaded {len(hits)} public MS evidence rows.")
 
     score_alleles = _score_alleles_for_panel(allele_list, hits)
     n_predictions = len(unique_peptides) * len(score_alleles)
-    if on_progress is not None:
-        on_progress(
-            f"Scoring {len(unique_peptides)} peptides x {len(score_alleles)} alleles "
-            f"(~{n_predictions} predictions) via {predictor}..."
-        )
+    _report_progress(
+        on_progress,
+        f"Scoring {len(unique_peptides)} peptides x {len(score_alleles)} alleles "
+        f"({n_predictions} predictions) via {predictor}...",
+    )
 
     scoring_start = time.perf_counter()
-    scores = score_presentation(
-        peptides=unique_peptides, alleles=score_alleles, predictor=predictor
+    scores = _score_presentations(
+        peptides=unique_peptides,
+        alleles=score_alleles,
+        predictor=predictor,
+        progress_bar=progress_bar,
+        score_chunk_size=score_chunk_size,
+        progress_file=progress_file,
     )
     scoring_elapsed = time.perf_counter() - scoring_start
 
-    if on_progress is not None:
-        on_progress(f"Scored {n_predictions} predictions in {scoring_elapsed:.1f}s")
+    _report_progress(on_progress, f"Scored {n_predictions} predictions in {scoring_elapsed:.1f}s.")
 
     evidence_stats = _build_evidence_stats(hits, allele_list, _score_lookup(scores))
+    tier_counts = _evidence_tier_counts(evidence_stats)
+    _report_progress(
+        on_progress,
+        "Built MS evidence tiers: "
+        + ", ".join(f"{tier}={tier_counts.get(tier, 0)}" for tier in _EVIDENCE_TIER_RANKS),
+    )
     candidates = _candidate_rows(
         scores=scores,
         pep_df=pep_df,
@@ -265,22 +323,37 @@ def spanning_pmhc_set(
         },
         include_predicted_only=include_predicted_only,
     )
-    best = _best_per_cell(candidates)
+    selected = _top_per_cell(candidates, peptides_per_cell=peptides_per_cell)
+    summary = panel_summary(
+        selected=selected,
+        cta_list=cta_list,
+        allele_list=allele_list,
+        allele_frequencies=allele_frequencies,
+    )
 
-    if on_progress is not None:
-        on_progress(
-            f"Panel: {len(cta_list)} CTAs x {len(allele_list)} alleles, "
-            f"{len(best)} filled cells using MS tier cutoffs "
-            f"{monoallelic_ms_max_percentile}/{sample_allele_ms_max_percentile}/"
-            f"{unrestricted_ms_max_percentile}"
-        )
+    _report_progress(
+        on_progress,
+        f"Panel selected {summary['selected_peptide_count']} unique peptides across "
+        f"{summary['filled_cell_count']}/{summary['possible_cell_count']} CTA x HLA cells "
+        f"using MS tier cutoffs {monoallelic_ms_max_percentile}/"
+        f"{sample_allele_ms_max_percentile}/{unrestricted_ms_max_percentile}.",
+    )
 
     if output_format == "wide":
-        return _to_wide(best, cta_list, allele_list)
-    return _to_long(best, cta_list, allele_list)
+        out = _to_wide(selected, cta_list, allele_list)
+    else:
+        out = _to_long(selected, cta_list, allele_list)
+    return _attach_panel_attrs(
+        out, cta_list, allele_list, allele_frequencies, cta_rank_values, summary
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
+
+
+def _report_progress(on_progress: Callable[[str], None] | None, message: str) -> None:
+    if on_progress is not None:
+        on_progress(message)
 
 
 def _resolve_alleles(
@@ -297,6 +370,45 @@ def _resolve_alleles(
     from .alleles import get_panel
 
     return list(get_panel(panel))
+
+
+def _weighted_allele_frequencies(allele_list: list[str]) -> dict[str, float]:
+    """Return population-weighted allele frequencies for known panel alleles.
+
+    The region table can contain multiple proxy populations per region. Use the
+    maximum frequency per region and allele so an extra validation proxy does
+    not overweight that region, then weight regions by population.
+    """
+    try:
+        from .regions import REGION_POPULATIONS, region_allele_frequencies
+    except ImportError:
+        return dict.fromkeys(allele_list, 0.0)
+
+    freqs = region_allele_frequencies()
+    if freqs.empty or "frequency" not in freqs.columns:
+        return dict.fromkeys(allele_list, 0.0)
+
+    freqs = freqs[freqs["allele"].isin(allele_list)].copy()
+    freqs = freqs[pd.notna(freqs["frequency"])]
+    if freqs.empty:
+        return dict.fromkeys(allele_list, 0.0)
+
+    per_region = freqs.groupby(["region", "allele"], as_index=False)["frequency"].max()
+    total_population = sum(float(population) for population in REGION_POPULATIONS.values())
+    weighted: dict[str, float] = dict.fromkeys(allele_list, 0.0)
+    for row in per_region.itertuples(index=False):
+        population = REGION_POPULATIONS.get(row.region)
+        if population is None:
+            continue
+        weighted[row.allele] += float(row.frequency) * float(population) / total_population
+    return weighted
+
+
+def _order_alleles_by_frequency(
+    allele_list: list[str],
+    allele_frequencies: dict[str, float],
+) -> list[str]:
+    return sorted(allele_list, key=lambda allele: (-allele_frequencies.get(allele, 0.0), allele))
 
 
 def _resolve_ctas(
@@ -339,6 +451,26 @@ def _resolve_ctas(
     return df["Symbol"].head(cta_count).tolist()
 
 
+def _cta_rank_values(cta_list: list[str], cta_rank_by: str) -> dict[str, float | str]:
+    from .loader import cta_dataframe
+
+    if not cta_list:
+        return {}
+
+    df = cta_dataframe()
+    if "Symbol" not in df.columns or cta_rank_by not in df.columns:
+        return {}
+
+    rank_values: dict[str, float | str] = {}
+    for symbol, value in df[df["Symbol"].isin(cta_list)][["Symbol", cta_rank_by]].itertuples(
+        index=False,
+        name=None,
+    ):
+        if pd.notna(value):
+            rank_values[str(symbol)] = value
+    return rank_values
+
+
 def _resolve_peptides(
     cta_list: list[str],
     lengths: tuple[int, ...],
@@ -376,6 +508,42 @@ def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list
                 out.append(allele)
                 seen.add(allele)
     return out
+
+
+def _score_presentations(
+    peptides: list[str],
+    alleles: list[str],
+    predictor: str,
+    progress_bar: bool,
+    score_chunk_size: int | None,
+    progress_file: TextIO | None,
+) -> pd.DataFrame:
+    from .scoring import score_presentation
+
+    if not progress_bar:
+        return score_presentation(peptides=peptides, alleles=alleles, predictor=predictor)
+
+    chunk_size = score_chunk_size or 1
+    if chunk_size < 1:
+        raise ValueError(f"score_chunk_size must be >= 1, got {score_chunk_size!r}")
+
+    chunks = [alleles[i : i + chunk_size] for i in range(0, len(alleles), chunk_size)]
+    frames: list[pd.DataFrame] = []
+    from tqdm import tqdm
+
+    for allele_chunk in tqdm(
+        chunks,
+        desc="Scoring pMHCs",
+        unit="allele-chunk",
+        file=progress_file or sys.stderr,
+        leave=False,
+    ):
+        frames.append(
+            score_presentation(peptides=peptides, alleles=allele_chunk, predictor=predictor)
+        )
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
 
 
 def _score_lookup(scores: pd.DataFrame) -> dict[tuple[str, str], float]:
@@ -424,12 +592,27 @@ def _add_evidence(
 
 
 def _finalize_evidence_bucket(bucket: dict[str, object]) -> dict[str, object]:
+    ms_source_count = len(bucket["ms_pmids"])
+    if ms_source_count == 0:
+        ms_source_count = len(bucket["ms_samples"])
+    if ms_source_count == 0 and int(bucket["ms_hit_count"]) > 0:
+        ms_source_count = 1
     return {
         "ms_hit_count": int(bucket["ms_hit_count"]),
+        "ms_source_count": ms_source_count,
         "ms_alleles": ";".join(sorted(bucket["ms_alleles"])),
         "ms_pmids": ";".join(sorted(bucket["ms_pmids"])),
         "ms_samples": ";".join(sorted(bucket["ms_samples"])),
     }
+
+
+def _evidence_tier_counts(
+    evidence_stats: dict[tuple[str, str | None, str], dict[str, object]],
+) -> dict[str, int]:
+    counts = dict.fromkeys(_EVIDENCE_TIER_RANKS, 0)
+    for _, _, tier in evidence_stats:
+        counts[tier] = counts.get(tier, 0) + 1
+    return counts
 
 
 def _is_truthy(value: object) -> bool:
@@ -558,6 +741,7 @@ def _candidate_rows(
             chosen_tier = "predicted_only"
             evidence = {
                 "ms_hit_count": 0,
+                "ms_source_count": 0,
                 "ms_alleles": "",
                 "ms_pmids": "",
                 "ms_samples": "",
@@ -571,6 +755,7 @@ def _candidate_rows(
                 "length": row.length,
                 "evidence_tier": chosen_tier,
                 "ms_hit_count": evidence["ms_hit_count"],
+                "ms_source_count": evidence["ms_source_count"],
                 "ms_alleles": evidence["ms_alleles"],
                 "ms_pmids": evidence["ms_pmids"],
                 "ms_samples": evidence["ms_samples"],
@@ -584,29 +769,47 @@ def _candidate_rows(
     return pd.DataFrame(rows, columns=columns)
 
 
-def _best_per_cell(candidates: pd.DataFrame) -> pd.DataFrame:
-    """For each (cta, allele), pick highest evidence tier, then best percentile."""
+def _top_per_cell(candidates: pd.DataFrame, peptides_per_cell: int) -> pd.DataFrame:
+    """For each (cta, allele), keep the top-N peptides by evidence support."""
     if candidates.empty:
         return pd.DataFrame(columns=list(_LONG_OUTPUT_COLUMNS))
 
-    sort_cols = ["_tier_rank", "presentation_percentile", "peptide", "allele"]
-    best = (
-        candidates.sort_values(sort_cols, kind="mergesort")
-        .groupby(["cta", "allele"], as_index=False)
-        .first()
-    )
-    return best[list(_LONG_OUTPUT_COLUMNS)]
+    ranked = candidates.copy()
+    cell_has_ms = ranked.groupby(["cta", "allele"])["ms_hit_count"].transform("max") > 0
+    ranked = ranked[(ranked["ms_hit_count"].astype(int) > 0) | ~cell_has_ms].copy()
+    ranked["_source_rank"] = -ranked["ms_source_count"].astype(int)
+    ranked["_hit_rank"] = -ranked["ms_hit_count"].astype(int)
+    sort_cols = [
+        "cta",
+        "allele",
+        "_source_rank",
+        "_hit_rank",
+        "presentation_percentile",
+        "_tier_rank",
+        "peptide",
+    ]
+    ranked = ranked.sort_values(sort_cols, kind="mergesort")
+    ranked["peptide_rank_in_cell"] = ranked.groupby(["cta", "allele"]).cumcount() + 1
+    selected = ranked[ranked["peptide_rank_in_cell"] <= peptides_per_cell].copy()
+    columns = [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
+    return selected[columns].reset_index(drop=True)
 
 
 def _to_wide(
-    best: pd.DataFrame,
+    selected: pd.DataFrame,
     cta_list: list[str],
     allele_list: list[str],
 ) -> pd.DataFrame:
-    if best.empty:
+    if selected.empty:
         wide = pd.DataFrame(index=cta_list, columns=allele_list, dtype=object)
     else:
-        wide = best.pivot(index="cta", columns="allele", values="peptide")
+        cell_values = (
+            selected.sort_values(["cta", "allele", "peptide_rank_in_cell"])
+            .groupby(["cta", "allele"])["peptide"]
+            .apply("; ".join)
+            .reset_index()
+        )
+        wide = cell_values.pivot(index="cta", columns="allele", values="peptide")
         wide = wide.reindex(index=cta_list, columns=allele_list)
     wide.index.name = "cta"
     wide = wide.reset_index()
@@ -614,26 +817,176 @@ def _to_wide(
 
 
 def _to_long(
-    best: pd.DataFrame,
+    selected: pd.DataFrame,
     cta_list: list[str],
     allele_list: list[str],
 ) -> pd.DataFrame:
-    if best.empty:
-        return pd.DataFrame(columns=list(_LONG_OUTPUT_COLUMNS))
+    columns = [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
+    if selected.empty:
+        return pd.DataFrame(columns=columns)
     cta_order = {gene: i for i, gene in enumerate(cta_list)}
     allele_order = {a: i for i, a in enumerate(allele_list)}
-    out = best.copy()
+    out = selected.copy()
     out["_cta_order"] = out["cta"].map(cta_order)
     out["_allele_order"] = out["allele"].map(allele_order)
-    out = out.sort_values(["_cta_order", "_allele_order"]).drop(
+    out = out.sort_values(["_cta_order", "_allele_order", "peptide_rank_in_cell"]).drop(
         columns=["_cta_order", "_allele_order"]
     )
-    return out[list(_LONG_OUTPUT_COLUMNS)].reset_index(drop=True)
+    return out[columns].reset_index(drop=True)
 
 
-def _empty_output(cta_list: list[str], allele_list: list[str], output_format: str) -> pd.DataFrame:
+def _carrier_probability(allele_frequency: float) -> float:
+    allele_frequency = max(0.0, min(float(allele_frequency), 1.0))
+    return 1.0 - (1.0 - allele_frequency) ** 2
+
+
+def _combined_carrier_probability(allele_frequencies: Iterable[float]) -> float:
+    miss_probability = 1.0
+    for frequency in allele_frequencies:
+        miss_probability *= 1.0 - _carrier_probability(float(frequency))
+    return max(0.0, min(1.0, 1.0 - miss_probability))
+
+
+def panel_summary(
+    selected: pd.DataFrame,
+    cta_list: list[str],
+    allele_list: list[str],
+    allele_frequencies: dict[str, float] | None = None,
+) -> dict[str, object]:
+    """Summarize a selected panel table.
+
+    Population coverage estimates use weighted regional allele frequencies and
+    a simple independent-carrier approximation. The values are intended for
+    ranking and sanity-checking panel breadth, not for clinical-grade
+    population-genetics inference.
+    """
+    allele_frequencies = allele_frequencies or dict.fromkeys(allele_list, 0.0)
+    possible_cell_count = len(cta_list) * len(allele_list)
+
+    if selected.empty:
+        filled_pairs = pd.DataFrame(columns=["cta", "allele"])
+        selected_peptide_count = 0
+    else:
+        filled_pairs = selected[["cta", "allele"]].drop_duplicates()
+        selected_peptide_count = int(selected["peptide"].nunique())
+
+    filled_cell_count = len(filled_pairs)
+    avg_peptides = 0.0 if filled_cell_count == 0 else float(len(selected) / filled_cell_count)
+
+    cta_rows = []
+    for cta in cta_list:
+        covered_alleles = (
+            filled_pairs.loc[filled_pairs["cta"] == cta, "allele"].drop_duplicates().tolist()
+            if not filled_pairs.empty
+            else []
+        )
+        cta_selected = selected[selected["cta"] == cta] if not selected.empty else selected
+        coverage = _combined_carrier_probability(
+            allele_frequencies.get(allele, 0.0) for allele in covered_alleles
+        )
+        cta_rows.append(
+            {
+                "cta": cta,
+                "covered_hla_count": len(covered_alleles),
+                "selected_peptide_count": int(cta_selected["peptide"].nunique())
+                if not cta_selected.empty
+                else 0,
+                "estimated_population_coverage": coverage,
+            }
+        )
+
+    hla_rows = []
+    total_ctas = len(cta_list)
+    for allele in allele_list:
+        covered_ctas = (
+            filled_pairs.loc[filled_pairs["allele"] == allele, "cta"].drop_duplicates().tolist()
+            if not filled_pairs.empty
+            else []
+        )
+        allele_selected = selected[selected["allele"] == allele] if not selected.empty else selected
+        hla_rows.append(
+            {
+                "allele": allele,
+                "weighted_allele_frequency": allele_frequencies.get(allele, 0.0),
+                "covered_cta_count": len(covered_ctas),
+                "covered_cta_fraction": 0.0
+                if total_ctas == 0
+                else float(len(covered_ctas) / total_ctas),
+                "selected_peptide_count": int(allele_selected["peptide"].nunique())
+                if not allele_selected.empty
+                else 0,
+            }
+        )
+
+    tier_counts: dict[str, int] = {}
+    if not selected.empty and "evidence_tier" in selected.columns:
+        tier_counts = {
+            str(tier): int(count)
+            for tier, count in selected["evidence_tier"].value_counts(sort=False).items()
+        }
+
+    return {
+        "hla_allele_count": len(allele_list),
+        "cta_count": len(cta_list),
+        "selected_peptide_count": selected_peptide_count,
+        "selected_row_count": len(selected),
+        "filled_cell_count": filled_cell_count,
+        "possible_cell_count": possible_cell_count,
+        "filled_cell_fraction": 0.0
+        if possible_cell_count == 0
+        else float(filled_cell_count / possible_cell_count),
+        "average_peptides_per_filled_cell": avg_peptides,
+        "evidence_tier_counts": tier_counts,
+        "cta_coverage": cta_rows,
+        "hla_coverage": hla_rows,
+        "coverage_note": (
+            "Estimated from weighted regional HLA allele frequencies using an "
+            "independent-carrier approximation."
+        ),
+    }
+
+
+def _attach_panel_attrs(
+    out: pd.DataFrame,
+    cta_list: list[str],
+    allele_list: list[str],
+    allele_frequencies: dict[str, float],
+    cta_rank_values: dict[str, float | str],
+    summary: dict[str, object],
+) -> pd.DataFrame:
+    out.attrs["cta_order"] = list(cta_list)
+    out.attrs["allele_order"] = list(allele_list)
+    out.attrs["allele_frequencies"] = dict(allele_frequencies)
+    out.attrs["cta_rank_values"] = dict(cta_rank_values)
+    out.attrs["panel_summary"] = summary
+    return out
+
+
+def _empty_output(
+    cta_list: list[str],
+    allele_list: list[str],
+    output_format: str,
+    allele_frequencies: dict[str, float] | None = None,
+    cta_rank_values: dict[str, float | str] | None = None,
+) -> pd.DataFrame:
     if output_format == "wide":
         wide = pd.DataFrame(index=cta_list, columns=allele_list, dtype=object)
         wide.index.name = "cta"
-        return wide.reset_index()
-    return pd.DataFrame(columns=list(_LONG_OUTPUT_COLUMNS))
+        out = wide.reset_index()
+    else:
+        out = pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"])
+    allele_frequencies = allele_frequencies or dict.fromkeys(allele_list, 0.0)
+    summary = panel_summary(
+        selected=pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]),
+        cta_list=cta_list,
+        allele_list=allele_list,
+        allele_frequencies=allele_frequencies,
+    )
+    return _attach_panel_attrs(
+        out,
+        cta_list,
+        allele_list,
+        allele_frequencies,
+        cta_rank_values or {},
+        summary,
+    )

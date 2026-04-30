@@ -46,7 +46,11 @@ def test_panel_help_exits_zero():
         "--unrestricted-ms-max-percentile",
         "--include-predicted-only",
         "--predicted-only-max-percentile",
+        "--peptides-per-cell",
         "--format",
+        "--no-summary",
+        "--no-progress",
+        "--progress-bars",
         "--predictor",
     ):
         assert flag in r.stdout, f"missing help text for {flag}"
@@ -64,7 +68,7 @@ def test_panel_unknown_format_rejected():
     r = _run_cli("panel", "--format", "grid", check=False)
     assert r.returncode != 0
     combined = r.stderr + r.stdout
-    assert "wide" in combined and "long" in combined
+    assert "table" in combined and "wide" in combined and "long" in combined
 
 
 def test_panel_unknown_predictor_rejected():
