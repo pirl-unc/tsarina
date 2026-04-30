@@ -18,10 +18,30 @@ enforcement, and help-text sanity are pinned down independently of the
 library-level coverage in ``test_spanning.py``.
 """
 
-from __future__ import annotations
-
 import subprocess
 import sys
+
+HEADLINE_FLAGS = (
+    "--cta-count",
+    "--ctas",
+    "--panel",
+    "--max-percentile",
+    "--format",
+)
+
+PANEL_ONLY_FLAGS = (
+    "--alleles",
+    "--monoallelic-ms-max-percentile",
+    "--sample-allele-ms-max-percentile",
+    "--unrestricted-ms-max-percentile",
+    "--include-predicted-only",
+    "--predicted-only-max-percentile",
+    "--peptides-per-cell",
+    "--no-summary",
+    "--no-progress",
+    "--progress-bars",
+    "--predictor",
+)
 
 
 def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -36,23 +56,7 @@ def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess:
 def test_panel_help_exits_zero():
     r = _run_cli("panel", "--help")
     assert r.returncode == 0
-    for flag in (
-        "--cta-count",
-        "--ctas",
-        "--panel",
-        "--alleles",
-        "--monoallelic-ms-max-percentile",
-        "--sample-allele-ms-max-percentile",
-        "--unrestricted-ms-max-percentile",
-        "--include-predicted-only",
-        "--predicted-only-max-percentile",
-        "--peptides-per-cell",
-        "--format",
-        "--no-summary",
-        "--no-progress",
-        "--progress-bars",
-        "--predictor",
-    ):
+    for flag in (*HEADLINE_FLAGS, *PANEL_ONLY_FLAGS):
         assert flag in r.stdout, f"missing help text for {flag}"
 
 
@@ -90,4 +94,20 @@ def test_panel_is_registered_in_main_help():
 def test_spanning_alias_help_exits_zero():
     r = _run_cli("spanning", "--help")
     assert r.returncode == 0
+    for flag in HEADLINE_FLAGS:
+        assert flag in r.stdout, f"missing help text for {flag}"
     assert "--include-predicted-only" in r.stdout
+
+
+def test_spanning_alias_unknown_panel_rejected():
+    r = _run_cli("spanning", "--panel", "does-not-exist", check=False)
+    assert r.returncode != 0
+    combined = r.stderr + r.stdout
+    assert "iedb27_ab" in combined
+
+
+def test_spanning_alias_unknown_format_rejected():
+    r = _run_cli("spanning", "--format", "grid", check=False)
+    assert r.returncode != 0
+    combined = r.stderr + r.stdout
+    assert "table" in combined and "wide" in combined and "long" in combined
