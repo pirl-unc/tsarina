@@ -100,11 +100,19 @@ See [full curation documentation](docs/curation.md) for the deflated fraction fo
 Foreign proteins from oncogenic viruses -- entirely absent from normal human tissue, making them ideal immunotherapy targets when the virus is present in the tumor.
 
 ```python
-from tsarina.viral import viral_peptides, cancer_specific_viral_peptides
+from tsarina.viral import (
+    human_exclusive_viral_peptides,
+    viral_peptides,
+)
 
-peps = viral_peptides("hpv16")                    # all peptides
-specific = cancer_specific_viral_peptides("hpv16") # exclude non-CTA human overlaps
+peps = viral_peptides("hpv16")                    # all viral peptides
+human_exclusive = human_exclusive_viral_peptides("hpv16")  # default clinical helper
 ```
+
+`personalize()` and `target_peptides()` use the human-exclusive viral helper by
+default, dropping viral k-mers that also occur anywhere in the human proteome.
+`cancer_specific_viral_peptides()` is available for exploratory workflows that
+allow overlaps with CTA proteins while excluding non-CTA overlaps.
 
 | Virus | Cancers | Key oncoproteins |
 |---|---|---|
@@ -270,7 +278,8 @@ tsarina data path iedb
 | EBV proteome | [UniProt UP000153037](https://www.uniprot.org/proteomes/UP000153037) | ~50 KB | `tsarina data fetch ebv` |
 | *(9 viral proteomes total)* | UniProt | varies | `tsarina data fetch <name>` |
 
-Storage location: `~/.tsarina/` (override with `PERSEUS_DATA_DIR` env var).
+Storage location: `~/.hitlist/` (override with `HITLIST_DATA_DIR` env var).
+`tsarina data` delegates registry and cache management to hitlist.
 
 IEDB column indices are resolved dynamically from CSV headers, with fallback to known defaults -- robust to IEDB schema changes.
 
