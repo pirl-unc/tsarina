@@ -72,6 +72,8 @@ Thresholds commonly used for filtering:
 
 from __future__ import annotations
 
+import sys
+
 import pandas as pd
 
 AFFINITY_THRESHOLDS_NM: tuple[int, ...] = (50, 150, 500)
@@ -169,7 +171,10 @@ def score_presentation(
         from topiary import TopiaryPredictor
     except ImportError as e:
         raise ImportError(
-            "Topiary is required for scoring. Install with: pip install topiary"
+            "Topiary is required for scoring but is not importable by the Python "
+            f"running tsarina ({sys.executable}). Install topiary into that "
+            "interpreter, or run tsarina with the environment where topiary is "
+            "installed (for example: python -m tsarina.cli panel)."
         ) from e
 
     predictor_cls = _resolve_predictor_class(predictor)

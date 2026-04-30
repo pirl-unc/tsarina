@@ -1,3 +1,34 @@
+# PR — Panel Version And Peptide Progress (2026-04-30)
+
+## Goal
+
+Make `tsarina panel` show the package version and enough progress to explain
+slow peptide enumeration. Remove the current startup bottleneck where CTA
+exclusivity builds a full human non-CTA k-mer posting index before any useful
+panel progress appears.
+
+## Plan
+
+- [x] Print `tsarina vX.Y.Z` at the start of panel progress output.
+- [x] Thread panel progress callbacks into peptide generation.
+- [x] Limit panel peptide enumeration to the selected CTA list instead of
+      generating all CTAs first.
+- [x] Replace CTA exclusivity's full non-CTA `proteome_kmer_set()` build with
+      a streaming non-CTA protein scan against the much smaller CTA peptide set.
+- [x] Add progress messages and optional tqdm bars for CTA gene enumeration and
+      non-CTA background scanning.
+- [x] Make the Topiary missing-import error name the Python interpreter that
+      cannot import it.
+- [x] Add tests for version output, peptide-stage progress, and the streaming
+      exclusivity filter.
+- [x] Bump patch version and run full verification.
+
+## Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 249 passed
+
 # PR — Panel Progress, Table Output, And Summary (2026-04-30)
 
 ## Goal
