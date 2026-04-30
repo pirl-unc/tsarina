@@ -48,6 +48,7 @@ def target_peptides(
     cedar_path: str | Path | None = None,
     mhc_class: str | None = "I",
     require_ms_evidence: bool = False,
+    attach_ms_evidence: bool = False,
     classify_source: bool = True,
     cancer_specific: bool = False,
     require_human_exclusive_viral: bool = True,
@@ -76,6 +77,9 @@ def target_peptides(
         MHC class filter for IEDB scanning (default ``"I"``).
     require_ms_evidence
         If True, only return peptides with at least one IEDB/CEDAR hit.
+    attach_ms_evidence
+        If True, attach MS evidence columns without filtering to
+        MS-confirmed peptides.
     classify_source
         If True (default), add source context columns from IEDB
         (``src_cancer``, ``src_healthy``, etc.).
@@ -95,8 +99,9 @@ def target_peptides(
     pd.DataFrame
         Columns: ``peptide``, ``length``, ``category`` (``"cta"``,
         ``"viral"``, ``"mutant"``), ``source`` (gene name, virus name,
-        or mutation label), plus IEDB evidence columns when
-        ``iedb_path`` is provided.
+        or mutation label), plus MS evidence columns when requested via
+        ``attach_ms_evidence``, ``require_ms_evidence``,
+        ``cancer_specific``, or explicit IEDB/CEDAR paths.
     """
     frames: list[pd.DataFrame] = []
 
@@ -175,7 +180,8 @@ def target_peptides(
     combined["peptide_unique_id"] = combined["peptide"]
 
     # ── IEDB/CEDAR evidence lookup ──────────────────────────────────────
-    needs_ms_evidence = require_ms_evidence or cancer_specific or iedb_path is not None
+    needs_ms_evidence = attach_ms_evidence or require_ms_evidence or cancer_specific
+    needs_ms_evidence = needs_ms_evidence or iedb_path is not None
     needs_ms_evidence = needs_ms_evidence or cedar_path is not None
     if needs_ms_evidence:
         from .ms_evidence import (
