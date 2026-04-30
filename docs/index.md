@@ -211,29 +211,32 @@ Returns a DataFrame with columns:
 
 Prioritization is by: (1) public MS evidence strength, (2) source protein abundance, (3) predicted presentation quality, (4) absence of healthy-tissue MS evidence.
 
-## Population-spanning tables
+## CTA x HLA panel matrices
 
-Pre-computed target x HLA allele matrices for cohort-level analysis:
+Build a CTA x HLA pMHC matrix for off-the-shelf panel design:
 
-```python
-from tsarina.targets import target_peptides, target_summary
-from tsarina.alleles import get_panel
-
-# Build target table for a specific allele panel
-df = target_peptides(
-    cta=True,
-    viruses=["hpv16", "ebv"],
-    mutations=True,
-    iedb_path="mhc_ligand_full.csv",
-    require_ms_evidence=True,
-    cancer_specific=True,
-)
-
-# Summary by category
-print(target_summary(df))
+```bash
+tsarina panel -o panel.csv
 ```
 
-Available allele panels:
+Defaults:
+
+- top 25 CTAs ranked by cancer MS peptide count
+- `global51_abc_ssa` HLA-A/B/C panel
+- 8-11mer CTA-exclusive peptides
+- MHCflurry presentation scoring
+- MS-evidence-first cell selection
+
+Evidence tiers use configurable presentation percentile cutoffs:
+
+| Evidence tier | Default cutoff | Meaning |
+|---|---:|---|
+| `monoallelic_ms` | < 2.0 | Peptide observed in mono-allelic MS for that HLA |
+| `sample_allele_ms` | < 1.0 | Peptide observed in a multi-allelic sample where this HLA is best among sample alleles |
+| `unrestricted_ms` | < 0.5 | Peptide observed by MS with no usable allele assignment |
+| `predicted_only` | < 0.1 | No MS support; excluded unless `--include-predicted-only` is passed |
+
+Available HLA panels:
 
 | Panel | Alleles | Coverage |
 |---|---|---|

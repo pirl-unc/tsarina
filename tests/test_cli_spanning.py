@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI smoke tests for ``tsarina spanning``.
+"""CLI smoke tests for ``tsarina panel`` and deprecated ``spanning`` alias.
 
 Mirrors the pattern in ``test_cli_hits.py`` / ``test_cli_personalize.py``:
 exercise the argparse surface via subprocess so flag parsing, choices
@@ -33,45 +33,57 @@ def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     )
 
 
-def test_spanning_help_exits_zero():
-    r = _run_cli("spanning", "--help")
+def test_panel_help_exits_zero():
+    r = _run_cli("panel", "--help")
     assert r.returncode == 0
     for flag in (
         "--cta-count",
         "--ctas",
         "--panel",
         "--alleles",
-        "--max-percentile",
+        "--monoallelic-ms-max-percentile",
+        "--sample-allele-ms-max-percentile",
+        "--unrestricted-ms-max-percentile",
+        "--include-predicted-only",
+        "--predicted-only-max-percentile",
         "--format",
         "--predictor",
     ):
         assert flag in r.stdout, f"missing help text for {flag}"
 
 
-def test_spanning_unknown_panel_rejected():
-    r = _run_cli("spanning", "--panel", "does-not-exist", check=False)
+def test_panel_unknown_panel_rejected():
+    r = _run_cli("panel", "--panel", "does-not-exist", check=False)
     assert r.returncode != 0
     combined = r.stderr + r.stdout
     # argparse reports the valid choices on invalid input
     assert "iedb27_ab" in combined
 
 
-def test_spanning_unknown_format_rejected():
-    r = _run_cli("spanning", "--format", "grid", check=False)
+def test_panel_unknown_format_rejected():
+    r = _run_cli("panel", "--format", "grid", check=False)
     assert r.returncode != 0
     combined = r.stderr + r.stdout
     assert "wide" in combined and "long" in combined
 
 
-def test_spanning_unknown_predictor_rejected():
-    r = _run_cli("spanning", "--predictor", "bogus", check=False)
+def test_panel_unknown_predictor_rejected():
+    r = _run_cli("panel", "--predictor", "bogus", check=False)
     assert r.returncode != 0
     combined = r.stderr + r.stdout
     assert "mhcflurry" in combined
 
 
-def test_spanning_is_registered_in_main_help():
-    """``tsarina --help`` should list spanning as a top-level subcommand."""
+def test_panel_is_registered_in_main_help():
+    """``tsarina --help`` should list panel as the visible top-level subcommand."""
     r = _run_cli("--help")
     assert r.returncode == 0
-    assert "spanning" in r.stdout
+    assert "panel" in r.stdout
+    assert "Build a CTA x HLA pMHC matrix for a population HLA" in r.stdout
+    assert "spanning" not in r.stdout
+
+
+def test_spanning_alias_help_exits_zero():
+    r = _run_cli("spanning", "--help")
+    assert r.returncode == 0
+    assert "--include-predicted-only" in r.stdout

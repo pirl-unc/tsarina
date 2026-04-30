@@ -1,3 +1,34 @@
+# PR — Panel Command And MS Evidence Tiers (2026-04-30)
+
+## Goal
+
+Replace the user-facing `spanning` command with a clearer `panel` command that
+builds a CTA x HLA pMHC matrix from sensible defaults, while making panel cell
+selection MS-evidence-first and exposing configurable evidence-tier prediction
+cutoffs.
+
+## Plan
+
+- [x] Rename the primary CLI command to `panel` with help text:
+      "Build a CTA x HLA pMHC matrix for a population HLA panel."
+- [x] Keep `spanning` as a deprecated compatibility alias for one release.
+- [x] Change panel defaults to top 25 CTAs, `global51_abc_ssa`, lengths
+      `8,9,10,11`, MHCflurry, and MS-evidence-first selection.
+- [x] Classify candidate peptide-HLA cells into `monoallelic_ms`,
+      `sample_allele_ms`, `unrestricted_ms`, and optional `predicted_only`.
+- [x] Use default tier cutoffs of 2.0, 1.0, 0.5, and 0.1 percentile,
+      respectively, and expose them as library parameters and CLI flags.
+- [x] Ensure `predicted_only` is excluded by default and, when enabled, cannot
+      displace an MS-supported candidate.
+- [x] Add focused tests for defaults, tier classification, configurable
+      thresholds, CLI flags, and deprecated alias behavior.
+
+## Verification
+
+- [x] `./format.sh`
+- [x] `./lint.sh`
+- [x] `./test.sh` — 240 passed
+
 # PR Series — Evidence And CLI Cleanup (2026-04-30)
 
 ## Goal
