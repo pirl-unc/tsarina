@@ -241,7 +241,7 @@ tsarina panel
 Defaults:
 
 - top 25 CTAs ranked by cancer MS peptide count
-- automatic safety gates remove CTAs with vital-tissue RNA / healthy-MS
+- automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
@@ -267,8 +267,9 @@ also get a `tqdm` scoring progress bar; use `--no-progress` or
 Use `--selection-allowlist`, `--no-vital-tissue-filter`, and
 `--vital-tissue-max-ntpm` to tune automatic CTA safety filtering. The default
 vital RNA cutoff is 2.0 nTPM; public healthy-MS observations in vital tissues
-remain exclusionary unless allowlisted. Explicit `--ctas` accepts aliases such
-as `NY-ESO-1` and `MAGE-A4`.
+remain exclusionary only when the peptide evidence maps uniquely to that CTA,
+unless allowlisted. Explicit `--ctas` accepts aliases such as `NY-ESO-1` and
+`MAGE-A4`.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 

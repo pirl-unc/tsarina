@@ -715,7 +715,7 @@ Plan:
       CTAs.
 - [x] Bump version for the PR.
 - [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
-- [ ] Open PR linked to tsarina#43; merge when CI is green and deploy.
+- [x] Open PR linked to tsarina#43; merge when CI is green and deploy.
 
 Review:
 
@@ -723,3 +723,32 @@ Review:
   (`256 passed`). Live selector check confirms `NY-ESO-1` remains selected
   without the allowlist at the new 2.0 nTPM threshold, while MAGEA4 remains
   gated by gene-level healthy-MS heart evidence unless allowlisted.
+- Shipped as PR #45 / `tsarina` v1.2.9.
+
+---
+
+## Fix Panel Healthy-MS Gene Veto (tsarina#44)
+
+Goal: stop automatic CTA selection from blacklisting a CTA as a whole based on
+healthy-MS evidence from peptides that map to multiple CTA-family genes.
+
+Plan:
+
+- [x] Change the panel safety gate so gene-level healthy-MS aggregates are only
+      a suspect list; the actual MS veto requires unique vital healthy-MS rows
+      for the CTA symbol.
+- [x] Keep the RNA vital-tissue threshold behavior from #43 unchanged.
+- [x] Add tests showing shared MAGE-family heart MS does not veto MAGEA4, while
+      unique MAGEA1 vital MS still gates MAGEA1.
+- [x] Update CLI/docs wording from generic healthy-MS veto to unique healthy-MS
+      veto.
+- [x] Bump version for the PR.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+- [ ] Open PR linked to tsarina#44; merge when CI is green and deploy.
+
+Review:
+
+- Local validation passed: `pytest tests/test_spanning.py tests/test_cli_spanning.py -q`
+  (`49 passed`), `./format.sh`, `./lint.sh`, and `./test.sh` (`257 passed`).
+  Live selector check confirms `MAGEA4` is selected and `MAGEA1` is excluded
+  without the allowlist, matching shared-vs-unique healthy-MS evidence.

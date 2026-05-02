@@ -96,6 +96,19 @@ def _stub_ms_hits(peptides, **kwargs) -> pd.DataFrame:
     )
 
 
+def _stub_gene_ms_evidence(**kwargs) -> pd.DataFrame:
+    """Gene-level healthy-MS rows used by automatic CTA safety selection."""
+    return pd.DataFrame(
+        {
+            "peptide": ["MAGEA1UNIQ", "MAGEFAMSHARED", "NONVITAL"],
+            "gene_names": ["MAGEA1", "MAGEA4;MAGEA8;MAGEA1", "PRAME"],
+            "source_tissue": ["Central nervous system (CNS)", "Heart", "Blood"],
+            "src_healthy_tissue": [True, True, True],
+            "is_binding_assay": [False, False, False],
+        }
+    )
+
+
 @pytest.fixture(autouse=True)
 def _stub_pipeline(monkeypatch):
     """Wire stubs for every upstream call spanning_pmhc_set makes."""
@@ -117,6 +130,11 @@ def _stub_pipeline(monkeypatch):
     monkeypatch.setattr(
         "tsarina.ms_evidence.load_public_ms_hits",
         _stub_ms_hits,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.indexing.load_ms_evidence",
+        _stub_gene_ms_evidence,
         raising=True,
     )
     monkeypatch.setattr(
@@ -275,7 +293,18 @@ def test_default_vital_rna_gate_allows_sub_2_ntpm():
         selection_allowlist=[],
     )
     assert "VITALRNA" in ctas
-    assert "MAGEA4" not in ctas
+
+
+def test_unique_vital_ms_gate_ignores_shared_family_peptide_evidence():
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=10,
+        cta_rank_by="ms_cancer_peptide_count",
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=[],
+    )
+    assert "MAGEA4" in ctas
     assert "MAGEA1" not in ctas
 
 
