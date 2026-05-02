@@ -106,9 +106,9 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action="store_false",
         help=(
             "Disable the automatic vital-tissue expression filter. By default, panel "
-            "excludes CTAs with RNA above --vital-tissue-max-ntpm or public healthy-MS "
-            "observations in brain/CNS/cerebellum, heart, lung, liver, or pancreas, "
-            "unless allowlisted."
+            "excludes CTAs with RNA above --vital-tissue-max-ntpm or unique public "
+            "healthy-MS observations in brain/CNS/cerebellum, heart, lung, liver, or "
+            "pancreas, unless allowlisted."
         ),
     )
     p.add_argument(

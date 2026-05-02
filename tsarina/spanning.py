@@ -165,9 +165,9 @@ def spanning_pmhc_set(
         Aliases such as ``"MAGE-A4"`` and ``"CTAG1B"`` are normalized.
     exclude_vital_tissue_expression
         If True (default), automatic CTA selection excludes genes with RNA
-        above ``vital_tissue_max_ntpm`` or public healthy-MS observations in
-        brain/CNS/cerebellum, heart, lung, liver, or pancreas, unless the CTA
-        is in ``selection_allowlist``.
+        above ``vital_tissue_max_ntpm`` or unique public healthy-MS
+        observations in brain/CNS/cerebellum, heart, lung, liver, or pancreas,
+        unless the CTA is in ``selection_allowlist``.
     vital_tissue_max_ntpm
         Maximum allowed RNA nTPM in vital tissues for automatic CTA selection.
         Default 2.0.
@@ -503,11 +503,13 @@ def _resolve_ctas(
         df = df[df["restriction"].isin(wanted_levels)]
 
     if exclude_vital_tissue_expression:
-        vital_ok = ~df.apply(
-            lambda row: _has_vital_tissue_expression(row, vital_tissue_max_ntpm),
+        vital_rna = df.apply(
+            lambda row: _has_vital_tissue_rna_expression(row, vital_tissue_max_ntpm),
             axis=1,
         )
-        df = df[vital_ok | df["_is_selection_allowlisted"]]
+        vital_ms_labels = _unique_vital_healthy_ms_cta_labels(df[~df["_is_selection_allowlisted"]])
+        vital_ms = df["_cta_display"].isin(vital_ms_labels)
+        df = df[~(vital_rna | vital_ms) | df["_is_selection_allowlisted"]]
 
     if cta_rank_by in df.columns and df[cta_rank_by].notna().any():
         df = df.sort_values(cta_rank_by, ascending=False, na_position="last")
@@ -580,7 +582,7 @@ def _split_semicolon_values(value: object) -> set[str]:
     return {part.strip() for part in value.split(";") if part.strip()}
 
 
-def _has_vital_tissue_expression(row: pd.Series, max_ntpm: float) -> bool:
+def _has_vital_tissue_rna_expression(row: pd.Series, max_ntpm: float) -> bool:
     for column in _VITAL_TISSUE_RNA_COLUMNS:
         value = row.get(column)
         try:
@@ -589,11 +591,69 @@ def _has_vital_tissue_expression(row: pd.Series, max_ntpm: float) -> bool:
             continue
         if pd.notna(ntpm) and ntpm > max_ntpm:
             return True
+    return False
 
+
+def _has_vital_healthy_ms_tissue(row: pd.Series) -> bool:
     healthy_ms_tissues = {
         tissue.lower() for tissue in _split_semicolon_values(row.get("ms_healthy_somatic_tissues"))
     }
     return bool(healthy_ms_tissues & _VITAL_TISSUE_MS_NAMES)
+
+
+def _unique_vital_healthy_ms_cta_labels(candidate_df: pd.DataFrame) -> set[str]:
+    """CTA labels with unique-gene public healthy-MS evidence in vital tissue.
+
+    The bundled CTA table carries gene-level healthy-MS tissue aggregates, but
+    those aggregates can be driven by peptides shared across paralogous CTA
+    families. Use that table only as a cheap suspect list, then verify against
+    hitlist observation rows and require ``gene_names`` to map uniquely to the
+    candidate CTA symbol before vetoing the whole CTA.
+    """
+    if candidate_df.empty or "Symbol" not in candidate_df.columns:
+        return set()
+
+    suspect_symbols: set[str] = set()
+    for _, row in candidate_df.iterrows():
+        if not _has_vital_healthy_ms_tissue(row):
+            continue
+        for symbol in _cta_member_symbols(str(row.get("_cta_display", row.get("Symbol")))):
+            suspect_symbols.add(symbol)
+    if not suspect_symbols:
+        return set()
+
+    from .indexing import load_ms_evidence
+
+    hits = load_ms_evidence(
+        gene_name=sorted(suspect_symbols),
+        mhc_class="I",
+        mhc_species="Homo sapiens",
+        columns=[
+            "peptide",
+            "gene_names",
+            "source_tissue",
+            "src_healthy_tissue",
+            "is_binding_assay",
+        ],
+        drop_binding_assays=True,
+    )
+    if hits.empty:
+        return set()
+
+    veto_labels: set[str] = set()
+    for _, row in hits.iterrows():
+        if not _is_truthy(row.get("src_healthy_tissue", False)):
+            continue
+        source_tissue = str(row.get("source_tissue", "")).strip().lower()
+        if source_tissue not in _VITAL_TISSUE_MS_NAMES:
+            continue
+        row_symbols = _split_semicolon_values(row.get("gene_names"))
+        if len(row_symbols) != 1:
+            continue
+        symbol = next(iter(row_symbols))
+        if symbol in suspect_symbols:
+            veto_labels.add(_cta_display_name(symbol))
+    return veto_labels
 
 
 def _cta_rank_values(cta_list: list[str], cta_rank_by: str) -> dict[str, float | str]:
