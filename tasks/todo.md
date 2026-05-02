@@ -694,3 +694,32 @@ across 90 IEDB rows in 2.6 s end-to-end (vs. multi-minute CSV scan).
 - [x] `tests/test_indexing.py` — 5 new tests (build skip/trigger/force,
       peptide filter, binding-assay drop). All 132 tests + 1 skip green.
 - [x] `./format.sh && ./lint.sh && ./test.sh` all pass.
+
+---
+
+## Fix Panel Vital RNA Threshold (tsarina#43)
+
+Goal: make `tsarina panel` use a biologically consistent default vital-tissue
+RNA gate. The current `0.0` nTPM default treats HPA sub-1 nTPM background as a
+hard veto, even though the CTA curation model uses deflated RNA and considers
+somatic RNA detected at higher thresholds.
+
+Plan:
+
+- [x] Change the default `--vital-tissue-max-ntpm` / API default from `0.0`
+      to `2.0`.
+- [x] Update docstrings, CLI help, README/docs language, and tests so the
+      documented default matches behavior.
+- [x] Add focused tests showing sub-2 nTPM vital RNA does not exclude CTAs by
+      default, while healthy-MS vital tissue evidence still gates non-allowlisted
+      CTAs.
+- [x] Bump version for the PR.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+- [ ] Open PR linked to tsarina#43; merge when CI is green and deploy.
+
+Review:
+
+- Local validation passed: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (`256 passed`). Live selector check confirms `NY-ESO-1` remains selected
+  without the allowlist at the new 2.0 nTPM threshold, while MAGEA4 remains
+  gated by gene-level healthy-MS heart evidence unless allowlisted.

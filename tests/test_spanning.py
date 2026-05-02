@@ -121,25 +121,41 @@ def _stub_pipeline(monkeypatch):
     )
     monkeypatch.setattr(
         "tsarina.gene_sets.CTA_gene_names",
-        lambda: {"MAGEA4", "PRAME", "CTAG1A", "CTAG1B", "MAGEA1", "BAGE"},
+        lambda: {"MAGEA4", "PRAME", "CTAG1A", "CTAG1B", "MAGEA1", "VITALRNA", "BAGE"},
         raising=True,
     )
     # Stub the bundled CTA dataframe so cta_count / rank_by paths work.
     cta_csv = pd.DataFrame(
         {
-            "Symbol": ["MAGEA1", "MAGEA4", "PRAME", "CTAG1A", "CTAG1B", "BAGE"],
-            "Ensembl_Gene_ID": ["E0", "E1", "E2", "E3A", "E3B", "E4"],
-            "filtered": ["true", "true", "true", "true", "true", "true"],
-            "never_expressed": ["false", "false", "false", "false", "false", "true"],
-            "restriction_confidence": ["HIGH", "HIGH", "LOW", "HIGH", "MODERATE", "LOW"],
-            "restriction": ["TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS"],
-            "ms_cancer_peptide_count": [60, 50, 30, 10, 10, 0],
-            "rna_brain_max_ntpm": [0, 0, 0.2, 0.1, 0.7, 0],
-            "rna_heart_max_ntpm": [0, 0, 0.3, 0, 0, 0],
-            "rna_lung_max_ntpm": [0, 0, 0.2, 0, 0, 0],
-            "rna_liver_max_ntpm": [0, 0, 0.1, 0, 0, 0],
-            "rna_pancreas_max_ntpm": [0, 0, 0.1, 0, 0, 0],
-            "ms_healthy_somatic_tissues": ["heart", "heart", "blood", "", "", ""],
+            "Symbol": [
+                "MAGEA1",
+                "MAGEA4",
+                "PRAME",
+                "VITALRNA",
+                "CTAG1A",
+                "CTAG1B",
+                "BAGE",
+            ],
+            "Ensembl_Gene_ID": ["E0", "E1", "E2", "E5", "E3A", "E3B", "E4"],
+            "filtered": ["true", "true", "true", "true", "true", "true", "true"],
+            "never_expressed": ["false", "false", "false", "false", "false", "false", "true"],
+            "restriction_confidence": [
+                "HIGH",
+                "HIGH",
+                "LOW",
+                "HIGH",
+                "HIGH",
+                "MODERATE",
+                "LOW",
+            ],
+            "restriction": ["TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS"],
+            "ms_cancer_peptide_count": [60, 50, 30, 20, 10, 10, 0],
+            "rna_brain_max_ntpm": [0, 0, 0.2, 1.5, 0.1, 0.7, 0],
+            "rna_heart_max_ntpm": [0, 0, 0.3, 0, 0, 0, 0],
+            "rna_lung_max_ntpm": [0, 0, 0.2, 0, 0, 0, 0],
+            "rna_liver_max_ntpm": [0, 0, 0.1, 0, 0, 0, 0],
+            "rna_pancreas_max_ntpm": [0, 0, 0.1, 0, 0, 0, 0],
+            "ms_healthy_somatic_tissues": ["heart", "heart", "blood", "", "", "", ""],
         }
     )
     monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
@@ -150,8 +166,7 @@ def _stub_pipeline(monkeypatch):
 
 def test_top_n_ranking_by_default_column():
     """MAGEA1 has the highest raw count but is dropped by the vital-tissue gate.
-    PRAME is LOW-confidence/vital-RNA-positive but retained by the default
-    clinical allowlist."""
+    PRAME is LOW-confidence but retained by the default clinical allowlist."""
     df = spanning_pmhc_set(
         cta_count=2,
         alleles=["HLA-A*02:01"],
@@ -224,7 +239,7 @@ def test_min_restriction_confidence_none_admits_low():
     )
     assert "BAGE" not in df["cta"].tolist()
     assert "MAGEA1" not in df["cta"].tolist()
-    assert set(df["cta"]) == {"MAGEA4", "PRAME", "NY-ESO-1"}
+    assert set(df["cta"]) == {"MAGEA4", "PRAME", "VITALRNA", "NY-ESO-1"}
 
 
 def test_restriction_levels_filter():
@@ -248,6 +263,33 @@ def test_vital_tissue_gate_can_be_disabled():
         exclude_vital_tissue_expression=False,
     )
     assert ctas == ["MAGEA1"]
+
+
+def test_default_vital_rna_gate_allows_sub_2_ntpm():
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=10,
+        cta_rank_by="ms_cancer_peptide_count",
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=[],
+    )
+    assert "VITALRNA" in ctas
+    assert "MAGEA4" not in ctas
+    assert "MAGEA1" not in ctas
+
+
+def test_vital_rna_gate_threshold_is_parameterizable():
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=10,
+        cta_rank_by="ms_cancer_peptide_count",
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=[],
+        vital_tissue_max_ntpm=1.0,
+    )
+    assert "VITALRNA" not in ctas
 
 
 # ── Allele resolution ──────────────────────────────────────────────────
@@ -751,7 +793,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         restriction_levels=None,
         selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
         exclude_vital_tissue_expression=True,
-        vital_tissue_max_ntpm=0.0,
+        vital_tissue_max_ntpm=2.0,
         alleles=None,
         panel="global51_abc_ssa",
         lengths=(8, 9, 10, 11),
@@ -780,7 +822,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     assert callable(captured_kwargs["on_progress"])
     assert captured_kwargs["selection_allowlist"] == ("PRAME", "NY-ESO-1", "MAGEA4")
     assert captured_kwargs["exclude_vital_tissue_expression"] is True
-    assert captured_kwargs["vital_tissue_max_ntpm"] == 0.0
+    assert captured_kwargs["vital_tissue_max_ntpm"] == 2.0
 
     captured = capsys.readouterr()
     assert "fake-progress-message" in captured.err
@@ -859,7 +901,7 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         restriction_levels=None,
         selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
         exclude_vital_tissue_expression=True,
-        vital_tissue_max_ntpm=0.0,
+        vital_tissue_max_ntpm=2.0,
         alleles=None,
         panel="global51_abc_ssa",
         lengths=(8, 9, 10, 11),

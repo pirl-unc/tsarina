@@ -33,6 +33,7 @@ _SUPPORTED_PANELS = (
 _DEFAULT_PANEL = "global51_abc_ssa"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_SELECTION_ALLOWLIST = "PRAME,NY-ESO-1,MAGEA4"
+_DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 
 
 def _split_csv(value: str) -> list[str]:
@@ -113,8 +114,11 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
     p.add_argument(
         "--vital-tissue-max-ntpm",
         type=float,
-        default=0.0,
-        help="Maximum allowed RNA nTPM in vital tissues for automatic CTA selection (default 0.0).",
+        default=_DEFAULT_VITAL_TISSUE_MAX_NTPM,
+        help=(
+            "Maximum allowed RNA nTPM in vital tissues for automatic CTA selection "
+            f"(default {_DEFAULT_VITAL_TISSUE_MAX_NTPM})."
+        ),
     )
     p.add_argument(
         "--alleles",

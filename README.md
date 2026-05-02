@@ -265,8 +265,10 @@ also get a `tqdm` scoring progress bar; use `--no-progress` or
 `--no-progress-bars` to suppress it.
 
 Use `--selection-allowlist`, `--no-vital-tissue-filter`, and
-`--vital-tissue-max-ntpm` to tune automatic CTA safety filtering. Explicit
-`--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4`.
+`--vital-tissue-max-ntpm` to tune automatic CTA safety filtering. The default
+vital RNA cutoff is 2.0 nTPM; public healthy-MS observations in vital tissues
+remain exclusionary unless allowlisted. Explicit `--ctas` accepts aliases such
+as `NY-ESO-1` and `MAGE-A4`.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 
