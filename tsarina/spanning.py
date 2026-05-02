@@ -56,7 +56,7 @@ _DEFAULT_UNRESTRICTED_MS_MAX_PERCENTILE = 0.5
 _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE = 0.1
 _DEFAULT_PEPTIDES_PER_CELL = 3
 _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", "NY-ESO-1", "MAGEA4")
-_DEFAULT_VITAL_TISSUE_MAX_NTPM = 0.0
+_DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
     "NY-ESO-1": ("CTAG1A", "CTAG1B"),
@@ -170,7 +170,7 @@ def spanning_pmhc_set(
         is in ``selection_allowlist``.
     vital_tissue_max_ntpm
         Maximum allowed RNA nTPM in vital tissues for automatic CTA selection.
-        Default 0.0.
+        Default 2.0.
     alleles
         Explicit allele list.  Overrides ``panel``.
     panel
