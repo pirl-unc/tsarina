@@ -26,9 +26,9 @@ Tier structure::
 
 The IEDB-27 baseline corresponds to the published IEDB/TepiTool panel of
 the 27 most frequent global MHC class I alleles. The calibrated Global-51
-panel keeps that backbone where calibrated, adds the frequent HLA-C allotypes
-profiled by Sarkizova et al., and fills the remaining 51-panel slots from the
-IEDB/Paul 38 common HLA-A/B allele-specific threshold set.
+panel keeps that backbone, adds the frequent HLA-C allotypes profiled by
+Sarkizova et al., and fills the remaining 51-panel slots from the IEDB/Paul
+38 common HLA-A/B allele-specific threshold set.
 """
 
 from __future__ import annotations
@@ -103,17 +103,11 @@ GLOBAL51_SSA_ADDON: list[str] = [
     "HLA-C*17:01",
 ]
 
-# Default panel backbone: IEDB/TepiTool's class-I reference set, except
-# uncalibrated A*24:02 is replaced by calibrated A*24:03 to keep an A24-family
-# representative while satisfying MHCflurry percentile-rank calibration.
-GLOBAL51_CALIBRATED_AB_BACKBONE: list[str] = [
-    *(allele for allele in IEDB27_AB if allele != "HLA-A*24:02"),
-    "HLA-A*24:03",
-]
+# Default panel backbone: IEDB/TepiTool's class-I reference set.
+GLOBAL51_CALIBRATED_AB_BACKBONE: list[str] = list(IEDB27_AB)
 
 # Sarkizova/MHCflurry HLA-C coverage uses 21 frequent HLA-C allotypes covering
-# 95.8% of individuals worldwide. C*14:03 is omitted here because it is not in
-# MHCflurry's affinity percentile-rank calibration set; C*14:02 remains.
+# 95.8% of individuals worldwide.
 GLOBAL51_CALIBRATED_HLA_C: list[str] = [
     "HLA-C*01:02",
     "HLA-C*02:02",
@@ -132,13 +126,13 @@ GLOBAL51_CALIBRATED_HLA_C: list[str] = [
     "HLA-C*12:02",
     "HLA-C*12:03",
     "HLA-C*14:02",
+    "HLA-C*14:03",
     "HLA-C*15:02",
     "HLA-C*16:01",
     "HLA-C*17:01",
 ]
 
 GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT: list[str] = [
-    "HLA-A*29:02",
     "HLA-B*18:01",
     "HLA-B*40:02",
     "HLA-B*46:01",
@@ -235,7 +229,6 @@ PANEL_SOURCE_CATEGORIES: dict[str, str] = {
     "HLA-A*11:01": "IEDB-27 baseline",
     "HLA-A*23:01": "IEDB-27 baseline",
     "HLA-A*24:02": "IEDB-27 baseline",
-    "HLA-A*24:03": "Calibrated A24-family proxy; A*24:02 is a top global allele but lacks MHCflurry affinity-percentile calibration",
     "HLA-A*26:01": "IEDB-27 baseline",
     "HLA-A*30:01": "IEDB-27 baseline",
     "HLA-A*30:02": "IEDB-27 baseline",
@@ -288,6 +281,7 @@ PANEL_SOURCE_CATEGORIES: dict[str, str] = {
     "HLA-C*08:01": "Sarkizova frequent HLA-C allotype panel",
     "HLA-C*12:02": "Sarkizova frequent HLA-C allotype panel",
     "HLA-C*14:02": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*14:03": "Sarkizova frequent HLA-C allotype panel",
     "HLA-C*16:01": "Sarkizova frequent HLA-C allotype panel",
 }
 

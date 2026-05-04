@@ -273,23 +273,21 @@ Available HLA panels:
 | `global51_abc_calibrated` | 51 | Default calibrated panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
 
 Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations.
-The default calibrated panel keeps the IEDB/TepiTool class-I reference set where MHCflurry
-affinity percentile calibration is available, replaces uncalibrated `HLA-A*24:02` with
-a calibrated A24-family proxy, adds calibrated frequent HLA-C allotypes from the
-Sarkizova HLA-C peptidome coverage set, and fills the remaining 51-panel slots with
-the highest-frequency calibrated alleles missing from the IEDB/Paul 38 common HLA-A/B
-threshold set (`A*29:02`, `B*18:01`, `B*40:02`, `B*46:01`). References: IEDB reference set
+The default calibrated panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
+adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
+and fills the remaining 51-panel slots with the highest-frequency calibrated alleles
+missing from the IEDB/Paul 38 common HLA-A/B threshold set
+(`B*18:01`, `B*40:02`, `B*46:01`). References: IEDB reference set
 <https://help.iedb.org/hc/en-us/articles/114094151851-HLA-allele-frequencies-and-reference-sets-with-maximal-population-coverage>,
 TepiTool allele-selection description <https://pmc.ncbi.nlm.nih.gov/articles/PMC4981331/>,
 IEDB/Paul 38 common A/B thresholds
 <https://help.iedb.org/hc/en-us/articles/114094151811-Selecting-thresholds-cut-offs-for-MHC-class-I-and-II-binding-predictions>,
 and Sarkizova et al. <https://doi.org/10.1038/s41587-019-0322-9>.
-Audit notes: 26/27 IEDB/TepiTool A/B alleles are retained (`A*24:02` is replaced
-because it is uncalibrated), 20/21 frequent Sarkizova HLA-C allotypes are retained
-(`C*14:03` is uncalibrated), and the four A/B complements are the highest-frequency
-calibrated IEDB/Paul common A/B alleles missing from the core. The next missing
-IEDB/Paul A/B allele by frequency, `B*14:02`, is skipped because it is not calibrated
-in the installed MHCflurry model set.
+Audit notes: all 51 default alleles resolve through MHCflurry's
+`percent_rank_calibrated_allele` lookup and produce numeric affinity percentile
+ranks. `HLA-C*15:05` remains excluded because MHCflurry supports raw affinity and
+presentation predictions for it but does not have an affinity percentile-rank
+calibration.
 
 ## Data management
 

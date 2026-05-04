@@ -54,25 +54,24 @@ def test_global51_calibrated_has_51_alleles():
     assert len(panel) == 51
 
 
-def test_global51_calibrated_keeps_reference_backbone_except_uncalibrated_a2402():
+def test_global51_calibrated_keeps_reference_backbone():
     panel = set(get_panel("global51_abc_calibrated"))
-    assert set(IEDB27_AB) - {"HLA-A*24:02"} <= panel
-    assert "HLA-A*24:02" not in panel
-    assert "HLA-A*24:03" in panel
+    assert set(IEDB27_AB) <= panel
+    assert "HLA-A*24:02" in panel
+    assert "HLA-A*24:03" not in panel
 
 
-def test_global51_calibrated_includes_frequent_hla_c_panel_minus_uncalibrated_c1403():
+def test_global51_calibrated_includes_frequent_hla_c_panel():
     panel = set(get_panel("global51_abc_calibrated"))
     assert set(GLOBAL51_CALIBRATED_HLA_C) <= panel
     assert "HLA-C*14:02" in panel
-    assert "HLA-C*14:03" not in panel
+    assert "HLA-C*14:03" in panel
 
 
 def test_global51_calibrated_ab_complement_is_reference_backed():
     panel = set(get_panel("global51_abc_calibrated"))
     assert set(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT) <= panel
     assert GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT == [
-        "HLA-A*29:02",
         "HLA-B*18:01",
         "HLA-B*40:02",
         "HLA-B*46:01",
@@ -82,7 +81,7 @@ def test_global51_calibrated_ab_complement_is_reference_backed():
         & {
             "HLA-A*02:11",  # India-specific local add-on, not in the IEDB 38 A/B set.
             "HLA-A*74:01",  # SSA-focused local add-on, not in the IEDB 38 A/B set.
-            "HLA-B*14:02",  # Next IEDB 38 A/B allele by frequency, but uncalibrated.
+            "HLA-B*14:02",  # IEDB 38 A/B candidate below the selected top-three cap.
             "HLA-B*15:03",  # SSA-focused local add-on, not in the IEDB 38 A/B set.
             "HLA-B*50:01",  # Kuwait-only local add-on, not in the IEDB 38 A/B set.
             "HLA-B*58:02",  # SSA-focused local add-on, not in the IEDB 38 A/B set.
@@ -94,9 +93,14 @@ def test_global51_calibrated_uses_mhcflurry_calibrated_alleles_when_available():
     mhcflurry = pytest.importorskip("mhcflurry")
 
     predictor = mhcflurry.Class1AffinityPredictor.load()
-    calibrated = set(predictor.allele_to_percent_rank_transform)
-    missing = sorted(set(get_panel("global51_abc_calibrated")) - calibrated)
+    missing = sorted(
+        allele
+        for allele in set(get_panel("global51_abc_calibrated"))
+        if predictor.percent_rank_calibrated_allele(allele) is None
+    )
     assert missing == []
+    assert predictor.percent_rank_calibrated_allele("HLA-A*24:02") is not None
+    assert predictor.percent_rank_calibrated_allele("HLA-C*15:05") is None
 
 
 def test_all_alleles_have_source_category():
@@ -131,5 +135,5 @@ def test_addon_lists_no_overlap():
 
 def test_calibrated_panel_components_have_expected_sizes():
     assert len(GLOBAL51_CALIBRATED_AB_BACKBONE) == 27
-    assert len(GLOBAL51_CALIBRATED_HLA_C) == 20
-    assert len(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT) == 4
+    assert len(GLOBAL51_CALIBRATED_HLA_C) == 21
+    assert len(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT) == 3

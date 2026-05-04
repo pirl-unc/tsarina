@@ -33,7 +33,7 @@ panel/personalization scoring time by avoiding unnecessary predictor work.
 ## Follow-Up Plan — Audit Global-51 Allele Panel
 
 - [x] Cross-check the existing `global51_abc_ssa` panel against MHCflurry's
-      6,409 affinity percentile-rank calibrated alleles.
+      runtime affinity percentile-rank calibration resolver.
 - [x] Compare the panel against IEDB/TepiTool global class-I reference-set
       alleles, the IEDB/Paul 38 common A/B threshold panel, and Sarkizova
       HLA-C frequent allotypes.
@@ -46,14 +46,14 @@ panel/personalization scoring time by avoiding unnecessary predictor work.
 
 ## Review — Audit Global-51 Allele Panel
 
-- Existing `global51_abc_ssa` has one missing MHCflurry affinity percentile
-  calibration: `HLA-A*24:02`.
-- Added `global51_abc_calibrated` as the new default panel. It uses 26/27
-  IEDB/TepiTool A/B alleles, calibrated `HLA-A*24:03` as the A24-family proxy,
-  20/21 Sarkizova frequent HLA-C allotypes, and four highest-frequency calibrated
+- Existing `global51_abc_ssa` works with MHCflurry's runtime percentile-rank
+  calibration resolver, including `HLA-A*24:02`.
+- Added `global51_abc_calibrated` as the new default panel. It uses all 27
+  IEDB/TepiTool A/B alleles, all 21 Sarkizova frequent HLA-C allotypes, and
+  three highest-frequency calibrated
   IEDB/Paul common A/B complements.
-- Skipped `HLA-C*14:03` and `HLA-B*14:02` because the installed MHCflurry model
-  set does not have affinity percentile-rank calibration for them.
+- Excluded `HLA-C*15:05` because MHCflurry supports raw affinity and presentation
+  prediction for it but does not have affinity percentile-rank calibration.
 - Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh` (266 tests).
 
 # PR — Panel CTA Safety And NY-ESO-1 Grouping (2026-04-30)
