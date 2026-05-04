@@ -22,9 +22,13 @@ Tier structure::
     Global-44               44 alleles   + East Asia, South Asia, Sub-Saharan Africa
     Global-48               48 alleles   + Latin America, MENA
     Global-51               51 alleles   + additional Sub-Saharan Africa
+    Global-51 calibrated    51 alleles   MHCflurry-calibrated default
 
 The IEDB-27 baseline corresponds to the published IEDB/TepiTool panel of
-the 27 most frequent global MHC class I alleles.
+the 27 most frequent global MHC class I alleles. The calibrated Global-51
+panel keeps that backbone where calibrated, adds the frequent HLA-C allotypes
+profiled by Sarkizova et al., and fills the remaining 51-panel slots from the
+IEDB/Paul 38 common HLA-A/B allele-specific threshold set.
 """
 
 from __future__ import annotations
@@ -99,6 +103,47 @@ GLOBAL51_SSA_ADDON: list[str] = [
     "HLA-C*17:01",
 ]
 
+# Default panel backbone: IEDB/TepiTool's class-I reference set, except
+# uncalibrated A*24:02 is replaced by calibrated A*24:03 to keep an A24-family
+# representative while satisfying MHCflurry percentile-rank calibration.
+GLOBAL51_CALIBRATED_AB_BACKBONE: list[str] = [
+    *(allele for allele in IEDB27_AB if allele != "HLA-A*24:02"),
+    "HLA-A*24:03",
+]
+
+# Sarkizova/MHCflurry HLA-C coverage uses 21 frequent HLA-C allotypes covering
+# 95.8% of individuals worldwide. C*14:03 is omitted here because it is not in
+# MHCflurry's affinity percentile-rank calibration set; C*14:02 remains.
+GLOBAL51_CALIBRATED_HLA_C: list[str] = [
+    "HLA-C*01:02",
+    "HLA-C*02:02",
+    "HLA-C*03:02",
+    "HLA-C*03:03",
+    "HLA-C*03:04",
+    "HLA-C*04:01",
+    "HLA-C*04:03",
+    "HLA-C*05:01",
+    "HLA-C*06:02",
+    "HLA-C*07:01",
+    "HLA-C*07:02",
+    "HLA-C*07:04",
+    "HLA-C*08:01",
+    "HLA-C*08:02",
+    "HLA-C*12:02",
+    "HLA-C*12:03",
+    "HLA-C*14:02",
+    "HLA-C*15:02",
+    "HLA-C*16:01",
+    "HLA-C*17:01",
+]
+
+GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT: list[str] = [
+    "HLA-A*29:02",
+    "HLA-B*18:01",
+    "HLA-B*40:02",
+    "HLA-B*46:01",
+]
+
 
 def _sorted_alleles(values: set[str]) -> list[str]:
     return sorted(values, key=lambda allele: (allele.split("*", 1)[0], allele))
@@ -160,6 +205,22 @@ PANEL_DEFINITIONS: OrderedDict[str, dict] = OrderedDict(
                 ),
             },
         ),
+        (
+            "global51_abc_calibrated",
+            {
+                "label": "Global-51 calibrated",
+                "description": (
+                    "MHCflurry-calibrated 51-allele A/B/C panel: calibrated IEDB A/B "
+                    "backbone, frequent HLA-C allotypes, and highest-frequency calibrated "
+                    "A/B complements from the IEDB/Paul 38 common-allele threshold set."
+                ),
+                "alleles": _sorted_alleles(
+                    set(GLOBAL51_CALIBRATED_AB_BACKBONE)
+                    | set(GLOBAL51_CALIBRATED_HLA_C)
+                    | set(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT)
+                ),
+            },
+        ),
     ]
 )
 
@@ -174,6 +235,7 @@ PANEL_SOURCE_CATEGORIES: dict[str, str] = {
     "HLA-A*11:01": "IEDB-27 baseline",
     "HLA-A*23:01": "IEDB-27 baseline",
     "HLA-A*24:02": "IEDB-27 baseline",
+    "HLA-A*24:03": "Calibrated A24-family proxy; A*24:02 is a top global allele but lacks MHCflurry affinity-percentile calibration",
     "HLA-A*26:01": "IEDB-27 baseline",
     "HLA-A*30:01": "IEDB-27 baseline",
     "HLA-A*30:02": "IEDB-27 baseline",
@@ -205,18 +267,28 @@ PANEL_SOURCE_CATEGORIES: dict[str, str] = {
     "HLA-A*02:07": "East Asia / Southeast Asia add-on",
     "HLA-A*02:11": "South Asia add-on",
     "HLA-A*74:01": "Sub-Saharan Africa add-on",
-    "HLA-B*46:01": "East Asia / Southeast Asia add-on",
+    "HLA-B*46:01": "IEDB/Paul 38 common A/B threshold panel; East/Southeast Asia regional complement",
     "HLA-B*40:06": "South Asia / MENA add-on",
     "HLA-B*15:03": "Sub-Saharan Africa add-on",
     "HLA-B*58:02": "Sub-Saharan Africa add-on",
     "HLA-C*01:02": "East Asia / Southeast Asia / Latin America add-on",
-    "HLA-A*29:02": "Latin America / IEDB MS add-on",
+    "HLA-A*29:02": "IEDB/Paul 38 common A/B threshold panel; Latin America proxy in local table",
+    "HLA-B*18:01": "IEDB/Paul 38 common A/B threshold panel; Europe proxy in local table",
     "HLA-B*15:02": "Southeast Asia / IEDB MS add-on",
-    "HLA-B*40:02": "Latin America / IEDB MS add-on",
+    "HLA-B*40:02": "IEDB/Paul 38 common A/B threshold panel; Latin America proxy in local table",
     "HLA-B*50:01": "MENA / Arab add-on",
     "HLA-B*57:03": "Sub-Saharan Africa extension",
     "HLA-B*81:01": "Sub-Saharan Africa extension",
     "HLA-C*17:01": "Sub-Saharan Africa / MENA extension",
+    "HLA-C*02:02": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*03:02": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*03:03": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*04:03": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*07:04": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*08:01": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*12:02": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*14:02": "Sarkizova frequent HLA-C allotype panel",
+    "HLA-C*16:01": "Sarkizova frequent HLA-C allotype panel",
 }
 
 
@@ -230,7 +302,8 @@ def get_panel(name: str) -> list[str]:
     ----------
     name : str
         Panel key: ``"iedb27_ab"``, ``"iedb36_abc"``, ``"global44_abc"``,
-        ``"global48_abc"``, or ``"global51_abc_ssa"``.
+        ``"global48_abc"``, ``"global51_abc_ssa"``, or
+        ``"global51_abc_calibrated"``.
 
     Returns
     -------

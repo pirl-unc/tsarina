@@ -325,8 +325,7 @@ def test_vital_rna_gate_threshold_is_parameterizable():
 
 
 def test_panel_default_resolves_via_get_panel():
-    """Default panel='global51_abc_ssa' should produce a 51-column wide table
-    plus the 'cta' index column = 52 cols."""
+    """Default calibrated 51-allele panel should produce 52 columns including 'cta'."""
     df = spanning_pmhc_set(
         cta_count=2,
         max_percentile=10.0,

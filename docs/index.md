@@ -226,7 +226,7 @@ Defaults:
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
-- `global51_abc_ssa` HLA-A/B/C panel
+- `global51_abc_calibrated` HLA-A/B/C panel
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
 - MS-evidence-first cell selection
@@ -269,9 +269,27 @@ Available HLA panels:
 | `iedb36_abc` | 36 | + HLA-C |
 | `global44_abc` | 44 | + East Asia, South Asia, Sub-Saharan Africa |
 | `global48_abc` | 48 | + Latin America, MENA |
-| `global51_abc_ssa` | 51 | + additional Sub-Saharan Africa |
+| `global51_abc_ssa` | 51 | Legacy Global-48 + additional Sub-Saharan Africa |
+| `global51_abc_calibrated` | 51 | Default calibrated panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
 
 Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations.
+The default calibrated panel keeps the IEDB/TepiTool class-I reference set where MHCflurry
+affinity percentile calibration is available, replaces uncalibrated `HLA-A*24:02` with
+a calibrated A24-family proxy, adds calibrated frequent HLA-C allotypes from the
+Sarkizova HLA-C peptidome coverage set, and fills the remaining 51-panel slots with
+the highest-frequency calibrated alleles missing from the IEDB/Paul 38 common HLA-A/B
+threshold set (`A*29:02`, `B*18:01`, `B*40:02`, `B*46:01`). References: IEDB reference set
+<https://help.iedb.org/hc/en-us/articles/114094151851-HLA-allele-frequencies-and-reference-sets-with-maximal-population-coverage>,
+TepiTool allele-selection description <https://pmc.ncbi.nlm.nih.gov/articles/PMC4981331/>,
+IEDB/Paul 38 common A/B thresholds
+<https://help.iedb.org/hc/en-us/articles/114094151811-Selecting-thresholds-cut-offs-for-MHC-class-I-and-II-binding-predictions>,
+and Sarkizova et al. <https://doi.org/10.1038/s41587-019-0322-9>.
+Audit notes: 26/27 IEDB/TepiTool A/B alleles are retained (`A*24:02` is replaced
+because it is uncalibrated), 20/21 frequent Sarkizova HLA-C allotypes are retained
+(`C*14:03` is uncalibrated), and the four A/B complements are the highest-frequency
+calibrated IEDB/Paul common A/B alleles missing from the core. The next missing
+IEDB/Paul A/B allele by frequency, `B*14:02`, is skipped because it is not calibrated
+in the installed MHCflurry model set.
 
 ## Data management
 
