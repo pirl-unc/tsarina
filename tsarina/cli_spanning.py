@@ -30,8 +30,9 @@ _SUPPORTED_PANELS = (
     "global48_abc",
     "global51_abc_ssa",
     "global51_abc",
+    "global53_abc",
 )
-_DEFAULT_PANEL = "global51_abc"
+_DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_SELECTION_ALLOWLIST = "PRAME,NY-ESO-1,MAGEA4"
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
@@ -278,7 +279,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         description=(
             "Produce a CTA x HLA pivot table where each cell is the best MS-supported "
             "peptide-HLA candidate for that CTA and allele. Defaults to top-25 CTAs "
-            "crossed with the Global-51 HLA-A/B/C panel, 8-11mers, and tier-specific "
+            "crossed with the Global-53 HLA-A/B/C panel, 8-11mers, and tier-specific "
             "presentation-percentile cutoffs: mono-allelic MS <2.0, multi-allelic "
             "sample-genotype MS <1.0, unrestricted MS <0.5. Prediction-only "
             "candidates are excluded unless --include-predicted-only is supplied. "

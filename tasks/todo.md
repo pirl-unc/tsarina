@@ -810,3 +810,36 @@ Review:
   (`49 passed`), `./format.sh`, `./lint.sh`, and `./test.sh` (`257 passed`).
   Live selector check confirms `MAGEA4` is selected and `MAGEA1` is excluded
   without the allowlist, matching shared-vs-unique healthy-MS evidence.
+
+---
+
+## Rebalance Global Panel With CTA-MS Supported Alleles (PR #47 follow-up)
+
+Goal: add the strongest missing CTA-MS supported alleles (`HLA-B*15:02`,
+`HLA-B*27:05`, `HLA-A*29:02`) while preserving the global coverage rationale
+of the default panel.
+
+Plan:
+
+- [x] Audit zero-MS `global51_abc` alleles for weighted regional frequency,
+      literature/source rationale, and MHCflurry pseudosequence redundancy.
+- [x] Decide whether to replace weak alleles or grow the default panel.
+- [x] Update panel constants, docs, and tests to reflect the selected panel.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+- [x] Push an update to PR #47.
+
+Review:
+
+- Zero-MS alleles with weak local weighted-frequency evidence include
+  `HLA-A*30:02`, `HLA-C*03:02`, `HLA-C*04:03`, `HLA-C*07:04`, and
+  `HLA-C*14:03`; however these are either IEDB/TepiTool backbone alleles or
+  members of the Sarkizova frequent-HLA-C set. `HLA-C*14:03` is redundant with
+  `HLA-C*14:02` by MHCflurry pseudosequence, but removing it would break the
+  published frequent-C-set rationale.
+- Chose to keep `global51_abc` as the 51-allele reference panel and add
+  `global53_abc` as the default, adding `HLA-A*29:02`, `HLA-B*15:02`, and
+  `HLA-B*27:05` while dropping `HLA-C*14:03` from the default. `HLA-C*14:03`
+  is redundant with `HLA-C*14:02` in MHCflurry's pseudosequence and runtime
+  percentile-rank calibration, and `HLA-C*14:02` had the CTA-MS support.
+- Local validation passed: targeted panel tests (`19 passed`), `./format.sh`,
+  `./lint.sh`, and `./test.sh` (`269 passed`).
