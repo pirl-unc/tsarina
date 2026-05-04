@@ -10,12 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""MHC-peptide binding prediction via topiary + mhctools.
+"""MHC-peptide binding prediction.
 
-Topiary wraps mhctools' binding predictors (MHCflurry, NetMHCpan, …) with a
-uniform DataFrame interface.  This module exposes a thin tsarina-shaped API
-over that: one column per kind of prediction (presentation_score,
-presentation_percentile, affinity_nm), wide rather than long.
+MHCflurry is handled directly so tsarina can request only the values it uses
+and batch peptide-allele presentation predictions efficiently. Other backends
+still use topiary + mhctools' uniform DataFrame interface. This module exposes
+a thin tsarina-shaped API over both paths: one column per kind of prediction
+(``presentation_score``, ``presentation_percentile``, ``affinity_nm``), wide
+rather than long.
 
 Typical usage::
 
@@ -80,10 +82,90 @@ AFFINITY_THRESHOLDS_NM: tuple[int, ...] = (50, 150, 500)
 PRESENTATION_SCORE_THRESHOLDS: tuple[float, ...] = (0.90, 0.95)
 PRESENTATION_PERCENTILE_THRESHOLDS: tuple[float, ...] = (0.25, 0.50, 1.0)
 
+_SCORE_COLUMNS = [
+    "peptide",
+    "allele",
+    "presentation_score",
+    "presentation_percentile",
+    "affinity_nm",
+]
+_MHCFLURRY_PRESENTATION_PREDICTOR: object | None = None
+
+
+def _predictor_key(predictor: str) -> str:
+    return predictor.lower().replace("-", "_")
+
+
+def _empty_scores() -> pd.DataFrame:
+    return pd.DataFrame(columns=_SCORE_COLUMNS)
+
+
+def _unique_in_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            out.append(value)
+    return out
+
+
+def _load_mhcflurry_presentation_predictor():
+    global _MHCFLURRY_PRESENTATION_PREDICTOR
+
+    if _MHCFLURRY_PRESENTATION_PREDICTOR is None:
+        try:
+            from mhcflurry import Class1PresentationPredictor
+        except ImportError as e:
+            raise ImportError(
+                "MHCflurry is required for predictor='mhcflurry' but is not "
+                f"importable by the Python running tsarina ({sys.executable}). "
+                "Install mhcflurry into that interpreter, or run tsarina with "
+                "the environment where mhcflurry is installed."
+            ) from e
+        _MHCFLURRY_PRESENTATION_PREDICTOR = Class1PresentationPredictor.load()
+    return _MHCFLURRY_PRESENTATION_PREDICTOR
+
+
+def _score_mhcflurry(peptides: list[str], alleles: list[str]) -> pd.DataFrame:
+    """Score with MHCflurry without requesting unused affinity percentiles.
+
+    MHCflurry presentation percentiles are required by tsarina's ranking and
+    tiering logic. Affinity percentile ranks are not used, and some supported
+    alleles lack that separate calibration curve, so requesting them can fail
+    even when raw affinity and presentation predictions are available.
+    """
+    unique_peptides = _unique_in_order(peptides)
+    unique_alleles = _unique_in_order(alleles)
+    if not unique_peptides or not unique_alleles:
+        return _empty_scores()
+
+    predictor = _load_mhcflurry_presentation_predictor()
+    allele_samples = {allele: [allele] for allele in unique_alleles}
+    result = predictor.predict(
+        peptides=unique_peptides,
+        alleles=allele_samples,
+        include_affinity_percentile=False,
+        verbose=0,
+    )
+    if result.empty:
+        return _empty_scores()
+
+    out = pd.DataFrame(
+        {
+            "peptide": result["peptide"],
+            "allele": result["best_allele"] if "best_allele" in result else result["sample_name"],
+            "presentation_score": result.get("presentation_score", pd.NA),
+            "presentation_percentile": result.get("presentation_percentile", pd.NA),
+            "affinity_nm": result.get("affinity", pd.NA),
+        }
+    )
+    return out[_SCORE_COLUMNS].reset_index(drop=True)
+
 
 def _resolve_predictor_class(predictor: str):
     """Map a predictor key to its mhctools class."""
-    key = predictor.lower().replace("-", "_")
+    key = _predictor_key(predictor)
     try:
         if key == "mhcflurry":
             from mhctools import MHCflurry
@@ -116,15 +198,7 @@ def _pivot_topiary(result: pd.DataFrame) -> pd.DataFrame:
     single row per (peptide, allele) with separate columns for each kind.
     """
     if result.empty:
-        return pd.DataFrame(
-            columns=[
-                "peptide",
-                "allele",
-                "presentation_score",
-                "presentation_percentile",
-                "affinity_nm",
-            ]
-        )
+        return _empty_scores()
 
     presentation = result[result["kind"] == "pMHC_presentation"][
         ["peptide", "allele", "score", "percentile_rank"]
@@ -134,8 +208,7 @@ def _pivot_topiary(result: pd.DataFrame) -> pd.DataFrame:
     )
 
     out = presentation.merge(affinity, on=["peptide", "allele"], how="outer")
-    cols = ["peptide", "allele", "presentation_score", "presentation_percentile", "affinity_nm"]
-    return out[[c for c in cols if c in out.columns]].reset_index(drop=True)
+    return out[[c for c in _SCORE_COLUMNS if c in out.columns]].reset_index(drop=True)
 
 
 def score_presentation(
@@ -167,6 +240,9 @@ def score_presentation(
         ``presentation_percentile``, ``affinity_nm``.  A backend that does
         not emit a given kind leaves that column NaN.
     """
+    if _predictor_key(predictor) == "mhcflurry":
+        return _score_mhcflurry(peptides, alleles)
+
     try:
         from topiary import TopiaryPredictor
     except ImportError as e:

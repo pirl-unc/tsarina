@@ -1,3 +1,35 @@
+# PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
+
+## Goal
+
+Fix MHCflurry failures for alleles such as `HLA-C*15:05` where affinity
+prediction works but affinity percentile-rank calibration is missing, and reduce
+panel/personalization scoring time by avoiding unnecessary predictor work.
+
+## Plan
+
+- [x] Add a direct MHCflurry scoring path that returns tsarina's existing
+      `presentation_score`, `presentation_percentile`, and `affinity_nm`
+      columns without requesting unused affinity percentile ranks.
+- [x] Batch MHCflurry presentation predictions across peptide/allele pairs
+      instead of calling the presentation predictor once per allele.
+- [x] Keep non-MHCflurry predictors on the existing topiary/mhctools path.
+- [x] Add regression tests for missing affinity percentile calibration and
+      batched direct-MHCflurry calls.
+- [x] Bump the package patch version.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+
+## Review
+
+- Filed upstream mhctools wrapper issue:
+  https://github.com/openvax/mhctools/issues/203.
+- Local `HLA-C*15:05` MHCflurry smoke test returns `presentation_score`,
+  `presentation_percentile`, and `affinity_nm` without requesting affinity
+  percentile ranks.
+- Warm local timing on 24 peptide-allele pairs: direct MHCflurry path `0.063s`
+  vs old topiary/mhctools MHCflurry path `0.500s`.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh` (260 tests).
+
 # PR — Panel CTA Safety And NY-ESO-1 Grouping (2026-04-30)
 
 ## Goal

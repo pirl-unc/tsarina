@@ -796,6 +796,31 @@ def test_progress_bar_scores_in_chunks(monkeypatch):
     assert calls == [("HLA-A*02:01",), ("HLA-A*24:02",)]
 
 
+def test_progress_bar_default_mhcflurry_chunk_size_is_larger(monkeypatch):
+    from tsarina.spanning import _score_presentations
+
+    calls: list[tuple[str, ...]] = []
+
+    def _chunked_scores(peptides, alleles, **kwargs):
+        calls.append(tuple(alleles))
+        return _stub_scores(peptides, alleles, **kwargs)
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", _chunked_scores, raising=True)
+    alleles = [f"HLA-A*02:{i:02d}" for i in range(1, 10)]
+
+    scores = _score_presentations(
+        peptides=["PEPTIDE"],
+        alleles=alleles,
+        predictor="mhcflurry",
+        progress_bar=True,
+        score_chunk_size=None,
+        progress_file=io.StringIO(),
+    )
+
+    assert not scores.empty
+    assert [len(call) for call in calls] == [8, 1]
+
+
 def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     """The CLI handler must pass a stderr-printing callback into
     spanning_pmhc_set.  Verify callback messages land on stderr (not

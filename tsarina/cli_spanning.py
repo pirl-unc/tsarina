@@ -257,7 +257,8 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=int,
         default=None,
         help=(
-            "Number of HLA alleles per scoring chunk when progress bars are enabled (default 1)."
+            "Number of HLA alleles per scoring chunk when progress bars are enabled "
+            "(default 8 for MHCflurry, 1 for other predictors)."
         ),
     )
     p.add_argument(
