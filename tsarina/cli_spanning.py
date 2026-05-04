@@ -29,9 +29,9 @@ _SUPPORTED_PANELS = (
     "global44_abc",
     "global48_abc",
     "global51_abc_ssa",
-    "global51_abc_calibrated",
+    "global51_abc",
 )
-_DEFAULT_PANEL = "global51_abc_calibrated"
+_DEFAULT_PANEL = "global51_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_SELECTION_ALLOWLIST = "PRAME,NY-ESO-1,MAGEA4"
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0

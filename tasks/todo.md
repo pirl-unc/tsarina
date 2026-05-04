@@ -40,7 +40,7 @@ panel/personalization scoring time by avoiding unnecessary predictor work.
 - [x] Replace uncalibrated or weakly justified add-ons only when a stronger
       calibrated, reference-backed allele is available.
 - [x] Record citation/provenance notes in `PANEL_SOURCE_CATEGORIES`.
-- [x] Add tests that keep `global51_abc_calibrated` calibrated and prevent
+- [x] Add tests that keep `global51_abc` MHCflurry-compatible and prevent
       future weak local-only complements from entering the default panel.
 - [x] Rerun `./format.sh`, `./lint.sh`, and `./test.sh`, then update PR #47.
 
@@ -48,7 +48,7 @@ panel/personalization scoring time by avoiding unnecessary predictor work.
 
 - Existing `global51_abc_ssa` works with MHCflurry's runtime percentile-rank
   calibration resolver, including `HLA-A*24:02`.
-- Added `global51_abc_calibrated` as the new default panel. It uses all 27
+- Added `global51_abc` as the new default panel. It uses all 27
   IEDB/TepiTool A/B alleles, all 21 Sarkizova frequent HLA-C allotypes, and
   three highest-frequency calibrated
   IEDB/Paul common A/B complements.

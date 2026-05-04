@@ -325,7 +325,7 @@ def test_vital_rna_gate_threshold_is_parameterizable():
 
 
 def test_panel_default_resolves_via_get_panel():
-    """Default calibrated 51-allele panel should produce 52 columns including 'cta'."""
+    """Default 51-allele panel should produce 52 columns including 'cta'."""
     df = spanning_pmhc_set(
         cta_count=2,
         max_percentile=10.0,

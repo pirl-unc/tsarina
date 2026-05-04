@@ -245,7 +245,7 @@ Defaults:
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
-- `global51_abc_calibrated` HLA-A/B/C panel
+- `global51_abc` HLA-A/B/C panel
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
 - MS-evidence-first cell selection
@@ -289,10 +289,10 @@ Available HLA panels:
 | `global44_abc` | 44 | + East Asia, South Asia, Sub-Saharan Africa |
 | `global48_abc` | 48 | + Latin America, MENA |
 | `global51_abc_ssa` | 51 | Legacy Global-48 + additional Sub-Saharan Africa |
-| `global51_abc_calibrated` | 51 | Default calibrated panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
+| `global51_abc` | 51 | Default global panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
 
 Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations.
-The default calibrated panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
+The default `global51_abc` panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
 adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
 and fills the remaining 51-panel slots with the highest-frequency calibrated alleles
 missing from the IEDB/Paul 38 common HLA-A/B threshold set

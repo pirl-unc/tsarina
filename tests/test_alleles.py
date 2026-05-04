@@ -3,9 +3,9 @@ import pytest
 from tsarina.alleles import (
     GLOBAL44_ADDON,
     GLOBAL48_ADDON,
-    GLOBAL51_CALIBRATED_AB_BACKBONE,
-    GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT,
-    GLOBAL51_CALIBRATED_HLA_C,
+    GLOBAL51_AB_BACKBONE,
+    GLOBAL51_COMMON_AB_COMPLEMENT,
+    GLOBAL51_HLA_C,
     GLOBAL51_SSA_ADDON,
     HLA_C_ADDON,
     IEDB27_AB,
@@ -32,7 +32,7 @@ def test_panel_names_order():
         "global44_abc",
         "global48_abc",
         "global51_abc_ssa",
-        "global51_abc_calibrated",
+        "global51_abc",
     ]
 
 
@@ -49,29 +49,29 @@ def test_global51_has_51_alleles():
     assert len(panel) == 51
 
 
-def test_global51_calibrated_has_51_alleles():
-    panel = get_panel("global51_abc_calibrated")
+def test_global51_has_51_alleles_for_default_global_panel():
+    panel = get_panel("global51_abc")
     assert len(panel) == 51
 
 
-def test_global51_calibrated_keeps_reference_backbone():
-    panel = set(get_panel("global51_abc_calibrated"))
+def test_global51_default_keeps_reference_backbone():
+    panel = set(get_panel("global51_abc"))
     assert set(IEDB27_AB) <= panel
     assert "HLA-A*24:02" in panel
     assert "HLA-A*24:03" not in panel
 
 
-def test_global51_calibrated_includes_frequent_hla_c_panel():
-    panel = set(get_panel("global51_abc_calibrated"))
-    assert set(GLOBAL51_CALIBRATED_HLA_C) <= panel
+def test_global51_default_includes_frequent_hla_c_panel():
+    panel = set(get_panel("global51_abc"))
+    assert set(GLOBAL51_HLA_C) <= panel
     assert "HLA-C*14:02" in panel
     assert "HLA-C*14:03" in panel
 
 
-def test_global51_calibrated_ab_complement_is_reference_backed():
-    panel = set(get_panel("global51_abc_calibrated"))
-    assert set(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT) <= panel
-    assert GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT == [
+def test_global51_default_ab_complement_is_reference_backed():
+    panel = set(get_panel("global51_abc"))
+    assert set(GLOBAL51_COMMON_AB_COMPLEMENT) <= panel
+    assert GLOBAL51_COMMON_AB_COMPLEMENT == [
         "HLA-B*18:01",
         "HLA-B*40:02",
         "HLA-B*46:01",
@@ -89,13 +89,13 @@ def test_global51_calibrated_ab_complement_is_reference_backed():
     )
 
 
-def test_global51_calibrated_uses_mhcflurry_calibrated_alleles_when_available():
+def test_global51_default_uses_mhcflurry_runtime_calibration_when_available():
     mhcflurry = pytest.importorskip("mhcflurry")
 
     predictor = mhcflurry.Class1AffinityPredictor.load()
     missing = sorted(
         allele
-        for allele in set(get_panel("global51_abc_calibrated"))
+        for allele in set(get_panel("global51_abc"))
         if predictor.percent_rank_calibrated_allele(allele) is None
     )
     assert missing == []
@@ -133,7 +133,7 @@ def test_addon_lists_no_overlap():
                 assert not overlap, f"Addon lists {i} and {j} overlap: {overlap}"
 
 
-def test_calibrated_panel_components_have_expected_sizes():
-    assert len(GLOBAL51_CALIBRATED_AB_BACKBONE) == 27
-    assert len(GLOBAL51_CALIBRATED_HLA_C) == 21
-    assert len(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT) == 3
+def test_global51_default_components_have_expected_sizes():
+    assert len(GLOBAL51_AB_BACKBONE) == 27
+    assert len(GLOBAL51_HLA_C) == 21
+    assert len(GLOBAL51_COMMON_AB_COMPLEMENT) == 3

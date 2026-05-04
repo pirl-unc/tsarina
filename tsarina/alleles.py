@@ -22,13 +22,13 @@ Tier structure::
     Global-44               44 alleles   + East Asia, South Asia, Sub-Saharan Africa
     Global-48               48 alleles   + Latin America, MENA
     Global-51               51 alleles   + additional Sub-Saharan Africa
-    Global-51 calibrated    51 alleles   MHCflurry-calibrated default
+    Global-51 (A/B/C)       51 alleles   Global default
 
 The IEDB-27 baseline corresponds to the published IEDB/TepiTool panel of
-the 27 most frequent global MHC class I alleles. The calibrated Global-51
-panel keeps that backbone, adds the frequent HLA-C allotypes profiled by
-Sarkizova et al., and fills the remaining 51-panel slots from the IEDB/Paul
-38 common HLA-A/B allele-specific threshold set.
+the 27 most frequent global MHC class I alleles. The Global-51 A/B/C panel
+keeps that backbone, adds the frequent HLA-C allotypes profiled by Sarkizova
+et al., and fills the remaining 51-panel slots from the IEDB/Paul 38 common
+HLA-A/B allele-specific threshold set.
 """
 
 from __future__ import annotations
@@ -104,11 +104,11 @@ GLOBAL51_SSA_ADDON: list[str] = [
 ]
 
 # Default panel backbone: IEDB/TepiTool's class-I reference set.
-GLOBAL51_CALIBRATED_AB_BACKBONE: list[str] = list(IEDB27_AB)
+GLOBAL51_AB_BACKBONE: list[str] = list(IEDB27_AB)
 
 # Sarkizova/MHCflurry HLA-C coverage uses 21 frequent HLA-C allotypes covering
 # 95.8% of individuals worldwide.
-GLOBAL51_CALIBRATED_HLA_C: list[str] = [
+GLOBAL51_HLA_C: list[str] = [
     "HLA-C*01:02",
     "HLA-C*02:02",
     "HLA-C*03:02",
@@ -132,7 +132,7 @@ GLOBAL51_CALIBRATED_HLA_C: list[str] = [
     "HLA-C*17:01",
 ]
 
-GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT: list[str] = [
+GLOBAL51_COMMON_AB_COMPLEMENT: list[str] = [
     "HLA-B*18:01",
     "HLA-B*40:02",
     "HLA-B*46:01",
@@ -200,18 +200,18 @@ PANEL_DEFINITIONS: OrderedDict[str, dict] = OrderedDict(
             },
         ),
         (
-            "global51_abc_calibrated",
+            "global51_abc",
             {
-                "label": "Global-51 calibrated",
+                "label": "Global-51 A/B/C",
                 "description": (
-                    "MHCflurry-calibrated 51-allele A/B/C panel: calibrated IEDB A/B "
-                    "backbone, frequent HLA-C allotypes, and highest-frequency calibrated "
-                    "A/B complements from the IEDB/Paul 38 common-allele threshold set."
+                    "51-allele global A/B/C panel: IEDB A/B backbone, frequent HLA-C "
+                    "allotypes, and highest-frequency A/B complements from the "
+                    "IEDB/Paul 38 common-allele threshold set."
                 ),
                 "alleles": _sorted_alleles(
-                    set(GLOBAL51_CALIBRATED_AB_BACKBONE)
-                    | set(GLOBAL51_CALIBRATED_HLA_C)
-                    | set(GLOBAL51_CALIBRATED_COMMON_AB_COMPLEMENT)
+                    set(GLOBAL51_AB_BACKBONE)
+                    | set(GLOBAL51_HLA_C)
+                    | set(GLOBAL51_COMMON_AB_COMPLEMENT)
                 ),
             },
         ),
@@ -296,8 +296,7 @@ def get_panel(name: str) -> list[str]:
     ----------
     name : str
         Panel key: ``"iedb27_ab"``, ``"iedb36_abc"``, ``"global44_abc"``,
-        ``"global48_abc"``, ``"global51_abc_ssa"``, or
-        ``"global51_abc_calibrated"``.
+        ``"global48_abc"``, ``"global51_abc_ssa"``, or ``"global51_abc"``.
 
     Returns
     -------
