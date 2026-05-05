@@ -1298,7 +1298,7 @@ def test_progress_bar_scores_in_chunks(monkeypatch):
     assert calls == [("HLA-A*02:01",), ("HLA-A*24:02",)]
 
 
-def test_progress_bar_default_mhcflurry_chunk_size_is_larger(monkeypatch):
+def test_progress_bar_default_mhcflurry_scores_one_full_allele_batch(monkeypatch):
     from tsarina.spanning import _score_presentations
 
     calls: list[tuple[str, ...]] = []
@@ -1320,7 +1320,32 @@ def test_progress_bar_default_mhcflurry_chunk_size_is_larger(monkeypatch):
     )
 
     assert not scores.empty
-    assert [len(call) for call in calls] == [8, 1]
+    assert [len(call) for call in calls] == [9]
+
+
+def test_progress_bar_explicit_mhcflurry_chunk_size_is_honored(monkeypatch):
+    from tsarina.spanning import _score_presentations
+
+    calls: list[tuple[str, ...]] = []
+
+    def _chunked_scores(peptides, alleles, **kwargs):
+        calls.append(tuple(alleles))
+        return _stub_scores(peptides, alleles, **kwargs)
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", _chunked_scores, raising=True)
+    alleles = [f"HLA-A*02:{i:02d}" for i in range(1, 6)]
+
+    scores = _score_presentations(
+        peptides=["PEPTIDE"],
+        alleles=alleles,
+        predictor="mhcflurry",
+        progress_bar=True,
+        score_chunk_size=2,
+        progress_file=io.StringIO(),
+    )
+
+    assert not scores.empty
+    assert [len(call) for call in calls] == [2, 2, 1]
 
 
 def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):

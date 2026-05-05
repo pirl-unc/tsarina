@@ -306,8 +306,9 @@ def spanning_pmhc_set(
         the scoring stage. Default False so library calls remain quiet.
     score_chunk_size
         Number of HLA alleles per scoring chunk when ``progress_bar`` is
-        enabled. Defaults to 8 for MHCflurry and one allele per chunk for
-        other predictors.
+        enabled. Defaults to one full allele batch for MHCflurry, since
+        allele chunking repeats its allele-independent processing model pass,
+        and one allele per chunk for other predictors.
     progress_file
         File handle for tqdm progress bars. Defaults to ``sys.stderr`` when
         ``progress_bar`` is True.
@@ -1381,8 +1382,9 @@ def _score_presentations(
     if not progress_bar:
         return score_presentation(peptides=peptides, alleles=alleles, predictor=predictor)
 
-    chunk_size = score_chunk_size or (
-        8 if predictor.lower().replace("-", "_") == "mhcflurry" else 1
+    is_mhcflurry = predictor.lower().replace("-", "_") == "mhcflurry"
+    chunk_size = (
+        score_chunk_size if score_chunk_size is not None else (len(alleles) if is_mhcflurry else 1)
     )
     if chunk_size < 1:
         raise ValueError(f"score_chunk_size must be >= 1, got {score_chunk_size!r}")
