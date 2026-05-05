@@ -59,6 +59,8 @@ _DEFAULT_PEPTIDES_PER_CELL = 3
 _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", "NY-ESO-1", "MAGEA4")
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
+_DEFAULT_GROUP_IDENTICAL_CTA_PMHCS = True
+_DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY = False
 
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
     "NY-ESO-1": ("CTAG1A", "CTAG1B"),
@@ -92,6 +94,7 @@ _EVIDENCE_TIER_RANKS: dict[str, int] = {
 
 _LONG_OUTPUT_COLUMNS: tuple[str, ...] = (
     "cta",
+    "cta_members",
     "allele",
     "peptide",
     "length",
@@ -104,6 +107,22 @@ _LONG_OUTPUT_COLUMNS: tuple[str, ...] = (
     "presentation_percentile",
     "presentation_score",
     "affinity_nm",
+    "affinity_percentile",
+    "netmhcpan_affinity_nm",
+    "netmhcpan_affinity_percentile",
+)
+
+_PMHC_SIGNATURE_COLUMNS: tuple[str, ...] = (
+    "allele",
+    "peptide",
+    "length",
+    "evidence_tier",
+    "ms_hit_count",
+    "ms_source_count",
+    "ms_alleles",
+    "ms_pmids",
+    "ms_samples",
+    "peptide_rank_in_cell",
 )
 
 
@@ -130,6 +149,8 @@ def spanning_pmhc_set(
     predicted_only_max_percentile: float = _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE,
     max_percentile: float | None = None,
     peptides_per_cell: int = _DEFAULT_PEPTIDES_PER_CELL,
+    group_identical_cta_pmhcs: bool = _DEFAULT_GROUP_IDENTICAL_CTA_PMHCS,
+    annotate_netmhcpan_affinity: bool = _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     output_format: str = "wide",
@@ -227,6 +248,15 @@ def spanning_pmhc_set(
         Maximum number of ranked peptides to keep for each CTA x HLA cell.
         Default 3. Candidates are ranked by MS source count first, then
         MS hit count, then prediction percentile.
+    group_identical_cta_pmhcs
+        If True (default), non-empty CTAs with identical final selected pMHC
+        rows are collapsed into one output target. The long output preserves
+        semicolon-separated source labels in ``cta_members``.
+    annotate_netmhcpan_affinity
+        If True, run a NetMHCpan binding-affinity pass on selected pMHC rows
+        and add ``netmhcpan_affinity_nm`` plus
+        ``netmhcpan_affinity_percentile``. This is opt-in because NetMHCpan is
+        an external dependency and slower than the default MHCflurry path.
     iedb_path, cedar_path
         Optional explicit raw public-MS files. Defaults use hitlist's cached
         observations path.
@@ -388,11 +418,16 @@ def spanning_pmhc_set(
         )
         nonempty_ctas = _nonempty_ctas_in_order(processed_cta_list, selected_so_far)
         if automatic_backfill:
+            nonempty_cta_groups, _ = _cta_group_order(
+                nonempty_ctas,
+                selected_so_far,
+                group_identical_cta_pmhcs=group_identical_cta_pmhcs,
+            )
             _report_progress(
                 on_progress,
-                f"Backfill status: {len(nonempty_ctas)}/{cta_count} non-empty CTAs.",
+                f"Backfill status: {len(nonempty_cta_groups)}/{cta_count} non-empty CTA targets.",
             )
-            if len(nonempty_ctas) >= cta_count:
+            if len(nonempty_cta_groups) >= cta_count:
                 break
 
     selected = (
@@ -402,16 +437,41 @@ def spanning_pmhc_set(
     )
     if automatic_backfill:
         nonempty_ctas = _nonempty_ctas_in_order(processed_cta_list, selected)
-        output_cta_list = nonempty_ctas[:cta_count]
-        output_cta_set = set(output_cta_list)
+        grouped_cta_list, cta_groups = _cta_group_order(
+            nonempty_ctas,
+            selected,
+            group_identical_cta_pmhcs=group_identical_cta_pmhcs,
+        )
+        output_cta_list = grouped_cta_list[:cta_count]
+        output_cta_set = _cta_group_member_set(cta_groups[:cta_count])
         nonempty_cta_set = set(nonempty_ctas)
         empty_ctas = [cta for cta in processed_cta_list if cta not in nonempty_cta_set]
         selected = selected[selected["cta"].isin(output_cta_set)].reset_index(drop=True)
+        cta_groups = cta_groups[:cta_count]
     else:
-        output_cta_list, empty_ctas = _output_cta_list(
+        ungrouped_output_cta_list, empty_ctas = _output_cta_list(
             processed_cta_list,
             selected,
             include_empty_ctas=keep_empty_ctas,
+        )
+        output_cta_list, cta_groups = _cta_group_order(
+            ungrouped_output_cta_list,
+            selected,
+            group_identical_cta_pmhcs=group_identical_cta_pmhcs,
+        )
+        selected = selected[selected["cta"].isin(_cta_group_member_set(cta_groups))].reset_index(
+            drop=True
+        )
+    selected = _apply_cta_groups(selected, cta_groups)
+    cta_rank_values = _cta_rank_values_with_groups(cta_rank_values, cta_groups)
+    if annotate_netmhcpan_affinity:
+        selected = _annotate_netmhcpan_affinity(
+            selected=selected,
+            predictor=predictor,
+            on_progress=on_progress,
+            progress_bar=progress_bar,
+            score_chunk_size=score_chunk_size,
+            progress_file=progress_file,
         )
     summary = panel_summary(
         selected=selected,
@@ -425,6 +485,12 @@ def spanning_pmhc_set(
     summary["empty_cta_count"] = len(empty_ctas)
     summary["empty_ctas"] = empty_ctas
     summary["include_empty_ctas"] = keep_empty_ctas
+    summary["group_identical_cta_pmhcs"] = group_identical_cta_pmhcs
+    summary["cta_groups"] = cta_groups
+    summary["grouped_cta_member_count"] = sum(
+        max(0, len(group["members"]) - 1) for group in cta_groups
+    )
+    summary["annotate_netmhcpan_affinity"] = annotate_netmhcpan_affinity
 
     _report_progress(
         on_progress,
@@ -437,6 +503,12 @@ def spanning_pmhc_set(
         _report_progress(
             on_progress,
             f"Omitted {len(empty_ctas)} scanned CTA candidates with no selected pMHCs.",
+        )
+    grouped_member_count = int(summary.get("grouped_cta_member_count", 0))
+    if grouped_member_count:
+        _report_progress(
+            on_progress,
+            f"Grouped {grouped_member_count} redundant CTA member(s) with identical selected pMHCs.",
         )
 
     if output_format == "wide":
@@ -454,6 +526,7 @@ def spanning_pmhc_set(
         frequency_audit,
         input_cta_list=processed_cta_list,
         empty_ctas=empty_ctas,
+        cta_groups=cta_groups,
     )
 
 
@@ -474,6 +547,208 @@ def _nonempty_ctas_in_order(cta_list: list[str], selected: pd.DataFrame) -> list
         return []
     nonempty = set(selected["cta"].dropna().astype(str))
     return [cta for cta in cta_list if cta in nonempty]
+
+
+def _signature_value(value: object) -> str:
+    if pd.isna(value):
+        return ""
+    if isinstance(value, float):
+        return f"{value:.12g}"
+    return str(value)
+
+
+def _selected_pmhc_signature(selected: pd.DataFrame, cta: str) -> tuple[tuple[str, ...], ...]:
+    if selected.empty or "cta" not in selected.columns:
+        return ()
+    cta_selected = selected[selected["cta"] == cta]
+    if cta_selected.empty:
+        return ()
+    columns = [column for column in _PMHC_SIGNATURE_COLUMNS if column in cta_selected.columns]
+    records = []
+    for row in cta_selected[columns].itertuples(index=False, name=None):
+        records.append(tuple(_signature_value(value) for value in row))
+    return tuple(sorted(records))
+
+
+def _cta_group_label(members: tuple[str, ...]) -> str:
+    if len(members) == 1:
+        return members[0]
+    return "/".join(members)
+
+
+def _cta_group_order(
+    cta_list: list[str],
+    selected: pd.DataFrame,
+    group_identical_cta_pmhcs: bool,
+) -> tuple[list[str], list[dict[str, object]]]:
+    if not cta_list:
+        return [], []
+
+    groups: list[list[str]] = []
+    signature_to_group_index: dict[tuple[tuple[str, ...], ...], int] = {}
+    for cta in cta_list:
+        signature = _selected_pmhc_signature(selected, cta)
+        if group_identical_cta_pmhcs and signature:
+            group_index = signature_to_group_index.get(signature)
+            if group_index is not None:
+                groups[group_index].append(cta)
+                continue
+            signature_to_group_index[signature] = len(groups)
+        groups.append([cta])
+
+    grouped = []
+    labels = []
+    for members in groups:
+        member_tuple = tuple(members)
+        label = _cta_group_label(member_tuple)
+        labels.append(label)
+        grouped.append({"cta": label, "members": list(member_tuple)})
+    return labels, grouped
+
+
+def _cta_group_member_set(cta_groups: list[dict[str, object]]) -> set[str]:
+    members: set[str] = set()
+    for group in cta_groups:
+        for member in group.get("members", []):
+            members.add(str(member))
+    return members
+
+
+def _apply_cta_groups(selected: pd.DataFrame, cta_groups: list[dict[str, object]]) -> pd.DataFrame:
+    out = selected.copy()
+    for column in _LONG_OUTPUT_COLUMNS:
+        if column not in out.columns:
+            out[column] = pd.NA
+    if "peptide_rank_in_cell" not in out.columns:
+        out["peptide_rank_in_cell"] = pd.NA
+    if out.empty or "cta" not in out.columns:
+        return out[[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]]
+
+    member_to_label: dict[str, str] = {}
+    member_to_members: dict[str, str] = {}
+    for group in cta_groups:
+        label = str(group["cta"])
+        members = [str(member) for member in group.get("members", [])]
+        member_text = ";".join(members) if members else label
+        for member in members:
+            member_to_label[member] = label
+            member_to_members[member] = member_text
+
+    out["cta_members"] = out["cta"].map(member_to_members).fillna(out["cta"])
+    out["cta"] = out["cta"].map(member_to_label).fillna(out["cta"])
+    dedupe_columns = [
+        column
+        for column in [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
+        if column in out.columns
+    ]
+    out = out.drop_duplicates(subset=dedupe_columns).reset_index(drop=True)
+    return out[[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]]
+
+
+def _cta_rank_values_with_groups(
+    cta_rank_values: dict[str, float | str],
+    cta_groups: list[dict[str, object]],
+) -> dict[str, float | str]:
+    out = dict(cta_rank_values)
+    for group in cta_groups:
+        label = str(group["cta"])
+        values = [
+            cta_rank_values[member]
+            for member in group.get("members", [])
+            if member in cta_rank_values
+        ]
+        numeric_values = []
+        for value in values:
+            try:
+                numeric_values.append(float(value))
+            except (TypeError, ValueError):
+                continue
+        if numeric_values:
+            out[label] = max(numeric_values)
+        elif values:
+            out[label] = values[0]
+    return out
+
+
+def _predictor_key(predictor: str) -> str:
+    return predictor.lower().replace("-", "_")
+
+
+def _ensure_score_columns(scores: pd.DataFrame) -> pd.DataFrame:
+    out = scores.copy()
+    for column in (
+        "peptide",
+        "allele",
+        "presentation_score",
+        "presentation_percentile",
+        "affinity_nm",
+        "affinity_percentile",
+    ):
+        if column not in out.columns:
+            out[column] = pd.NA
+    return out
+
+
+def _annotate_netmhcpan_affinity(
+    selected: pd.DataFrame,
+    predictor: str,
+    on_progress: Callable[[str], None] | None,
+    progress_bar: bool,
+    score_chunk_size: int | None,
+    progress_file: TextIO | None,
+) -> pd.DataFrame:
+    out = selected.copy()
+    for column in ("netmhcpan_affinity_nm", "netmhcpan_affinity_percentile"):
+        if column not in out.columns:
+            out[column] = pd.NA
+    if out.empty:
+        return out
+
+    if _predictor_key(predictor) in {"netmhcpan", "netmhcpan_ba"}:
+        out["netmhcpan_affinity_nm"] = out.get("affinity_nm", pd.NA)
+        out["netmhcpan_affinity_percentile"] = out.get("affinity_percentile", pd.NA)
+        return out
+
+    peptide_list = out["peptide"].dropna().astype(str).drop_duplicates().tolist()
+    allele_list = out["allele"].dropna().astype(str).drop_duplicates().tolist()
+    n_predictions = len(peptide_list) * len(allele_list)
+    _report_progress(
+        on_progress,
+        f"Annotating {len(out)} selected pMHC row(s) with NetMHCpan BA "
+        f"({n_predictions} prediction grid entries)...",
+    )
+    scoring_start = time.perf_counter()
+    scores = _ensure_score_columns(
+        _score_presentations(
+            peptides=peptide_list,
+            alleles=allele_list,
+            predictor="netmhcpan",
+            progress_bar=progress_bar,
+            score_chunk_size=score_chunk_size,
+            progress_file=progress_file,
+        )
+    )
+    scoring_elapsed = time.perf_counter() - scoring_start
+    _report_progress(on_progress, f"NetMHCpan BA annotation finished in {scoring_elapsed:.1f}s.")
+
+    annotation = (
+        scores[["peptide", "allele", "affinity_nm", "affinity_percentile"]]
+        .drop_duplicates(subset=["peptide", "allele"])
+        .rename(
+            columns={
+                "affinity_nm": "netmhcpan_affinity_nm",
+                "affinity_percentile": "netmhcpan_affinity_percentile",
+            }
+        )
+    )
+    out["_row_order"] = range(len(out))
+    out = out.drop(columns=["netmhcpan_affinity_nm", "netmhcpan_affinity_percentile"]).merge(
+        annotation,
+        on=["peptide", "allele"],
+        how="left",
+    )
+    out = out.sort_values("_row_order").drop(columns=["_row_order"]).reset_index(drop=True)
+    return out
 
 
 def _select_cta_batch(
@@ -541,13 +816,15 @@ def _select_cta_batch(
     )
 
     scoring_start = time.perf_counter()
-    scores = _score_presentations(
-        peptides=unique_peptides,
-        alleles=score_alleles,
-        predictor=predictor,
-        progress_bar=progress_bar,
-        score_chunk_size=score_chunk_size,
-        progress_file=progress_file,
+    scores = _ensure_score_columns(
+        _score_presentations(
+            peptides=unique_peptides,
+            alleles=score_alleles,
+            predictor=predictor,
+            progress_bar=progress_bar,
+            score_chunk_size=score_chunk_size,
+            progress_file=progress_file,
+        )
     )
     scoring_elapsed = time.perf_counter() - scoring_start
 
@@ -1190,6 +1467,7 @@ def _candidate_rows(
         rows.append(
             {
                 "cta": row.cta,
+                "cta_members": row.cta,
                 "allele": allele,
                 "peptide": peptide,
                 "length": row.length,
@@ -1202,6 +1480,9 @@ def _candidate_rows(
                 "presentation_percentile": percentile,
                 "presentation_score": getattr(row, "presentation_score", pd.NA),
                 "affinity_nm": getattr(row, "affinity_nm", pd.NA),
+                "affinity_percentile": getattr(row, "affinity_percentile", pd.NA),
+                "netmhcpan_affinity_nm": pd.NA,
+                "netmhcpan_affinity_percentile": pd.NA,
                 "_tier_rank": _EVIDENCE_TIER_RANKS[chosen_tier],
             }
         )
@@ -1354,6 +1635,10 @@ def panel_summary(
             else []
         )
         cta_selected = selected[selected["cta"] == cta] if not selected.empty else selected
+        if not cta_selected.empty and "cta_members" in cta_selected.columns:
+            cta_members = str(cta_selected["cta_members"].dropna().astype(str).iloc[0])
+        else:
+            cta_members = cta
         tier_row_counts = _selected_tier_row_counts(cta_selected)
         coverage = _combined_carrier_probability(
             {allele: allele_frequencies.get(allele, 0.0) for allele in covered_alleles}
@@ -1361,6 +1646,7 @@ def panel_summary(
         cta_rows.append(
             {
                 "cta": cta,
+                "cta_members": cta_members,
                 "covered_hla_count": len(covered_alleles),
                 "selected_peptide_count": int(cta_selected["peptide"].nunique())
                 if not cta_selected.empty
@@ -1445,10 +1731,12 @@ def _attach_panel_attrs(
     frequency_audit: pd.DataFrame | None = None,
     input_cta_list: list[str] | None = None,
     empty_ctas: list[str] | None = None,
+    cta_groups: list[dict[str, object]] | None = None,
 ) -> pd.DataFrame:
     out.attrs["cta_order"] = list(cta_list)
     out.attrs["input_cta_order"] = list(input_cta_list or cta_list)
     out.attrs["empty_ctas"] = list(empty_ctas or [])
+    out.attrs["cta_groups"] = list(cta_groups or [])
     out.attrs["allele_order"] = list(allele_list)
     out.attrs["allele_frequencies"] = dict(allele_frequencies)
     out.attrs["allele_frequency_sources"] = dict(allele_frequency_sources or {})
@@ -1492,6 +1780,11 @@ def _empty_output(
     summary["empty_cta_count"] = len(empty_ctas)
     summary["empty_ctas"] = empty_ctas
     summary["include_empty_ctas"] = include_empty_ctas
+    cta_groups = [{"cta": cta, "members": [cta]} for cta in cta_list]
+    summary["group_identical_cta_pmhcs"] = False
+    summary["cta_groups"] = cta_groups
+    summary["grouped_cta_member_count"] = 0
+    summary["annotate_netmhcpan_affinity"] = False
     return _attach_panel_attrs(
         out,
         cta_list,
@@ -1503,4 +1796,5 @@ def _empty_output(
         frequency_audit,
         input_cta_list=input_cta_list,
         empty_ctas=empty_ctas,
+        cta_groups=cta_groups,
     )

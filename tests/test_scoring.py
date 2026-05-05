@@ -136,6 +136,48 @@ def test_mhcflurry_direct_path_batches_and_skips_affinity_percentiles(monkeypatc
         "presentation_score",
         "presentation_percentile",
         "affinity_nm",
+        "affinity_percentile",
     ]
     assert set(out["allele"]) == {"HLA-A*02:01", "HLA-C*15:05"}
     assert len(out) == 4
+    assert out["affinity_percentile"].isna().all()
+
+
+def test_topiary_pivot_preserves_affinity_percentile():
+    import tsarina.scoring as scoring
+
+    topiary_result = pd.DataFrame(
+        [
+            {
+                "peptide": "SLYNTVATL",
+                "allele": "HLA-A*02:01",
+                "kind": "pMHC_presentation",
+                "score": 0.91,
+                "percentile_rank": 0.42,
+                "value": pd.NA,
+            },
+            {
+                "peptide": "SLYNTVATL",
+                "allele": "HLA-A*02:01",
+                "kind": "pMHC_affinity",
+                "score": pd.NA,
+                "percentile_rank": 0.18,
+                "value": 72.5,
+            },
+        ]
+    )
+
+    out = scoring._pivot_topiary(topiary_result)
+
+    assert list(out.columns) == [
+        "peptide",
+        "allele",
+        "presentation_score",
+        "presentation_percentile",
+        "affinity_nm",
+        "affinity_percentile",
+    ]
+    row = out.iloc[0]
+    assert row["presentation_percentile"] == 0.42
+    assert row["affinity_nm"] == 72.5
+    assert row["affinity_percentile"] == 0.18

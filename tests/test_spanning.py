@@ -74,6 +74,7 @@ def _stub_scores(peptides, alleles, **kwargs) -> pd.DataFrame:
                     "presentation_percentile": base + allele_bump,
                     "presentation_score": 0.95 - (base + allele_bump) / 10,
                     "affinity_nm": 50.0 + (base + allele_bump) * 100,
+                    "affinity_percentile": (base + allele_bump) / 2,
                 }
             )
     return pd.DataFrame(rows)
@@ -852,6 +853,7 @@ def test_long_format_has_one_row_per_filled_cell():
     assert len(long) == 4
     assert set(long.columns) == {
         "cta",
+        "cta_members",
         "allele",
         "peptide",
         "length",
@@ -864,6 +866,9 @@ def test_long_format_has_one_row_per_filled_cell():
         "presentation_percentile",
         "presentation_score",
         "affinity_nm",
+        "affinity_percentile",
+        "netmhcpan_affinity_nm",
+        "netmhcpan_affinity_percentile",
         "peptide_rank_in_cell",
     }
     # Sorted by cta then allele in the supplied order
@@ -905,6 +910,152 @@ def test_output_attrs_include_summary_and_order_metadata():
     assert summary["selected_peptide_count"] == 2
     assert summary["cta_coverage"][0]["covered_hla_count"] == 2
     assert summary["hla_coverage"][0]["covered_cta_fraction"] == 1.0
+
+
+def test_identical_selected_pmhc_ctas_are_grouped(monkeypatch):
+    peptides = pd.DataFrame(
+        {
+            "peptide": ["SHAREDPEP", "SHAREDPEP", "PRAMEPEP1"],
+            "length": [9, 9, 9],
+            "gene_name": ["SPANXD", "SPANXA1", "PRAME"],
+            "gene_id": ["E10", "E11", "E2"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: peptides,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"SPANXD", "SPANXA1", "PRAME"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.loader.cta_dataframe",
+        lambda: pd.DataFrame(
+            {
+                "Symbol": ["SPANXD", "SPANXA1", "PRAME"],
+                "ms_cta_exclusive_cancer_peptide_count": [3, 2, 1],
+            }
+        ),
+        raising=True,
+    )
+
+    long = spanning_pmhc_set(
+        ctas=["SPANXD", "SPANXA1", "PRAME"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+    )
+
+    assert long.attrs["cta_order"] == ["SPANXD/SPANXA1", "PRAME"]
+    assert long.attrs["cta_groups"] == [
+        {"cta": "SPANXD/SPANXA1", "members": ["SPANXD", "SPANXA1"]},
+        {"cta": "PRAME", "members": ["PRAME"]},
+    ]
+    grouped = long[long["cta"] == "SPANXD/SPANXA1"].iloc[0]
+    assert grouped["cta_members"] == "SPANXD;SPANXA1"
+    assert grouped["peptide"] == "SHAREDPEP"
+    assert long.attrs["panel_summary"]["grouped_cta_member_count"] == 1
+
+
+def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):
+    peptides = pd.DataFrame(
+        {
+            "peptide": ["SHAREDPEP", "SHAREDPEP", "DISTINCT1"],
+            "length": [9, 9, 9],
+            "gene_name": ["DUP1", "DUP2", "DISTINCT"],
+            "gene_id": ["E10", "E11", "E12"],
+        }
+    )
+    cta_csv = pd.DataFrame(
+        {
+            "Symbol": ["DUP1", "DUP2", "DISTINCT"],
+            "filtered": ["true", "true", "true"],
+            "never_expressed": ["false", "false", "false"],
+            "restriction_confidence": ["HIGH", "HIGH", "HIGH"],
+            "restriction": ["TESTIS", "TESTIS", "TESTIS"],
+            "ms_cta_exclusive_cancer_peptide_count": [30, 20, 10],
+            "ms_healthy_somatic_tissues": ["", "", ""],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: peptides,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"DUP1", "DUP2", "DISTINCT"},
+        raising=True,
+    )
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+
+    long = spanning_pmhc_set(
+        cta_count=2,
+        alleles=["HLA-A*02:01"],
+        selection_allowlist=(),
+        exclude_vital_tissue_expression=False,
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+    )
+
+    assert long.attrs["cta_order"] == ["DUP1/DUP2", "DISTINCT"]
+    assert set(long["cta"]) == {"DUP1/DUP2", "DISTINCT"}
+    assert long.attrs["panel_summary"]["input_cta_count"] == 3
+
+
+def test_netmhcpan_affinity_annotation_scores_selected_pmhcs(monkeypatch):
+    calls: list[dict[str, object]] = []
+
+    def _score_with_netmhcpan_annotation(peptides, alleles, predictor="mhcflurry", **kwargs):
+        calls.append(
+            {
+                "predictor": predictor,
+                "peptides": tuple(peptides),
+                "alleles": tuple(alleles),
+            }
+        )
+        rows = []
+        for pep in peptides:
+            for allele in alleles:
+                is_netmhcpan = predictor == "netmhcpan"
+                rows.append(
+                    {
+                        "peptide": pep,
+                        "allele": allele,
+                        "presentation_percentile": 0.1,
+                        "presentation_score": 0.95,
+                        "affinity_nm": 25.0 if is_netmhcpan else 150.0,
+                        "affinity_percentile": 0.03 if is_netmhcpan else pd.NA,
+                    }
+                )
+        return pd.DataFrame(rows)
+
+    monkeypatch.setattr(
+        "tsarina.scoring.score_presentation",
+        _score_with_netmhcpan_annotation,
+        raising=True,
+    )
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+        annotate_netmhcpan_affinity=True,
+    )
+
+    assert [call["predictor"] for call in calls] == ["mhcflurry", "netmhcpan"]
+    assert calls[1]["peptides"] == ("MAGEAPEP1",)
+    row = long.iloc[0]
+    assert row["affinity_nm"] == 150.0
+    assert row["netmhcpan_affinity_nm"] == 25.0
+    assert row["netmhcpan_affinity_percentile"] == 0.03
 
 
 def test_panel_alleles_are_ordered_by_weighted_frequency(monkeypatch):
@@ -1132,6 +1283,8 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         predicted_only_max_percentile=0.1,
         max_percentile=None,
         peptides_per_cell=3,
+        group_identical_cta_pmhcs=True,
+        annotate_netmhcpan_affinity=False,
         iedb_path=None,
         cedar_path=None,
         format="wide",
@@ -1150,6 +1303,8 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     assert captured_kwargs["exclude_vital_tissue_expression"] is True
     assert captured_kwargs["vital_tissue_max_ntpm"] == 2.0
     assert captured_kwargs["include_empty_ctas"] is False
+    assert captured_kwargs["group_identical_cta_pmhcs"] is True
+    assert captured_kwargs["annotate_netmhcpan_affinity"] is False
 
     captured = capsys.readouterr()
     assert "fake-progress-message" in captured.err
@@ -1180,6 +1335,9 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
                 "presentation_percentile": [1.5, 0.1],
                 "presentation_score": [0.8, 0.9],
                 "affinity_nm": [200.0, 60.0],
+                "affinity_percentile": [0.9, 0.2],
+                "netmhcpan_affinity_nm": [pd.NA, pd.NA],
+                "netmhcpan_affinity_percentile": [pd.NA, pd.NA],
                 "peptide_rank_in_cell": [1, 2],
             }
         )
@@ -1243,6 +1401,8 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         predicted_only_max_percentile=0.1,
         max_percentile=None,
         peptides_per_cell=3,
+        group_identical_cta_pmhcs=True,
+        annotate_netmhcpan_affinity=False,
         iedb_path=None,
         cedar_path=None,
         format="table",
@@ -1415,6 +1575,7 @@ def _stub_scores_multi_length(peptides, alleles, **kwargs) -> pd.DataFrame:
                     "presentation_percentile": pct,
                     "presentation_score": 0.95 - pct / 10,
                     "affinity_nm": 50.0 + pct * 100,
+                    "affinity_percentile": pct / 2,
                 }
             )
     return pd.DataFrame(rows)

@@ -1,3 +1,48 @@
+# PR — Group Redundant CTA Panels And NetMHCpan Affinity Annotation (2026-05-05)
+
+## Goal
+
+Collapse CTA targets that yield identical selected pMHC panels so paralogous
+families do not consume multiple automatic panel slots, clarify broad
+``unrestricted_ms`` evidence, and optionally annotate every selected pMHC with
+NetMHCpan binding affinity and affinity percentile rank.
+
+## Plan
+
+- [x] Group non-empty CTAs by their final selected pMHC signature, preserving
+      member-gene provenance in output metadata and long tables.
+- [x] Make automatic ``cta_count`` count grouped non-empty CTA targets, so
+      duplicate peptide panels backfill with additional distinct targets.
+- [x] Add optional NetMHCpan BA scoring for selected pMHCs, emitting
+      NetMHCpan affinity nM and affinity percentile columns without changing
+      the default predictor path.
+- [x] Preserve affinity percentile output from topiary/mhctools predictors
+      when available.
+- [x] Update CLI, docs, and tests for grouped CTAs, ``unrestricted_ms`` meaning,
+      and the NetMHCpan annotation option.
+- [x] Bump the patch version and run ``./format.sh``, ``./lint.sh``, and
+      ``./test.sh``.
+
+## Review
+
+- Added default grouping for CTAs that have identical final selected pMHC
+  signatures; grouped outputs preserve source labels in ``cta_members`` and
+  ``cta_groups`` metadata.
+- Automatic panel backfill now counts grouped non-empty CTA targets, so duplicate
+  paralog panels do not consume multiple requested slots.
+- Added ``--netmhcpan-affinity`` / ``annotate_netmhcpan_affinity=True`` to add
+  NetMHCpan BA nM and affinity percentile rank columns for selected pMHCs.
+- Preserved affinity percentile ranks from topiary/mhctools predictors in the
+  shared scoring API; MHCflurry still avoids affinity percentile calibration and
+  returns that column empty.
+- Clarified that ``unrestricted_ms`` means class-I peptide-level MS evidence
+  with no usable allele assignment; selected HLAs are prediction-assigned under
+  the stricter unrestricted-MS cutoff.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (294 tests).
+
+---
+
 # PR — CTA Filter Threshold And Column Rename (2026-05-05)
 
 ## Goal
