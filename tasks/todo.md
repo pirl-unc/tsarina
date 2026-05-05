@@ -15,6 +15,8 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
 - [x] Sort "Expected Population Coverage Per CTA" rows by selected peptide
       count, then HLA hits, then estimated coverage, while preserving zero-hit
       rows so failed candidates are visible.
+- [x] Add numeric frequency support for every default-panel allele so selected
+      HLA hits do not report artificial zero estimated coverage.
 - [x] Document why selected CTAs may have zero peptides after downstream
       peptide/exclusivity/MS/prediction gates.
 - [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
@@ -28,8 +30,11 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
   exploration.
 - "Expected Population Coverage Per CTA" rows now sort by selected peptide
   count, then HLA-hit count, then estimated coverage.
+- All `global53_abc` alleles now have numeric frequency support: regional proxy
+  rows when available, otherwise published global CIWD fallbacks; `C*04:03`
+  uses a specific East Asian AFND proxy row.
 - Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
-  (273 tests).
+  (277 tests).
 
 # PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
 

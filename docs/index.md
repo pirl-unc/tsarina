@@ -282,7 +282,10 @@ Available HLA panels:
 | `global51_abc` | 51 | Global reference panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
 | `global53_abc` | 53 | Default global panel: Global-51 plus CTA-MS supported `A*29:02`, `B*15:02`, and `B*27:05`, keeping only `C*14:02` from the MHCflurry-identical C*14 pair |
 
-Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations.
+Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations,
+with published global frequency fallbacks for default-panel alleles that lack a
+numeric regional proxy. This prevents known-frequency HLA hits from reporting
+artificial `0.0%` CTA coverage.
 The reference `global51_abc` panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
 adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
 and fills the remaining 51-panel slots with the highest-frequency calibrated alleles

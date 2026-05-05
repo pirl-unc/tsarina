@@ -1,8 +1,10 @@
 import pandas as pd
 
 from tsarina.regions import (
+    GLOBAL_ALLELE_FREQUENCY_ROWS,
     REGION_POPULATIONS,
     REGION_PRIORITY_ROWS,
+    global_allele_frequencies,
     region_allele_frequencies,
     region_names,
 )
@@ -10,6 +12,10 @@ from tsarina.regions import (
 
 def test_region_priority_rows_nonempty():
     assert len(REGION_PRIORITY_ROWS) > 50
+
+
+def test_global_frequency_rows_nonempty():
+    assert len(GLOBAL_ALLELE_FREQUENCY_ROWS) > 10
 
 
 def test_all_rows_have_required_keys():
@@ -25,6 +31,12 @@ def test_all_rows_have_required_keys():
         "note",
     }
     for i, row in enumerate(REGION_PRIORITY_ROWS):
+        assert required.issubset(row.keys()), f"Row {i} missing keys: {required - row.keys()}"
+
+
+def test_global_rows_have_required_keys():
+    required = {"allele", "frequency", "source_label", "source_url", "note"}
+    for i, row in enumerate(GLOBAL_ALLELE_FREQUENCY_ROWS):
         assert required.issubset(row.keys()), f"Row {i} missing keys: {required - row.keys()}"
 
 
@@ -47,8 +59,18 @@ def test_region_allele_frequencies_returns_dataframe():
     assert "region" in df.columns
 
 
+def test_global_allele_frequencies_returns_dataframe():
+    df = global_allele_frequencies()
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == len(GLOBAL_ALLELE_FREQUENCY_ROWS)
+    assert "allele" in df.columns
+    assert "frequency" in df.columns
+
+
 def test_all_alleles_start_with_hla():
     for row in REGION_PRIORITY_ROWS:
+        assert row["allele"].startswith("HLA-"), f"{row['allele']} doesn't start with HLA-"
+    for row in GLOBAL_ALLELE_FREQUENCY_ROWS:
         assert row["allele"].startswith("HLA-"), f"{row['allele']} doesn't start with HLA-"
 
 
@@ -57,8 +79,21 @@ def test_frequencies_are_valid():
         freq = row["frequency"]
         if freq is not None:
             assert 0 < freq < 1, f"Invalid frequency {freq} for {row['allele']} in {row['region']}"
+    for row in GLOBAL_ALLELE_FREQUENCY_ROWS:
+        freq = row["frequency"]
+        assert 0 < freq < 1, f"Invalid frequency {freq} for {row['allele']}"
 
 
 def test_all_loci_are_abc():
     loci = {row["locus"] for row in REGION_PRIORITY_ROWS}
     assert loci == {"A", "B", "C"}
+
+
+def test_global53_panel_has_frequency_support():
+    from tsarina.alleles import get_panel
+    from tsarina.spanning import _weighted_allele_frequencies
+
+    alleles = get_panel("global53_abc")
+    weighted = _weighted_allele_frequencies(alleles)
+    missing = [allele for allele in alleles if weighted.get(allele, 0.0) <= 0.0]
+    assert missing == []

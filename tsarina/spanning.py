@@ -437,30 +437,41 @@ def _weighted_allele_frequencies(allele_list: list[str]) -> dict[str, float]:
 
     The region table can contain multiple proxy populations per region. Use the
     maximum frequency per region and allele so an extra validation proxy does
-    not overweight that region, then weight regions by population.
+    not overweight that region, then weight regions by population. If an allele
+    has no numeric regional proxy, fall back to global CIWD-style frequencies
+    when available so known-frequency panel alleles do not report artificial
+    zero coverage.
     """
     try:
-        from .regions import REGION_POPULATIONS, region_allele_frequencies
+        from .regions import (
+            REGION_POPULATIONS,
+            global_allele_frequencies,
+            region_allele_frequencies,
+        )
     except ImportError:
         return dict.fromkeys(allele_list, 0.0)
 
-    freqs = region_allele_frequencies()
-    if freqs.empty or "frequency" not in freqs.columns:
-        return dict.fromkeys(allele_list, 0.0)
-
-    freqs = freqs[freqs["allele"].isin(allele_list)].copy()
-    freqs = freqs[pd.notna(freqs["frequency"])]
-    if freqs.empty:
-        return dict.fromkeys(allele_list, 0.0)
-
-    per_region = freqs.groupby(["region", "allele"], as_index=False)["frequency"].max()
-    total_population = sum(float(population) for population in REGION_POPULATIONS.values())
     weighted: dict[str, float] = dict.fromkeys(allele_list, 0.0)
-    for row in per_region.itertuples(index=False):
-        population = REGION_POPULATIONS.get(row.region)
-        if population is None:
-            continue
-        weighted[row.allele] += float(row.frequency) * float(population) / total_population
+    freqs = region_allele_frequencies()
+    if not freqs.empty and "frequency" in freqs.columns:
+        freqs = freqs[freqs["allele"].isin(allele_list)].copy()
+        freqs = freqs[pd.notna(freqs["frequency"])]
+        if not freqs.empty:
+            per_region = freqs.groupby(["region", "allele"], as_index=False)["frequency"].max()
+            total_population = sum(float(population) for population in REGION_POPULATIONS.values())
+            for row in per_region.itertuples(index=False):
+                population = REGION_POPULATIONS.get(row.region)
+                if population is None:
+                    continue
+                weighted[row.allele] += float(row.frequency) * float(population) / total_population
+
+    global_freqs = global_allele_frequencies()
+    if not global_freqs.empty and {"allele", "frequency"} <= set(global_freqs.columns):
+        global_freqs = global_freqs[global_freqs["allele"].isin(allele_list)]
+        global_freqs = global_freqs[pd.notna(global_freqs["frequency"])]
+        for row in global_freqs.itertuples(index=False):
+            if weighted.get(row.allele, 0.0) == 0.0:
+                weighted[row.allele] = float(row.frequency)
     return weighted
 
 
@@ -1199,7 +1210,8 @@ def panel_summary(
         "cta_coverage": cta_rows,
         "hla_coverage": hla_rows,
         "coverage_note": (
-            "Estimated from weighted regional HLA allele frequencies using an "
+            "Estimated from weighted regional HLA allele frequencies, with global "
+            "frequency fallbacks when no regional proxy is available, using an "
             "independent-carrier approximation."
         ),
     }

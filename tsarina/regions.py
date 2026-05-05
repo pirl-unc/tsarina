@@ -476,6 +476,17 @@ REGION_PRIORITY_ROWS: list[dict] = [
         "note": "Independent East Asian validation of C*07:02.",
     },
     {
+        "region": "East Asia",
+        "proxy": "China South Han pop 2",
+        "locus": "C",
+        "allele": "HLA-C*04:03",
+        "frequency": 0.0132,
+        "resolution": "exact",
+        "source_label": "Allele Frequency Net Database: China South Han pop 2",
+        "source_url": "https://www.allelefrequencies.net/hla6006b.asp?hla_population=2768",
+        "note": "Specific-population frequency support for a Sarkizova frequent HLA-C allotype.",
+    },
+    {
         "region": "Southeast Asia",
         "proxy": "Thailand",
         "locus": "A",
@@ -1126,6 +1137,135 @@ REGION_PRIORITY_ROWS: list[dict] = [
     },
 ]
 
+GLOBAL_ALLELE_FREQUENCY_ROWS: list[dict] = [
+    {
+        "allele": "HLA-A*23:01",
+        "frequency": 0.02096,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*26:01",
+        "frequency": 0.03352,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*30:02",
+        "frequency": 0.00838,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*31:01",
+        "frequency": 0.02462,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*32:01",
+        "frequency": 0.03200,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*33:01",
+        "frequency": 0.00749,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-B*27:05",
+        "frequency": 0.02952,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-B*53:01",
+        "frequency": 0.00696,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-B*57:01",
+        "frequency": 0.03134,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*02:02",
+        "frequency": 0.04281,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*03:02",
+        "frequency": 0.00779,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*03:03",
+        "frequency": 0.04237,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*05:01",
+        "frequency": 0.05597,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*07:04",
+        "frequency": 0.01709,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*08:02",
+        "frequency": 0.02483,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*12:02",
+        "frequency": 0.01526,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*14:02",
+        "frequency": 0.01383,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*16:01",
+        "frequency": 0.02241,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+]
+
 
 REGION_POPULATIONS: dict[str, float] = {
     "Europe": 743.9,
@@ -1144,6 +1284,15 @@ def region_allele_frequencies() -> pd.DataFrame:
     Each row corresponds to one entry in :data:`REGION_PRIORITY_ROWS`.
     """
     return pd.DataFrame(REGION_PRIORITY_ROWS)
+
+
+def global_allele_frequencies() -> pd.DataFrame:
+    """Return global fallback HLA allele frequencies.
+
+    These rows are used only when a panel allele has no numeric proxy in
+    :data:`REGION_PRIORITY_ROWS`.
+    """
+    return pd.DataFrame(GLOBAL_ALLELE_FREQUENCY_ROWS)
 
 
 def region_names() -> list[str]:
