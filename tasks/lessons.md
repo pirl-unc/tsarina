@@ -14,3 +14,4 @@
 - Name boolean evidence-table columns for the biological state they encode. Prefer semantic names like `passes_filters` over process words like `filtered`, while keeping older helper APIs as compatibility aliases when users may already depend on them.
 - When paralogous CTAs produce identical selected peptide-HLA panels, do not let each gene consume an automatic panel slot. Group them by final selected pMHC signature, preserve member-gene provenance, and backfill with distinct downstream targets.
 - Treat broad class-I MS evidence as peptide-level evidence, not allele-level evidence. If a row only says `HLA class I`, any selected allele is assigned by prediction under the unrestricted-MS cutoff.
+- Keep CTA target labels distinct from underlying Ensembl genes in progress text. Alias/group targets such as `NY-ESO-1` can expand to multiple genes for peptide enumeration while still being one biological panel target.

@@ -250,8 +250,8 @@ Defaults:
   are explicitly requested or allowlisted
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
-- CTAs with identical final selected pMHC panels are grouped so paralogous
-  targets do not consume multiple automatic panel slots
+- CTAs with identical enumerated peptide sets or final selected pMHC panels are
+  grouped so paralogous targets do not consume multiple automatic panel slots
 - `global53_abc` HLA-A/B/C panel
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
@@ -288,7 +288,11 @@ Coverage Per CTA" rows are sorted by selected peptide count, then HLA-hit count,
 then estimated population coverage, and split monoallelic MS pMHC support from
 sample-genotype/deconvolved MS support.
 
-Pass `--no-group-identical-cta-pmhcs` to show duplicate CTA rows separately.
+Peptide enumeration may expand one target label to multiple Ensembl genes
+(`NY-ESO-1` expands to `CTAG1A` and `CTAG1B`), but output target names stay
+grouped. Pass `--no-group-identical-cta-peptide-sets` to keep peptide-identical
+paralog targets separate, or `--no-group-identical-cta-pmhcs` to keep duplicate
+pMHC panels separate.
 Pass `--netmhcpan-affinity` to annotate every selected pMHC row with NetMHCpan
 BA affinity nM and affinity percentile rank. This is opt-in because it requires
 the external NetMHCpan backend and adds a second scoring pass when the main

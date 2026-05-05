@@ -1,3 +1,44 @@
+# PR — Group CTA Targets With Identical Peptide Sets (2026-05-05)
+
+## Goal
+
+Group paralogous CTA target labels when their enumerated CTA-exclusive peptide
+sets are identical, so families such as XAGE/PAGE can appear as combined panel
+target names when they genuinely collapse to the same peptide set. Keep
+``NY-ESO-1`` as the combined CTAG1A/CTAG1B display target and make progress
+messages distinguish requested target labels from underlying Ensembl genes.
+
+## Plan
+
+- [x] Add peptide-set grouping metadata during CTA peptide enumeration without
+      losing the original source target labels.
+- [x] Teach automatic backfill and output grouping to count peptide-identical
+      CTA target groups before falling back to final pMHC-signature grouping.
+- [x] Preserve combined names and source members in long output metadata and
+      summaries.
+- [x] Clarify CLI/docs progress semantics for target labels versus Ensembl gene
+      expansion.
+- [x] Add regression tests for XAGE/PAGE-style peptide-set grouping and for the
+      expanded-gene progress message.
+- [x] Bump the patch version and run ``./format.sh``, ``./lint.sh``, and
+      ``./test.sh``.
+
+## Review
+
+- Added peptide-set grouping metadata during CTA peptide enumeration. Source CTA
+  labels remain intact until output grouping, so automatic backfill order still
+  follows the ranked candidate list.
+- Peptide-identical paralog targets now appear under combined names such as
+  ``XAGE1A/XAGE1B`` when their enumerated peptide sets match exactly.
+- Added ``--no-group-identical-cta-peptide-sets`` for users who want separate
+  paralog rows despite identical peptide sets.
+- Progress now reports when target labels expand to multiple Ensembl genes, so
+  ``NY-ESO-1`` can explain a 25-target / 26-gene enumeration step.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (296 tests).
+
+---
+
 # PR — Group Redundant CTA Panels And NetMHCpan Affinity Annotation (2026-05-05)
 
 ## Goal

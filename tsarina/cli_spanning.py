@@ -235,6 +235,16 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--no-group-identical-cta-peptide-sets",
+        dest="group_identical_cta_peptide_sets",
+        action="store_false",
+        help=(
+            "Do not collapse CTA targets that have identical enumerated peptide sets. "
+            "By default, peptide-identical paralog targets are shown as a combined "
+            "panel target name before final pMHC grouping."
+        ),
+    )
+    p.add_argument(
         "--netmhcpan-affinity",
         dest="annotate_netmhcpan_affinity",
         action="store_true",
@@ -328,7 +338,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "multi-allelic "
             "sample-genotype MS <1.0, unrestricted MS <0.5. Prediction-only "
             "candidates are excluded unless --include-predicted-only is supplied. "
-            "CTAs with identical selected pMHC panels are grouped by default. "
+            "CTAs with identical peptide sets or selected pMHC panels are grouped by default. "
             "The default output is a readable table plus coverage summary."
         ),
     )
@@ -381,6 +391,7 @@ def handle(args: argparse.Namespace) -> None:
         max_percentile=args.max_percentile,
         peptides_per_cell=args.peptides_per_cell,
         group_identical_cta_pmhcs=args.group_identical_cta_pmhcs,
+        group_identical_cta_peptide_sets=args.group_identical_cta_peptide_sets,
         annotate_netmhcpan_affinity=args.annotate_netmhcpan_affinity,
         iedb_path=args.iedb_path,
         cedar_path=args.cedar_path,
