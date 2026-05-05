@@ -1,3 +1,38 @@
+# PR — CTA Filter Threshold And Column Rename (2026-05-05)
+
+## Goal
+
+Relax the no-protein / uncertain-protein CTA RNA gate from 99% to 98% so
+borderline testis-restricted candidates like `XAGE1B` pass, and rename the
+bundled evidence inclusion column from `filtered` to `passes_filters`.
+
+## Plan
+
+- [x] Change the adaptive HPA RNA threshold for `Uncertain` / missing protein
+      evidence from `0.99` to `0.98`.
+- [x] Rename the bundled CTA evidence column to `passes_filters`, while keeping
+      existing `CTA_filtered_*` helper names as compatibility aliases.
+- [x] Update code paths that filter CTA evidence to use a shared
+      `passes_filters` mask and tolerate older CSVs with `filtered`.
+- [x] Regenerate or mechanically update the bundled CTA evidence table so
+      `XAGE1B` passes and counts move from 257/278 to 258/279.
+- [x] Update docs and tests for the new threshold, column name, and counts.
+- [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
+      `./test.sh`.
+
+## Review
+
+- Lowered the missing/uncertain-protein adaptive RNA threshold to `0.98`,
+  adding `XAGE1B` to the expressed CTA set.
+- Renamed the bundled evidence column to `passes_filters`; internal filtering
+  now uses a shared mask helper that still accepts legacy `filtered` inputs.
+- Added `rna_98_pct_filter` to the bundled table and updated docs/tests/counts
+  from 257/278 to 258/279.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (`290 passed`).
+
+---
+
 # PR — CTA-Exclusive MS Evidence Counts (2026-05-05)
 
 ## Goal

@@ -17,11 +17,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 257
+    assert len(CTA_gene_names()) == 258
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 257
+    assert len(CTA_gene_ids()) == 258
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -69,7 +69,8 @@ def test_evidence_has_expected_columns():
         "protein_reliability",
         "rna_reproductive",
         "rna_deflated_reproductive_frac",
-        "filtered",
+        "rna_98_pct_filter",
+        "passes_filters",
         "never_expressed",
         "rna_max_ntpm",
         "protein_restriction",
@@ -82,6 +83,21 @@ def test_evidence_has_expected_columns():
     ]
     for col in expected:
         assert col in df.columns, f"Missing column: {col}"
+
+
+def test_evidence_uses_passes_filters_column_name():
+    df = CTA_evidence()
+    assert "passes_filters" in df.columns
+    assert "filtered" not in df.columns
+
+
+def test_xage1b_passes_relaxed_no_protein_threshold():
+    df = CTA_evidence()
+    row = df[df["Symbol"] == "XAGE1B"].iloc[0]
+    assert bool(row["passes_filters"])
+    assert bool(row["rna_98_pct_filter"])
+    assert not bool(row["rna_99_pct_filter"])
+    assert "XAGE1B" in CTA_gene_names()
 
 
 def test_magea4_is_expressed_cta():

@@ -240,6 +240,8 @@ def enrich_hpa_evidence(
     df["rna_repro_frac_ge_0_90__core"] = core_frac.ge(0.90)
     df["rna_repro_frac_ge_0_90__extended"] = ext_frac.ge(0.90)
     df["rna_repro_frac_ge_0_95__extended"] = ext_frac.ge(0.95)
+    df["rna_repro_frac_ge_0_98__extended"] = ext_frac.ge(0.98)
+    df["rna_repro_frac_ge_0_99__extended"] = ext_frac.ge(0.99)
 
     # Adaptive confidence: protein tier → required RNA fraction
     df["protein_confidence_tier"] = df["hpa_best_protein_support"]
@@ -260,7 +262,11 @@ def enrich_hpa_evidence(
     df["hpa_adaptive_confidence_restricted"] = (
         df["protein_reproductive_or_missing"]
         & has_rna
-        & ext_frac.ge(df["adaptive_rna_fraction_required"].fillna(0.99))
+        & ext_frac.ge(
+            df["adaptive_rna_fraction_required"].fillna(
+                HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS["Missing"]
+            )
+        )
     )
 
     df["hpa_marker_strict_restricted"] = (

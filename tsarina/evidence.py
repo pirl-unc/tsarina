@@ -62,9 +62,10 @@ def CTA_evidence() -> pd.DataFrame:
     rna_deflated_reproductive_and_thymus_frac : float
         Same but with thymus deflated nTPM added to the reproductive
         numerator.
-    rna_80_pct_filter, rna_90_pct_filter, rna_95_pct_filter : bool
-        Whether deflated reproductive fraction >= 80/90/95%.
-    filtered : bool
+    rna_80_pct_filter, rna_90_pct_filter, rna_95_pct_filter,
+    rna_98_pct_filter, rna_99_pct_filter : bool
+        Whether deflated reproductive fraction >= 80/90/95/98/99%.
+    passes_filters : bool
         Final inclusion flag with tiered RNA thresholds based on protein
         antibody reliability.
     rna_max_ntpm : float

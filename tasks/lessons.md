@@ -11,3 +11,4 @@
 - If an automatic panel option promises a count of non-empty downstream targets, do the backfill after downstream peptide/MS/HLA scoring. Hiding empty top-ranked candidates without scanning lower-ranked replacements makes the count misleading.
 - When describing static package data, prefer "bundled" or "packaged" over "shipped"; it is more precise and less misleading when discussing a table that will be regenerated in the next PR.
 - For HLA population coverage, do not combine same-locus alleles as independent carrier events. Sum covered allele frequencies within each locus first, convert the locus total to carrier probability, then combine across loci.
+- Name boolean evidence-table columns for the biological state they encode. Prefer semantic names like `passes_filters` over process words like `filtered`, while keeping older helper APIs as compatibility aliases when users may already depend on them.

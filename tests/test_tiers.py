@@ -128,9 +128,9 @@ def test_synthesized_restriction_covers_all_genes():
 
 
 def test_synthesized_restriction_expressed_have_tissue():
-    """Expressed (filtered + not never_expressed) genes all have a tissue."""
+    """Expressed (passes_filters + not never_expressed) genes all have a tissue."""
     df = CTA_evidence()
-    filt = df["filtered"].astype(str).str.lower() == "true"
+    filt = df["passes_filters"].astype(str).str.lower() == "true"
     ne = df["never_expressed"].astype(str).str.lower() == "true"
     expressed = df[filt & ~ne]
     assert (expressed["restriction"] != "NO_DATA").all()
@@ -226,7 +226,7 @@ def test_csv_has_all_new_columns():
 
 def test_csv_has_no_old_columns():
     df = CTA_evidence()
-    for col in ["cta_tier", "evidence", "ms_safety"]:
+    for col in ["cta_tier", "evidence", "filtered", "ms_safety"]:
         assert col not in df.columns, f"Stale column present: {col}"
 
 
@@ -234,11 +234,11 @@ def test_csv_has_no_old_columns():
 
 
 def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 257
+    assert len(CTA_gene_names()) == 258
 
 
 def test_filtered_count_unchanged():
-    assert len(CTA_filtered_gene_names()) == 278
+    assert len(CTA_filtered_gene_names()) == 279
 
 
 # ── assign_all_axes runtime consistency ──────────────────────────────────
