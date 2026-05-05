@@ -325,13 +325,12 @@ def test_vital_rna_gate_threshold_is_parameterizable():
 
 
 def test_panel_default_resolves_via_get_panel():
-    """Default panel='global51_abc_ssa' should produce a 51-column wide table
-    plus the 'cta' index column = 52 cols."""
+    """Default 53-allele panel should produce 54 columns including 'cta'."""
     df = spanning_pmhc_set(
         cta_count=2,
         max_percentile=10.0,
     )
-    assert df.shape[1] == 52  # 1 cta + 51 alleles
+    assert df.shape[1] == 54  # 1 cta + 53 alleles
 
 
 def test_explicit_alleles_override_panel():
@@ -794,6 +793,31 @@ def test_progress_bar_scores_in_chunks(monkeypatch):
     )
     assert not long.empty
     assert calls == [("HLA-A*02:01",), ("HLA-A*24:02",)]
+
+
+def test_progress_bar_default_mhcflurry_chunk_size_is_larger(monkeypatch):
+    from tsarina.spanning import _score_presentations
+
+    calls: list[tuple[str, ...]] = []
+
+    def _chunked_scores(peptides, alleles, **kwargs):
+        calls.append(tuple(alleles))
+        return _stub_scores(peptides, alleles, **kwargs)
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", _chunked_scores, raising=True)
+    alleles = [f"HLA-A*02:{i:02d}" for i in range(1, 10)]
+
+    scores = _score_presentations(
+        peptides=["PEPTIDE"],
+        alleles=alleles,
+        predictor="mhcflurry",
+        progress_bar=True,
+        score_chunk_size=None,
+        progress_file=io.StringIO(),
+    )
+
+    assert not scores.empty
+    assert [len(call) for call in calls] == [8, 1]
 
 
 def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):

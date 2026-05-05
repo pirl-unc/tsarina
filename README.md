@@ -21,7 +21,7 @@ Perseus combines curated shared targets with per-patient tumor data to produce a
 **Public annotation data** (used to score and filter targets):
 - **Mass spec evidence** — IEDB/CEDAR immunopeptidomics observations
 - **Tissue expression** — HPA RNA (50 tissues) + IHC protein (63 tissues)
-- **HLA allele panels** — population-representative panels (27–51 alleles per region)
+- **HLA allele panels** — population-representative panels (27–53 alleles per region)
 
 **Patient data** (per-individual):
 - HLA type (Class I alleles)
@@ -245,7 +245,7 @@ Defaults:
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
-- `global51_abc_ssa` HLA-A/B/C panel
+- `global53_abc` HLA-A/B/C panel
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
 - MS-evidence-first cell selection
@@ -288,9 +288,31 @@ Available HLA panels:
 | `iedb36_abc` | 36 | + HLA-C |
 | `global44_abc` | 44 | + East Asia, South Asia, Sub-Saharan Africa |
 | `global48_abc` | 48 | + Latin America, MENA |
-| `global51_abc_ssa` | 51 | + additional Sub-Saharan Africa |
+| `global51_abc_ssa` | 51 | Legacy Global-48 + additional Sub-Saharan Africa |
+| `global51_abc` | 51 | Global reference panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
+| `global53_abc` | 53 | Default global panel: Global-51 plus CTA-MS supported `A*29:02`, `B*15:02`, and `B*27:05`, keeping only `C*14:02` from the MHCflurry-identical C*14 pair |
 
 Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations.
+The reference `global51_abc` panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
+adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
+and fills the remaining 51-panel slots with the highest-frequency calibrated alleles
+missing from the IEDB/Paul 38 common HLA-A/B threshold set
+(`B*18:01`, `B*40:02`, `B*46:01`). The default `global53_abc` panel adds
+`A*29:02`, `B*15:02`, and `B*27:05` because these were the top missing
+alleles in a public CTA-MS evidence audit while retaining MHCflurry percentile
+rank support. It keeps `C*14:02` but excludes `C*14:03` because MHCflurry uses
+the same pseudosequence and percentile-rank calibration for both, and `C*14:02`
+had the CTA-MS support in the local audit. References: IEDB reference set
+<https://help.iedb.org/hc/en-us/articles/114094151851-HLA-allele-frequencies-and-reference-sets-with-maximal-population-coverage>,
+TepiTool allele-selection description <https://pmc.ncbi.nlm.nih.gov/articles/PMC4981331/>,
+IEDB/Paul 38 common A/B thresholds
+<https://help.iedb.org/hc/en-us/articles/114094151811-Selecting-thresholds-cut-offs-for-MHC-class-I-and-II-binding-predictions>,
+and Sarkizova et al. <https://doi.org/10.1038/s41587-019-0322-9>.
+Audit notes: all 53 default alleles resolve through MHCflurry's
+`percent_rank_calibrated_allele` lookup and produce numeric affinity percentile
+ranks. `HLA-C*15:05` remains excluded because MHCflurry supports raw affinity and
+presentation predictions for it but does not have an affinity percentile-rank
+calibration.
 
 ## Data management
 

@@ -32,7 +32,7 @@ Typical usage::
 
     table = spanning_pmhc_set(
         cta_count=25,
-        panel="global51_abc_ssa",
+        panel="global53_abc",
         lengths=(8, 9, 10, 11),
     )
 """
@@ -48,7 +48,7 @@ from typing import TextIO
 import pandas as pd
 
 _DEFAULT_RANK_COLUMN = "ms_cancer_peptide_count"
-_DEFAULT_PANEL = "global51_abc_ssa"
+_DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_MONOALLELIC_MS_MAX_PERCENTILE = 2.0
 _DEFAULT_SAMPLE_ALLELE_MS_MAX_PERCENTILE = 1.0
@@ -175,7 +175,9 @@ def spanning_pmhc_set(
         Explicit allele list.  Overrides ``panel``.
     panel
         Named panel from :mod:`tsarina.alleles`.  Default
-        ``"global51_abc_ssa"`` (51 globally broad HLA-A/B/C alleles).
+        ``"global53_abc"`` (53 globally broad HLA-A/B/C alleles
+        constrained to MHCflurry affinity percentile-rank calibrated alleles
+        and augmented with CTA-MS supported alleles).
     lengths
         Peptide lengths (default 8-11-mers for MHC class I).
     ensembl_release
@@ -233,7 +235,8 @@ def spanning_pmhc_set(
         the scoring stage. Default False so library calls remain quiet.
     score_chunk_size
         Number of HLA alleles per scoring chunk when ``progress_bar`` is
-        enabled. Defaults to one allele per chunk for visible progress.
+        enabled. Defaults to 8 for MHCflurry and one allele per chunk for
+        other predictors.
     progress_file
         File handle for tqdm progress bars. Defaults to ``sys.stderr`` when
         ``progress_bar`` is True.
@@ -751,7 +754,9 @@ def _score_presentations(
     if not progress_bar:
         return score_presentation(peptides=peptides, alleles=alleles, predictor=predictor)
 
-    chunk_size = score_chunk_size or 1
+    chunk_size = score_chunk_size or (
+        8 if predictor.lower().replace("-", "_") == "mhcflurry" else 1
+    )
     if chunk_size < 1:
         raise ValueError(f"score_chunk_size must be >= 1, got {score_chunk_size!r}")
 

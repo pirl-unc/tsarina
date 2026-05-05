@@ -1,3 +1,61 @@
+# PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
+
+## Goal
+
+Fix MHCflurry failures for alleles such as `HLA-C*15:05` where affinity
+prediction works but affinity percentile-rank calibration is missing, and reduce
+panel/personalization scoring time by avoiding unnecessary predictor work.
+
+## Plan
+
+- [x] Add a direct MHCflurry scoring path that returns tsarina's existing
+      `presentation_score`, `presentation_percentile`, and `affinity_nm`
+      columns without requesting unused affinity percentile ranks.
+- [x] Batch MHCflurry presentation predictions across peptide/allele pairs
+      instead of calling the presentation predictor once per allele.
+- [x] Keep non-MHCflurry predictors on the existing topiary/mhctools path.
+- [x] Add regression tests for missing affinity percentile calibration and
+      batched direct-MHCflurry calls.
+- [x] Bump the package patch version.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+
+## Review
+
+- Filed upstream mhctools wrapper issue:
+  https://github.com/openvax/mhctools/issues/203.
+- Local `HLA-C*15:05` MHCflurry smoke test returns `presentation_score`,
+  `presentation_percentile`, and `affinity_nm` without requesting affinity
+  percentile ranks.
+- Warm local timing on 24 peptide-allele pairs: direct MHCflurry path `0.063s`
+  vs old topiary/mhctools MHCflurry path `0.500s`.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh` (260 tests).
+
+## Follow-Up Plan — Audit Global-51 Allele Panel
+
+- [x] Cross-check the existing `global51_abc_ssa` panel against MHCflurry's
+      runtime affinity percentile-rank calibration resolver.
+- [x] Compare the panel against IEDB/TepiTool global class-I reference-set
+      alleles, the IEDB/Paul 38 common A/B threshold panel, and Sarkizova
+      HLA-C frequent allotypes.
+- [x] Replace uncalibrated or weakly justified add-ons only when a stronger
+      calibrated, reference-backed allele is available.
+- [x] Record citation/provenance notes in `PANEL_SOURCE_CATEGORIES`.
+- [x] Add tests that keep `global51_abc` MHCflurry-compatible and prevent
+      future weak local-only complements from entering the default panel.
+- [x] Rerun `./format.sh`, `./lint.sh`, and `./test.sh`, then update PR #47.
+
+## Review — Audit Global-51 Allele Panel
+
+- Existing `global51_abc_ssa` works with MHCflurry's runtime percentile-rank
+  calibration resolver, including `HLA-A*24:02`.
+- Added `global51_abc` as the new default panel. It uses all 27
+  IEDB/TepiTool A/B alleles, all 21 Sarkizova frequent HLA-C allotypes, and
+  three highest-frequency calibrated
+  IEDB/Paul common A/B complements.
+- Excluded `HLA-C*15:05` because MHCflurry supports raw affinity and presentation
+  prediction for it but does not have affinity percentile-rank calibration.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh` (266 tests).
+
 # PR — Panel CTA Safety And NY-ESO-1 Grouping (2026-04-30)
 
 ## Goal
@@ -752,3 +810,36 @@ Review:
   (`49 passed`), `./format.sh`, `./lint.sh`, and `./test.sh` (`257 passed`).
   Live selector check confirms `MAGEA4` is selected and `MAGEA1` is excluded
   without the allowlist, matching shared-vs-unique healthy-MS evidence.
+
+---
+
+## Rebalance Global Panel With CTA-MS Supported Alleles (PR #47 follow-up)
+
+Goal: add the strongest missing CTA-MS supported alleles (`HLA-B*15:02`,
+`HLA-B*27:05`, `HLA-A*29:02`) while preserving the global coverage rationale
+of the default panel.
+
+Plan:
+
+- [x] Audit zero-MS `global51_abc` alleles for weighted regional frequency,
+      literature/source rationale, and MHCflurry pseudosequence redundancy.
+- [x] Decide whether to replace weak alleles or grow the default panel.
+- [x] Update panel constants, docs, and tests to reflect the selected panel.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+- [x] Push an update to PR #47.
+
+Review:
+
+- Zero-MS alleles with weak local weighted-frequency evidence include
+  `HLA-A*30:02`, `HLA-C*03:02`, `HLA-C*04:03`, `HLA-C*07:04`, and
+  `HLA-C*14:03`; however these are either IEDB/TepiTool backbone alleles or
+  members of the Sarkizova frequent-HLA-C set. `HLA-C*14:03` is redundant with
+  `HLA-C*14:02` by MHCflurry pseudosequence, but removing it would break the
+  published frequent-C-set rationale.
+- Chose to keep `global51_abc` as the 51-allele reference panel and add
+  `global53_abc` as the default, adding `HLA-A*29:02`, `HLA-B*15:02`, and
+  `HLA-B*27:05` while dropping `HLA-C*14:03` from the default. `HLA-C*14:03`
+  is redundant with `HLA-C*14:02` in MHCflurry's pseudosequence and runtime
+  percentile-rank calibration, and `HLA-C*14:02` had the CTA-MS support.
+- Local validation passed: targeted panel tests (`19 passed`), `./format.sh`,
+  `./lint.sh`, and `./test.sh` (`269 passed`).
