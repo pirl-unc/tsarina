@@ -62,8 +62,8 @@ HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS: dict[str, float] = {
     "Enhanced": 0.80,
     "Supported": 0.90,
     "Approved": 0.95,
-    "Uncertain": 0.99,
-    "Missing": 0.99,
+    "Uncertain": 0.98,
+    "Missing": 0.98,
 }
 
 #: Maximum number of tissues with RNA detected (nTPM >= 1) for the

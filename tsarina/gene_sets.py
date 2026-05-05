@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from .loader import cta_dataframe
+from .loader import cta_dataframe, passes_filters_mask
 
 
 def _cta_by_column(
@@ -25,8 +25,8 @@ def _cta_by_column(
     """Internal: retrieve gene values from the CTA CSV with optional masks."""
     df = cta_dataframe()
     mask = True
-    if filtered_only and "filtered" in df.columns:
-        mask = df["filtered"].astype(str).str.lower() == "true"
+    if filtered_only:
+        mask = passes_filters_mask(df)
     if exclude_never_expressed and "never_expressed" in df.columns:
         mask = mask & ~(df["never_expressed"].astype(str).str.lower() == "true")
     subset = df[mask] if not isinstance(mask, bool) else df
@@ -63,18 +63,18 @@ def _extract_values(df, column: str) -> set[str]:
 
 
 def CTA_gene_names() -> set[str]:
-    """CTA gene symbols: filtered AND expressed (>= 2 nTPM somewhere).
+    """CTA gene symbols: passes filters AND expressed (>= 2 nTPM somewhere).
 
     This is the recommended default for pMHC discovery.  Excludes
     never-expressed CTAs (no protein data + max RNA < 2 nTPM).
-    For the full filtered set including never-expressed, use
+    For the full filter-passing set including never-expressed, use
     ``CTA_filtered_gene_names()``.
     """
     return _cta_by_column("Symbol", filtered_only=True, exclude_never_expressed=True)
 
 
 def CTA_gene_ids() -> set[str]:
-    """CTA Ensembl gene IDs: filtered AND expressed."""
+    """CTA Ensembl gene IDs: passes filters AND expressed."""
     return _cta_by_column("Ensembl_Gene_ID", filtered_only=True, exclude_never_expressed=True)
 
 
@@ -146,8 +146,8 @@ def _axis_filter(
     if isinstance(values, str):
         values = {values}
     mask = df[axis_col].isin(values)
-    if filtered_only and "filtered" in df.columns:
-        mask = mask & (df["filtered"].astype(str).str.lower() == "true")
+    if filtered_only:
+        mask = mask & passes_filters_mask(df)
     return _extract_values(df[mask], column)
 
 
@@ -214,8 +214,8 @@ def CTA_by_axes(
     df = cta_dataframe()
     mask = True
 
-    if filtered_only and "filtered" in df.columns:
-        mask = df["filtered"].astype(str).str.lower() == "true"
+    if filtered_only:
+        mask = passes_filters_mask(df)
 
     for axis_col, values in [
         ("restriction", restriction),

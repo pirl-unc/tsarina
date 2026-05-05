@@ -18,6 +18,8 @@ from os.path import dirname, join
 import pandas as pd
 
 _DATA_DIR = join(dirname(__file__), "data")
+PASSES_FILTERS_COLUMN = "passes_filters"
+LEGACY_FILTERED_COLUMN = "filtered"
 
 
 @lru_cache(maxsize=1)
@@ -29,3 +31,22 @@ def _load_cta_dataframe() -> pd.DataFrame:
 def cta_dataframe() -> pd.DataFrame:
     """Return the full CTA evidence DataFrame (cached after first load)."""
     return _load_cta_dataframe()
+
+
+def passes_filters_mask(df: pd.DataFrame) -> pd.Series:
+    """Return a boolean mask for rows passing CTA curation filters.
+
+    The bundled evidence table now uses ``passes_filters``. The legacy
+    ``filtered`` column is accepted so tests and callers using older evidence
+    tables still behave as before.
+    """
+    if PASSES_FILTERS_COLUMN in df.columns:
+        values = df[PASSES_FILTERS_COLUMN]
+    elif LEGACY_FILTERED_COLUMN in df.columns:
+        values = df[LEGACY_FILTERED_COLUMN]
+    else:
+        return pd.Series(True, index=df.index)
+
+    if pd.api.types.is_bool_dtype(values):
+        return values.fillna(False).astype(bool)
+    return values.astype(str).str.lower().isin({"true", "1", "yes"})

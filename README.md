@@ -14,7 +14,7 @@ The core insight is that many cancer-targetable peptides are **shared across pat
 Perseus combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
 
 **Shared targets** (curated once, reused across patients):
-- **CTA genes** — 358 curated from 5 databases, 257 after HPA tissue expression filtering
+- **CTA genes** — 358 curated from 5 databases, 258 after HPA tissue expression filtering
 - **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
 - **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
 
@@ -50,12 +50,12 @@ pip install tsarina[all]
 
 Proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction means immune responses against them should not damage normal somatic tissues. Thymus expression is expected (AIRE-mediated central tolerance) and excluded from restriction checks.
 
-**358 genes** from 5 source databases, systematically filtered using Human Protein Atlas v23 tissue expression data to **257 expressed CTAs** with predominantly reproductive-restricted expression (some pass the adaptive filter with minor somatic RNA signal).
+**358 genes** from 5 source databases, systematically filtered using Human Protein Atlas v23 tissue expression data to **258 expressed CTAs** with predominantly reproductive-restricted expression (some pass the adaptive filter with minor somatic RNA signal).
 
 ```python
 from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence
 
-genes = CTA_gene_names()    # recommended default set (257 expressed CTAs)
+genes = CTA_gene_names()    # recommended default set (258 expressed CTAs)
 df = CTA_evidence()          # full evidence table with HPA columns + 3-axis tiers
 ```
 
@@ -108,9 +108,10 @@ Thymus is excluded from all restriction checks because AIRE drives ectopic expre
    | Enhanced + reproductive only | >= 80% |
    | Supported + reproductive only | >= 90% |
    | Approved + reproductive only | >= 95% |
-   | Uncertain or no protein data | >= 99% |
+   | Uncertain or no protein data | >= 98% |
 
-Result: **257 of 358 genes** pass the filter.
+Result: **258 of 358 genes** pass the filter as expressed CTAs; **279** total
+genes pass filters when the never-expressed low-evidence candidates are included.
 
 See [full curation documentation](docs/curation.md) for the deflated fraction formula, never-expressed flag, and figures.
 

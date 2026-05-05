@@ -130,14 +130,17 @@ A gene's `protein_reproductive` flag is True when all tissues with detected prot
 
 ## Filter logic
 
-The `filtered` column uses tiered deflated RNA reproductive fraction thresholds that scale with protein data confidence. Higher-confidence protein data in reproductive tissues provides corroborating evidence, allowing a more permissive RNA threshold:
+The `passes_filters` column uses tiered deflated RNA reproductive fraction
+thresholds that scale with protein data confidence. Higher-confidence protein
+data in reproductive tissues provides corroborating evidence, allowing a more
+permissive RNA threshold:
 
 | Protein evidence | Required deflated RNA fraction |
 |---|---|
 | Enhanced (orthogonal validation) + reproductive only | >= 80% |
 | Supported (consistent characterization) + reproductive only | >= 90% |
 | Approved (basic validation) + reproductive only | >= 95% |
-| Uncertain or no protein data available | >= 99% |
+| Uncertain or no protein data available | >= 98% |
 
 **Additional filter criteria**:
 - Gene must be protein-coding (Ensembl biotype = `protein_coding`)
@@ -146,7 +149,9 @@ The `filtered` column uses tiered deflated RNA reproductive fraction thresholds 
 
 ## Three-axis CTA tier system
 
-Every filtered CTA gene is classified along three independent axes: **restriction** (what tissues), **evidence** (how confident), and **ms_safety** (MS evidence in healthy tissue).
+Every filter-passing CTA gene is classified along three independent axes:
+**restriction** (what tissues), **evidence** (how confident), and
+**ms_safety** (MS evidence in healthy tissue).
 
 ### Axis 1: `restriction` — tissue restriction category
 
@@ -281,8 +286,9 @@ All Ensembl Gene IDs are validated against Ensembl release 112. Canonical transc
 | `rna_80_pct_filter` | Deflated reproductive fraction >= 80% |
 | `rna_90_pct_filter` | Deflated reproductive fraction >= 90% |
 | `rna_95_pct_filter` | Deflated reproductive fraction >= 95% |
+| `rna_98_pct_filter` | Deflated reproductive fraction >= 98% |
 | `rna_99_pct_filter` | Deflated reproductive fraction >= 99% |
-| `filtered` | Final inclusion flag (see filter logic above) |
+| `passes_filters` | Final inclusion flag (see filter logic above) |
 | `never_expressed` | No HPA protein data AND max RNA nTPM < 2 |
 | `restriction` | Tissue restriction axis: `TESTIS`, `PLACENTAL`, `OVARIAN`, `RNA_ONLY`, or empty |
 | `evidence` | Evidence quality axis: `PROTEIN_STRICT`, `RNA_STRICT`, `ADAPTIVE`, `NEVER_EXPRESSED`, or empty |
@@ -295,7 +301,7 @@ All Ensembl Gene IDs are validated against Ensembl release 112. Canonical transc
 
 ```python
 from pirlygenes.gene_sets_cancer import (
-    CTA_gene_names,                # expressed + filtered CTAs (recommended default)
+    CTA_gene_names,                # expressed + filter-passing CTAs (recommended default)
     CTA_gene_ids,                  # same, as Ensembl gene IDs
     CTA_never_expressed_gene_names,# filter-passing but no HPA expression
     CTA_filtered_gene_names,       # all filter-passing (= expressed + never_expressed)
@@ -316,7 +322,7 @@ df = CTA_evidence()
 
 # Example: strict CTAs from CTpedia with Enhanced protein evidence
 strict = df[
-    (df['filtered'] == True) &
+    (df['passes_filters'] == True) &
     (df['source_databases'].str.contains('CTpedia')) &
     (df['protein_reliability'] == 'Enhanced') &
     (~df['never_expressed'])
@@ -354,7 +360,7 @@ p.non_cta.columns       # Symbol, Ensembl_Gene_ID
 
 | Partition | Description | Typical count |
 |---|---|---|
-| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~257 |
+| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~258 |
 | `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~21 |
 | `p.non_cta` | All other protein-coding genes, **including** CTAs that fail the reproductive-tissue filter (somatic expression). Clean non-CTA comparison set. | ~19,800 |
 

@@ -122,7 +122,7 @@ def personalize(
         Patient's HLA class I alleles (e.g. ``["HLA-A*02:01", "HLA-B*07:02"]``).
     cta_expression
         Dict mapping CTA gene symbol to tumor RNA expression in TPM.  Only
-        genes passing all CTA gates (membership in the filtered CTA set,
+        genes passing all CTA gates (membership in the filter-passing CTA set,
         ``tpm >= min_cta_tpm``, ``restriction_confidence`` allowed, optional
         mTEC cutoff) contribute peptides.  Peptides are restricted to those
         exclusive to CTA proteins (not present in any non-CTA protein).

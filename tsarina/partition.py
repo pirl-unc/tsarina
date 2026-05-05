@@ -22,6 +22,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .evidence import CTA_evidence
+from .loader import passes_filters_mask
 
 
 @dataclass(frozen=True)
@@ -76,7 +77,7 @@ def _build_partition(ensembl_release: int = 112):
     }
     all_pc_ids = set(all_pc_genes.keys())
 
-    filtered_mask = evidence_df["filtered"].astype(str).str.lower() == "true"
+    filtered_mask = passes_filters_mask(evidence_df)
     never_expr_mask = evidence_df["never_expressed"].astype(str).str.lower() == "true"
 
     cta_mask = filtered_mask & ~never_expr_mask
