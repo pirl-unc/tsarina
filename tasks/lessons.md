@@ -15,3 +15,4 @@
 - When paralogous CTAs produce identical selected peptide-HLA panels, do not let each gene consume an automatic panel slot. Group them by final selected pMHC signature, preserve member-gene provenance, and backfill with distinct downstream targets.
 - Treat broad class-I MS evidence as peptide-level evidence, not allele-level evidence. If a row only says `HLA class I`, any selected allele is assigned by prediction under the unrestricted-MS cutoff.
 - Keep CTA target labels distinct from underlying Ensembl genes in progress text. Alias/group targets such as `NY-ESO-1` can expand to multiple genes for peptide enumeration while still being one biological panel target.
+- When grouped CTA targets are made from gene symbols, default the output label to the explicit member-gene group (for example `CTAG1A/CTAG1B`) and keep clinical names like `NY-ESO-1` as accepted aliases unless the user explicitly asks for the clinical alias as canonical.
