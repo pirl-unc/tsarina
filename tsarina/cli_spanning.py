@@ -55,9 +55,9 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=int,
         default=25,
         help=(
-            "Maximum automatic CTAs to include when --ctas is not supplied; "
-            "downstream-empty CTAs are hidden unless --show-empty-ctas is passed "
-            "(default 25)."
+            "Maximum downstream non-empty CTAs to include when --ctas is not supplied; "
+            "lower-ranked candidates are scanned as needed, while --show-empty-ctas "
+            "restores the top-candidate audit view (default 25)."
         ),
     )
     p.add_argument(
@@ -529,6 +529,9 @@ def format_panel_summary(df) -> str:
             str(row["cta"]),
             str(row["covered_hla_count"]),
             str(row["selected_peptide_count"]),
+            str(row.get("monoallelic_ms_pmhc_count", 0)),
+            str(row.get("sample_allele_ms_pmhc_count", 0)),
+            str(row.get("unrestricted_ms_pmhc_count", 0)),
             _format_percent(row["estimated_population_coverage"]),
         ]
         for row in summary["cta_coverage"]
@@ -537,7 +540,18 @@ def format_panel_summary(df) -> str:
         [
             "",
             "Expected Population Coverage Per CTA",
-            _plain_table(["CTA", "HLA hits", "Peptides", "Est. coverage"], cta_rows),
+            _plain_table(
+                [
+                    "CTA",
+                    "HLA hits",
+                    "Peptides",
+                    "Mono MS",
+                    "Sample MS",
+                    "Unres MS",
+                    "Est. coverage",
+                ],
+                cta_rows,
+            ),
         ]
     )
 

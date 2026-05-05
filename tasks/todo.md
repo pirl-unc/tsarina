@@ -25,6 +25,10 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
       empty CTAs from default automatic panel output unless explicitly requested.
 - [x] Ensure sample-genotype MS evidence assigns HLA specificity by
       best-of-haplotype prediction unless the evidence is monoallelic.
+- [x] Backfill automatic CTA panels from lower-ranked candidates until the
+      requested count of downstream non-empty CTAs is reached when possible.
+- [x] Split monoallelic MS pMHC support from sample/deconvolved MS support in
+      per-CTA coverage summaries.
 - [x] Document why selected CTAs may have zero peptides after downstream
       peptide/exclusivity/MS/prediction gates.
 - [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
@@ -55,8 +59,14 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
   exact-restriction assignment, so multi-allelic sample rows that list several
   HLA restrictions only support the best predicted panel allele unless they are
   monoallelic.
+- Automatic panel selection now scans lower-ranked candidates in batches to
+  backfill downstream-empty CTAs, so `cta_count=25` means up to 25 non-empty
+  selected CTA targets when enough candidates pass downstream peptide/MS/HLA
+  gates. `--show-empty-ctas` still restores the top-candidate audit view.
+- Per-CTA coverage summary rows now split selected pMHC counts into
+  monoallelic MS, sample/deconvolved MS, and unrestricted MS columns.
 - Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
-  (284 tests).
+  (286 tests).
 
 # PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
 

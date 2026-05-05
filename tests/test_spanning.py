@@ -237,6 +237,67 @@ def test_automatic_selection_hides_empty_ctas_by_default():
     assert df.attrs["panel_summary"]["empty_cta_count"] == 1
 
 
+def test_automatic_selection_backfills_empty_ctas_by_default(monkeypatch):
+    all_peptides = pd.concat(
+        [
+            _stub_peptides(),
+            pd.DataFrame(
+                {
+                    "peptide": ["BACKFILLPEP1"],
+                    "length": [9],
+                    "gene_name": ["BACKFILL"],
+                    "gene_id": ["E6"],
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+    cta_csv = pd.DataFrame(
+        {
+            "Symbol": ["MAGEA4", "PRAME", "CTAG1A", "CTAG1B", "VITALRNA", "BACKFILL"],
+            "Ensembl_Gene_ID": ["E1", "E2", "E3A", "E3B", "E5", "E6"],
+            "filtered": ["true"] * 6,
+            "never_expressed": ["false"] * 6,
+            "restriction_confidence": ["HIGH"] * 6,
+            "restriction": ["TESTIS"] * 6,
+            "ms_cancer_peptide_count": [50, 30, 10, 10, 20, 15],
+            "rna_brain_max_ntpm": [0, 0, 0, 0, 1.5, 0],
+            "rna_heart_max_ntpm": [0] * 6,
+            "rna_lung_max_ntpm": [0] * 6,
+            "rna_liver_max_ntpm": [0] * 6,
+            "rna_pancreas_max_ntpm": [0] * 6,
+            "ms_healthy_somatic_tissues": [""] * 6,
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: all_peptides,
+        raising=True,
+    )
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"MAGEA4", "PRAME", "CTAG1A", "CTAG1B", "VITALRNA", "BACKFILL"},
+        raising=True,
+    )
+
+    df = spanning_pmhc_set(
+        cta_count=4,
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+    )
+
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1", "BACKFILL"]
+    assert df.attrs["input_cta_order"] == [
+        "MAGEA4",
+        "PRAME",
+        "NY-ESO-1",
+        "VITALRNA",
+        "BACKFILL",
+    ]
+    assert df.attrs["empty_ctas"] == ["VITALRNA"]
+
+
 def test_include_empty_ctas_preserves_automatic_failures():
     df = spanning_pmhc_set(
         cta_count=4,
@@ -433,6 +494,35 @@ def test_panel_summary_sorts_ctas_by_selected_peptides():
         allele_frequencies={"HLA-A*02:01": 0.2, "HLA-A*24:02": 0.1},
     )
     assert [row["cta"] for row in summary["cta_coverage"]] == ["HIGH", "LOW", "ZERO"]
+
+
+def test_panel_summary_counts_ms_tiers_per_cta():
+    selected = pd.DataFrame(
+        {
+            "cta": ["MAGEA4", "MAGEA4", "MAGEA4", "PRAME"],
+            "allele": ["HLA-A*02:01", "HLA-A*24:02", "HLA-B*07:02", "HLA-A*02:01"],
+            "peptide": ["PEP1", "PEP2", "PEP3", "PEP4"],
+            "evidence_tier": [
+                "monoallelic_ms",
+                "sample_allele_ms",
+                "unrestricted_ms",
+                "sample_allele_ms",
+            ],
+        }
+    )
+    summary = panel_summary(
+        selected=selected,
+        cta_list=["MAGEA4", "PRAME"],
+        allele_list=["HLA-A*02:01", "HLA-A*24:02", "HLA-B*07:02"],
+        allele_frequencies={"HLA-A*02:01": 0.2, "HLA-A*24:02": 0.1, "HLA-B*07:02": 0.1},
+    )
+    by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
+
+    assert by_cta["MAGEA4"]["monoallelic_ms_pmhc_count"] == 1
+    assert by_cta["MAGEA4"]["sample_allele_ms_pmhc_count"] == 1
+    assert by_cta["MAGEA4"]["unrestricted_ms_pmhc_count"] == 1
+    assert by_cta["PRAME"]["monoallelic_ms_pmhc_count"] == 0
+    assert by_cta["PRAME"]["sample_allele_ms_pmhc_count"] == 1
 
 
 # ── Allele resolution ──────────────────────────────────────────────────

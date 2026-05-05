@@ -221,8 +221,9 @@ tsarina panel
 
 Defaults:
 
-- up to 25 non-empty CTAs ranked by cancer MS peptide count, with clinical
-  allowlist anchors pinned ahead of lower-ranked candidates
+- up to 25 downstream non-empty CTAs ranked by cancer MS peptide count, with
+  lower-ranked candidates scanned as needed to backfill empty downstream targets
+  and clinical allowlist anchors pinned ahead of lower-ranked candidates
 - automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
 - automatic selection excludes MAGE-family CTAs other than `MAGEA4` unless they
@@ -256,12 +257,14 @@ the peptide evidence maps uniquely to that CTA, unless allowlisted. Explicit
 `--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4` and bypasses automatic
 CTA-family safety gates.
 
-Automatic panel output hides CTAs with zero selected pMHCs after peptide
-enumeration, CTA-exclusivity, public-MS, and presentation-score gates; pass
-`--show-empty-ctas` to audit those failures. Explicit `--ctas` requests are
-preserved even if a requested CTA has zero selected pMHCs. The "Expected
-Population Coverage Per CTA" rows are sorted by selected peptide count, then
-HLA-hit count, then estimated population coverage.
+Automatic panel output scans lower-ranked CTA candidates to backfill CTAs with
+zero selected pMHCs after peptide enumeration, CTA-exclusivity, public-MS, and
+presentation-score gates; pass `--show-empty-ctas` to audit the top ranked
+candidates including those failures. Explicit `--ctas` requests are preserved
+even if a requested CTA has zero selected pMHCs. The "Expected Population
+Coverage Per CTA" rows are sorted by selected peptide count, then HLA-hit count,
+then estimated population coverage, and split monoallelic MS pMHC support from
+sample-genotype/deconvolved MS support.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 

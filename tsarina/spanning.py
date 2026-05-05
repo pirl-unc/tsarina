@@ -143,7 +143,11 @@ def spanning_pmhc_set(
     Parameters
     ----------
     cta_count
-        Number of top CTAs to include when ``ctas`` is not supplied.
+        Number of downstream non-empty CTAs to include when ``ctas`` is not
+        supplied. Automatic selection scans lower-ranked candidates as needed
+        to backfill CTAs that produce no selected pMHCs. Passing
+        ``include_empty_ctas=True`` restores the audit view of the top
+        ``cta_count`` ranked candidates, including failures.
     cta_rank_by
         Column in the bundled CTA CSV used to rank candidates.  Default
         ``"ms_cancer_peptide_count"`` (most-observed-in-cancer first).
@@ -269,6 +273,8 @@ def spanning_pmhc_set(
     """
     if output_format not in ("wide", "long"):
         raise ValueError(f"output_format must be 'wide' or 'long', got {output_format!r}")
+    if cta_count < 1:
+        raise ValueError(f"cta_count must be >= 1, got {cta_count!r}")
     if peptides_per_cell < 1:
         raise ValueError(f"peptides_per_cell must be >= 1, got {peptides_per_cell!r}")
     keep_empty_ctas = ctas is not None if include_empty_ctas is None else include_empty_ctas
@@ -288,9 +294,10 @@ def spanning_pmhc_set(
     allele_frequency_sources = _frequency_sources_from_audit(frequency_audit, allele_list)
     if alleles is None:
         allele_list = _order_alleles_by_frequency(allele_list, allele_frequencies)
-    cta_list = _resolve_ctas(
+    automatic_backfill = ctas is None and not keep_empty_ctas
+    cta_candidates = _resolve_ctas(
         ctas=ctas,
-        cta_count=cta_count,
+        cta_count=None if automatic_backfill else cta_count,
         cta_rank_by=cta_rank_by,
         min_restriction_confidence=min_restriction_confidence,
         restriction_levels=restriction_levels,
@@ -299,19 +306,24 @@ def spanning_pmhc_set(
         vital_tissue_max_ntpm=vital_tissue_max_ntpm,
         exclude_non_magea4_mage_family=exclude_non_magea4_mage_family,
     )
-    cta_rank_values = _cta_rank_values(cta_list, cta_rank_by)
+    cta_rank_values = _cta_rank_values(cta_candidates, cta_rank_by)
 
+    cta_input_text = (
+        f"up to {cta_count} non-empty CTAs from {len(cta_candidates)} ranked candidates"
+        if automatic_backfill
+        else f"{len(cta_candidates)} CTAs"
+    )
     _report_progress(
         on_progress,
-        f"Panel inputs: {len(cta_list)} CTAs x {len(allele_list)} HLA alleles; "
+        f"Panel inputs: {cta_input_text} x {len(allele_list)} HLA alleles; "
         f"lengths {','.join(str(length) for length in lengths)}; "
         f"keeping up to {peptides_per_cell} peptides per CTA x HLA cell.",
     )
 
-    if not cta_list or not allele_list:
+    if not cta_candidates or not allele_list:
         output_cta_list, empty_ctas = _output_cta_list(
-            cta_list,
-            pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]),
+            cta_candidates,
+            _empty_selected_frame(),
             include_empty_ctas=keep_empty_ctas,
         )
         return _empty_output(
@@ -322,10 +334,166 @@ def spanning_pmhc_set(
             cta_rank_values,
             allele_frequency_sources,
             frequency_audit,
-            input_cta_list=cta_list,
+            input_cta_list=cta_candidates,
             empty_ctas=empty_ctas,
             include_empty_ctas=keep_empty_ctas,
         )
+
+    cutoffs = {
+        "monoallelic_ms": monoallelic_ms_max_percentile,
+        "sample_allele_ms": sample_allele_ms_max_percentile,
+        "unrestricted_ms": unrestricted_ms_max_percentile,
+        "predicted_only": predicted_only_max_percentile,
+    }
+    selected_frames: list[pd.DataFrame] = []
+    processed_cta_list: list[str] = []
+    batch_size = cta_count if automatic_backfill else len(cta_candidates)
+    batch_size = max(1, batch_size)
+
+    for start in range(0, len(cta_candidates), batch_size):
+        batch_ctas = cta_candidates[start : start + batch_size]
+        processed_cta_list.extend(batch_ctas)
+        if automatic_backfill:
+            _report_progress(
+                on_progress,
+                f"Evaluating CTA candidates {start + 1}-{start + len(batch_ctas)} "
+                f"of {len(cta_candidates)} for downstream backfill...",
+            )
+
+        batch_selected = _select_cta_batch(
+            cta_list=batch_ctas,
+            allele_list=allele_list,
+            lengths=lengths,
+            ensembl_release=ensembl_release,
+            require_cta_exclusive=require_cta_exclusive,
+            iedb_path=iedb_path,
+            cedar_path=cedar_path,
+            predictor=predictor,
+            cutoffs=cutoffs,
+            include_predicted_only=include_predicted_only,
+            peptides_per_cell=peptides_per_cell,
+            on_progress=on_progress,
+            progress_bar=progress_bar,
+            score_chunk_size=score_chunk_size,
+            progress_file=progress_file,
+        )
+        if not batch_selected.empty:
+            selected_frames.append(batch_selected)
+
+        selected_so_far = (
+            pd.concat(selected_frames, ignore_index=True)
+            if selected_frames
+            else _empty_selected_frame()
+        )
+        nonempty_ctas = _nonempty_ctas_in_order(processed_cta_list, selected_so_far)
+        if automatic_backfill:
+            _report_progress(
+                on_progress,
+                f"Backfill status: {len(nonempty_ctas)}/{cta_count} non-empty CTAs.",
+            )
+            if len(nonempty_ctas) >= cta_count:
+                break
+
+    selected = (
+        pd.concat(selected_frames, ignore_index=True)
+        if selected_frames
+        else _empty_selected_frame()
+    )
+    if automatic_backfill:
+        nonempty_ctas = _nonempty_ctas_in_order(processed_cta_list, selected)
+        output_cta_list = nonempty_ctas[:cta_count]
+        output_cta_set = set(output_cta_list)
+        nonempty_cta_set = set(nonempty_ctas)
+        empty_ctas = [cta for cta in processed_cta_list if cta not in nonempty_cta_set]
+        selected = selected[selected["cta"].isin(output_cta_set)].reset_index(drop=True)
+    else:
+        output_cta_list, empty_ctas = _output_cta_list(
+            processed_cta_list,
+            selected,
+            include_empty_ctas=keep_empty_ctas,
+        )
+    summary = panel_summary(
+        selected=selected,
+        cta_list=output_cta_list,
+        allele_list=allele_list,
+        allele_frequencies=allele_frequencies,
+        allele_frequency_sources=allele_frequency_sources,
+    )
+    summary["candidate_cta_count"] = len(cta_candidates)
+    summary["input_cta_count"] = len(processed_cta_list)
+    summary["empty_cta_count"] = len(empty_ctas)
+    summary["empty_ctas"] = empty_ctas
+    summary["include_empty_ctas"] = keep_empty_ctas
+
+    _report_progress(
+        on_progress,
+        f"Panel selected {summary['selected_peptide_count']} unique peptides across "
+        f"{summary['filled_cell_count']}/{summary['possible_cell_count']} CTA x HLA cells "
+        f"using MS tier cutoffs {monoallelic_ms_max_percentile}/"
+        f"{sample_allele_ms_max_percentile}/{unrestricted_ms_max_percentile}.",
+    )
+    if empty_ctas and not keep_empty_ctas:
+        _report_progress(
+            on_progress,
+            f"Omitted {len(empty_ctas)} scanned CTA candidates with no selected pMHCs.",
+        )
+
+    if output_format == "wide":
+        out = _to_wide(selected, output_cta_list, allele_list)
+    else:
+        out = _to_long(selected, output_cta_list, allele_list)
+    return _attach_panel_attrs(
+        out,
+        output_cta_list,
+        allele_list,
+        allele_frequencies,
+        cta_rank_values,
+        summary,
+        allele_frequency_sources,
+        frequency_audit,
+        input_cta_list=processed_cta_list,
+        empty_ctas=empty_ctas,
+    )
+
+
+# ── Helpers ────────────────────────────────────────────────────────────
+
+
+def _report_progress(on_progress: Callable[[str], None] | None, message: str) -> None:
+    if on_progress is not None:
+        on_progress(message)
+
+
+def _empty_selected_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"])
+
+
+def _nonempty_ctas_in_order(cta_list: list[str], selected: pd.DataFrame) -> list[str]:
+    if selected.empty or "cta" not in selected.columns:
+        return []
+    nonempty = set(selected["cta"].dropna().astype(str))
+    return [cta for cta in cta_list if cta in nonempty]
+
+
+def _select_cta_batch(
+    cta_list: list[str],
+    allele_list: list[str],
+    lengths: tuple[int, ...],
+    ensembl_release: int,
+    require_cta_exclusive: bool,
+    iedb_path: str | Path | None,
+    cedar_path: str | Path | None,
+    predictor: str,
+    cutoffs: dict[str, float],
+    include_predicted_only: bool,
+    peptides_per_cell: int,
+    on_progress: Callable[[str], None] | None = None,
+    progress_bar: bool = False,
+    score_chunk_size: int | None = None,
+    progress_file: TextIO | None = None,
+) -> pd.DataFrame:
+    if not cta_list:
+        return _empty_selected_frame()
 
     _report_progress(
         on_progress,
@@ -344,23 +512,7 @@ def spanning_pmhc_set(
     )
     if pep_df.empty:
         _report_progress(on_progress, "No CTA peptides survived peptide enumeration.")
-        output_cta_list, empty_ctas = _output_cta_list(
-            cta_list,
-            pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]),
-            include_empty_ctas=keep_empty_ctas,
-        )
-        return _empty_output(
-            output_cta_list,
-            allele_list,
-            output_format,
-            allele_frequencies,
-            cta_rank_values,
-            allele_frequency_sources,
-            frequency_audit,
-            input_cta_list=cta_list,
-            empty_ctas=empty_ctas,
-            include_empty_ctas=keep_empty_ctas,
-        )
+        return _empty_selected_frame()
 
     from .ms_evidence import load_public_ms_hits
 
@@ -412,69 +564,10 @@ def spanning_pmhc_set(
         pep_df=pep_df,
         allele_list=allele_list,
         evidence_stats=evidence_stats,
-        cutoffs={
-            "monoallelic_ms": monoallelic_ms_max_percentile,
-            "sample_allele_ms": sample_allele_ms_max_percentile,
-            "unrestricted_ms": unrestricted_ms_max_percentile,
-            "predicted_only": predicted_only_max_percentile,
-        },
+        cutoffs=cutoffs,
         include_predicted_only=include_predicted_only,
     )
-    selected = _top_per_cell(candidates, peptides_per_cell=peptides_per_cell)
-    output_cta_list, empty_ctas = _output_cta_list(
-        cta_list,
-        selected,
-        include_empty_ctas=keep_empty_ctas,
-    )
-    summary = panel_summary(
-        selected=selected,
-        cta_list=output_cta_list,
-        allele_list=allele_list,
-        allele_frequencies=allele_frequencies,
-        allele_frequency_sources=allele_frequency_sources,
-    )
-    summary["input_cta_count"] = len(cta_list)
-    summary["empty_cta_count"] = len(empty_ctas)
-    summary["empty_ctas"] = empty_ctas
-    summary["include_empty_ctas"] = keep_empty_ctas
-
-    _report_progress(
-        on_progress,
-        f"Panel selected {summary['selected_peptide_count']} unique peptides across "
-        f"{summary['filled_cell_count']}/{summary['possible_cell_count']} CTA x HLA cells "
-        f"using MS tier cutoffs {monoallelic_ms_max_percentile}/"
-        f"{sample_allele_ms_max_percentile}/{unrestricted_ms_max_percentile}.",
-    )
-    if empty_ctas and not keep_empty_ctas:
-        _report_progress(
-            on_progress,
-            f"Omitted {len(empty_ctas)} automatically selected CTAs with no selected pMHCs.",
-        )
-
-    if output_format == "wide":
-        out = _to_wide(selected, output_cta_list, allele_list)
-    else:
-        out = _to_long(selected, output_cta_list, allele_list)
-    return _attach_panel_attrs(
-        out,
-        output_cta_list,
-        allele_list,
-        allele_frequencies,
-        cta_rank_values,
-        summary,
-        allele_frequency_sources,
-        frequency_audit,
-        input_cta_list=cta_list,
-        empty_ctas=empty_ctas,
-    )
-
-
-# ── Helpers ────────────────────────────────────────────────────────────
-
-
-def _report_progress(on_progress: Callable[[str], None] | None, message: str) -> None:
-    if on_progress is not None:
-        on_progress(message)
+    return _top_per_cell(candidates, peptides_per_cell=peptides_per_cell)
 
 
 def _resolve_alleles(
@@ -564,7 +657,7 @@ def _output_cta_list(
 
 def _resolve_ctas(
     ctas: Iterable[str] | None,
-    cta_count: int,
+    cta_count: int | None,
     cta_rank_by: str,
     min_restriction_confidence: Iterable[str] | None,
     restriction_levels: Iterable[str] | None,
@@ -574,7 +667,8 @@ def _resolve_ctas(
     exclude_non_magea4_mage_family: bool = _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY,
 ) -> list[str]:
     """Pick the CTA gene set per the resolution order: explicit override
-    wins; else filter the bundled CTA CSV and take top-N by rank."""
+    wins; else filter the bundled CTA CSV and take top-N by rank. If
+    ``cta_count`` is ``None``, return all ranked automatic candidates."""
     from .gene_sets import CTA_gene_names
     from .loader import cta_dataframe
 
@@ -628,6 +722,8 @@ def _resolve_ctas(
         allowlisted = df[df["_cta_display"].isin(allowlist)]
         ranked = df[~df["_cta_display"].isin(allowlist)]
         df = pd.concat([allowlisted, ranked], ignore_index=True)
+    if cta_count is None:
+        return df["_cta_display"].tolist()
     return df["_cta_display"].head(cta_count).tolist()
 
 
@@ -1191,6 +1287,19 @@ def _combined_carrier_probability(allele_frequencies: Iterable[float]) -> float:
     return max(0.0, min(1.0, 1.0 - miss_probability))
 
 
+def _selected_tier_row_counts(selected: pd.DataFrame) -> dict[str, int]:
+    counts = dict.fromkeys(_EVIDENCE_TIER_RANKS, 0)
+    if selected.empty or "evidence_tier" not in selected.columns:
+        return counts
+    counts.update(
+        {
+            str(tier): int(count)
+            for tier, count in selected["evidence_tier"].value_counts(sort=False).items()
+        }
+    )
+    return counts
+
+
 def panel_summary(
     selected: pd.DataFrame,
     cta_list: list[str],
@@ -1227,6 +1336,7 @@ def panel_summary(
             else []
         )
         cta_selected = selected[selected["cta"] == cta] if not selected.empty else selected
+        tier_row_counts = _selected_tier_row_counts(cta_selected)
         coverage = _combined_carrier_probability(
             allele_frequencies.get(allele, 0.0) for allele in covered_alleles
         )
@@ -1237,6 +1347,10 @@ def panel_summary(
                 "selected_peptide_count": int(cta_selected["peptide"].nunique())
                 if not cta_selected.empty
                 else 0,
+                "monoallelic_ms_pmhc_count": tier_row_counts.get("monoallelic_ms", 0),
+                "sample_allele_ms_pmhc_count": tier_row_counts.get("sample_allele_ms", 0),
+                "unrestricted_ms_pmhc_count": tier_row_counts.get("unrestricted_ms", 0),
+                "predicted_only_pmhc_count": tier_row_counts.get("predicted_only", 0),
                 "estimated_population_coverage": coverage,
             }
         )
@@ -1274,12 +1388,9 @@ def panel_summary(
             }
         )
 
-    tier_counts: dict[str, int] = {}
-    if not selected.empty and "evidence_tier" in selected.columns:
-        tier_counts = {
-            str(tier): int(count)
-            for tier, count in selected["evidence_tier"].value_counts(sort=False).items()
-        }
+    tier_counts = {
+        tier: count for tier, count in _selected_tier_row_counts(selected).items() if count
+    }
 
     return {
         "hla_allele_count": len(allele_list),
