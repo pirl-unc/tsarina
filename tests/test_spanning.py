@@ -222,9 +222,9 @@ def test_selection_allowlist_is_pinned_into_automatic_top_n():
         cta_rank_by="ms_cancer_peptide_count",
         min_restriction_confidence=("HIGH", "MODERATE"),
         restriction_levels=None,
-        selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
+        selection_allowlist=["PRAME", "CTAG1A/CTAG1B", "MAGEA4"],
     )
-    assert ctas == ["MAGEA4", "PRAME", "NY-ESO-1"]
+    assert ctas == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B"]
 
 
 def test_default_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
@@ -268,8 +268,13 @@ def test_automatic_selection_hides_empty_ctas_by_default():
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
     )
-    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1"]
-    assert df.attrs["input_cta_order"] == ["MAGEA4", "PRAME", "NY-ESO-1", "VITALRNA"]
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B"]
+    assert df.attrs["input_cta_order"] == [
+        "MAGEA4",
+        "PRAME",
+        "CTAG1A/CTAG1B",
+        "VITALRNA",
+    ]
     assert df.attrs["empty_ctas"] == ["VITALRNA"]
     assert df.attrs["panel_summary"]["empty_cta_count"] == 1
 
@@ -325,11 +330,11 @@ def test_automatic_selection_backfills_empty_ctas_by_default(monkeypatch):
         max_percentile=10.0,
     )
 
-    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1", "BACKFILL"]
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B", "BACKFILL"]
     assert df.attrs["input_cta_order"] == [
         "MAGEA4",
         "PRAME",
-        "NY-ESO-1",
+        "CTAG1A/CTAG1B",
         "VITALRNA",
         "BACKFILL",
     ]
@@ -343,7 +348,7 @@ def test_include_empty_ctas_preserves_automatic_failures():
         max_percentile=10.0,
         include_empty_ctas=True,
     )
-    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1", "VITALRNA"]
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B", "VITALRNA"]
 
 
 def test_explicit_ctas_overrides_ranking():
@@ -354,7 +359,7 @@ def test_explicit_ctas_overrides_ranking():
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
     )
-    assert list(df["cta"]) == ["NY-ESO-1", "PRAME"]
+    assert list(df["cta"]) == ["CTAG1A/CTAG1B", "PRAME"]
 
 
 def test_explicit_ctas_accepts_clinical_aliases():
@@ -364,8 +369,8 @@ def test_explicit_ctas_accepts_clinical_aliases():
         max_percentile=10.0,
         peptides_per_cell=1,
     )
-    assert list(df["cta"]) == ["MAGEA4", "NY-ESO-1"]
-    assert df.set_index("cta").loc["NY-ESO-1", "HLA-A*02:01"] == "NYESPEPT1"
+    assert list(df["cta"]) == ["MAGEA4", "CTAG1A/CTAG1B"]
+    assert df.set_index("cta").loc["CTAG1A/CTAG1B", "HLA-A*02:01"] == "NYESPEPT1"
 
 
 def test_explicit_ctas_bypass_mage_family_gate():
@@ -377,7 +382,7 @@ def test_explicit_ctas_bypass_mage_family_gate():
     assert list(df["cta"]) == ["MAGEA1"]
 
 
-def test_nyeso_group_expands_ctag1a_and_ctag1b_for_peptide_resolution(monkeypatch):
+def test_ctag1_group_expands_ctag1a_and_ctag1b_for_peptide_resolution(monkeypatch):
     calls: list[list[str]] = []
 
     def _exclusive(**kw):
@@ -393,7 +398,7 @@ def test_nyeso_group_expands_ctag1a_and_ctag1b_for_peptide_resolution(monkeypatc
     )
 
     assert calls == [["CTAG1A", "CTAG1B"]]
-    assert list(df["cta"]) == ["NY-ESO-1"]
+    assert list(df["cta"]) == ["CTAG1A/CTAG1B"]
 
 
 def test_min_restriction_confidence_filters_low():
@@ -421,18 +426,18 @@ def test_min_restriction_confidence_none_admits_low():
     assert "BAGE" not in df["cta"].tolist()
     assert "MAGEA1" not in df["cta"].tolist()
     assert "MAGEB2" not in df["cta"].tolist()
-    assert set(df["cta"]) == {"MAGEA4", "PRAME", "VITALRNA", "NY-ESO-1"}
+    assert set(df["cta"]) == {"MAGEA4", "PRAME", "VITALRNA", "CTAG1A/CTAG1B"}
 
 
 def test_restriction_levels_filter():
-    """restriction_levels=('TESTIS',) keeps the grouped NY-ESO-1 target."""
+    """restriction_levels=('TESTIS',) keeps the grouped CTAG1 target."""
     df = spanning_pmhc_set(
         cta_count=10,
         restriction_levels=("TESTIS",),
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
     )
-    assert "NY-ESO-1" in df["cta"].tolist()
+    assert "CTAG1A/CTAG1B" in df["cta"].tolist()
 
 
 def test_vital_tissue_gate_can_be_disabled():
@@ -1342,7 +1347,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         ctas=None,
         min_restriction_confidence=["HIGH", "MODERATE"],
         restriction_levels=None,
-        selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
+        selection_allowlist=["PRAME", "CTAG1A/CTAG1B", "MAGEA4"],
         exclude_vital_tissue_expression=True,
         vital_tissue_max_ntpm=2.0,
         exclude_non_magea4_mage_family=True,
@@ -1376,7 +1381,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
 
     assert "on_progress" in captured_kwargs
     assert callable(captured_kwargs["on_progress"])
-    assert captured_kwargs["selection_allowlist"] == ("PRAME", "NY-ESO-1", "MAGEA4")
+    assert captured_kwargs["selection_allowlist"] == ("PRAME", "CTAG1A/CTAG1B", "MAGEA4")
     assert captured_kwargs["exclude_vital_tissue_expression"] is True
     assert captured_kwargs["vital_tissue_max_ntpm"] == 2.0
     assert captured_kwargs["include_empty_ctas"] is False
@@ -1462,7 +1467,7 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         ctas=None,
         min_restriction_confidence=["HIGH", "MODERATE"],
         restriction_levels=None,
-        selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
+        selection_allowlist=["PRAME", "CTAG1A/CTAG1B", "MAGEA4"],
         exclude_vital_tissue_expression=True,
         vital_tissue_max_ntpm=2.0,
         exclude_non_magea4_mage_family=True,

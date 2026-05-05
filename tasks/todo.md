@@ -1,3 +1,32 @@
+# PR - Display CTAG1A/CTAG1B As The Canonical Group Label (2026-05-05)
+
+## Goal
+
+Use the gene-pair display label ``CTAG1A/CTAG1B`` for the grouped CTAG1 target
+instead of ``NY-ESO-1``, while continuing to accept ``NY-ESO-1`` as a clinical
+alias on input.
+
+## Plan
+
+- [x] Change the canonical CTAG1 group label in the spanning selector and CLI
+      defaults.
+- [x] Update docs and tests so output names use ``CTAG1A/CTAG1B`` and aliases
+      still normalize correctly.
+- [x] Bump the patch version.
+- [x] Run ``./format.sh``, ``./lint.sh``, and ``./test.sh``.
+- [ ] Open, merge, and deploy the PR.
+
+## Review
+
+- Canonical CTAG1 output now uses ``CTAG1A/CTAG1B`` in the default allowlist,
+  automatic panel rows, CLI defaults, and docs.
+- ``NY-ESO-1`` remains an accepted input alias and still expands to both
+  ``CTAG1A`` and ``CTAG1B`` for peptide enumeration.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (296 tests).
+
+---
+
 # PR — Group CTA Targets With Identical Peptide Sets (2026-05-05)
 
 ## Goal

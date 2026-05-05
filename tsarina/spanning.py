@@ -56,7 +56,18 @@ _DEFAULT_SAMPLE_ALLELE_MS_MAX_PERCENTILE = 1.0
 _DEFAULT_UNRESTRICTED_MS_MAX_PERCENTILE = 0.5
 _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE = 0.1
 _DEFAULT_PEPTIDES_PER_CELL = 3
-_DEFAULT_SELECTION_ALLOWLIST = ("PRAME", "NY-ESO-1", "MAGEA4")
+_CTAG1_GROUP_LABEL = "CTAG1A/CTAG1B"
+_CTAG1_ALIASES = {
+    "NYESO1",
+    "NYESO",
+    "CTAG1",
+    "CTAG1A",
+    "CTAG1B",
+    "CTAG1AB",
+    "CTAG1ACTAG1B",
+    "CTAG1BCTAG1A",
+}
+_DEFAULT_SELECTION_ALLOWLIST = ("PRAME", _CTAG1_GROUP_LABEL, "MAGEA4")
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
 _DEFAULT_GROUP_IDENTICAL_CTA_PMHCS = True
@@ -64,7 +75,7 @@ _DEFAULT_GROUP_IDENTICAL_CTA_PEPTIDE_SETS = True
 _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY = False
 
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
-    "NY-ESO-1": ("CTAG1A", "CTAG1B"),
+    _CTAG1_GROUP_LABEL: ("CTAG1A", "CTAG1B"),
 }
 
 _VITAL_TISSUE_RNA_COLUMNS: tuple[str, ...] = (
@@ -197,8 +208,9 @@ def spanning_pmhc_set(
         ``("TESTIS", "PLACENTAL")``).  ``None`` (default) keeps all.
     selection_allowlist
         CTA names allowed through automatic safety/confidence gates. Defaults
-        to clinically anchored CTAs ``("PRAME", "NY-ESO-1", "MAGEA4")``.
-        Aliases such as ``"MAGE-A4"`` and ``"CTAG1B"`` are normalized.
+        to clinically anchored CTAs ``("PRAME", "CTAG1A/CTAG1B",
+        "MAGEA4")``. Aliases such as ``"NY-ESO-1"``, ``"MAGE-A4"``,
+        and ``"CTAG1B"`` are normalized.
     exclude_vital_tissue_expression
         If True (default), automatic CTA selection excludes genes with RNA
         above ``vital_tissue_max_ntpm`` or unique public healthy-MS
@@ -1083,8 +1095,8 @@ def _compact_cta_name(value: object) -> str:
 def _cta_display_name(symbol: object) -> str:
     token = str(symbol).strip()
     compact = _compact_cta_name(token)
-    if compact in {"NYESO1", "NYESO", "CTAG1", "CTAG1A", "CTAG1B"}:
-        return "NY-ESO-1"
+    if compact in _CTAG1_ALIASES:
+        return _CTAG1_GROUP_LABEL
     if compact.startswith("MAGEA") and compact[5:].isdigit():
         return compact
     return token
@@ -1106,8 +1118,8 @@ def _normalize_cta_labels(values: Iterable[str] | None, valid_symbols: set[str])
         compact = _compact_cta_name(value)
         if not compact:
             continue
-        if compact in {"NYESO1", "NYESO", "CTAG1", "CTAG1A", "CTAG1B"}:
-            label = "NY-ESO-1"
+        if compact in _CTAG1_ALIASES:
+            label = _CTAG1_GROUP_LABEL
         elif compact in valid_by_compact:
             label = _cta_display_name(valid_by_compact[compact])
         else:

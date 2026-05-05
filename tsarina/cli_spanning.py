@@ -36,7 +36,7 @@ _SUPPORTED_PANELS = (
 _DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_CTA_RANK_BY = "ms_cta_exclusive_cancer_peptide_count"
-_DEFAULT_SELECTION_ALLOWLIST = "PRAME,NY-ESO-1,MAGEA4"
+_DEFAULT_SELECTION_ALLOWLIST = "PRAME,CTAG1A/CTAG1B,MAGEA4"
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 
 
@@ -76,8 +76,8 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=_split_csv,
         default=None,
         help=(
-            "Explicit gene symbols, comma-separated (e.g. 'MAGEA4,PRAME,NY-ESO-1'). "
-            "Overrides --cta-count / --cta-rank-by."
+            "Explicit gene symbols, comma-separated (e.g. "
+            "'MAGEA4,PRAME,CTAG1A/CTAG1B'). Overrides --cta-count / --cta-rank-by."
         ),
     )
     p.add_argument(
