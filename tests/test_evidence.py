@@ -9,10 +9,20 @@ def test_compute_ms_restriction_uses_public_ms_loader(monkeypatch):
 
     monkeypatch.setattr(
         "tsarina.peptides.cta_peptides",
-        lambda: pd.DataFrame(
+        lambda **kwargs: pd.DataFrame(
             {
                 "peptide": ["MSPEPTIDE", "OTHERPEP"],
                 "gene_name": ["MAGEA4", "PRAME"],
+            }
+        ),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kwargs: pd.DataFrame(
+            {
+                "peptide": ["MSPEPTIDE"],
+                "gene_name": ["MAGEA4"],
             }
         ),
         raising=True,
@@ -29,9 +39,13 @@ def test_compute_ms_restriction_uses_public_ms_loader(monkeypatch):
             }
         )
 
-    def _fake_aggregate_gene_ms_safety(hits, gene_map):
+    def _fake_aggregate_gene_ms_safety(hits, gene_map, exclusive_peptide_gene_map=None):
         assert hits["peptide"].tolist() == ["MSPEPTIDE"]
         assert set(gene_map["gene_name"]) == {"MAGEA4", "PRAME"}
+        assert exclusive_peptide_gene_map is not None
+        assert exclusive_peptide_gene_map.to_dict("records") == [
+            {"peptide": "MSPEPTIDE", "gene_name": "MAGEA4"}
+        ]
         return pd.DataFrame(
             {
                 "gene_name": ["MAGEA4"],

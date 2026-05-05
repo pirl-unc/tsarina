@@ -174,7 +174,12 @@ Never-expressed and unfiltered genes receive an empty `restriction`.
 
 ### Axis 3: `ms_safety` — MS evidence classification
 
-Computed at runtime from IEDB/CEDAR data via hitlist; defaults to `NO_MS_DATA` in the shipped CSV.
+The bundled CSV includes precomputed public MHC-ligand MS aggregates from the
+hitlist observations index. In the default cached path, hitlist builds that
+index from registered IEDB and CEDAR exports plus hitlist's manually curated
+supplementary MS rows. These counts do not use hitlist's bulk proteomics or
+line-expression indexes. Passing explicit IEDB/CEDAR paths uses the raw export
+scanner for those files instead of the cached observations index.
 
 | Value | Criteria |
 |-------|----------|
@@ -183,6 +188,12 @@ Computed at runtime from IEDB/CEDAR data via hitlist; defaults to `NO_MS_DATA` i
 | `SINGLETON_HEALTHY` | 1 peptide in ≤ 1 healthy somatic tissue (possible noise) |
 | `RECURRENT_HEALTHY` | Multiple peptides or tissues in healthy somatic MS (genuine off-target) |
 | `NO_MS_DATA` | No MS evidence available for this gene's peptides |
+
+The broad `ms_*_peptide_count` columns count all peptide evidence assigned to
+CTA genes. The `ms_cta_exclusive_*_peptide_count` columns use the stricter
+CTA-exclusive peptide set: peptides found in any non-clean-CTA protein are not
+counted there. Automatic panel ranking uses
+`ms_cta_exclusive_cancer_peptide_count` by default.
 
 ### Axis-aware API
 

@@ -185,7 +185,7 @@ def test_protein_flags_for_testis_gene():
 
 
 def test_ms_restriction_has_real_data():
-    """Shipped CSV includes MS restriction from IEDB/CEDAR scan."""
+    """Bundled CSV includes MS restriction from IEDB/CEDAR scan."""
     df = CTA_evidence()
     values = df["ms_restriction"].value_counts()
     assert "CANCER_ONLY" in values.index
@@ -212,6 +212,11 @@ def test_csv_has_all_new_columns():
         "rna_max_somatic_ntpm",
         "rna_somatic_detected_count",
         "ms_restriction",
+        "ms_cta_exclusive_peptide_count",
+        "ms_cta_exclusive_cancer_peptide_count",
+        "ms_cta_exclusive_healthy_somatic_peptide_count",
+        "ms_cta_exclusive_healthy_reproductive_peptide_count",
+        "ms_cta_exclusive_healthy_thymus_peptide_count",
         "restriction",
         "restriction_confidence",
     ]
@@ -316,8 +321,49 @@ def test_ms_recurrent_healthy():
     assert result.iloc[0]["ms_restriction"] == "RECURRENT_HEALTHY"
 
 
+def test_ms_cta_exclusive_counts_are_separate_from_all_cta_counts():
+    hits = pd.DataFrame(
+        {
+            "peptide": ["EXCLUSIVE", "SHARED", "EXCLUSIVE", "REPRO", "THYMUS"],
+            "src_cancer": [True, True, False, False, False],
+            "src_healthy_tissue": [False, False, True, False, False],
+            "src_healthy_reproductive": [False, False, False, True, False],
+            "src_healthy_thymus": [False, False, False, False, True],
+            "source_tissue": ["melanoma", "melanoma", "liver", "testis", "thymus"],
+        }
+    )
+    gene_map = pd.DataFrame(
+        {
+            "peptide": ["EXCLUSIVE", "SHARED", "REPRO", "THYMUS"],
+            "gene_name": ["GENE1", "GENE1", "GENE1", "GENE1"],
+        }
+    )
+    exclusive_gene_map = pd.DataFrame(
+        {
+            "peptide": ["EXCLUSIVE", "REPRO", "THYMUS"],
+            "gene_name": ["GENE1", "GENE1", "GENE1"],
+        }
+    )
+
+    result = aggregate_gene_ms_safety(
+        hits,
+        gene_map,
+        exclusive_peptide_gene_map=exclusive_gene_map,
+    )
+    row = result.iloc[0]
+
+    assert row["ms_peptide_count"] == 4
+    assert row["ms_cancer_peptide_count"] == 2
+    assert row["ms_cta_exclusive_peptide_count"] == 3
+    assert row["ms_cta_exclusive_cancer_peptide_count"] == 1
+    assert row["ms_cta_exclusive_healthy_somatic_peptide_count"] == 1
+    assert row["ms_cta_exclusive_healthy_reproductive_peptide_count"] == 1
+    assert row["ms_cta_exclusive_healthy_thymus_peptide_count"] == 1
+
+
 def test_ms_empty_inputs():
     result = aggregate_gene_ms_safety(pd.DataFrame(), pd.DataFrame())
     assert len(result) == 0
     assert "ms_restriction" in result.columns
     assert "ms_ebv_lcl_peptide_count" in result.columns
+    assert "ms_cta_exclusive_cancer_peptide_count" in result.columns

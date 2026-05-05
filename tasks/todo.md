@@ -1,3 +1,49 @@
+# PR — CTA-Exclusive MS Evidence Counts (2026-05-05)
+
+## Goal
+
+Regenerate the bundled CTA evidence table with CTA-exclusive MS peptide counts,
+rank default panel targets by the CTA-exclusive cancer-MS count, and document
+why PAGE/XAGE peptides pass or fail the strict CTA-exclusive panel path.
+
+## Plan
+
+- [x] Add CTA-exclusive MS count columns to the gene-level CTA evidence
+      aggregation while preserving the existing all-CTA MS count columns.
+- [x] Recompute `tsarina/data/cancer-testis-antigens.csv` so the bundled table
+      matches the new PR behavior.
+- [x] Use CTA-exclusive cancer-MS evidence as the default automatic panel rank
+      column.
+- [x] Compute estimated population coverage by summing covered allele
+      frequencies within each HLA locus before converting to carrier
+      probabilities.
+- [x] Add regression tests for the split between all-CTA MS evidence and
+      CTA-exclusive MS evidence.
+- [x] Audit PAGE2, PAGE5, and XAGE1A selected/raw peptides against the protein
+      catalogue to explain cross-protein occurrence and CTA-exclusivity.
+- [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
+      `./test.sh`.
+
+## Review
+
+- Added CTA-exclusive MS count columns to the bundled CTA evidence table while
+  preserving broad all-CTA MS count columns.
+- Regenerated `tsarina/data/cancer-testis-antigens.csv`: PAGE2 now has 9
+  CTA-exclusive cancer-MS peptides, PAGE5 has 6, and XAGE1A has 0 because its
+  raw MS peptides also occur in XAGE1B, which is outside the clean CTA
+  partition.
+- Automatic CTA ranking now defaults to
+  `ms_cta_exclusive_cancer_peptide_count`; explicit `--cta-rank-by
+  ms_cancer_peptide_count` still requests the older broad count.
+- Estimated CTA population coverage now sums covered allele frequencies within
+  each HLA locus, converts each locus total to carrier probability, then
+  combines HLA-A/B/C loci.
+- Documented that the cached public-MS path uses hitlist observations built
+  from registered IEDB/CEDAR plus hitlist supplementary MS rows, not bulk
+  proteomics or line-expression indexes.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (288 tests).
+
 # PR — Panel MAGE-Family Safety Gate And Summary Sorting (2026-05-05)
 
 ## Goal

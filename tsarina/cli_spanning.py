@@ -34,6 +34,7 @@ _SUPPORTED_PANELS = (
 )
 _DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
+_DEFAULT_CTA_RANK_BY = "ms_cta_exclusive_cancer_peptide_count"
 _DEFAULT_SELECTION_ALLOWLIST = "PRAME,NY-ESO-1,MAGEA4"
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 
@@ -62,10 +63,10 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--cta-rank-by",
-        default="ms_cancer_peptide_count",
+        default=_DEFAULT_CTA_RANK_BY,
         help=(
             "Column in the bundled CTA CSV used to rank candidates "
-            "(default 'ms_cancer_peptide_count'; falls back to alphabetical "
+            f"(default '{_DEFAULT_CTA_RANK_BY}'; falls back to alphabetical "
             "Symbol order if the column is missing or all-NaN)."
         ),
     )

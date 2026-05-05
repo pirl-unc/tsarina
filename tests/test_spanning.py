@@ -25,7 +25,7 @@ import io
 import pandas as pd
 import pytest
 
-from tsarina.spanning import _resolve_ctas, panel_summary, spanning_pmhc_set
+from tsarina.spanning import _DEFAULT_RANK_COLUMN, _resolve_ctas, panel_summary, spanning_pmhc_set
 
 
 def _stub_peptides() -> pd.DataFrame:
@@ -188,6 +188,7 @@ def _stub_pipeline(monkeypatch):
             ],
             "restriction": ["TESTIS"] * 8,
             "ms_cancer_peptide_count": [60, 55, 50, 30, 20, 10, 10, 0],
+            "ms_cta_exclusive_cancer_peptide_count": [60, 55, 50, 30, 20, 10, 10, 0],
             "rna_brain_max_ntpm": [0, 0, 0, 0.2, 1.5, 0.1, 0.7, 0],
             "rna_heart_max_ntpm": [0, 0, 0, 0.3, 0, 0, 0, 0],
             "rna_lung_max_ntpm": [0, 0, 0, 0.2, 0, 0, 0, 0],
@@ -223,6 +224,41 @@ def test_selection_allowlist_is_pinned_into_automatic_top_n():
         selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
     )
     assert ctas == ["MAGEA4", "PRAME", "NY-ESO-1"]
+
+
+def test_default_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
+    cta_csv = pd.DataFrame(
+        {
+            "Symbol": ["BROADONLY", "EXCLUSIVE"],
+            "Ensembl_Gene_ID": ["E7", "E8"],
+            "filtered": ["true", "true"],
+            "never_expressed": ["false", "false"],
+            "restriction_confidence": ["HIGH", "HIGH"],
+            "restriction": ["TESTIS", "TESTIS"],
+            "ms_cancer_peptide_count": [100, 10],
+            "ms_cta_exclusive_cancer_peptide_count": [1, 5],
+            "ms_healthy_somatic_tissues": ["", ""],
+        }
+    )
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"BROADONLY", "EXCLUSIVE"},
+        raising=True,
+    )
+
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=2,
+        cta_rank_by=_DEFAULT_RANK_COLUMN,
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=[],
+        exclude_vital_tissue_expression=False,
+        exclude_non_magea4_mage_family=False,
+    )
+
+    assert ctas == ["EXCLUSIVE", "BROADONLY"]
 
 
 def test_automatic_selection_hides_empty_ctas_by_default():
@@ -261,6 +297,7 @@ def test_automatic_selection_backfills_empty_ctas_by_default(monkeypatch):
             "restriction_confidence": ["HIGH"] * 6,
             "restriction": ["TESTIS"] * 6,
             "ms_cancer_peptide_count": [50, 30, 10, 10, 20, 15],
+            "ms_cta_exclusive_cancer_peptide_count": [50, 30, 10, 10, 20, 15],
             "rna_brain_max_ntpm": [0, 0, 0, 0, 1.5, 0],
             "rna_heart_max_ntpm": [0] * 6,
             "rna_lung_max_ntpm": [0] * 6,
@@ -494,6 +531,9 @@ def test_panel_summary_sorts_ctas_by_selected_peptides():
         allele_frequencies={"HLA-A*02:01": 0.2, "HLA-A*24:02": 0.1},
     )
     assert [row["cta"] for row in summary["cta_coverage"]] == ["HIGH", "LOW", "ZERO"]
+    by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
+    assert by_cta["HIGH"]["estimated_population_coverage"] == pytest.approx(0.51)
+    assert by_cta["LOW"]["estimated_population_coverage"] == pytest.approx(0.36)
 
 
 def test_panel_summary_counts_ms_tiers_per_cta():
@@ -521,6 +561,7 @@ def test_panel_summary_counts_ms_tiers_per_cta():
     assert by_cta["MAGEA4"]["monoallelic_ms_pmhc_count"] == 1
     assert by_cta["MAGEA4"]["sample_allele_ms_pmhc_count"] == 1
     assert by_cta["MAGEA4"]["unrestricted_ms_pmhc_count"] == 1
+    assert by_cta["MAGEA4"]["estimated_population_coverage"] == pytest.approx(0.6031)
     assert by_cta["PRAME"]["monoallelic_ms_pmhc_count"] == 0
     assert by_cta["PRAME"]["sample_allele_ms_pmhc_count"] == 1
 
@@ -1255,6 +1296,7 @@ def test_size_within_target_envelope_for_default_args(monkeypatch):
             "restriction_confidence": ["HIGH"] * 28,
             "restriction": ["TESTIS"] * 28,
             "ms_cancer_peptide_count": list(range(28, 0, -1)),
+            "ms_cta_exclusive_cancer_peptide_count": list(range(28, 0, -1)),
         }
     )
 

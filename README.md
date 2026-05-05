@@ -311,9 +311,13 @@ calculations. The frequency audit keeps those sub-population proxy rows separate
 from published global average allele frequencies on the same 0-1 allele-frequency
 scale. Panel coverage uses the regional weighted value when a numeric regional
 proxy exists and falls back to the published global average only when no regional
-proxy is available. All default `global53_abc` alleles have a published global
-average, source/proxy/resolution provenance, and a nonzero coverage frequency,
-preventing known-frequency HLA hits from reporting artificial `0.0%` CTA coverage.
+proxy is available. For each CTA, covered allele frequencies are summed within
+each HLA locus, converted to locus carrier probability as
+`1 - (1 - locus_frequency)^2`, and then combined across loci. All default
+`global53_abc` alleles have a published global average,
+source/proxy/resolution provenance, and a nonzero coverage frequency,
+preventing known-frequency HLA hits from reporting artificial `0.0%` CTA
+coverage.
 The reference `global51_abc` panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
 adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
 and fills the remaining 51-panel slots with the highest-frequency calibrated alleles

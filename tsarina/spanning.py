@@ -41,13 +41,14 @@ from __future__ import annotations
 
 import sys
 import time
+from collections import defaultdict
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import TextIO
 
 import pandas as pd
 
-_DEFAULT_RANK_COLUMN = "ms_cancer_peptide_count"
+_DEFAULT_RANK_COLUMN = "ms_cta_exclusive_cancer_peptide_count"
 _DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_MONOALLELIC_MS_MAX_PERCENTILE = 2.0
@@ -150,9 +151,9 @@ def spanning_pmhc_set(
         ``cta_count`` ranked candidates, including failures.
     cta_rank_by
         Column in the bundled CTA CSV used to rank candidates.  Default
-        ``"ms_cancer_peptide_count"`` (most-observed-in-cancer first).
-        Falls back to alphabetical ``Symbol`` order when the column is
-        missing or all-NaN.
+        ``"ms_cta_exclusive_cancer_peptide_count"`` (CTA-exclusive
+        peptides observed in cancer MS first). Falls back to alphabetical
+        ``Symbol`` order when the column is missing or all-NaN.
     ctas
         Explicit list of gene symbols.  Overrides ``cta_count`` /
         ``cta_rank_by``.  Genes not present in the bundled CTA CSV are
@@ -1280,9 +1281,26 @@ def _carrier_probability(allele_frequency: float) -> float:
     return 1.0 - (1.0 - allele_frequency) ** 2
 
 
-def _combined_carrier_probability(allele_frequencies: Iterable[float]) -> float:
+def _allele_locus(allele: object) -> str:
+    token = str(allele).strip().upper()
+    if token.startswith("HLA-"):
+        token = token.removeprefix("HLA-")
+    if "*" in token:
+        locus = token.split("*", 1)[0]
+    elif token and token[0] in {"A", "B", "C"}:
+        locus = token[0]
+    else:
+        locus = token
+    return locus or str(allele)
+
+
+def _combined_carrier_probability(allele_frequencies: dict[str, float]) -> float:
+    locus_frequencies: dict[str, float] = defaultdict(float)
+    for allele, frequency in allele_frequencies.items():
+        locus_frequencies[_allele_locus(allele)] += max(0.0, min(float(frequency), 1.0))
+
     miss_probability = 1.0
-    for frequency in allele_frequencies:
+    for frequency in locus_frequencies.values():
         miss_probability *= 1.0 - _carrier_probability(float(frequency))
     return max(0.0, min(1.0, 1.0 - miss_probability))
 
@@ -1309,9 +1327,10 @@ def panel_summary(
 ) -> dict[str, object]:
     """Summarize a selected panel table.
 
-    Population coverage estimates use weighted regional allele frequencies and
-    a simple independent-carrier approximation. The values are intended for
-    ranking and sanity-checking panel breadth, not for clinical-grade
+    Population coverage estimates use weighted regional allele frequencies,
+    sum covered allele frequencies within each HLA locus, convert each locus
+    sum to a carrier probability, then combine loci. The values are intended
+    for ranking and sanity-checking panel breadth, not for clinical-grade
     population-genetics inference.
     """
     allele_frequencies = allele_frequencies or dict.fromkeys(allele_list, 0.0)
@@ -1338,7 +1357,7 @@ def panel_summary(
         cta_selected = selected[selected["cta"] == cta] if not selected.empty else selected
         tier_row_counts = _selected_tier_row_counts(cta_selected)
         coverage = _combined_carrier_probability(
-            allele_frequencies.get(allele, 0.0) for allele in covered_alleles
+            {allele: allele_frequencies.get(allele, 0.0) for allele in covered_alleles}
         )
         cta_rows.append(
             {
@@ -1409,8 +1428,9 @@ def panel_summary(
         "coverage_note": (
             "Estimated from 0-1 HLA allele frequencies. Coverage uses population-weighted "
             "regional proxy frequencies when available and published global averages only "
-            "for alleles with no numeric regional proxy, then applies an independent-carrier "
-            "approximation."
+            "for alleles with no numeric regional proxy. Covered allele frequencies are "
+            "summed within each HLA locus, converted to carrier probability per locus, "
+            "then combined across loci."
         ),
     }
 

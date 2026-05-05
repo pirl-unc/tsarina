@@ -470,6 +470,7 @@ def enrich_rna_per_tissue(
 def aggregate_gene_ms_safety(
     classified_hits: pd.DataFrame,
     peptide_gene_map: pd.DataFrame,
+    exclusive_peptide_gene_map: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Aggregate per-peptide MS evidence to per-gene MS restriction.
 
@@ -481,6 +482,9 @@ def aggregate_gene_ms_safety(
         ``src_healthy_thymus``, ``source_tissue``.
     peptide_gene_map
         Peptide-to-gene mapping with columns: ``peptide``, ``gene_name``.
+    exclusive_peptide_gene_map
+        Optional CTA-exclusive peptide-to-gene mapping. When supplied, adds
+        strict CTA-exclusive MS count columns alongside the all-CTA counts.
 
     Returns
     -------
@@ -492,6 +496,11 @@ def aggregate_gene_ms_safety(
         "ms_restriction",
         "ms_peptide_count",
         "ms_cancer_peptide_count",
+        "ms_cta_exclusive_peptide_count",
+        "ms_cta_exclusive_cancer_peptide_count",
+        "ms_cta_exclusive_healthy_somatic_peptide_count",
+        "ms_cta_exclusive_healthy_reproductive_peptide_count",
+        "ms_cta_exclusive_healthy_thymus_peptide_count",
         "ms_ebv_lcl_peptide_count",
         "ms_healthy_somatic_peptide_count",
         "ms_healthy_somatic_tissue_count",
@@ -576,7 +585,89 @@ def aggregate_gene_ms_safety(
 
     # Classify
     gene_agg["ms_restriction"] = gene_agg.apply(_classify_gene_ms_restriction, axis=1)
+    gene_agg = _attach_cta_exclusive_ms_counts(
+        gene_agg,
+        classified_hits=classified_hits,
+        exclusive_peptide_gene_map=exclusive_peptide_gene_map,
+    )
 
+    return gene_agg
+
+
+def _attach_cta_exclusive_ms_counts(
+    gene_agg: pd.DataFrame,
+    *,
+    classified_hits: pd.DataFrame,
+    exclusive_peptide_gene_map: pd.DataFrame | None,
+) -> pd.DataFrame:
+    count_columns = [
+        "ms_cta_exclusive_peptide_count",
+        "ms_cta_exclusive_cancer_peptide_count",
+        "ms_cta_exclusive_healthy_somatic_peptide_count",
+        "ms_cta_exclusive_healthy_reproductive_peptide_count",
+        "ms_cta_exclusive_healthy_thymus_peptide_count",
+    ]
+    if gene_agg.empty:
+        for col in count_columns:
+            gene_agg[col] = pd.Series(dtype="int64")
+        return gene_agg
+
+    if exclusive_peptide_gene_map is None or exclusive_peptide_gene_map.empty:
+        for col in count_columns:
+            gene_agg[col] = 0
+        return gene_agg
+
+    required_hit_cols = {
+        "peptide",
+        "src_cancer",
+        "src_healthy_tissue",
+        "src_healthy_reproductive",
+        "src_healthy_thymus",
+    }
+    required_map_cols = {"peptide", "gene_name"}
+    if not required_hit_cols <= set(classified_hits.columns) or not required_map_cols <= set(
+        exclusive_peptide_gene_map.columns
+    ):
+        for col in count_columns:
+            gene_agg[col] = 0
+        return gene_agg
+
+    exclusive_merged = classified_hits.merge(
+        exclusive_peptide_gene_map[["peptide", "gene_name"]],
+        on="peptide",
+    )
+    if exclusive_merged.empty:
+        for col in count_columns:
+            gene_agg[col] = 0
+        return gene_agg
+
+    exclusive_pep_gene = (
+        exclusive_merged.groupby(["gene_name", "peptide"])
+        .agg(
+            has_cancer=("src_cancer", "any"),
+            has_healthy_somatic=("src_healthy_tissue", "any"),
+            has_healthy_reproductive=("src_healthy_reproductive", "any"),
+            has_healthy_thymus=("src_healthy_thymus", "any"),
+        )
+        .reset_index()
+    )
+    exclusive_agg = (
+        exclusive_pep_gene.groupby("gene_name")
+        .agg(
+            ms_cta_exclusive_peptide_count=("peptide", "nunique"),
+            ms_cta_exclusive_cancer_peptide_count=("has_cancer", "sum"),
+            ms_cta_exclusive_healthy_somatic_peptide_count=("has_healthy_somatic", "sum"),
+            ms_cta_exclusive_healthy_reproductive_peptide_count=(
+                "has_healthy_reproductive",
+                "sum",
+            ),
+            ms_cta_exclusive_healthy_thymus_peptide_count=("has_healthy_thymus", "sum"),
+        )
+        .reset_index()
+    )
+    gene_agg = gene_agg.merge(exclusive_agg, on="gene_name", how="left")
+    for col in count_columns:
+        gene_agg[col] = gene_agg[col].fillna(0).astype(int)
     return gene_agg
 
 
