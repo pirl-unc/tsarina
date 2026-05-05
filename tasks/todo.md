@@ -1,3 +1,73 @@
+# PR — Panel MAGE-Family Safety Gate And Summary Sorting (2026-05-05)
+
+## Goal
+
+Make the default CTA panel selection safer around the MAGE family and make
+coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
+
+## Plan
+
+- [x] Add an automatic MAGE-family safety gate that allows `MAGEA4` by default
+      but excludes other `MAGE*` CTAs unless they are explicitly requested or
+      allowlisted.
+- [x] Expose a CLI switch to disable the automatic MAGE-family gate for users
+      who intentionally want broader MAGE-family exploration.
+- [x] Sort "Expected Population Coverage Per CTA" rows by selected peptide
+      count, then HLA hits, then estimated coverage, while preserving zero-hit
+      rows so failed candidates are visible.
+- [x] Add numeric frequency support for every default-panel allele so selected
+      HLA hits do not report artificial zero estimated coverage.
+- [x] Add a frequency audit layer that keeps regional proxy frequencies and
+      published global averages on the same allele-frequency scale, records
+      source/proxy/resolution provenance, and verifies every default-panel
+      allele has a global average plus a coverage frequency.
+- [x] Pin clinical allowlisted CTAs into automatic panels and hide downstream
+      empty CTAs from default automatic panel output unless explicitly requested.
+- [x] Ensure sample-genotype MS evidence assigns HLA specificity by
+      best-of-haplotype prediction unless the evidence is monoallelic.
+- [x] Backfill automatic CTA panels from lower-ranked candidates until the
+      requested count of downstream non-empty CTAs is reached when possible.
+- [x] Split monoallelic MS pMHC support from sample/deconvolved MS support in
+      per-CTA coverage summaries.
+- [x] Document why selected CTAs may have zero peptides after downstream
+      peptide/exclusivity/MS/prediction gates.
+- [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
+      `./test.sh`.
+
+## Review
+
+- Default automatic CTA selection now excludes `MAGE*` targets other than
+  `MAGEA4` unless they are explicitly selected or allowlisted.
+- Added `--allow-non-magea4-mage-family` for deliberate broader MAGE-family
+  exploration.
+- "Expected Population Coverage Per CTA" rows now sort by selected peptide
+  count, then HLA-hit count, then estimated coverage.
+- All `global53_abc` alleles now have numeric frequency support: regional proxy
+  rows when available, otherwise published global CIWD fallbacks; `C*04:03`
+  uses a specific East Asian AFND proxy row.
+- Added an allele-frequency audit table that exposes regional weighted
+  frequency, published global average, coverage frequency, coverage source, and
+  exact/proxy/qualitative regional support counts. All 53 default-panel alleles
+  have published global averages; coverage uses regional weighted frequencies
+  for 35 and published global averages for 18 with no numeric regional proxy.
+- Automatic panel selection now pins the default clinical allowlist
+  (`MAGEA4`, `PRAME`, `NY-ESO-1`) ahead of lower-ranked candidates, and default
+  automatic output hides CTAs with no selected pMHCs. Use `--show-empty-ctas`
+  to restore the previous audit view; explicit `--ctas` requests are preserved
+  even when empty.
+- Sample-genotype MS rows now use best-of-haplotype specificity before broad
+  exact-restriction assignment, so multi-allelic sample rows that list several
+  HLA restrictions only support the best predicted panel allele unless they are
+  monoallelic.
+- Automatic panel selection now scans lower-ranked candidates in batches to
+  backfill downstream-empty CTAs, so `cta_count=25` means up to 25 non-empty
+  selected CTA targets when enough candidates pass downstream peptide/MS/HLA
+  gates. `--show-empty-ctas` still restores the top-candidate audit view.
+- Per-CTA coverage summary rows now split selected pMHC counts into
+  monoallelic MS, sample/deconvolved MS, and unrestricted MS columns.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (286 tests).
+
 # PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
 
 ## Goal

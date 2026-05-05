@@ -21,6 +21,8 @@ coverage calculations when selecting peptide-vaccine allele panels.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import pandas as pd
 
 REGION_PRIORITY_ROWS: list[dict] = [
@@ -474,6 +476,17 @@ REGION_PRIORITY_ROWS: list[dict] = [
         "source_label": "Singapore Chinese donors",
         "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9873421/",
         "note": "Independent East Asian validation of C*07:02.",
+    },
+    {
+        "region": "East Asia",
+        "proxy": "China South Han pop 2",
+        "locus": "C",
+        "allele": "HLA-C*04:03",
+        "frequency": 0.0132,
+        "resolution": "exact",
+        "source_label": "Allele Frequency Net Database: China South Han pop 2",
+        "source_url": "https://www.allelefrequencies.net/hla6006b.asp?hla_population=2768",
+        "note": "Specific-population frequency support for a Sarkizova frequent HLA-C allotype.",
     },
     {
         "region": "Southeast Asia",
@@ -1126,6 +1139,247 @@ REGION_PRIORITY_ROWS: list[dict] = [
     },
 ]
 
+GLOBAL_ALLELE_FREQUENCY_ROWS: list[dict] = [
+    {
+        "allele": "HLA-A*23:01",
+        "frequency": 0.02096,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*26:01",
+        "frequency": 0.03352,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*30:02",
+        "frequency": 0.00838,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*31:01",
+        "frequency": 0.02462,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*32:01",
+        "frequency": 0.03200,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-A*33:01",
+        "frequency": 0.00749,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-B*27:05",
+        "frequency": 0.02952,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-B*53:01",
+        "frequency": 0.00696,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-B*57:01",
+        "frequency": 0.03134,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*02:02",
+        "frequency": 0.04281,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*03:02",
+        "frequency": 0.00779,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*03:03",
+        "frequency": 0.04237,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*05:01",
+        "frequency": 0.05597,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*07:04",
+        "frequency": 0.01709,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*08:02",
+        "frequency": 0.02483,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*12:02",
+        "frequency": 0.01526,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*14:02",
+        "frequency": 0.01383,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+    {
+        "allele": "HLA-C*16:01",
+        "frequency": 0.02241,
+        "source_label": "CIWD global allele frequency",
+        "source_url": "https://www.mdpi.com/2073-4409/10/11/3048",
+        "note": "Global fallback for panel coverage when no region proxy row is available.",
+    },
+]
+
+
+_GLOBAL_ALLELE_FREQUENCY_BASE_ROWS = GLOBAL_ALLELE_FREQUENCY_ROWS
+
+
+def _allele_locus(allele: str) -> str:
+    return allele.removeprefix("HLA-").split("*", 1)[0]
+
+
+def _global_frequency_row(
+    allele: str,
+    frequency: float,
+    *,
+    source_label: str = "CIWD global allele frequency",
+    source_url: str = "https://www.mdpi.com/2073-4409/10/11/3048",
+    proxy: str = "CIWD global model population",
+    note: str = "Published global average for panel-frequency audit and fallback coverage.",
+) -> dict:
+    return {
+        "region": "Global",
+        "proxy": proxy,
+        "locus": _allele_locus(allele),
+        "allele": allele,
+        "frequency": frequency,
+        "resolution": "exact",
+        "source_label": source_label,
+        "source_url": source_url,
+        "note": note,
+    }
+
+
+def _compatible_global_row(row: dict) -> dict:
+    allele = str(row["allele"])
+    return {
+        "region": row.get("region", "Global"),
+        "proxy": row.get("proxy", "CIWD global model population"),
+        "locus": row.get("locus", _allele_locus(allele)),
+        "allele": allele,
+        "frequency": row["frequency"],
+        "resolution": row.get("resolution", "exact"),
+        "source_label": row["source_label"],
+        "source_url": row["source_url"],
+        "note": row["note"],
+    }
+
+
+_GLOBAL_CIWD_ADDITIONAL_ALLELE_FREQUENCIES: dict[str, float] = {
+    "HLA-A*01:01": 0.05217,
+    "HLA-A*02:01": 0.13231,
+    "HLA-A*02:03": 0.00695,
+    "HLA-A*02:06": 0.00901,
+    "HLA-A*03:01": 0.06017,
+    "HLA-A*11:01": 0.04706,
+    "HLA-A*24:02": 0.08653,
+    "HLA-A*29:02": 0.01041,
+    "HLA-A*30:01": 0.00924,
+    "HLA-A*68:01": 0.02606,
+    "HLA-A*68:02": 0.01048,
+    "HLA-B*07:02": 0.05529,
+    "HLA-B*08:01": 0.03277,
+    "HLA-B*15:01": 0.02271,
+    "HLA-B*15:02": 0.00261,
+    "HLA-B*18:01": 0.02336,
+    "HLA-B*35:01": 0.03821,
+    "HLA-B*40:01": 0.01916,
+    "HLA-B*40:02": 0.01648,
+    "HLA-B*44:02": 0.03374,
+    "HLA-B*44:03": 0.03113,
+    "HLA-B*46:01": 0.01125,
+    "HLA-B*51:01": 0.05382,
+    "HLA-B*58:01": 0.01254,
+    "HLA-C*01:02": 0.03530,
+    "HLA-C*03:04": 0.01919,
+    "HLA-C*04:01": 0.06437,
+    "HLA-C*06:02": 0.05748,
+    "HLA-C*07:01": 0.12033,
+    "HLA-C*07:02": 0.07478,
+    "HLA-C*08:01": 0.02085,
+    "HLA-C*12:03": 0.03936,
+    "HLA-C*15:02": 0.02678,
+    "HLA-C*17:01": 0.00752,
+}
+
+GLOBAL_ALLELE_FREQUENCY_ROWS = [
+    _compatible_global_row(row)
+    for row in [
+        *_GLOBAL_ALLELE_FREQUENCY_BASE_ROWS,
+        *[
+            _global_frequency_row(allele, frequency)
+            for allele, frequency in _GLOBAL_CIWD_ADDITIONAL_ALLELE_FREQUENCIES.items()
+        ],
+        _global_frequency_row(
+            "HLA-C*04:03",
+            0.019,
+            source_label="Sarkizova HLA-C global allele frequency",
+            source_url="https://pmc.ncbi.nlm.nih.gov/articles/PMC12738900/",
+            proxy="Sarkizova global HLA-C allotype set",
+            note=(
+                "Published HLA-C allotype frequency; used because CIWD Table A2 "
+                "does not include HLA-C*04:03."
+            ),
+        ),
+        _global_frequency_row(
+            "HLA-C*14:03",
+            0.015,
+            source_label="Sarkizova HLA-C global allele frequency",
+            source_url="https://pmc.ncbi.nlm.nih.gov/articles/PMC12738900/",
+            proxy="Sarkizova global HLA-C allotype set",
+            note="Published HLA-C allotype frequency for the legacy global51_abc panel.",
+        ),
+    ]
+]
+
 
 REGION_POPULATIONS: dict[str, float] = {
     "Europe": 743.9,
@@ -1144,6 +1398,133 @@ def region_allele_frequencies() -> pd.DataFrame:
     Each row corresponds to one entry in :data:`REGION_PRIORITY_ROWS`.
     """
     return pd.DataFrame(REGION_PRIORITY_ROWS)
+
+
+def global_allele_frequencies() -> pd.DataFrame:
+    """Return published global HLA allele-frequency averages.
+
+    These rows use the same schema as :func:`region_allele_frequencies` with
+    ``region == "Global"``. Coverage calculations prefer numeric regional
+    proxies and fall back to these rows only when no regional proxy exists.
+    """
+    return pd.DataFrame(GLOBAL_ALLELE_FREQUENCY_ROWS)
+
+
+def allele_frequency_rows(alleles: Iterable[str] | None = None) -> pd.DataFrame:
+    """Return regional proxy and global-average allele frequencies together.
+
+    Rows are on the same 0-1 allele-frequency scale. ``frequency_scope``
+    distinguishes sub-population proxy rows from published global averages.
+    """
+    regional = region_allele_frequencies().copy()
+    regional["frequency_scope"] = "regional_proxy"
+    global_df = global_allele_frequencies().copy()
+    global_df["frequency_scope"] = "published_global"
+    out = pd.concat([regional, global_df], ignore_index=True, sort=False)
+    columns = [
+        "frequency_scope",
+        "region",
+        "proxy",
+        "locus",
+        "allele",
+        "frequency",
+        "resolution",
+        "source_label",
+        "source_url",
+        "note",
+    ]
+    out = out.reindex(columns=columns)
+    if alleles is not None:
+        allele_set = set(alleles)
+        out = out[out["allele"].isin(allele_set)].copy()
+    return out
+
+
+def allele_frequency_audit(alleles: Iterable[str]) -> pd.DataFrame:
+    """Audit frequency support used for population-coverage calculations.
+
+    The audit keeps regional proxy frequencies separate from published global
+    averages. The ``coverage_frequency`` column is the value used by panel
+    summaries: population-weighted regional frequency when present, otherwise
+    the published global average.
+    """
+    allele_list = list(dict.fromkeys(alleles))
+    rows = allele_frequency_rows(allele_list)
+    regional = rows[rows["frequency_scope"] == "regional_proxy"].copy()
+    global_df = rows[rows["frequency_scope"] == "published_global"].copy()
+
+    regional_numeric = regional[pd.notna(regional["frequency"])].copy()
+    regional_weighted: dict[str, float] = dict.fromkeys(allele_list, 0.0)
+    if not regional_numeric.empty:
+        per_region = regional_numeric.groupby(["region", "allele"], as_index=False)[
+            "frequency"
+        ].max()
+        total_population = sum(float(population) for population in REGION_POPULATIONS.values())
+        for row in per_region.itertuples(index=False):
+            population = REGION_POPULATIONS.get(row.region)
+            if population is None:
+                continue
+            regional_weighted[row.allele] += (
+                float(row.frequency) * float(population) / total_population
+            )
+
+    global_by_allele = global_df[pd.notna(global_df["frequency"])].drop_duplicates(
+        subset=["allele"], keep="first"
+    )
+    global_frequency = {
+        str(row.allele): float(row.frequency) for row in global_by_allele.itertuples(index=False)
+    }
+    global_source_label = {
+        str(row.allele): str(row.source_label) for row in global_by_allele.itertuples(index=False)
+    }
+    global_source_url = {
+        str(row.allele): str(row.source_url) for row in global_by_allele.itertuples(index=False)
+    }
+
+    audit_rows: list[dict] = []
+    for allele in allele_list:
+        allele_regional = regional[regional["allele"] == allele]
+        regional_frequency = float(regional_weighted.get(allele, 0.0))
+        published_global_frequency = global_frequency.get(allele)
+        if regional_frequency > 0.0:
+            coverage_frequency = regional_frequency
+            coverage_source = "regional_weighted"
+        elif published_global_frequency is not None:
+            coverage_frequency = published_global_frequency
+            coverage_source = "published_global"
+        else:
+            coverage_frequency = 0.0
+            coverage_source = "missing"
+
+        audit_rows.append(
+            {
+                "allele": allele,
+                "locus": _allele_locus(allele),
+                "regional_weighted_frequency": regional_frequency,
+                "published_global_frequency": published_global_frequency,
+                "coverage_frequency": coverage_frequency,
+                "coverage_frequency_source": coverage_source,
+                "numeric_region_count": int(allele_regional["frequency"].notna().sum()),
+                "exact_region_count": int((allele_regional["resolution"] == "exact").sum()),
+                "proxy_group_region_count": int(
+                    (allele_regional["resolution"] == "proxy_group").sum()
+                ),
+                "qualitative_region_count": int(
+                    (allele_regional["resolution"] == "qualitative").sum()
+                ),
+                "regional_source_labels": "; ".join(
+                    sorted(
+                        {
+                            str(source)
+                            for source in allele_regional["source_label"].dropna().tolist()
+                        }
+                    )
+                ),
+                "global_source_label": global_source_label.get(allele),
+                "global_source_url": global_source_url.get(allele),
+            }
+        )
+    return pd.DataFrame(audit_rows)
 
 
 def region_names() -> list[str]:

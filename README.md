@@ -240,9 +240,13 @@ tsarina panel
 
 Defaults:
 
-- top 25 CTAs ranked by cancer MS peptide count
+- up to 25 downstream non-empty CTAs ranked by cancer MS peptide count, with
+  lower-ranked candidates scanned as needed to backfill empty downstream targets
+  and clinical allowlist anchors pinned ahead of lower-ranked candidates
 - automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
+- automatic selection excludes MAGE-family CTAs other than `MAGEA4` unless they
+  are explicitly requested or allowlisted
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
 - `global53_abc` HLA-A/B/C panel
@@ -264,19 +268,29 @@ scoring, evidence-tier construction, and final selection. Interactive terminals
 also get a `tqdm` scoring progress bar; use `--no-progress` or
 `--no-progress-bars` to suppress it.
 
-Use `--selection-allowlist`, `--no-vital-tissue-filter`, and
-`--vital-tissue-max-ntpm` to tune automatic CTA safety filtering. The default
-vital RNA cutoff is 2.0 nTPM; public healthy-MS observations in vital tissues
-remain exclusionary only when the peptide evidence maps uniquely to that CTA,
-unless allowlisted. Explicit `--ctas` accepts aliases such as `NY-ESO-1` and
-`MAGE-A4`.
+Use `--selection-allowlist`, `--no-vital-tissue-filter`,
+`--vital-tissue-max-ntpm`, and `--allow-non-magea4-mage-family` to tune
+automatic CTA safety filtering. The default vital RNA cutoff is 2.0 nTPM;
+public healthy-MS observations in vital tissues remain exclusionary only when
+the peptide evidence maps uniquely to that CTA, unless allowlisted. Explicit
+`--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4` and bypasses automatic
+CTA-family safety gates.
+
+Automatic panel output scans lower-ranked CTA candidates to backfill CTAs with
+zero selected pMHCs after peptide enumeration, CTA-exclusivity, public-MS, and
+presentation-score gates; pass `--show-empty-ctas` to audit the top ranked
+candidates including those failures. Explicit `--ctas` requests are preserved
+even if a requested CTA has zero selected pMHCs. The "Expected Population
+Coverage Per CTA" rows are sorted by selected peptide count, then HLA-hit count,
+then estimated population coverage, and split monoallelic MS pMHC support from
+sample-genotype/deconvolved MS support.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 
 | Evidence tier | Default cutoff | Meaning |
 |---|---:|---|
 | `monoallelic_ms` | < 2.0 | Peptide observed in mono-allelic MS for that HLA |
-| `sample_allele_ms` | < 1.0 | Peptide observed in a multi-allelic sample where this HLA is best among sample alleles |
+| `sample_allele_ms` | < 1.0 | Peptide observed in a multi-allelic sample where this HLA is best among sample alleles, including sample-genotype rows that list exact HLA restrictions |
 | `unrestricted_ms` | < 0.5 | Peptide observed by MS with no usable allele assignment |
 | `predicted_only` | < 0.1 | No MS support; excluded unless `--include-predicted-only` is passed |
 
@@ -292,7 +306,14 @@ Available HLA panels:
 | `global51_abc` | 51 | Global reference panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
 | `global53_abc` | 53 | Default global panel: Global-51 plus CTA-MS supported `A*29:02`, `B*15:02`, and `B*27:05`, keeping only `C*14:02` from the MHCflurry-identical C*14 pair |
 
-Regional allele frequency data from 7 geographic regions supports population-weighted coverage calculations.
+Regional allele frequency data from 7 geographic regions supports population-weighted coverage
+calculations. The frequency audit keeps those sub-population proxy rows separate
+from published global average allele frequencies on the same 0-1 allele-frequency
+scale. Panel coverage uses the regional weighted value when a numeric regional
+proxy exists and falls back to the published global average only when no regional
+proxy is available. All default `global53_abc` alleles have a published global
+average, source/proxy/resolution provenance, and a nonzero coverage frequency,
+preventing known-frequency HLA hits from reporting artificial `0.0%` CTA coverage.
 The reference `global51_abc` panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
 adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
 and fills the remaining 51-panel slots with the highest-frequency calibrated alleles
