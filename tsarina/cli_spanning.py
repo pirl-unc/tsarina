@@ -54,7 +54,11 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         "--cta-count",
         type=int,
         default=25,
-        help="Top N CTAs to include when --ctas is not supplied (default 25).",
+        help=(
+            "Maximum automatic CTAs to include when --ctas is not supplied; "
+            "downstream-empty CTAs are hidden unless --show-empty-ctas is passed "
+            "(default 25)."
+        ),
     )
     p.add_argument(
         "--cta-rank-by",
@@ -246,6 +250,15 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help="Do not append the panel coverage summary.",
     )
     p.add_argument(
+        "--show-empty-ctas",
+        action="store_true",
+        help=(
+            "Show automatically selected CTAs that have no selected pMHCs after "
+            "peptide, exclusivity, public-MS, and prediction gates. Explicit --ctas "
+            "requests are always preserved."
+        ),
+    )
+    p.add_argument(
         "--no-progress",
         dest="progress",
         action="store_false",
@@ -288,9 +301,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="Build a CTA x HLA pMHC matrix for a population HLA panel.",
         description=(
             "Produce a CTA x HLA pivot table where each cell is the best MS-supported "
-            "peptide-HLA candidate for that CTA and allele. Defaults to top-25 CTAs "
-            "crossed with the Global-53 HLA-A/B/C panel, 8-11mers, and tier-specific "
-            "presentation-percentile cutoffs: mono-allelic MS <2.0, multi-allelic "
+            "peptide-HLA candidate for that CTA and allele. Defaults to up to 25 "
+            "non-empty CTAs crossed with the Global-53 HLA-A/B/C panel, 8-11mers, "
+            "and tier-specific presentation-percentile cutoffs: mono-allelic MS <2.0, "
+            "multi-allelic "
             "sample-genotype MS <1.0, unrestricted MS <0.5. Prediction-only "
             "candidates are excluded unless --include-predicted-only is supplied. "
             "The default output is a readable table plus coverage summary."
@@ -347,6 +361,7 @@ def handle(args: argparse.Namespace) -> None:
         iedb_path=args.iedb_path,
         cedar_path=args.cedar_path,
         output_format=output_format,
+        include_empty_ctas=True if args.ctas is not None else args.show_empty_ctas,
         on_progress=_on_progress if args.progress else None,
         progress_bar=progress_bar,
         score_chunk_size=args.score_chunk_size,
@@ -504,6 +519,9 @@ def format_panel_summary(df) -> str:
             "  Evidence tiers: "
             + ", ".join(f"{tier}={count}" for tier, count in sorted(tier_counts.items()))
         )
+    empty_count = int(summary.get("empty_cta_count", 0))
+    if empty_count and not summary.get("include_empty_ctas", True):
+        lines.append(f"  Omitted CTAs with no selected pMHCs: {empty_count}")
     lines.append(f"  Coverage note: {summary['coverage_note']}")
 
     cta_rows = [

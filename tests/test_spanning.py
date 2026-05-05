@@ -213,6 +213,40 @@ def test_top_n_ranking_by_default_column():
     assert list(df["cta"]) == ["MAGEA4", "PRAME"]
 
 
+def test_selection_allowlist_is_pinned_into_automatic_top_n():
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=3,
+        cta_rank_by="ms_cancer_peptide_count",
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
+    )
+    assert ctas == ["MAGEA4", "PRAME", "NY-ESO-1"]
+
+
+def test_automatic_selection_hides_empty_ctas_by_default():
+    df = spanning_pmhc_set(
+        cta_count=4,
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+    )
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1"]
+    assert df.attrs["input_cta_order"] == ["MAGEA4", "PRAME", "NY-ESO-1", "VITALRNA"]
+    assert df.attrs["empty_ctas"] == ["VITALRNA"]
+    assert df.attrs["panel_summary"]["empty_cta_count"] == 1
+
+
+def test_include_empty_ctas_preserves_automatic_failures():
+    df = spanning_pmhc_set(
+        cta_count=4,
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        include_empty_ctas=True,
+    )
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1", "VITALRNA"]
+
+
 def test_explicit_ctas_overrides_ranking():
     """When --ctas is supplied, --cta-count is ignored and the order is
     preserved after alias/group normalization."""
@@ -283,6 +317,7 @@ def test_min_restriction_confidence_none_admits_low():
         min_restriction_confidence=None,
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
+        include_empty_ctas=True,
     )
     assert "BAGE" not in df["cta"].tolist()
     assert "MAGEA1" not in df["cta"].tolist()
@@ -308,6 +343,7 @@ def test_vital_tissue_gate_can_be_disabled():
         cta_rank_by="ms_cancer_peptide_count",
         min_restriction_confidence=("HIGH", "MODERATE"),
         restriction_levels=None,
+        selection_allowlist=[],
         exclude_vital_tissue_expression=False,
         exclude_non_magea4_mage_family=False,
     )
@@ -947,6 +983,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         progress=True,
         progress_bars=False,
         score_chunk_size=None,
+        show_empty_ctas=False,
     )
     cli_spanning.handle(args)
 
@@ -955,6 +992,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     assert captured_kwargs["selection_allowlist"] == ("PRAME", "NY-ESO-1", "MAGEA4")
     assert captured_kwargs["exclude_vital_tissue_expression"] is True
     assert captured_kwargs["vital_tissue_max_ntpm"] == 2.0
+    assert captured_kwargs["include_empty_ctas"] is False
 
     captured = capsys.readouterr()
     assert "fake-progress-message" in captured.err
@@ -1056,6 +1094,7 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         progress=True,
         progress_bars=False,
         score_chunk_size=None,
+        show_empty_ctas=False,
     )
     cli_spanning.handle(args)
 

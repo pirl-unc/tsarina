@@ -21,6 +21,8 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
       published global averages on the same allele-frequency scale, records
       source/proxy/resolution provenance, and verifies every default-panel
       allele has a global average plus a coverage frequency.
+- [x] Pin clinical allowlisted CTAs into automatic panels and hide downstream
+      empty CTAs from default automatic panel output unless explicitly requested.
 - [x] Document why selected CTAs may have zero peptides after downstream
       peptide/exclusivity/MS/prediction gates.
 - [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
@@ -42,8 +44,13 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
   exact/proxy/qualitative regional support counts. All 53 default-panel alleles
   have published global averages; coverage uses regional weighted frequencies
   for 35 and published global averages for 18 with no numeric regional proxy.
+- Automatic panel selection now pins the default clinical allowlist
+  (`MAGEA4`, `PRAME`, `NY-ESO-1`) ahead of lower-ranked candidates, and default
+  automatic output hides CTAs with no selected pMHCs. Use `--show-empty-ctas`
+  to restore the previous audit view; explicit `--ctas` requests are preserved
+  even when empty.
 - Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
-  (280 tests).
+  (283 tests).
 
 # PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
 

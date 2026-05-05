@@ -132,6 +132,7 @@ def spanning_pmhc_set(
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     output_format: str = "wide",
+    include_empty_ctas: bool | None = None,
     on_progress: Callable[[str], None] | None = None,
     progress_bar: bool = False,
     score_chunk_size: int | None = None,
@@ -229,6 +230,11 @@ def spanning_pmhc_set(
         the chosen peptide as the cell value.
         ``"long"`` — one row per filled cell with peptide, length,
         percentile, score, and affinity columns.
+    include_empty_ctas
+        Whether to keep CTA rows with no selected pMHCs after peptide,
+        exclusivity, public-MS, and prediction gates. ``None`` (default)
+        keeps explicit ``ctas`` requests verbatim but hides empty rows for
+        automatic top-N selection.
     on_progress
         Optional callable invoked with a human-readable status string at
         each pipeline stage.  Used by the CLI handler to emit
@@ -265,6 +271,7 @@ def spanning_pmhc_set(
         raise ValueError(f"output_format must be 'wide' or 'long', got {output_format!r}")
     if peptides_per_cell < 1:
         raise ValueError(f"peptides_per_cell must be >= 1, got {peptides_per_cell!r}")
+    keep_empty_ctas = ctas is not None if include_empty_ctas is None else include_empty_ctas
 
     if max_percentile is not None:
         monoallelic_ms_max_percentile = max_percentile
@@ -302,14 +309,22 @@ def spanning_pmhc_set(
     )
 
     if not cta_list or not allele_list:
-        return _empty_output(
+        output_cta_list, empty_ctas = _output_cta_list(
             cta_list,
+            pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]),
+            include_empty_ctas=keep_empty_ctas,
+        )
+        return _empty_output(
+            output_cta_list,
             allele_list,
             output_format,
             allele_frequencies,
             cta_rank_values,
             allele_frequency_sources,
             frequency_audit,
+            input_cta_list=cta_list,
+            empty_ctas=empty_ctas,
+            include_empty_ctas=keep_empty_ctas,
         )
 
     _report_progress(
@@ -329,14 +344,22 @@ def spanning_pmhc_set(
     )
     if pep_df.empty:
         _report_progress(on_progress, "No CTA peptides survived peptide enumeration.")
-        return _empty_output(
+        output_cta_list, empty_ctas = _output_cta_list(
             cta_list,
+            pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]),
+            include_empty_ctas=keep_empty_ctas,
+        )
+        return _empty_output(
+            output_cta_list,
             allele_list,
             output_format,
             allele_frequencies,
             cta_rank_values,
             allele_frequency_sources,
             frequency_audit,
+            input_cta_list=cta_list,
+            empty_ctas=empty_ctas,
+            include_empty_ctas=keep_empty_ctas,
         )
 
     from .ms_evidence import load_public_ms_hits
@@ -398,13 +421,22 @@ def spanning_pmhc_set(
         include_predicted_only=include_predicted_only,
     )
     selected = _top_per_cell(candidates, peptides_per_cell=peptides_per_cell)
+    output_cta_list, empty_ctas = _output_cta_list(
+        cta_list,
+        selected,
+        include_empty_ctas=keep_empty_ctas,
+    )
     summary = panel_summary(
         selected=selected,
-        cta_list=cta_list,
+        cta_list=output_cta_list,
         allele_list=allele_list,
         allele_frequencies=allele_frequencies,
         allele_frequency_sources=allele_frequency_sources,
     )
+    summary["input_cta_count"] = len(cta_list)
+    summary["empty_cta_count"] = len(empty_ctas)
+    summary["empty_ctas"] = empty_ctas
+    summary["include_empty_ctas"] = keep_empty_ctas
 
     _report_progress(
         on_progress,
@@ -413,20 +445,27 @@ def spanning_pmhc_set(
         f"using MS tier cutoffs {monoallelic_ms_max_percentile}/"
         f"{sample_allele_ms_max_percentile}/{unrestricted_ms_max_percentile}.",
     )
+    if empty_ctas and not keep_empty_ctas:
+        _report_progress(
+            on_progress,
+            f"Omitted {len(empty_ctas)} automatically selected CTAs with no selected pMHCs.",
+        )
 
     if output_format == "wide":
-        out = _to_wide(selected, cta_list, allele_list)
+        out = _to_wide(selected, output_cta_list, allele_list)
     else:
-        out = _to_long(selected, cta_list, allele_list)
+        out = _to_long(selected, output_cta_list, allele_list)
     return _attach_panel_attrs(
         out,
-        cta_list,
+        output_cta_list,
         allele_list,
         allele_frequencies,
         cta_rank_values,
         summary,
         allele_frequency_sources,
         frequency_audit,
+        input_cta_list=cta_list,
+        empty_ctas=empty_ctas,
     )
 
 
@@ -508,6 +547,21 @@ def _order_alleles_by_frequency(
     return sorted(allele_list, key=lambda allele: (-allele_frequencies.get(allele, 0.0), allele))
 
 
+def _output_cta_list(
+    cta_list: list[str],
+    selected: pd.DataFrame,
+    include_empty_ctas: bool,
+) -> tuple[list[str], list[str]]:
+    if include_empty_ctas:
+        return list(cta_list), []
+    if selected.empty or "cta" not in selected.columns:
+        return [], list(cta_list)
+    nonempty = set(selected["cta"].dropna().unique())
+    output = [cta for cta in cta_list if cta in nonempty]
+    empty = [cta for cta in cta_list if cta not in nonempty]
+    return output, empty
+
+
 def _resolve_ctas(
     ctas: Iterable[str] | None,
     cta_count: int,
@@ -570,6 +624,10 @@ def _resolve_ctas(
 
     df = df[df["Symbol"].isin(valid)]
     df = df.drop_duplicates(subset=["_cta_display"], keep="first")
+    if allowlist:
+        allowlisted = df[df["_cta_display"].isin(allowlist)]
+        ranked = df[~df["_cta_display"].isin(allowlist)]
+        df = pd.concat([allowlisted, ranked], ignore_index=True)
     return df["_cta_display"].head(cta_count).tolist()
 
 
@@ -1256,8 +1314,12 @@ def _attach_panel_attrs(
     summary: dict[str, object],
     allele_frequency_sources: dict[str, str] | None = None,
     frequency_audit: pd.DataFrame | None = None,
+    input_cta_list: list[str] | None = None,
+    empty_ctas: list[str] | None = None,
 ) -> pd.DataFrame:
     out.attrs["cta_order"] = list(cta_list)
+    out.attrs["input_cta_order"] = list(input_cta_list or cta_list)
+    out.attrs["empty_ctas"] = list(empty_ctas or [])
     out.attrs["allele_order"] = list(allele_list)
     out.attrs["allele_frequencies"] = dict(allele_frequencies)
     out.attrs["allele_frequency_sources"] = dict(allele_frequency_sources or {})
@@ -1277,6 +1339,9 @@ def _empty_output(
     cta_rank_values: dict[str, float | str] | None = None,
     allele_frequency_sources: dict[str, str] | None = None,
     frequency_audit: pd.DataFrame | None = None,
+    input_cta_list: list[str] | None = None,
+    empty_ctas: list[str] | None = None,
+    include_empty_ctas: bool = True,
 ) -> pd.DataFrame:
     if output_format == "wide":
         wide = pd.DataFrame(index=cta_list, columns=allele_list, dtype=object)
@@ -1292,6 +1357,12 @@ def _empty_output(
         allele_frequencies=allele_frequencies,
         allele_frequency_sources=allele_frequency_sources,
     )
+    input_cta_list = input_cta_list or cta_list
+    empty_ctas = empty_ctas or []
+    summary["input_cta_count"] = len(input_cta_list)
+    summary["empty_cta_count"] = len(empty_ctas)
+    summary["empty_ctas"] = empty_ctas
+    summary["include_empty_ctas"] = include_empty_ctas
     return _attach_panel_attrs(
         out,
         cta_list,
@@ -1301,4 +1372,6 @@ def _empty_output(
         summary,
         allele_frequency_sources,
         frequency_audit,
+        input_cta_list=input_cta_list,
+        empty_ctas=empty_ctas,
     )

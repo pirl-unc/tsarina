@@ -221,7 +221,8 @@ tsarina panel
 
 Defaults:
 
-- top 25 CTAs ranked by cancer MS peptide count
+- up to 25 non-empty CTAs ranked by cancer MS peptide count, with clinical
+  allowlist anchors pinned ahead of lower-ranked candidates
 - automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
 - automatic selection excludes MAGE-family CTAs other than `MAGEA4` unless they
@@ -255,9 +256,10 @@ the peptide evidence maps uniquely to that CTA, unless allowlisted. Explicit
 `--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4` and bypasses automatic
 CTA-family safety gates.
 
-The summary keeps all selected CTAs, including rows with zero peptides, so users
-can see which high-ranked CTA candidates failed later peptide enumeration,
-CTA-exclusivity, public-MS, or presentation-score gates. The "Expected
+Automatic panel output hides CTAs with zero selected pMHCs after peptide
+enumeration, CTA-exclusivity, public-MS, and presentation-score gates; pass
+`--show-empty-ctas` to audit those failures. Explicit `--ctas` requests are
+preserved even if a requested CTA has zero selected pMHCs. The "Expected
 Population Coverage Per CTA" rows are sorted by selected peptide count, then
 HLA-hit count, then estimated population coverage.
 
