@@ -1,3 +1,33 @@
+# PR - Avoid Default MHCflurry Allele Chunking (2026-05-05)
+
+## Goal
+
+Fix the interactive ``tsarina panel`` slow path where tqdm progress bars chunk
+MHCflurry scoring by allele and repeat the allele-independent processing-model
+pass many times. Track this as https://github.com/pirl-unc/tsarina/issues/56.
+
+## Plan
+
+- [x] Default MHCflurry progress-bar scoring to one full allele batch, while
+      preserving explicit ``--score-chunk-size`` overrides.
+- [x] Update CLI/docs/tests to explain that MHCflurry chunking is opt-in
+      because it can repeat processing work.
+- [x] Bump the patch version.
+- [x] Run ``./format.sh``, ``./lint.sh``, and ``./test.sh``.
+- [ ] Open, merge, and deploy the PR.
+
+## Review
+
+- MHCflurry progress-bar scoring now defaults to one full allele batch, avoiding
+  repeated processing-model passes across allele chunks.
+- Explicit ``--score-chunk-size`` still works for MHCflurry when a user chooses
+  to trade speed for smaller scoring chunks.
+- CLI/docs now describe the MHCflurry chunking tradeoff.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (297 tests).
+
+---
+
 # PR - Display CTAG1A/CTAG1B As The Canonical Group Label (2026-05-05)
 
 ## Goal

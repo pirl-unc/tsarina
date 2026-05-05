@@ -249,8 +249,10 @@ tsarina panel --format wide -o panel-wide.csv
 
 The CLI prints progress for peptide enumeration, public-MS evidence loading,
 scoring, evidence-tier construction, and final selection. Interactive terminals
-also get a `tqdm` scoring progress bar; use `--no-progress` or
-`--no-progress-bars` to suppress it.
+also get a `tqdm` scoring progress bar; MHCflurry still scores all alleles in
+one batch by default because chunking repeats its allele-independent processing
+model work. Use `--score-chunk-size` only when you explicitly want chunking, or
+`--no-progress` / `--no-progress-bars` to suppress progress output.
 
 Use `--selection-allowlist`, `--no-vital-tissue-filter`,
 `--vital-tissue-max-ntpm`, and `--allow-non-magea4-mage-family` to tune
