@@ -224,6 +224,8 @@ Defaults:
 - top 25 CTAs ranked by cancer MS peptide count
 - automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
   evidence, while allowlisting `PRAME`, `NY-ESO-1`, and `MAGEA4`
+- automatic selection excludes MAGE-family CTAs other than `MAGEA4` unless they
+  are explicitly requested or allowlisted
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
 - `global53_abc` HLA-A/B/C panel
@@ -245,12 +247,19 @@ scoring, evidence-tier construction, and final selection. Interactive terminals
 also get a `tqdm` scoring progress bar; use `--no-progress` or
 `--no-progress-bars` to suppress it.
 
-Use `--selection-allowlist`, `--no-vital-tissue-filter`, and
-`--vital-tissue-max-ntpm` to tune automatic CTA safety filtering. The default
-vital RNA cutoff is 2.0 nTPM; public healthy-MS observations in vital tissues
-remain exclusionary only when the peptide evidence maps uniquely to that CTA,
-unless allowlisted. Explicit `--ctas` accepts aliases such as `NY-ESO-1` and
-`MAGE-A4`.
+Use `--selection-allowlist`, `--no-vital-tissue-filter`,
+`--vital-tissue-max-ntpm`, and `--allow-non-magea4-mage-family` to tune
+automatic CTA safety filtering. The default vital RNA cutoff is 2.0 nTPM;
+public healthy-MS observations in vital tissues remain exclusionary only when
+the peptide evidence maps uniquely to that CTA, unless allowlisted. Explicit
+`--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4` and bypasses automatic
+CTA-family safety gates.
+
+The summary keeps all selected CTAs, including rows with zero peptides, so users
+can see which high-ranked CTA candidates failed later peptide enumeration,
+CTA-exclusivity, public-MS, or presentation-score gates. The "Expected
+Population Coverage Per CTA" rows are sorted by selected peptide count, then
+HLA-hit count, then estimated population coverage.
 
 Evidence tiers use configurable presentation percentile cutoffs:
 

@@ -1,3 +1,36 @@
+# PR — Panel MAGE-Family Safety Gate And Summary Sorting (2026-05-05)
+
+## Goal
+
+Make the default CTA panel selection safer around the MAGE family and make
+coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
+
+## Plan
+
+- [x] Add an automatic MAGE-family safety gate that allows `MAGEA4` by default
+      but excludes other `MAGE*` CTAs unless they are explicitly requested or
+      allowlisted.
+- [x] Expose a CLI switch to disable the automatic MAGE-family gate for users
+      who intentionally want broader MAGE-family exploration.
+- [x] Sort "Expected Population Coverage Per CTA" rows by selected peptide
+      count, then HLA hits, then estimated coverage, while preserving zero-hit
+      rows so failed candidates are visible.
+- [x] Document why selected CTAs may have zero peptides after downstream
+      peptide/exclusivity/MS/prediction gates.
+- [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
+      `./test.sh`.
+
+## Review
+
+- Default automatic CTA selection now excludes `MAGE*` targets other than
+  `MAGEA4` unless they are explicitly selected or allowlisted.
+- Added `--allow-non-magea4-mage-family` for deliberate broader MAGE-family
+  exploration.
+- "Expected Population Coverage Per CTA" rows now sort by selected peptide
+  count, then HLA-hit count, then estimated coverage.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (273 tests).
+
 # PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
 
 ## Goal

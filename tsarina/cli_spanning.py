@@ -123,6 +123,16 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--allow-non-magea4-mage-family",
+        dest="exclude_non_magea4_mage_family",
+        action="store_false",
+        help=(
+            "Allow automatic panel selection to include MAGE-family CTAs other than "
+            "MAGE-A4. By default, non-MAGE-A4 MAGE-family CTAs are excluded unless "
+            "explicitly requested with --ctas or included in --selection-allowlist."
+        ),
+    )
+    p.add_argument(
         "--alleles",
         type=_split_csv,
         default=None,
@@ -320,6 +330,7 @@ def handle(args: argparse.Namespace) -> None:
         selection_allowlist=tuple(args.selection_allowlist),
         exclude_vital_tissue_expression=args.exclude_vital_tissue_expression,
         vital_tissue_max_ntpm=args.vital_tissue_max_ntpm,
+        exclude_non_magea4_mage_family=args.exclude_non_magea4_mage_family,
         alleles=tuple(args.alleles) if args.alleles else None,
         panel=args.panel,
         lengths=args.lengths,

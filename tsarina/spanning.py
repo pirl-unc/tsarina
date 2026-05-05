@@ -57,6 +57,7 @@ _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE = 0.1
 _DEFAULT_PEPTIDES_PER_CELL = 3
 _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", "NY-ESO-1", "MAGEA4")
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
+_DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
 
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
     "NY-ESO-1": ("CTAG1A", "CTAG1B"),
@@ -114,6 +115,7 @@ def spanning_pmhc_set(
     selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
     exclude_vital_tissue_expression: bool = True,
     vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
+    exclude_non_magea4_mage_family: bool = _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY,
     alleles: Iterable[str] | None = None,
     panel: str | None = _DEFAULT_PANEL,
     lengths: tuple[int, ...] = _DEFAULT_LENGTHS,
@@ -171,6 +173,10 @@ def spanning_pmhc_set(
     vital_tissue_max_ntpm
         Maximum allowed RNA nTPM in vital tissues for automatic CTA selection.
         Default 2.0.
+    exclude_non_magea4_mage_family
+        If True (default), automatic CTA selection excludes MAGE-family targets
+        other than ``MAGEA4`` unless the target is in ``selection_allowlist``.
+        Explicit ``ctas`` always win and bypass this gate.
     alleles
         Explicit allele list.  Overrides ``panel``.
     panel
@@ -282,6 +288,7 @@ def spanning_pmhc_set(
         selection_allowlist=selection_allowlist,
         exclude_vital_tissue_expression=exclude_vital_tissue_expression,
         vital_tissue_max_ntpm=vital_tissue_max_ntpm,
+        exclude_non_magea4_mage_family=exclude_non_magea4_mage_family,
     )
     cta_rank_values = _cta_rank_values(cta_list, cta_rank_by)
 
@@ -473,6 +480,7 @@ def _resolve_ctas(
     selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
     exclude_vital_tissue_expression: bool = True,
     vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
+    exclude_non_magea4_mage_family: bool = _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY,
 ) -> list[str]:
     """Pick the CTA gene set per the resolution order: explicit override
     wins; else filter the bundled CTA CSV and take top-N by rank."""
@@ -505,6 +513,10 @@ def _resolve_ctas(
         wanted_levels = set(restriction_levels)
         df = df[df["restriction"].isin(wanted_levels)]
 
+    if exclude_non_magea4_mage_family:
+        non_magea4_mage = df["_cta_display"].map(_is_non_magea4_mage_family)
+        df = df[~non_magea4_mage | df["_is_selection_allowlisted"]]
+
     if exclude_vital_tissue_expression:
         vital_rna = df.apply(
             lambda row: _has_vital_tissue_rna_expression(row, vital_tissue_max_ntpm),
@@ -536,6 +548,11 @@ def _cta_display_name(symbol: object) -> str:
     if compact.startswith("MAGEA") and compact[5:].isdigit():
         return compact
     return token
+
+
+def _is_non_magea4_mage_family(label: object) -> bool:
+    compact = _compact_cta_name(label)
+    return compact.startswith("MAGE") and compact != "MAGEA4"
 
 
 def _normalize_cta_labels(values: Iterable[str] | None, valid_symbols: set[str]) -> list[str]:
@@ -1127,6 +1144,15 @@ def panel_summary(
                 "estimated_population_coverage": coverage,
             }
         )
+    cta_rows = sorted(
+        cta_rows,
+        key=lambda row: (
+            -int(row["selected_peptide_count"]),
+            -int(row["covered_hla_count"]),
+            -float(row["estimated_population_coverage"]),
+            str(row["cta"]),
+        ),
+    )
 
     hla_rows = []
     total_ctas = len(cta_list)

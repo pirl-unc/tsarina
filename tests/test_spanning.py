@@ -25,7 +25,7 @@ import io
 import pandas as pd
 import pytest
 
-from tsarina.spanning import _resolve_ctas, spanning_pmhc_set
+from tsarina.spanning import _resolve_ctas, panel_summary, spanning_pmhc_set
 
 
 def _stub_peptides() -> pd.DataFrame:
@@ -139,7 +139,16 @@ def _stub_pipeline(monkeypatch):
     )
     monkeypatch.setattr(
         "tsarina.gene_sets.CTA_gene_names",
-        lambda: {"MAGEA4", "PRAME", "CTAG1A", "CTAG1B", "MAGEA1", "VITALRNA", "BAGE"},
+        lambda: {
+            "MAGEA4",
+            "PRAME",
+            "CTAG1A",
+            "CTAG1B",
+            "MAGEA1",
+            "MAGEB2",
+            "VITALRNA",
+            "BAGE",
+        },
         raising=True,
     )
     # Stub the bundled CTA dataframe so cta_count / rank_by paths work.
@@ -147,6 +156,7 @@ def _stub_pipeline(monkeypatch):
         {
             "Symbol": [
                 "MAGEA1",
+                "MAGEB2",
                 "MAGEA4",
                 "PRAME",
                 "VITALRNA",
@@ -154,10 +164,20 @@ def _stub_pipeline(monkeypatch):
                 "CTAG1B",
                 "BAGE",
             ],
-            "Ensembl_Gene_ID": ["E0", "E1", "E2", "E5", "E3A", "E3B", "E4"],
-            "filtered": ["true", "true", "true", "true", "true", "true", "true"],
-            "never_expressed": ["false", "false", "false", "false", "false", "false", "true"],
+            "Ensembl_Gene_ID": ["E0", "E0B", "E1", "E2", "E5", "E3A", "E3B", "E4"],
+            "filtered": ["true"] * 8,
+            "never_expressed": [
+                "false",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false",
+                "false",
+                "true",
+            ],
             "restriction_confidence": [
+                "HIGH",
                 "HIGH",
                 "HIGH",
                 "LOW",
@@ -166,14 +186,14 @@ def _stub_pipeline(monkeypatch):
                 "MODERATE",
                 "LOW",
             ],
-            "restriction": ["TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS", "TESTIS"],
-            "ms_cancer_peptide_count": [60, 50, 30, 20, 10, 10, 0],
-            "rna_brain_max_ntpm": [0, 0, 0.2, 1.5, 0.1, 0.7, 0],
-            "rna_heart_max_ntpm": [0, 0, 0.3, 0, 0, 0, 0],
-            "rna_lung_max_ntpm": [0, 0, 0.2, 0, 0, 0, 0],
-            "rna_liver_max_ntpm": [0, 0, 0.1, 0, 0, 0, 0],
-            "rna_pancreas_max_ntpm": [0, 0, 0.1, 0, 0, 0, 0],
-            "ms_healthy_somatic_tissues": ["heart", "heart", "blood", "", "", "", ""],
+            "restriction": ["TESTIS"] * 8,
+            "ms_cancer_peptide_count": [60, 55, 50, 30, 20, 10, 10, 0],
+            "rna_brain_max_ntpm": [0, 0, 0, 0.2, 1.5, 0.1, 0.7, 0],
+            "rna_heart_max_ntpm": [0, 0, 0, 0.3, 0, 0, 0, 0],
+            "rna_lung_max_ntpm": [0, 0, 0, 0.2, 0, 0, 0, 0],
+            "rna_liver_max_ntpm": [0, 0, 0, 0.1, 0, 0, 0, 0],
+            "rna_pancreas_max_ntpm": [0, 0, 0, 0.1, 0, 0, 0, 0],
+            "ms_healthy_somatic_tissues": ["heart", "", "heart", "blood", "", "", "", ""],
         }
     )
     monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
@@ -213,6 +233,15 @@ def test_explicit_ctas_accepts_clinical_aliases():
     )
     assert list(df["cta"]) == ["MAGEA4", "NY-ESO-1"]
     assert df.set_index("cta").loc["NY-ESO-1", "HLA-A*02:01"] == "NYESPEPT1"
+
+
+def test_explicit_ctas_bypass_mage_family_gate():
+    df = spanning_pmhc_set(
+        ctas=["MAGEA1"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+    )
+    assert list(df["cta"]) == ["MAGEA1"]
 
 
 def test_nyeso_group_expands_ctag1a_and_ctag1b_for_peptide_resolution(monkeypatch):
@@ -257,6 +286,7 @@ def test_min_restriction_confidence_none_admits_low():
     )
     assert "BAGE" not in df["cta"].tolist()
     assert "MAGEA1" not in df["cta"].tolist()
+    assert "MAGEB2" not in df["cta"].tolist()
     assert set(df["cta"]) == {"MAGEA4", "PRAME", "VITALRNA", "NY-ESO-1"}
 
 
@@ -279,8 +309,38 @@ def test_vital_tissue_gate_can_be_disabled():
         min_restriction_confidence=("HIGH", "MODERATE"),
         restriction_levels=None,
         exclude_vital_tissue_expression=False,
+        exclude_non_magea4_mage_family=False,
     )
     assert ctas == ["MAGEA1"]
+
+
+def test_default_mage_family_gate_allows_only_magea4():
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=10,
+        cta_rank_by="ms_cancer_peptide_count",
+        min_restriction_confidence=None,
+        restriction_levels=None,
+        selection_allowlist=[],
+        exclude_vital_tissue_expression=False,
+    )
+    assert "MAGEA4" in ctas
+    assert "MAGEA1" not in ctas
+    assert "MAGEB2" not in ctas
+
+
+def test_mage_family_gate_allows_selection_allowlist():
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=10,
+        cta_rank_by="ms_cancer_peptide_count",
+        min_restriction_confidence=None,
+        restriction_levels=None,
+        selection_allowlist=["MAGEB2"],
+        exclude_vital_tissue_expression=False,
+    )
+    assert "MAGEB2" in ctas
+    assert "MAGEA1" not in ctas
 
 
 def test_default_vital_rna_gate_allows_sub_2_ntpm():
@@ -319,6 +379,24 @@ def test_vital_rna_gate_threshold_is_parameterizable():
         vital_tissue_max_ntpm=1.0,
     )
     assert "VITALRNA" not in ctas
+
+
+def test_panel_summary_sorts_ctas_by_selected_peptides():
+    selected = pd.DataFrame(
+        {
+            "cta": ["LOW", "HIGH", "HIGH"],
+            "allele": ["HLA-A*02:01", "HLA-A*02:01", "HLA-A*24:02"],
+            "peptide": ["LOWPEP", "HIGHPEP1", "HIGHPEP2"],
+            "evidence_tier": ["unrestricted_ms", "unrestricted_ms", "unrestricted_ms"],
+        }
+    )
+    summary = panel_summary(
+        selected=selected,
+        cta_list=["ZERO", "LOW", "HIGH"],
+        allele_list=["HLA-A*02:01", "HLA-A*24:02"],
+        allele_frequencies={"HLA-A*02:01": 0.2, "HLA-A*24:02": 0.1},
+    )
+    assert [row["cta"] for row in summary["cta_coverage"]] == ["HIGH", "LOW", "ZERO"]
 
 
 # ── Allele resolution ──────────────────────────────────────────────────
@@ -847,6 +925,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
         exclude_vital_tissue_expression=True,
         vital_tissue_max_ntpm=2.0,
+        exclude_non_magea4_mage_family=True,
         alleles=None,
         panel="global51_abc_ssa",
         lengths=(8, 9, 10, 11),
@@ -955,6 +1034,7 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         selection_allowlist=["PRAME", "NY-ESO-1", "MAGEA4"],
         exclude_vital_tissue_expression=True,
         vital_tissue_max_ntpm=2.0,
+        exclude_non_magea4_mage_family=True,
         alleles=None,
         panel="global51_abc_ssa",
         lengths=(8, 9, 10, 11),

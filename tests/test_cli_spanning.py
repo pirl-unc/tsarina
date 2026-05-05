@@ -40,6 +40,7 @@ PANEL_ONLY_FLAGS = (
     "--selection-allowlist",
     "--no-vital-tissue-filter",
     "--vital-tissue-max-ntpm",
+    "--allow-non-magea4-mage-family",
     "--no-summary",
     "--no-progress",
     "--progress-bars",
