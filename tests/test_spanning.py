@@ -961,6 +961,63 @@ def test_identical_selected_pmhc_ctas_are_grouped(monkeypatch):
     assert long.attrs["panel_summary"]["grouped_cta_member_count"] == 1
 
 
+def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
+    peptides = pd.DataFrame(
+        {
+            "peptide": [
+                "XAGEPEP1",
+                "XAGEPEP2",
+                "XAGEPEP1",
+                "XAGEPEP2",
+                "PAGE2PEP1",
+            ],
+            "length": [9, 9, 9, 9, 9],
+            "gene_name": ["XAGE1A", "XAGE1A", "XAGE1B", "XAGE1B", "PAGE2"],
+            "gene_id": ["E10", "E10", "E11", "E11", "E12"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: peptides,
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"XAGE1A", "XAGE1B", "PAGE2"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.loader.cta_dataframe",
+        lambda: pd.DataFrame(
+            {
+                "Symbol": ["XAGE1A", "XAGE1B", "PAGE2"],
+                "ms_cta_exclusive_cancer_peptide_count": [3, 2, 1],
+            }
+        ),
+        raising=True,
+    )
+    messages: list[str] = []
+
+    long = spanning_pmhc_set(
+        ctas=["XAGE1A", "XAGE1B", "PAGE2"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+        on_progress=messages.append,
+    )
+
+    assert long.attrs["cta_order"] == ["XAGE1A/XAGE1B", "PAGE2"]
+    assert long.attrs["cta_groups"] == [
+        {"cta": "XAGE1A/XAGE1B", "members": ["XAGE1A", "XAGE1B"]},
+        {"cta": "PAGE2", "members": ["PAGE2"]},
+    ]
+    grouped = long[long["cta"] == "XAGE1A/XAGE1B"].iloc[0]
+    assert grouped["cta_members"] == "XAGE1A;XAGE1B"
+    assert grouped["peptide"] == "XAGEPEP1"
+    assert any("XAGE1A/XAGE1B" in msg for msg in messages)
+
+
 def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):
     peptides = pd.DataFrame(
         {
@@ -1162,6 +1219,25 @@ def test_on_progress_threads_into_peptide_resolution(monkeypatch):
     assert "inner-peptide-progress" in messages
 
 
+def test_on_progress_reports_alias_gene_expansion(monkeypatch):
+    messages: list[str] = []
+
+    def _exclusive(**kw):
+        assert kw["gene_names"] == ["CTAG1A", "CTAG1B"]
+        return _stub_peptides()
+
+    monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", _exclusive, raising=True)
+
+    spanning_pmhc_set(
+        ctas=["NY-ESO-1"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=2.0,
+        on_progress=messages.append,
+    )
+
+    assert any("1 CTA target labels to 2 Ensembl genes" in message for message in messages)
+
+
 def test_on_progress_pre_scoring_message_has_accurate_counts():
     """The pre-scoring message's numbers should match the actual peptide
     and allele pool sizes: stub has 2 peptides for {MAGEA4, PRAME} each
@@ -1284,6 +1360,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         max_percentile=None,
         peptides_per_cell=3,
         group_identical_cta_pmhcs=True,
+        group_identical_cta_peptide_sets=True,
         annotate_netmhcpan_affinity=False,
         iedb_path=None,
         cedar_path=None,
@@ -1304,6 +1381,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     assert captured_kwargs["vital_tissue_max_ntpm"] == 2.0
     assert captured_kwargs["include_empty_ctas"] is False
     assert captured_kwargs["group_identical_cta_pmhcs"] is True
+    assert captured_kwargs["group_identical_cta_peptide_sets"] is True
     assert captured_kwargs["annotate_netmhcpan_affinity"] is False
 
     captured = capsys.readouterr()
@@ -1402,6 +1480,7 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         max_percentile=None,
         peptides_per_cell=3,
         group_identical_cta_pmhcs=True,
+        group_identical_cta_peptide_sets=True,
         annotate_netmhcpan_affinity=False,
         iedb_path=None,
         cedar_path=None,

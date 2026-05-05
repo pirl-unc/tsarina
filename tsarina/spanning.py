@@ -60,6 +60,7 @@ _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", "NY-ESO-1", "MAGEA4")
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
 _DEFAULT_GROUP_IDENTICAL_CTA_PMHCS = True
+_DEFAULT_GROUP_IDENTICAL_CTA_PEPTIDE_SETS = True
 _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY = False
 
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
@@ -125,6 +126,11 @@ _PMHC_SIGNATURE_COLUMNS: tuple[str, ...] = (
     "peptide_rank_in_cell",
 )
 
+_INTERNAL_SELECTED_COLUMNS: tuple[str, ...] = (
+    "cta_peptide_set_label",
+    "cta_peptide_set_members",
+)
+
 
 def spanning_pmhc_set(
     cta_count: int = 25,
@@ -150,6 +156,7 @@ def spanning_pmhc_set(
     max_percentile: float | None = None,
     peptides_per_cell: int = _DEFAULT_PEPTIDES_PER_CELL,
     group_identical_cta_pmhcs: bool = _DEFAULT_GROUP_IDENTICAL_CTA_PMHCS,
+    group_identical_cta_peptide_sets: bool = _DEFAULT_GROUP_IDENTICAL_CTA_PEPTIDE_SETS,
     annotate_netmhcpan_affinity: bool = _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
@@ -252,6 +259,11 @@ def spanning_pmhc_set(
         If True (default), non-empty CTAs with identical final selected pMHC
         rows are collapsed into one output target. The long output preserves
         semicolon-separated source labels in ``cta_members``.
+    group_identical_cta_peptide_sets
+        If True (default), non-empty CTAs whose enumerated peptide sets are
+        identical are collapsed before final pMHC-signature grouping. This
+        combines paralog targets such as XAGE/PAGE family members when they
+        genuinely present the same CTA-exclusive peptide set.
     annotate_netmhcpan_affinity
         If True, run a NetMHCpan binding-affinity pass on selected pMHC rows
         and add ``netmhcpan_affinity_nm`` plus
@@ -403,6 +415,7 @@ def spanning_pmhc_set(
             cutoffs=cutoffs,
             include_predicted_only=include_predicted_only,
             peptides_per_cell=peptides_per_cell,
+            group_identical_cta_peptide_sets=group_identical_cta_peptide_sets,
             on_progress=on_progress,
             progress_bar=progress_bar,
             score_chunk_size=score_chunk_size,
@@ -422,6 +435,7 @@ def spanning_pmhc_set(
                 nonempty_ctas,
                 selected_so_far,
                 group_identical_cta_pmhcs=group_identical_cta_pmhcs,
+                group_identical_cta_peptide_sets=group_identical_cta_peptide_sets,
             )
             _report_progress(
                 on_progress,
@@ -441,9 +455,10 @@ def spanning_pmhc_set(
             nonempty_ctas,
             selected,
             group_identical_cta_pmhcs=group_identical_cta_pmhcs,
+            group_identical_cta_peptide_sets=group_identical_cta_peptide_sets,
         )
         output_cta_list = grouped_cta_list[:cta_count]
-        output_cta_set = _cta_group_member_set(cta_groups[:cta_count])
+        output_cta_set = _cta_group_source_set(cta_groups[:cta_count])
         nonempty_cta_set = set(nonempty_ctas)
         empty_ctas = [cta for cta in processed_cta_list if cta not in nonempty_cta_set]
         selected = selected[selected["cta"].isin(output_cta_set)].reset_index(drop=True)
@@ -458,8 +473,9 @@ def spanning_pmhc_set(
             ungrouped_output_cta_list,
             selected,
             group_identical_cta_pmhcs=group_identical_cta_pmhcs,
+            group_identical_cta_peptide_sets=group_identical_cta_peptide_sets,
         )
-        selected = selected[selected["cta"].isin(_cta_group_member_set(cta_groups))].reset_index(
+        selected = selected[selected["cta"].isin(_cta_group_source_set(cta_groups))].reset_index(
             drop=True
         )
     selected = _apply_cta_groups(selected, cta_groups)
@@ -486,7 +502,8 @@ def spanning_pmhc_set(
     summary["empty_ctas"] = empty_ctas
     summary["include_empty_ctas"] = keep_empty_ctas
     summary["group_identical_cta_pmhcs"] = group_identical_cta_pmhcs
-    summary["cta_groups"] = cta_groups
+    summary["group_identical_cta_peptide_sets"] = group_identical_cta_peptide_sets
+    summary["cta_groups"] = _public_cta_groups(cta_groups)
     summary["grouped_cta_member_count"] = sum(
         max(0, len(group["members"]) - 1) for group in cta_groups
     )
@@ -538,8 +555,12 @@ def _report_progress(on_progress: Callable[[str], None] | None, message: str) ->
         on_progress(message)
 
 
+def _selected_columns() -> list[str]:
+    return [*_LONG_OUTPUT_COLUMNS, *_INTERNAL_SELECTED_COLUMNS, "peptide_rank_in_cell"]
+
+
 def _empty_selected_frame() -> pd.DataFrame:
-    return pd.DataFrame(columns=[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"])
+    return pd.DataFrame(columns=_selected_columns())
 
 
 def _nonempty_ctas_in_order(cta_list: list[str], selected: pd.DataFrame) -> list[str]:
@@ -570,6 +591,26 @@ def _selected_pmhc_signature(selected: pd.DataFrame, cta: str) -> tuple[tuple[st
     return tuple(sorted(records))
 
 
+def _split_member_text(value: object) -> list[str]:
+    if not isinstance(value, str):
+        return []
+    return [part.strip() for part in value.split(";") if part.strip()]
+
+
+def _selected_first_text(selected: pd.DataFrame, cta: str, column: str) -> str:
+    if selected.empty or column not in selected.columns:
+        return ""
+    values = selected.loc[selected["cta"] == cta, column].dropna().astype(str)
+    if values.empty:
+        return ""
+    return str(values.iloc[0])
+
+
+def _selected_member_labels(selected: pd.DataFrame, cta: str) -> list[str]:
+    members = _split_member_text(_selected_first_text(selected, cta, "cta_peptide_set_members"))
+    return members or [cta]
+
+
 def _cta_group_label(members: tuple[str, ...]) -> str:
     if len(members) == 1:
         return members[0]
@@ -580,15 +621,24 @@ def _cta_group_order(
     cta_list: list[str],
     selected: pd.DataFrame,
     group_identical_cta_pmhcs: bool,
+    group_identical_cta_peptide_sets: bool,
 ) -> tuple[list[str], list[dict[str, object]]]:
     if not cta_list:
         return [], []
 
     groups: list[list[str]] = []
-    signature_to_group_index: dict[tuple[tuple[str, ...], ...], int] = {}
+    signature_to_group_index: dict[tuple[str, object], int] = {}
     for cta in cta_list:
-        signature = _selected_pmhc_signature(selected, cta)
-        if group_identical_cta_pmhcs and signature:
+        peptide_set_label = _selected_first_text(selected, cta, "cta_peptide_set_label")
+        peptide_set_members = _split_member_text(
+            _selected_first_text(selected, cta, "cta_peptide_set_members")
+        )
+        if group_identical_cta_peptide_sets and peptide_set_label and len(peptide_set_members) > 1:
+            signature = ("peptide_set", peptide_set_label)
+        else:
+            pmhc_signature = _selected_pmhc_signature(selected, cta)
+            signature = ("pmhc", pmhc_signature) if group_identical_cta_pmhcs else ("cta", cta)
+        if signature[1]:
             group_index = signature_to_group_index.get(signature)
             if group_index is not None:
                 groups[group_index].append(cta)
@@ -598,25 +648,40 @@ def _cta_group_order(
 
     grouped = []
     labels = []
-    for members in groups:
-        member_tuple = tuple(members)
-        label = _cta_group_label(member_tuple)
+    for source_ctas in groups:
+        source_tuple = tuple(source_ctas)
+        peptide_set_label = _selected_first_text(selected, source_ctas[0], "cta_peptide_set_label")
+        peptide_set_members = _split_member_text(
+            _selected_first_text(selected, source_ctas[0], "cta_peptide_set_members")
+        )
+        if peptide_set_label and len(peptide_set_members) > 1:
+            label = peptide_set_label
+        else:
+            label = _cta_group_label(source_tuple)
+        members: list[str] = []
+        seen_members: set[str] = set()
+        for source_cta in source_ctas:
+            for member in _selected_member_labels(selected, source_cta):
+                if member not in seen_members:
+                    members.append(member)
+                    seen_members.add(member)
         labels.append(label)
-        grouped.append({"cta": label, "members": list(member_tuple)})
+        grouped.append({"cta": label, "members": members, "source_ctas": list(source_tuple)})
     return labels, grouped
 
 
-def _cta_group_member_set(cta_groups: list[dict[str, object]]) -> set[str]:
-    members: set[str] = set()
+def _cta_group_source_set(cta_groups: list[dict[str, object]]) -> set[str]:
+    source_ctas: set[str] = set()
     for group in cta_groups:
-        for member in group.get("members", []):
-            members.add(str(member))
-    return members
+        values = group.get("source_ctas", group.get("members", []))
+        for source_cta in values:
+            source_ctas.add(str(source_cta))
+    return source_ctas
 
 
 def _apply_cta_groups(selected: pd.DataFrame, cta_groups: list[dict[str, object]]) -> pd.DataFrame:
     out = selected.copy()
-    for column in _LONG_OUTPUT_COLUMNS:
+    for column in [*_LONG_OUTPUT_COLUMNS, *_INTERNAL_SELECTED_COLUMNS]:
         if column not in out.columns:
             out[column] = pd.NA
     if "peptide_rank_in_cell" not in out.columns:
@@ -624,18 +689,18 @@ def _apply_cta_groups(selected: pd.DataFrame, cta_groups: list[dict[str, object]
     if out.empty or "cta" not in out.columns:
         return out[[*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]]
 
-    member_to_label: dict[str, str] = {}
-    member_to_members: dict[str, str] = {}
+    source_to_label: dict[str, str] = {}
+    source_to_members: dict[str, str] = {}
     for group in cta_groups:
         label = str(group["cta"])
         members = [str(member) for member in group.get("members", [])]
         member_text = ";".join(members) if members else label
-        for member in members:
-            member_to_label[member] = label
-            member_to_members[member] = member_text
+        for source_cta in group.get("source_ctas", members):
+            source_to_label[str(source_cta)] = label
+            source_to_members[str(source_cta)] = member_text
 
-    out["cta_members"] = out["cta"].map(member_to_members).fillna(out["cta"])
-    out["cta"] = out["cta"].map(member_to_label).fillna(out["cta"])
+    out["cta_members"] = out["cta"].map(source_to_members).fillna(out["cta"])
+    out["cta"] = out["cta"].map(source_to_label).fillna(out["cta"])
     dedupe_columns = [
         column
         for column in [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
@@ -653,9 +718,9 @@ def _cta_rank_values_with_groups(
     for group in cta_groups:
         label = str(group["cta"])
         values = [
-            cta_rank_values[member]
-            for member in group.get("members", [])
-            if member in cta_rank_values
+            cta_rank_values[source_cta]
+            for source_cta in group.get("source_ctas", group.get("members", []))
+            if source_cta in cta_rank_values
         ]
         numeric_values = []
         for value in values:
@@ -763,6 +828,7 @@ def _select_cta_batch(
     cutoffs: dict[str, float],
     include_predicted_only: bool,
     peptides_per_cell: int,
+    group_identical_cta_peptide_sets: bool,
     on_progress: Callable[[str], None] | None = None,
     progress_bar: bool = False,
     score_chunk_size: int | None = None,
@@ -789,6 +855,12 @@ def _select_cta_batch(
     if pep_df.empty:
         _report_progress(on_progress, "No CTA peptides survived peptide enumeration.")
         return _empty_selected_frame()
+    pep_df = _annotate_identical_cta_peptide_sets(
+        pep_df,
+        cta_list=cta_list,
+        group_identical_cta_peptide_sets=group_identical_cta_peptide_sets,
+        on_progress=on_progress,
+    )
 
     from .ms_evidence import load_public_ms_hits
 
@@ -1177,6 +1249,12 @@ def _resolve_peptides(
     progress_file: TextIO | None = None,
 ) -> pd.DataFrame:
     cta_symbols = _expand_cta_symbols(cta_list)
+    if len(cta_symbols) != len(cta_list):
+        _report_progress(
+            on_progress,
+            f"Peptide enumeration expands {len(cta_list)} CTA target labels to "
+            f"{len(cta_symbols)} Ensembl genes after alias/group expansion.",
+        )
     if require_cta_exclusive:
         from .peptides import cta_exclusive_peptides
 
@@ -1204,6 +1282,58 @@ def _resolve_peptides(
     out = all_peps[all_peps["gene_name"].isin(cta_symbols)].copy()
     out["gene_name"] = out["gene_name"].map(_cta_display_name)
     return out[out["gene_name"].isin(cta_list)].copy()
+
+
+def _peptide_set_signature(pep_df: pd.DataFrame, cta: str) -> tuple[str, ...]:
+    if pep_df.empty or "gene_name" not in pep_df.columns or "peptide" not in pep_df.columns:
+        return ()
+    peptides = pep_df.loc[pep_df["gene_name"] == cta, "peptide"].dropna().astype(str)
+    return tuple(sorted(peptides.unique()))
+
+
+def _annotate_identical_cta_peptide_sets(
+    pep_df: pd.DataFrame,
+    cta_list: list[str],
+    group_identical_cta_peptide_sets: bool,
+    on_progress: Callable[[str], None] | None = None,
+) -> pd.DataFrame:
+    out = pep_df.copy()
+    if "gene_name" not in out.columns:
+        out["cta_peptide_set_label"] = pd.NA
+        out["cta_peptide_set_members"] = pd.NA
+        return out
+
+    label_by_cta = {cta: cta for cta in cta_list}
+    members_by_cta = {cta: cta for cta in cta_list}
+    if group_identical_cta_peptide_sets:
+        signature_to_ctas: dict[tuple[str, ...], list[str]] = {}
+        for cta in cta_list:
+            signature = _peptide_set_signature(out, cta)
+            if signature:
+                signature_to_ctas.setdefault(signature, []).append(cta)
+
+        grouped_labels = []
+        for members in signature_to_ctas.values():
+            if len(members) < 2:
+                continue
+            member_tuple = tuple(members)
+            group_label = _cta_group_label(member_tuple)
+            member_text = ";".join(members)
+            grouped_labels.append(group_label)
+            for member in members:
+                label_by_cta[member] = group_label
+                members_by_cta[member] = member_text
+
+        if grouped_labels:
+            _report_progress(
+                on_progress,
+                "Grouped CTA targets with identical peptide sets: "
+                + ", ".join(sorted(grouped_labels)),
+            )
+
+    out["cta_peptide_set_label"] = out["gene_name"].map(label_by_cta).fillna(out["gene_name"])
+    out["cta_peptide_set_members"] = out["gene_name"].map(members_by_cta).fillna(out["gene_name"])
+    return out
 
 
 def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list[str]:
@@ -1422,13 +1552,17 @@ def _candidate_rows(
     cutoffs: dict[str, float],
     include_predicted_only: bool,
 ) -> pd.DataFrame:
-    columns = [*_LONG_OUTPUT_COLUMNS, "_tier_rank"]
+    columns = [*_LONG_OUTPUT_COLUMNS, *_INTERNAL_SELECTED_COLUMNS, "_tier_rank"]
     if scores.empty or "presentation_percentile" not in scores.columns:
         return pd.DataFrame(columns=columns)
 
+    pep_df = pep_df.copy()
+    for column in _INTERNAL_SELECTED_COLUMNS:
+        if column not in pep_df.columns:
+            pep_df[column] = pep_df.get("gene_name", pd.NA)
     pep_meta = (
-        pep_df[["peptide", "gene_name", "length"]]
-        .drop_duplicates(subset=["peptide", "gene_name", "length"])
+        pep_df[["peptide", "gene_name", "length", *_INTERNAL_SELECTED_COLUMNS]]
+        .drop_duplicates(subset=["peptide", "gene_name", "length", *_INTERNAL_SELECTED_COLUMNS])
         .rename(columns={"gene_name": "cta"})
     )
     scored = scores[scores["allele"].isin(allele_list)].merge(pep_meta, on="peptide", how="inner")
@@ -1483,6 +1617,8 @@ def _candidate_rows(
                 "affinity_percentile": getattr(row, "affinity_percentile", pd.NA),
                 "netmhcpan_affinity_nm": pd.NA,
                 "netmhcpan_affinity_percentile": pd.NA,
+                "cta_peptide_set_label": getattr(row, "cta_peptide_set_label", row.cta),
+                "cta_peptide_set_members": getattr(row, "cta_peptide_set_members", row.cta),
                 "_tier_rank": _EVIDENCE_TIER_RANKS[chosen_tier],
             }
         )
@@ -1493,7 +1629,7 @@ def _candidate_rows(
 def _top_per_cell(candidates: pd.DataFrame, peptides_per_cell: int) -> pd.DataFrame:
     """For each (cta, allele), keep the top-N peptides by evidence support."""
     if candidates.empty:
-        return pd.DataFrame(columns=list(_LONG_OUTPUT_COLUMNS))
+        return pd.DataFrame(columns=_selected_columns())
 
     ranked = candidates.copy()
     cell_has_ms = ranked.groupby(["cta", "allele"])["ms_hit_count"].transform("max") > 0
@@ -1512,7 +1648,7 @@ def _top_per_cell(candidates: pd.DataFrame, peptides_per_cell: int) -> pd.DataFr
     ranked = ranked.sort_values(sort_cols, kind="mergesort")
     ranked["peptide_rank_in_cell"] = ranked.groupby(["cta", "allele"]).cumcount() + 1
     selected = ranked[ranked["peptide_rank_in_cell"] <= peptides_per_cell].copy()
-    columns = [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
+    columns = _selected_columns()
     return selected[columns].reset_index(drop=True)
 
 
@@ -1736,7 +1872,7 @@ def _attach_panel_attrs(
     out.attrs["cta_order"] = list(cta_list)
     out.attrs["input_cta_order"] = list(input_cta_list or cta_list)
     out.attrs["empty_ctas"] = list(empty_ctas or [])
-    out.attrs["cta_groups"] = list(cta_groups or [])
+    out.attrs["cta_groups"] = _public_cta_groups(cta_groups or [])
     out.attrs["allele_order"] = list(allele_list)
     out.attrs["allele_frequencies"] = dict(allele_frequencies)
     out.attrs["allele_frequency_sources"] = dict(allele_frequency_sources or {})
@@ -1746,6 +1882,13 @@ def _attach_panel_attrs(
     out.attrs["cta_rank_values"] = dict(cta_rank_values)
     out.attrs["panel_summary"] = summary
     return out
+
+
+def _public_cta_groups(cta_groups: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [
+        {"cta": str(group["cta"]), "members": [str(member) for member in group.get("members", [])]}
+        for group in cta_groups
+    ]
 
 
 def _empty_output(
@@ -1782,7 +1925,8 @@ def _empty_output(
     summary["include_empty_ctas"] = include_empty_ctas
     cta_groups = [{"cta": cta, "members": [cta]} for cta in cta_list]
     summary["group_identical_cta_pmhcs"] = False
-    summary["cta_groups"] = cta_groups
+    summary["group_identical_cta_peptide_sets"] = False
+    summary["cta_groups"] = _public_cta_groups(cta_groups)
     summary["grouped_cta_member_count"] = 0
     summary["annotate_netmhcpan_affinity"] = False
     return _attach_panel_attrs(
