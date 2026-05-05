@@ -93,7 +93,11 @@ def CTA_evidence() -> pd.DataFrame:
         Number of non-reproductive tissues with nTPM >= 1.
     ms_restriction : str
         MS-based restriction. Default ``NO_MS_DATA``; computed at
-        runtime by :func:`CTA_detailed_evidence` when IEDB data available.
+        runtime by :func:`CTA_detailed_evidence` when public MS data are
+        available.
+    ms_cta_exclusive_*_peptide_count : int
+        MS peptide counts restricted to peptides absent from non-CTA proteins.
+        Broad ``ms_*`` peptide count columns remain all-CTA counts.
     restriction : str
         Synthesized restriction integrating protein + RNA + MS:
         ``TESTIS`` / ``PLACENTAL`` / ``REPRODUCTIVE`` / ``SOMATIC`` / ``NO_DATA``.
@@ -111,7 +115,7 @@ def CTA_detailed_evidence(
 ) -> pd.DataFrame:
     """Return CTA evidence with full per-tissue breakdown and MS safety.
 
-    Augments the shipped CTA evidence table with optional detail columns
+    Augments the bundled CTA evidence table with optional detail columns
     computed from raw data files.  IEDB/CEDAR paths auto-resolve from
     the hitlist data registry when not provided.
 
@@ -155,10 +159,11 @@ def CTA_detailed_evidence(
             for col in detail_df.columns:
                 df[col] = detail_df[col]
 
-    # MS restriction computation — queries the hitlist observations index
-    # (built on demand).  Missing pyensembl / mhcflurry / an unregistered
-    # IEDB / a missing index are all tolerated so callers without full data
-    # still get the base evidence frame.
+    # MS restriction computation — queries public MHC-ligand MS evidence
+    # through hitlist's observations index by default, or explicit raw
+    # IEDB/CEDAR paths when supplied. Missing pyensembl / mhcflurry / an
+    # unregistered IEDB / a missing index are all tolerated so callers
+    # without full data still get the base evidence frame.
     import contextlib
 
     from .datasources import DatasetNotRegisteredError
@@ -175,11 +180,12 @@ def _compute_ms_restriction(
     cedar_path: str | Path | None,
     genes: set[str] | list[str] | None = None,
 ) -> pd.DataFrame:
-    """Compute per-gene MS restriction from IEDB/CEDAR data."""
-    from .peptides import cta_peptides
+    """Compute per-gene MS restriction from public MHC-ligand MS evidence."""
+    from .peptides import cta_exclusive_peptides, cta_peptides
     from .tiers import aggregate_gene_ms_safety
 
-    pep_df = cta_peptides()
+    peptide_kwargs = {"gene_names": genes} if genes is not None else {}
+    pep_df = cta_peptides(**peptide_kwargs)
     if pep_df.empty:
         return df
 
@@ -205,8 +211,20 @@ def _compute_ms_restriction(
     if hits.empty:
         return df
 
+    exclusive_pep_df = cta_exclusive_peptides(**peptide_kwargs)
+    if not exclusive_pep_df.empty and genes is not None:
+        exclusive_pep_df = exclusive_pep_df[exclusive_pep_df["gene_name"].isin(gene_set)]
+
     gene_map = pep_df[["peptide", "gene_name"]].drop_duplicates()
-    ms_df = aggregate_gene_ms_safety(hits, gene_map)
+    if {"peptide", "gene_name"} <= set(exclusive_pep_df.columns):
+        exclusive_gene_map = exclusive_pep_df[["peptide", "gene_name"]].drop_duplicates()
+    else:
+        exclusive_gene_map = pd.DataFrame(columns=["peptide", "gene_name"])
+    ms_df = aggregate_gene_ms_safety(
+        hits,
+        gene_map,
+        exclusive_peptide_gene_map=exclusive_gene_map,
+    )
 
     if not ms_df.empty:
         ms_merge = ms_df.set_index("gene_name")
