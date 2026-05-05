@@ -1010,24 +1010,23 @@ def _build_evidence_stats(
             allele for allele in restrictions if allele in panel_alleles and "*" in allele
         }
         is_monoallelic = _is_truthy(row.get("is_monoallelic", False))
+        sample_alleles = set(split_mhc_restrictions(row.get("mhc_allele_set", "")))
+        provenance = str(row.get("mhc_allele_provenance", "")).strip()
         matched = False
 
         if is_monoallelic and exact_panel_alleles:
             for allele in exact_panel_alleles:
                 _add_evidence(stats, (peptide, allele, "monoallelic_ms"), row)
             matched = True
+        elif provenance == "sample_allele_match" and sample_alleles:
+            for allele in sorted(panel_alleles & sample_alleles):
+                if _is_best_sample_allele(peptide, allele, sample_alleles, score_lookup):
+                    _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
+                    matched = True
         elif exact_panel_alleles:
             for allele in exact_panel_alleles:
                 _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
             matched = True
-        else:
-            sample_alleles = set(split_mhc_restrictions(row.get("mhc_allele_set", "")))
-            provenance = str(row.get("mhc_allele_provenance", "")).strip()
-            if provenance == "sample_allele_match" and sample_alleles:
-                for allele in sorted(panel_alleles & sample_alleles):
-                    if _is_best_sample_allele(peptide, allele, sample_alleles, score_lookup):
-                        _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
-                        matched = True
 
         has_specific_restriction = any(
             allele.startswith("HLA-") and "*" in allele for allele in restrictions

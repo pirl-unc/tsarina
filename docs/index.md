@@ -268,7 +268,7 @@ Evidence tiers use configurable presentation percentile cutoffs:
 | Evidence tier | Default cutoff | Meaning |
 |---|---:|---|
 | `monoallelic_ms` | < 2.0 | Peptide observed in mono-allelic MS for that HLA |
-| `sample_allele_ms` | < 1.0 | Peptide observed in a multi-allelic sample where this HLA is best among sample alleles |
+| `sample_allele_ms` | < 1.0 | Peptide observed in a multi-allelic sample where this HLA is best among sample alleles, including sample-genotype rows that list exact HLA restrictions |
 | `unrestricted_ms` | < 0.5 | Peptide observed by MS with no usable allele assignment |
 | `predicted_only` | < 0.1 | No MS support; excluded unless `--include-predicted-only` is passed |
 

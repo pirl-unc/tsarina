@@ -23,6 +23,8 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
       allele has a global average plus a coverage frequency.
 - [x] Pin clinical allowlisted CTAs into automatic panels and hide downstream
       empty CTAs from default automatic panel output unless explicitly requested.
+- [x] Ensure sample-genotype MS evidence assigns HLA specificity by
+      best-of-haplotype prediction unless the evidence is monoallelic.
 - [x] Document why selected CTAs may have zero peptides after downstream
       peptide/exclusivity/MS/prediction gates.
 - [x] Bump the package patch version and run `./format.sh`, `./lint.sh`, and
@@ -49,8 +51,12 @@ coverage summaries easier to scan by sorting CTA rows by selected peptide yield.
   automatic output hides CTAs with no selected pMHCs. Use `--show-empty-ctas`
   to restore the previous audit view; explicit `--ctas` requests are preserved
   even when empty.
+- Sample-genotype MS rows now use best-of-haplotype specificity before broad
+  exact-restriction assignment, so multi-allelic sample rows that list several
+  HLA restrictions only support the best predicted panel allele unless they are
+  monoallelic.
 - Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
-  (283 tests).
+  (284 tests).
 
 # PR — Faster MHCflurry Scoring Without Affinity Percentile Calibration (2026-05-04)
 
