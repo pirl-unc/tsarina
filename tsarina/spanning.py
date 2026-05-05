@@ -276,7 +276,9 @@ def spanning_pmhc_set(
     _report_progress(on_progress, f"tsarina v{__version__}")
 
     allele_list = _resolve_alleles(alleles, panel)
-    allele_frequencies = _weighted_allele_frequencies(allele_list)
+    frequency_audit = _frequency_audit_for_alleles(allele_list)
+    allele_frequencies = _frequencies_from_audit(frequency_audit, allele_list)
+    allele_frequency_sources = _frequency_sources_from_audit(frequency_audit, allele_list)
     if alleles is None:
         allele_list = _order_alleles_by_frequency(allele_list, allele_frequencies)
     cta_list = _resolve_ctas(
@@ -301,7 +303,13 @@ def spanning_pmhc_set(
 
     if not cta_list or not allele_list:
         return _empty_output(
-            cta_list, allele_list, output_format, allele_frequencies, cta_rank_values
+            cta_list,
+            allele_list,
+            output_format,
+            allele_frequencies,
+            cta_rank_values,
+            allele_frequency_sources,
+            frequency_audit,
         )
 
     _report_progress(
@@ -322,7 +330,13 @@ def spanning_pmhc_set(
     if pep_df.empty:
         _report_progress(on_progress, "No CTA peptides survived peptide enumeration.")
         return _empty_output(
-            cta_list, allele_list, output_format, allele_frequencies, cta_rank_values
+            cta_list,
+            allele_list,
+            output_format,
+            allele_frequencies,
+            cta_rank_values,
+            allele_frequency_sources,
+            frequency_audit,
         )
 
     from .ms_evidence import load_public_ms_hits
@@ -389,6 +403,7 @@ def spanning_pmhc_set(
         cta_list=cta_list,
         allele_list=allele_list,
         allele_frequencies=allele_frequencies,
+        allele_frequency_sources=allele_frequency_sources,
     )
 
     _report_progress(
@@ -404,7 +419,14 @@ def spanning_pmhc_set(
     else:
         out = _to_long(selected, cta_list, allele_list)
     return _attach_panel_attrs(
-        out, cta_list, allele_list, allele_frequencies, cta_rank_values, summary
+        out,
+        cta_list,
+        allele_list,
+        allele_frequencies,
+        cta_rank_values,
+        summary,
+        allele_frequency_sources,
+        frequency_audit,
     )
 
 
@@ -438,41 +460,45 @@ def _weighted_allele_frequencies(allele_list: list[str]) -> dict[str, float]:
     The region table can contain multiple proxy populations per region. Use the
     maximum frequency per region and allele so an extra validation proxy does
     not overweight that region, then weight regions by population. If an allele
-    has no numeric regional proxy, fall back to global CIWD-style frequencies
+    has no numeric regional proxy, fall back to published global frequencies
     when available so known-frequency panel alleles do not report artificial
     zero coverage.
     """
+    return _frequencies_from_audit(_frequency_audit_for_alleles(allele_list), allele_list)
+
+
+def _frequency_audit_for_alleles(allele_list: list[str]) -> pd.DataFrame:
     try:
-        from .regions import (
-            REGION_POPULATIONS,
-            global_allele_frequencies,
-            region_allele_frequencies,
-        )
+        from .regions import allele_frequency_audit
     except ImportError:
-        return dict.fromkeys(allele_list, 0.0)
+        return pd.DataFrame(
+            {
+                "allele": allele_list,
+                "coverage_frequency": [0.0] * len(allele_list),
+                "coverage_frequency_source": ["missing"] * len(allele_list),
+            }
+        )
+    return allele_frequency_audit(allele_list)
 
-    weighted: dict[str, float] = dict.fromkeys(allele_list, 0.0)
-    freqs = region_allele_frequencies()
-    if not freqs.empty and "frequency" in freqs.columns:
-        freqs = freqs[freqs["allele"].isin(allele_list)].copy()
-        freqs = freqs[pd.notna(freqs["frequency"])]
-        if not freqs.empty:
-            per_region = freqs.groupby(["region", "allele"], as_index=False)["frequency"].max()
-            total_population = sum(float(population) for population in REGION_POPULATIONS.values())
-            for row in per_region.itertuples(index=False):
-                population = REGION_POPULATIONS.get(row.region)
-                if population is None:
-                    continue
-                weighted[row.allele] += float(row.frequency) * float(population) / total_population
 
-    global_freqs = global_allele_frequencies()
-    if not global_freqs.empty and {"allele", "frequency"} <= set(global_freqs.columns):
-        global_freqs = global_freqs[global_freqs["allele"].isin(allele_list)]
-        global_freqs = global_freqs[pd.notna(global_freqs["frequency"])]
-        for row in global_freqs.itertuples(index=False):
-            if weighted.get(row.allele, 0.0) == 0.0:
-                weighted[row.allele] = float(row.frequency)
-    return weighted
+def _frequencies_from_audit(audit: pd.DataFrame, allele_list: list[str]) -> dict[str, float]:
+    frequencies: dict[str, float] = dict.fromkeys(allele_list, 0.0)
+    if audit.empty or not {"allele", "coverage_frequency"} <= set(audit.columns):
+        return frequencies
+    for row in audit.itertuples(index=False):
+        frequency = getattr(row, "coverage_frequency", 0.0)
+        if pd.notna(frequency):
+            frequencies[str(row.allele)] = float(frequency)
+    return frequencies
+
+
+def _frequency_sources_from_audit(audit: pd.DataFrame, allele_list: list[str]) -> dict[str, str]:
+    sources: dict[str, str] = dict.fromkeys(allele_list, "missing")
+    if audit.empty or not {"allele", "coverage_frequency_source"} <= set(audit.columns):
+        return sources
+    for row in audit.itertuples(index=False):
+        sources[str(row.allele)] = str(getattr(row, "coverage_frequency_source", "missing"))
+    return sources
 
 
 def _order_alleles_by_frequency(
@@ -1113,6 +1139,7 @@ def panel_summary(
     cta_list: list[str],
     allele_list: list[str],
     allele_frequencies: dict[str, float] | None = None,
+    allele_frequency_sources: dict[str, str] | None = None,
 ) -> dict[str, object]:
     """Summarize a selected panel table.
 
@@ -1122,6 +1149,7 @@ def panel_summary(
     population-genetics inference.
     """
     allele_frequencies = allele_frequencies or dict.fromkeys(allele_list, 0.0)
+    allele_frequency_sources = allele_frequency_sources or dict.fromkeys(allele_list, "missing")
     possible_cell_count = len(cta_list) * len(allele_list)
 
     if selected.empty:
@@ -1178,6 +1206,7 @@ def panel_summary(
             {
                 "allele": allele,
                 "weighted_allele_frequency": allele_frequencies.get(allele, 0.0),
+                "frequency_source": allele_frequency_sources.get(allele, "missing"),
                 "covered_cta_count": len(covered_ctas),
                 "covered_cta_fraction": 0.0
                 if total_ctas == 0
@@ -1210,9 +1239,10 @@ def panel_summary(
         "cta_coverage": cta_rows,
         "hla_coverage": hla_rows,
         "coverage_note": (
-            "Estimated from weighted regional HLA allele frequencies, with global "
-            "frequency fallbacks when no regional proxy is available, using an "
-            "independent-carrier approximation."
+            "Estimated from 0-1 HLA allele frequencies. Coverage uses population-weighted "
+            "regional proxy frequencies when available and published global averages only "
+            "for alleles with no numeric regional proxy, then applies an independent-carrier "
+            "approximation."
         ),
     }
 
@@ -1224,10 +1254,16 @@ def _attach_panel_attrs(
     allele_frequencies: dict[str, float],
     cta_rank_values: dict[str, float | str],
     summary: dict[str, object],
+    allele_frequency_sources: dict[str, str] | None = None,
+    frequency_audit: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     out.attrs["cta_order"] = list(cta_list)
     out.attrs["allele_order"] = list(allele_list)
     out.attrs["allele_frequencies"] = dict(allele_frequencies)
+    out.attrs["allele_frequency_sources"] = dict(allele_frequency_sources or {})
+    out.attrs["allele_frequency_audit"] = (
+        [] if frequency_audit is None else frequency_audit.to_dict("records")
+    )
     out.attrs["cta_rank_values"] = dict(cta_rank_values)
     out.attrs["panel_summary"] = summary
     return out
@@ -1239,6 +1275,8 @@ def _empty_output(
     output_format: str,
     allele_frequencies: dict[str, float] | None = None,
     cta_rank_values: dict[str, float | str] | None = None,
+    allele_frequency_sources: dict[str, str] | None = None,
+    frequency_audit: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     if output_format == "wide":
         wide = pd.DataFrame(index=cta_list, columns=allele_list, dtype=object)
@@ -1252,6 +1290,7 @@ def _empty_output(
         cta_list=cta_list,
         allele_list=allele_list,
         allele_frequencies=allele_frequencies,
+        allele_frequency_sources=allele_frequency_sources,
     )
     return _attach_panel_attrs(
         out,
@@ -1260,4 +1299,6 @@ def _empty_output(
         allele_frequencies,
         cta_rank_values or {},
         summary,
+        allele_frequency_sources,
+        frequency_audit,
     )

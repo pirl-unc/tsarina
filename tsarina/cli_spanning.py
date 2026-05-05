@@ -527,6 +527,7 @@ def format_panel_summary(df) -> str:
         [
             str(row["allele"]),
             _format_percent(row["weighted_allele_frequency"]),
+            str(row.get("frequency_source", "missing")),
             str(row["covered_cta_count"]),
             _format_percent(row["covered_cta_fraction"]),
             str(row["selected_peptide_count"]),
@@ -537,7 +538,10 @@ def format_panel_summary(df) -> str:
         [
             "",
             "CTA Coverage Per HLA",
-            _plain_table(["HLA", "HLA freq", "CTAs", "CTA frac", "Peptides"], hla_rows),
+            _plain_table(
+                ["HLA", "HLA freq", "Freq source", "CTAs", "CTA frac", "Peptides"],
+                hla_rows,
+            ),
         ]
     )
     return "\n".join(lines)
