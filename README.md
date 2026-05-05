@@ -250,6 +250,8 @@ Defaults:
   are explicitly requested or allowlisted
 - `NY-ESO-1` is treated as one grouped CTA target backed by `CTAG1A` and
   `CTAG1B`
+- CTAs with identical final selected pMHC panels are grouped so paralogous
+  targets do not consume multiple automatic panel slots
 - `global53_abc` HLA-A/B/C panel
 - 8-11mer CTA-exclusive peptides
 - MHCflurry presentation scoring
@@ -286,13 +288,19 @@ Coverage Per CTA" rows are sorted by selected peptide count, then HLA-hit count,
 then estimated population coverage, and split monoallelic MS pMHC support from
 sample-genotype/deconvolved MS support.
 
+Pass `--no-group-identical-cta-pmhcs` to show duplicate CTA rows separately.
+Pass `--netmhcpan-affinity` to annotate every selected pMHC row with NetMHCpan
+BA affinity nM and affinity percentile rank. This is opt-in because it requires
+the external NetMHCpan backend and adds a second scoring pass when the main
+selector is using MHCflurry.
+
 Evidence tiers use configurable presentation percentile cutoffs:
 
 | Evidence tier | Default cutoff | Meaning |
 |---|---:|---|
 | `monoallelic_ms` | < 2.0 | Peptide observed in mono-allelic MS for that HLA |
 | `sample_allele_ms` | < 1.0 | Peptide observed in a multi-allelic sample where this HLA is best among sample alleles, including sample-genotype rows that list exact HLA restrictions |
-| `unrestricted_ms` | < 0.5 | Peptide observed by MS with no usable allele assignment |
+| `unrestricted_ms` | < 0.5 | Peptide observed by class-I MS with no usable allele assignment; the selected panel HLA is assigned by prediction under this stricter cutoff |
 | `predicted_only` | < 0.1 | No MS support; excluded unless `--include-predicted-only` is passed |
 
 Available HLA panels:

@@ -18,6 +18,7 @@ Wraps :func:`tsarina.spanning.spanning_pmhc_set` with argparse.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -224,6 +225,25 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--no-group-identical-cta-pmhcs",
+        dest="group_identical_cta_pmhcs",
+        action="store_false",
+        help=(
+            "Do not collapse CTA targets that produce identical selected pMHC panels. "
+            "By default, redundant non-empty CTA rows are grouped and lower-ranked "
+            "distinct candidates are backfilled."
+        ),
+    )
+    p.add_argument(
+        "--netmhcpan-affinity",
+        dest="annotate_netmhcpan_affinity",
+        action="store_true",
+        help=(
+            "Annotate every selected pMHC row with NetMHCpan BA affinity nM and "
+            "affinity percentile rank. Requires the external NetMHCpan backend."
+        ),
+    )
+    p.add_argument(
         "--iedb-path",
         default=None,
         help="Optional explicit IEDB ligand CSV; default uses cached hitlist observations.",
@@ -308,6 +328,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "multi-allelic "
             "sample-genotype MS <1.0, unrestricted MS <0.5. Prediction-only "
             "candidates are excluded unless --include-predicted-only is supplied. "
+            "CTAs with identical selected pMHC panels are grouped by default. "
             "The default output is a readable table plus coverage summary."
         ),
     )
@@ -359,6 +380,8 @@ def handle(args: argparse.Namespace) -> None:
         predicted_only_max_percentile=args.predicted_only_max_percentile,
         max_percentile=args.max_percentile,
         peptides_per_cell=args.peptides_per_cell,
+        group_identical_cta_pmhcs=args.group_identical_cta_pmhcs,
+        annotate_netmhcpan_affinity=args.annotate_netmhcpan_affinity,
         iedb_path=args.iedb_path,
         cedar_path=args.cedar_path,
         output_format=output_format,
@@ -412,6 +435,8 @@ def _format_optional_float(value: object, digits: int) -> str:
         number = float(value)
     except (TypeError, ValueError):
         return ""
+    if math.isnan(number):
+        return ""
     return f"{number:.{digits}f}"
 
 
@@ -445,6 +470,12 @@ def format_panel_table(df) -> str:
     out["_cta_order"] = out["cta"].map(cta_order).fillna(len(cta_order))
     out["_allele_order"] = out["allele"].map(allele_order).fillna(len(allele_order))
     out = out.sort_values(["_cta_order", "_allele_order", "peptide_rank_in_cell"])
+    show_netmhcpan_affinity = {"netmhcpan_affinity_nm", "netmhcpan_affinity_percentile"} <= set(
+        out.columns
+    ) and (
+        out["netmhcpan_affinity_nm"].notna().any()
+        or out["netmhcpan_affinity_percentile"].notna().any()
+    )
 
     rows: list[list[str]] = []
     previous_cta = None
@@ -455,42 +486,49 @@ def format_panel_table(df) -> str:
         cell = (cta, allele)
         show_cta = cta != previous_cta
         show_allele = cell != previous_cell
-        rows.append(
-            [
-                cta if show_cta else "",
-                _format_rank_value(cta_rank_values.get(cta)) if show_cta else "",
-                allele if show_allele else "",
-                _format_percent(allele_frequencies.get(allele)) if show_allele else "",
-                str(row.peptide),
-                str(row.evidence_tier),
-                str(row.ms_source_count),
-                str(row.ms_hit_count),
-                _pmid_count(row.ms_pmids),
-                _format_optional_float(row.presentation_percentile, 3),
-                _format_optional_float(row.presentation_score, 3),
-                _format_optional_float(row.affinity_nm, 1),
-            ]
-        )
+        table_row = [
+            cta if show_cta else "",
+            _format_rank_value(cta_rank_values.get(cta)) if show_cta else "",
+            allele if show_allele else "",
+            _format_percent(allele_frequencies.get(allele)) if show_allele else "",
+            str(row.peptide),
+            str(row.evidence_tier),
+            str(row.ms_source_count),
+            str(row.ms_hit_count),
+            _pmid_count(row.ms_pmids),
+            _format_optional_float(row.presentation_percentile, 3),
+            _format_optional_float(row.presentation_score, 3),
+            _format_optional_float(row.affinity_nm, 1),
+        ]
+        if show_netmhcpan_affinity:
+            table_row.extend(
+                [
+                    _format_optional_float(row.netmhcpan_affinity_percentile, 3),
+                    _format_optional_float(row.netmhcpan_affinity_nm, 1),
+                ]
+            )
+        rows.append(table_row)
         previous_cta = cta
         previous_cell = cell
 
-    return _plain_table(
-        [
-            "CTA",
-            "CTA rank",
-            "HLA",
-            "HLA freq",
-            "Peptide",
-            "Tier",
-            "Sources",
-            "MS hits",
-            "PMIDs",
-            "%Rank",
-            "Score",
-            "nM",
-        ],
-        rows,
-    )
+    headers = [
+        "CTA",
+        "CTA rank",
+        "HLA",
+        "HLA freq",
+        "Peptide",
+        "Tier",
+        "Sources",
+        "MS hits",
+        "PMIDs",
+        "%Rank",
+        "Score",
+        "nM",
+    ]
+    if show_netmhcpan_affinity:
+        headers.extend(["NetMHCpan %Rank", "NetMHCpan nM"])
+
+    return _plain_table(headers, rows)
 
 
 def format_panel_summary(df) -> str:
@@ -523,6 +561,9 @@ def format_panel_summary(df) -> str:
     empty_count = int(summary.get("empty_cta_count", 0))
     if empty_count and not summary.get("include_empty_ctas", True):
         lines.append(f"  Omitted CTAs with no selected pMHCs: {empty_count}")
+    grouped_member_count = int(summary.get("grouped_cta_member_count", 0))
+    if grouped_member_count:
+        lines.append(f"  Grouped redundant CTA members: {grouped_member_count}")
     lines.append(f"  Coverage note: {summary['coverage_note']}")
 
     cta_rows = [

@@ -16,8 +16,8 @@ MHCflurry is handled directly so tsarina can request only the values it uses
 and batch peptide-allele presentation predictions efficiently. Other backends
 still use topiary + mhctools' uniform DataFrame interface. This module exposes
 a thin tsarina-shaped API over both paths: one column per kind of prediction
-(``presentation_score``, ``presentation_percentile``, ``affinity_nm``), wide
-rather than long.
+(``presentation_score``, ``presentation_percentile``, ``affinity_nm``,
+``affinity_percentile``), wide rather than long.
 
 Typical usage::
 
@@ -88,6 +88,7 @@ _SCORE_COLUMNS = [
     "presentation_score",
     "presentation_percentile",
     "affinity_nm",
+    "affinity_percentile",
 ]
 _MHCFLURRY_PRESENTATION_PREDICTOR: object | None = None
 
@@ -158,6 +159,7 @@ def _score_mhcflurry(peptides: list[str], alleles: list[str]) -> pd.DataFrame:
             "presentation_score": result.get("presentation_score", pd.NA),
             "presentation_percentile": result.get("presentation_percentile", pd.NA),
             "affinity_nm": result.get("affinity", pd.NA),
+            "affinity_percentile": pd.NA,
         }
     )
     return out[_SCORE_COLUMNS].reset_index(drop=True)
@@ -203,12 +205,19 @@ def _pivot_topiary(result: pd.DataFrame) -> pd.DataFrame:
     presentation = result[result["kind"] == "pMHC_presentation"][
         ["peptide", "allele", "score", "percentile_rank"]
     ].rename(columns={"score": "presentation_score", "percentile_rank": "presentation_percentile"})
-    affinity = result[result["kind"] == "pMHC_affinity"][["peptide", "allele", "value"]].rename(
-        columns={"value": "affinity_nm"}
+
+    affinity_columns = ["peptide", "allele", "value"]
+    if "percentile_rank" in result.columns:
+        affinity_columns.append("percentile_rank")
+    affinity = result[result["kind"] == "pMHC_affinity"][affinity_columns].rename(
+        columns={"value": "affinity_nm", "percentile_rank": "affinity_percentile"}
     )
 
     out = presentation.merge(affinity, on=["peptide", "allele"], how="outer")
-    return out[[c for c in _SCORE_COLUMNS if c in out.columns]].reset_index(drop=True)
+    for column in _SCORE_COLUMNS:
+        if column not in out.columns:
+            out[column] = pd.NA
+    return out[_SCORE_COLUMNS].reset_index(drop=True)
 
 
 def score_presentation(
@@ -237,8 +246,9 @@ def score_presentation(
     -------
     pd.DataFrame
         Columns: ``peptide``, ``allele``, ``presentation_score``,
-        ``presentation_percentile``, ``affinity_nm``.  A backend that does
-        not emit a given kind leaves that column NaN.
+        ``presentation_percentile``, ``affinity_nm``, and
+        ``affinity_percentile``.  A backend that does not emit a given kind
+        leaves that column NaN.
     """
     if _predictor_key(predictor) == "mhcflurry":
         return _score_mhcflurry(peptides, alleles)

@@ -12,3 +12,5 @@
 - When describing static package data, prefer "bundled" or "packaged" over "shipped"; it is more precise and less misleading when discussing a table that will be regenerated in the next PR.
 - For HLA population coverage, do not combine same-locus alleles as independent carrier events. Sum covered allele frequencies within each locus first, convert the locus total to carrier probability, then combine across loci.
 - Name boolean evidence-table columns for the biological state they encode. Prefer semantic names like `passes_filters` over process words like `filtered`, while keeping older helper APIs as compatibility aliases when users may already depend on them.
+- When paralogous CTAs produce identical selected peptide-HLA panels, do not let each gene consume an automatic panel slot. Group them by final selected pMHC signature, preserve member-gene provenance, and backfill with distinct downstream targets.
+- Treat broad class-I MS evidence as peptide-level evidence, not allele-level evidence. If a row only says `HLA class I`, any selected allele is assigned by prediction under the unrestricted-MS cutoff.
