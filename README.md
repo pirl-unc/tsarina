@@ -241,9 +241,10 @@ tsarina panel
 
 Defaults:
 
-- up to 25 downstream non-empty CTAs ranked by cancer MS peptide count, with
-  lower-ranked candidates scanned as needed to backfill empty downstream targets
-  and clinical allowlist anchors pinned ahead of lower-ranked candidates
+- up to 25 downstream non-empty CTAs ranked by bundled HPA tumor RNA prevalence
+  breadth/sample prevalence, with lower-ranked candidates scanned as needed to
+  backfill empty downstream targets and clinical allowlist anchors pinned ahead
+  of lower-ranked candidates
 - automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
   evidence, while allowlisting `PRAME`, `CTAG1A/CTAG1B`, and `MAGEA4`
 - automatic selection excludes MAGE-family CTAs other than `MAGEA4` unless they
@@ -280,6 +281,14 @@ public healthy-MS observations in vital tissues remain exclusionary only when
 the peptide evidence maps uniquely to that CTA, unless allowlisted. Explicit
 `--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4` and bypasses automatic
 CTA-family safety gates.
+
+Default automatic ranking uses `tumor_prevalence_panel_score`, computed from
+bundled HPA cancer RNA prevalence at pTPM >= 2.0 and cancer-type breadth at a
+5% sample-prevalence floor, with HPA cancer IHC as a weak tie-breaker. Genes
+with CTA-exclusive cancer-MS support are ranked before zero-MS candidates to
+avoid wasting downstream pMHC scoring on unsupported genes. Use
+`--cancer-rna-threshold`, `--cancer-type-prevalence-floor`, or
+`--cta-rank-by ms_cta_exclusive_cancer_peptide_count` to change this ranking.
 
 Automatic panel output scans lower-ranked CTA candidates to backfill CTAs with
 zero selected pMHCs after peptide enumeration, CTA-exclusivity, public-MS, and

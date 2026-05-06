@@ -116,7 +116,10 @@ def test_global53_default_keeps_one_c14_representative():
 
 
 def test_global53_default_uses_mhcflurry_runtime_calibration_when_available():
-    mhcflurry = pytest.importorskip("mhcflurry")
+    try:
+        mhcflurry = pytest.importorskip("mhcflurry")
+    except Exception as e:
+        pytest.skip(f"mhcflurry is installed but not importable: {e}")
 
     predictor = mhcflurry.Class1AffinityPredictor.load()
     missing = sorted(

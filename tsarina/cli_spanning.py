@@ -35,9 +35,11 @@ _SUPPORTED_PANELS = (
 )
 _DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
-_DEFAULT_CTA_RANK_BY = "ms_cta_exclusive_cancer_peptide_count"
+_DEFAULT_CTA_RANK_BY = "tumor_prevalence_panel_score"
 _DEFAULT_SELECTION_ALLOWLIST = "PRAME,CTAG1A/CTAG1B,MAGEA4"
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
+_DEFAULT_CANCER_RNA_THRESHOLD = 2.0
+_DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
 
 
 def _split_csv(value: str) -> list[str]:
@@ -66,9 +68,30 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         "--cta-rank-by",
         default=_DEFAULT_CTA_RANK_BY,
         help=(
-            "Column in the bundled CTA CSV used to rank candidates "
-            f"(default '{_DEFAULT_CTA_RANK_BY}'; falls back to alphabetical "
-            "Symbol order if the column is missing or all-NaN)."
+            "Column used to rank candidates "
+            f"(default '{_DEFAULT_CTA_RANK_BY}', computed from bundled HPA cancer "
+            "RNA prevalence; use 'ms_cta_exclusive_cancer_peptide_count' for the "
+            "previous MS-first rank; falls back to alphabetical Symbol order if "
+            "the column is missing or all-NaN)."
+        ),
+    )
+    p.add_argument(
+        "--cancer-rna-threshold",
+        type=float,
+        default=_DEFAULT_CANCER_RNA_THRESHOLD,
+        help=(
+            "HPA cancer RNA pTPM threshold used for the default tumor prevalence "
+            f"rank (default {_DEFAULT_CANCER_RNA_THRESHOLD})."
+        ),
+    )
+    p.add_argument(
+        "--cancer-type-prevalence-floor",
+        type=float,
+        default=_DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
+        help=(
+            "Minimum fraction of samples in a cancer type above --cancer-rna-threshold "
+            "for that cancer type to count toward the default tumor prevalence rank "
+            f"(default {_DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR})."
         ),
     )
     p.add_argument(
@@ -372,6 +395,8 @@ def handle(args: argparse.Namespace) -> None:
         cta_count=args.cta_count,
         cta_rank_by=args.cta_rank_by,
         ctas=args.ctas,
+        cancer_rna_threshold=args.cancer_rna_threshold,
+        cancer_type_prevalence_floor=args.cancer_type_prevalence_floor,
         min_restriction_confidence=min_restriction_confidence,
         restriction_levels=tuple(args.restriction_levels) if args.restriction_levels else None,
         selection_allowlist=tuple(args.selection_allowlist),
@@ -552,6 +577,7 @@ def format_panel_summary(df) -> str:
         "Summary",
         f"  HLA alleles: {summary['hla_allele_count']}",
         f"  CTAs: {summary['cta_count']}",
+        f"  CTA rank: {summary.get('cta_rank_by', 'n/a')}",
         f"  Selected unique peptides: {summary['selected_peptide_count']}",
         (
             "  Filled CTA x HLA cells: "
@@ -563,6 +589,12 @@ def format_panel_summary(df) -> str:
             f"{float(summary['average_peptides_per_filled_cell']):.2f}"
         ),
     ]
+    if summary.get("cta_rank_by") == "tumor_prevalence_panel_score":
+        lines.append(
+            "  Tumor RNA prevalence rank: "
+            f"pTPM >= {float(summary.get('cancer_rna_threshold', 2.0)):g}, "
+            f"cancer-type floor {_format_percent(summary.get('cancer_type_prevalence_floor', 0.05))}"
+        )
 
     tier_counts = summary.get("evidence_tier_counts", {})
     if tier_counts:

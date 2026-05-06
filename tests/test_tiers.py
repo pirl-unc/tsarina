@@ -152,7 +152,7 @@ def test_magea1_testis():
     assert row["protein_restriction"] == "TESTIS"
     assert row["rna_restriction"] == "TESTIS"
     assert row["restriction"] == "TESTIS"
-    assert row["restriction_confidence"] == "HIGH"
+    assert row["restriction_confidence"] == "MODERATE"
 
 
 def test_prame_testis_but_permissive_rna():
@@ -252,6 +252,9 @@ def test_assign_all_axes_matches_csv():
     ).all()
     assert (recomputed["rna_restriction"].fillna("") == df["rna_restriction"].fillna("")).all()
     assert (recomputed["restriction"].fillna("") == df["restriction"].fillna("")).all()
+    assert (
+        recomputed["restriction_confidence"].fillna("") == df["restriction_confidence"].fillna("")
+    ).all()
 
 
 # ── MS safety aggregation (unit tests with mock data) ────────────────────

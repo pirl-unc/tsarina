@@ -18,6 +18,11 @@ from .alleles import (
     get_panel,
     panel_names,
 )
+from .cancer_expression import (
+    cta_cancer_expression_features,
+    hpa_cancer_ihc_prevalence,
+    hpa_cancer_rna_prevalence,
+)
 from .evidence import CTA_detailed_evidence, CTA_evidence
 from .gene_sets import (
     CTA_by_axes,
@@ -79,6 +84,9 @@ __all__ = [
     "CTA_unfiltered_gene_ids",
     "CTA_unfiltered_gene_names",
     "__version__",
+    "cta_cancer_expression_features",
     "get_panel",
+    "hpa_cancer_ihc_prevalence",
+    "hpa_cancer_rna_prevalence",
     "panel_names",
 ]

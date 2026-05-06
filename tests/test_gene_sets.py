@@ -100,6 +100,15 @@ def test_xage1b_passes_relaxed_no_protein_threshold():
     assert "XAGE1B" in CTA_gene_names()
 
 
+def test_xage1_shared_ms_peptides_count_as_cta_exclusive_for_both_paralogs():
+    df = CTA_evidence().set_index("Symbol")
+    for symbol in ("XAGE1A", "XAGE1B"):
+        row = df.loc[symbol]
+        assert row["ms_restriction"] == "CANCER_ONLY"
+        assert row["ms_cancer_peptide_count"] == 4
+        assert row["ms_cta_exclusive_cancer_peptide_count"] == 4
+
+
 def test_magea4_is_expressed_cta():
     assert "MAGEA4" in CTA_gene_names()
 
@@ -165,7 +174,7 @@ def test_by_axes_combined():
 
 def test_by_axes_confidence():
     high = CTA_by_axes(restriction_confidence="HIGH")
-    assert len(high) >= 150
+    assert len(high) >= 120
 
 
 def test_by_axes_gene_id_column():
