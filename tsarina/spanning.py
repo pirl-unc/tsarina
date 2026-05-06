@@ -49,7 +49,6 @@ from typing import TextIO
 import pandas as pd
 
 _DEFAULT_RANK_COLUMN = "tumor_prevalence_panel_score"
-_MS_RANK_COLUMN = "ms_cta_exclusive_cancer_peptide_count"
 _DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_CANCER_RNA_THRESHOLD = 2.0
@@ -98,6 +97,29 @@ _VITAL_TISSUE_MS_NAMES: frozenset[str] = frozenset(
         "liver",
         "pancreas",
     }
+)
+
+_MS_SOURCE_FLAG_DEFAULTS: dict[str, bool] = {
+    "src_cancer": False,
+    "src_healthy_tissue": False,
+    "src_healthy_reproductive": False,
+    "src_healthy_thymus": False,
+    "src_ebv_lcl": False,
+}
+
+_LIVE_MS_COUNT_COLUMNS: tuple[str, ...] = (
+    "ms_peptide_count",
+    "ms_cancer_peptide_count",
+    "ms_ebv_lcl_peptide_count",
+    "ms_healthy_somatic_peptide_count",
+    "ms_healthy_reproductive_peptide_count",
+    "ms_healthy_thymus_peptide_count",
+    "ms_healthy_somatic_tissue_count",
+    "ms_cta_exclusive_peptide_count",
+    "ms_cta_exclusive_cancer_peptide_count",
+    "ms_cta_exclusive_healthy_somatic_peptide_count",
+    "ms_cta_exclusive_healthy_reproductive_peptide_count",
+    "ms_cta_exclusive_healthy_thymus_peptide_count",
 )
 
 _EVIDENCE_TIER_RANKS: dict[str, int] = {
@@ -196,10 +218,11 @@ def spanning_pmhc_set(
     cta_rank_by
         Column used to rank candidates. Default
         ``"tumor_prevalence_panel_score"`` combines bundled HPA cancer RNA
-        sample prevalence and cancer-type breadth. The previous MS-first
-        behavior remains available with
-        ``"ms_cta_exclusive_cancer_peptide_count"``. Falls back to
-        alphabetical ``Symbol`` order when the column is missing or all-NaN.
+        sample prevalence and cancer-type breadth. Public-MS support is then
+        recomputed from the current hitlist observations index for each
+        candidate batch before scoring; packaged gene-level MS count snapshots
+        are not used for automatic panel construction. Falls back to
+        alphabetical ``Symbol`` order when a non-MS rank column is missing or all-NaN.
     ctas
         Explicit list of gene symbols.  Overrides ``cta_count`` /
         ``cta_rank_by``.  Genes not present in the bundled CTA CSV are
@@ -449,6 +472,10 @@ def spanning_pmhc_set(
             cutoffs=cutoffs,
             include_predicted_only=include_predicted_only,
             peptides_per_cell=peptides_per_cell,
+            enforce_live_ms_safety=ctas is None,
+            min_restriction_confidence=min_restriction_confidence,
+            selection_allowlist=selection_allowlist,
+            exclude_vital_tissue_expression=exclude_vital_tissue_expression,
             group_identical_cta_peptide_sets=group_identical_cta_peptide_sets,
             on_progress=on_progress,
             progress_bar=progress_bar,
@@ -865,6 +892,10 @@ def _select_cta_batch(
     cutoffs: dict[str, float],
     include_predicted_only: bool,
     peptides_per_cell: int,
+    enforce_live_ms_safety: bool,
+    min_restriction_confidence: Iterable[str] | None,
+    selection_allowlist: Iterable[str] | None,
+    exclude_vital_tissue_expression: bool,
     group_identical_cta_peptide_sets: bool,
     on_progress: Callable[[str], None] | None = None,
     progress_bar: bool = False,
@@ -907,14 +938,42 @@ def _select_cta_batch(
         f"Enumerated {len(pep_df)} CTA peptide rows ({len(unique_peptides)} unique peptides).",
     )
     _report_progress(on_progress, "Loading public MS evidence for enumerated peptides...")
-    hits = load_public_ms_hits(
-        unique_peptides,
-        iedb_path=iedb_path,
-        cedar_path=cedar_path,
-        mhc_class="I",
-        mhc_species="Homo sapiens",
-    )
+    try:
+        hits = load_public_ms_hits(
+            unique_peptides,
+            iedb_path=iedb_path,
+            cedar_path=cedar_path,
+            mhc_class="I",
+            mhc_species="Homo sapiens",
+        )
+    except Exception as e:
+        raise RuntimeError(
+            "tsarina panel requires the hitlist observations index for public-MS "
+            "evidence. Register IEDB/CEDAR data if needed, then run "
+            "`tsarina data build --force`."
+        ) from e
     _report_progress(on_progress, f"Loaded {len(hits)} public MS evidence rows.")
+
+    if enforce_live_ms_safety:
+        pep_df = _filter_peptides_by_live_ms_safety(
+            pep_df=pep_df,
+            hits=hits,
+            require_cta_exclusive=require_cta_exclusive,
+            include_predicted_only=include_predicted_only,
+            min_restriction_confidence=min_restriction_confidence,
+            selection_allowlist=selection_allowlist,
+            exclude_vital_tissue_expression=exclude_vital_tissue_expression,
+            on_progress=on_progress,
+        )
+        if pep_df.empty:
+            _report_progress(
+                on_progress,
+                "No CTA candidates in this batch passed live hitlist MS support/safety gates.",
+            )
+            return _empty_selected_frame()
+        unique_peptides = pep_df["peptide"].unique().tolist()
+        if "peptide" in hits.columns:
+            hits = hits[hits["peptide"].isin(unique_peptides)].reset_index(drop=True)
 
     score_alleles = _score_alleles_for_panel(allele_list, hits)
     n_predictions = len(unique_peptides) * len(score_alleles)
@@ -1139,11 +1198,6 @@ def _resolve_ctas(
     if "never_expressed" in df.columns:
         df = df[~(df["never_expressed"].astype(str).str.lower() == "true")]
 
-    if min_restriction_confidence is not None and "restriction_confidence" in df.columns:
-        wanted = {c.upper() for c in min_restriction_confidence}
-        confidence_ok = df["restriction_confidence"].astype(str).str.upper().isin(wanted)
-        df = df[confidence_ok | df["_is_selection_allowlisted"]]
-
     if restriction_levels is not None and "restriction" in df.columns:
         wanted_levels = set(restriction_levels)
         df = df[df["restriction"].isin(wanted_levels)]
@@ -1157,18 +1211,18 @@ def _resolve_ctas(
             lambda row: _has_vital_tissue_rna_expression(row, vital_tissue_max_ntpm),
             axis=1,
         )
-        vital_ms_labels = _unique_vital_healthy_ms_cta_labels(df[~df["_is_selection_allowlisted"]])
-        vital_ms = df["_cta_display"].isin(vital_ms_labels)
-        df = df[~(vital_rna | vital_ms) | df["_is_selection_allowlisted"]]
+        df = df[~vital_rna | df["_is_selection_allowlisted"]]
+
+    if _is_removed_packaged_ms_rank_column(cta_rank_by, df):
+        raise ValueError(
+            f"{cta_rank_by!r} is a runtime-derived public-MS column and is not bundled "
+            "in the CTA evidence table. Automatic panel construction ranks initial "
+            "candidates by non-MS columns, then recomputes MS support/safety from the "
+            "current hitlist observations index before pMHC scoring."
+        )
 
     if cta_rank_by in df.columns and df[cta_rank_by].notna().any():
-        sort_columns = [cta_rank_by]
-        if cta_rank_by == _DEFAULT_RANK_COLUMN and _MS_RANK_COLUMN in df.columns:
-            df["_has_cta_exclusive_cancer_ms"] = (
-                pd.to_numeric(df[_MS_RANK_COLUMN], errors="coerce").fillna(0).gt(0)
-            )
-            sort_columns = ["_has_cta_exclusive_cancer_ms", cta_rank_by, _MS_RANK_COLUMN]
-        df = df.sort_values(sort_columns, ascending=False, na_position="last")
+        df = df.sort_values(cta_rank_by, ascending=False, na_position="last")
     else:
         df = df.sort_values("Symbol")
 
@@ -1181,6 +1235,12 @@ def _resolve_ctas(
     if cta_count is None:
         return df["_cta_display"].tolist()
     return df["_cta_display"].head(cta_count).tolist()
+
+
+def _is_removed_packaged_ms_rank_column(cta_rank_by: str, df: pd.DataFrame) -> bool:
+    return (
+        cta_rank_by.startswith("ms_") and "count" in cta_rank_by and cta_rank_by not in df.columns
+    )
 
 
 def _compact_cta_name(value: object) -> str:
@@ -1243,12 +1303,6 @@ def _expand_cta_symbols(labels: Iterable[str]) -> list[str]:
     return expanded
 
 
-def _split_semicolon_values(value: object) -> set[str]:
-    if not isinstance(value, str):
-        return set()
-    return {part.strip() for part in value.split(";") if part.strip()}
-
-
 def _has_vital_tissue_rna_expression(row: pd.Series, max_ntpm: float) -> bool:
     for column in _VITAL_TISSUE_RNA_COLUMNS:
         value = row.get(column)
@@ -1259,68 +1313,6 @@ def _has_vital_tissue_rna_expression(row: pd.Series, max_ntpm: float) -> bool:
         if pd.notna(ntpm) and ntpm > max_ntpm:
             return True
     return False
-
-
-def _has_vital_healthy_ms_tissue(row: pd.Series) -> bool:
-    healthy_ms_tissues = {
-        tissue.lower() for tissue in _split_semicolon_values(row.get("ms_healthy_somatic_tissues"))
-    }
-    return bool(healthy_ms_tissues & _VITAL_TISSUE_MS_NAMES)
-
-
-def _unique_vital_healthy_ms_cta_labels(candidate_df: pd.DataFrame) -> set[str]:
-    """CTA labels with unique-gene public healthy-MS evidence in vital tissue.
-
-    The bundled CTA table carries gene-level healthy-MS tissue aggregates, but
-    those aggregates can be driven by peptides shared across paralogous CTA
-    families. Use that table only as a cheap suspect list, then verify against
-    hitlist observation rows and require ``gene_names`` to map uniquely to the
-    candidate CTA symbol before vetoing the whole CTA.
-    """
-    if candidate_df.empty or "Symbol" not in candidate_df.columns:
-        return set()
-
-    suspect_symbols: set[str] = set()
-    for _, row in candidate_df.iterrows():
-        if not _has_vital_healthy_ms_tissue(row):
-            continue
-        for symbol in _cta_member_symbols(str(row.get("_cta_display", row.get("Symbol")))):
-            suspect_symbols.add(symbol)
-    if not suspect_symbols:
-        return set()
-
-    from .indexing import load_ms_evidence
-
-    hits = load_ms_evidence(
-        gene_name=sorted(suspect_symbols),
-        mhc_class="I",
-        mhc_species="Homo sapiens",
-        columns=[
-            "peptide",
-            "gene_names",
-            "source_tissue",
-            "src_healthy_tissue",
-            "is_binding_assay",
-        ],
-        drop_binding_assays=True,
-    )
-    if hits.empty:
-        return set()
-
-    veto_labels: set[str] = set()
-    for _, row in hits.iterrows():
-        if not _is_truthy(row.get("src_healthy_tissue", False)):
-            continue
-        source_tissue = str(row.get("source_tissue", "")).strip().lower()
-        if source_tissue not in _VITAL_TISSUE_MS_NAMES:
-            continue
-        row_symbols = _split_semicolon_values(row.get("gene_names"))
-        if len(row_symbols) != 1:
-            continue
-        symbol = next(iter(row_symbols))
-        if symbol in suspect_symbols:
-            veto_labels.add(_cta_display_name(symbol))
-    return veto_labels
 
 
 def _cta_rank_values(
@@ -1448,6 +1440,216 @@ def _annotate_identical_cta_peptide_sets(
     out["cta_peptide_set_label"] = out["gene_name"].map(label_by_cta).fillna(out["gene_name"])
     out["cta_peptide_set_members"] = out["gene_name"].map(members_by_cta).fillna(out["gene_name"])
     return out
+
+
+def _hits_with_ms_source_defaults(hits: pd.DataFrame) -> pd.DataFrame:
+    out = hits.copy()
+    for column, default in _MS_SOURCE_FLAG_DEFAULTS.items():
+        if column not in out.columns:
+            out[column] = default
+    if "source_tissue" not in out.columns:
+        out["source_tissue"] = ""
+    if "pmid" not in out.columns:
+        out["pmid"] = pd.NA
+    return out
+
+
+def _live_ms_support_for_peptides(
+    pep_df: pd.DataFrame,
+    hits: pd.DataFrame,
+) -> pd.DataFrame:
+    """Aggregate current hitlist evidence for the already-enumerated peptides."""
+    columns = ["gene_name", "ms_restriction", *_LIVE_MS_COUNT_COLUMNS, "ms_healthy_somatic_tissues"]
+    if pep_df.empty or hits.empty or "peptide" not in pep_df.columns:
+        return pd.DataFrame(columns=columns)
+
+    from .tiers import aggregate_gene_ms_safety
+
+    gene_map = pep_df[["peptide", "gene_name"]].drop_duplicates()
+    classified_hits = _hits_with_ms_source_defaults(hits)
+    return aggregate_gene_ms_safety(
+        classified_hits=classified_hits,
+        peptide_gene_map=gene_map,
+        exclusive_peptide_gene_map=gene_map,
+    )
+
+
+def _cta_curation_rows_for_labels(labels: Iterable[str]) -> pd.DataFrame:
+    from .loader import cta_dataframe
+
+    wanted = list(dict.fromkeys(str(label) for label in labels))
+    if not wanted:
+        return pd.DataFrame()
+
+    df = cta_dataframe().copy()
+    if "Symbol" not in df.columns:
+        return pd.DataFrame({"_cta_display": wanted})
+    df["_cta_display"] = df["Symbol"].map(_cta_display_name)
+    rows = df[df["_cta_display"].isin(wanted)].drop_duplicates(subset=["_cta_display"]).copy()
+    missing = [label for label in wanted if label not in set(rows["_cta_display"])]
+    if missing:
+        rows = pd.concat(
+            [rows, pd.DataFrame({"_cta_display": missing})],
+            ignore_index=True,
+            sort=False,
+        )
+    return rows
+
+
+def _live_ms_restriction_confidence(
+    labels: Iterable[str],
+    live_ms: pd.DataFrame,
+) -> dict[str, str]:
+    labels = list(dict.fromkeys(str(label) for label in labels))
+    if not labels:
+        return {}
+
+    rows = _cta_curation_rows_for_labels(labels)
+    if rows.empty:
+        return dict.fromkeys(labels, "NO_DATA")
+    runtime_ms_columns = [
+        "ms_restriction",
+        "ms_healthy_somatic_tissues",
+        "ms_pmids",
+        *_LIVE_MS_COUNT_COLUMNS,
+    ]
+    rows = rows.drop(columns=[column for column in runtime_ms_columns if column in rows.columns])
+
+    live = live_ms.copy()
+    if "gene_name" not in live.columns:
+        live["gene_name"] = pd.Series(dtype="object")
+    merged = rows.merge(
+        live,
+        left_on="_cta_display",
+        right_on="gene_name",
+        how="left",
+        suffixes=("", "_live"),
+    )
+    merged["ms_restriction"] = merged["ms_restriction"].fillna("NO_MS_DATA")
+    for column in _LIVE_MS_COUNT_COLUMNS:
+        if column in merged.columns:
+            merged[column] = pd.to_numeric(merged[column], errors="coerce").fillna(0).astype(int)
+
+    from .tiers import synthesize_restriction
+
+    synth = merged.apply(synthesize_restriction, axis=1, result_type="expand")
+    merged["_live_restriction_confidence"] = synth[1]
+    return dict(zip(merged["_cta_display"], merged["_live_restriction_confidence"]))
+
+
+def _live_vital_healthy_ms_labels(pep_df: pd.DataFrame, hits: pd.DataFrame) -> set[str]:
+    if (
+        pep_df.empty
+        or hits.empty
+        or "peptide" not in pep_df.columns
+        or "peptide" not in hits.columns
+    ):
+        return set()
+
+    peptide_targets = (
+        pep_df[["peptide", "gene_name"]]
+        .drop_duplicates()
+        .groupby("peptide")["gene_name"]
+        .agg(lambda values: sorted({str(value) for value in values}))
+    )
+    classified_hits = _hits_with_ms_source_defaults(hits)
+    veto: set[str] = set()
+    for _, row in classified_hits.iterrows():
+        if not _is_truthy(row.get("src_healthy_tissue", False)):
+            continue
+        source_tissue = str(row.get("source_tissue", "")).strip().lower()
+        if source_tissue not in _VITAL_TISSUE_MS_NAMES:
+            continue
+        targets = peptide_targets.get(row.get("peptide"), [])
+        if len(targets) == 1:
+            veto.add(targets[0])
+    return veto
+
+
+def _live_ms_int_value(live_by_label: pd.DataFrame, label: str, column: str) -> int:
+    if (
+        live_by_label.empty
+        or label not in live_by_label.index
+        or column not in live_by_label.columns
+    ):
+        return 0
+    value = pd.to_numeric(live_by_label.loc[label, column], errors="coerce")
+    if isinstance(value, pd.Series):
+        value = value.max()
+    if pd.isna(value):
+        return 0
+    return int(value)
+
+
+def _normalize_allowlist_for_cta_labels(
+    selection_allowlist: Iterable[str] | None,
+    cta_labels: Iterable[str],
+) -> set[str]:
+    """Normalize user allowlist values to the display labels in this CTA batch."""
+    valid_symbols = set(_expand_cta_symbols(cta_labels))
+    return set(_normalize_cta_labels(selection_allowlist, valid_symbols))
+
+
+def _filter_peptides_by_live_ms_safety(
+    *,
+    pep_df: pd.DataFrame,
+    hits: pd.DataFrame,
+    require_cta_exclusive: bool,
+    include_predicted_only: bool,
+    min_restriction_confidence: Iterable[str] | None,
+    selection_allowlist: Iterable[str] | None,
+    exclude_vital_tissue_expression: bool,
+    on_progress: Callable[[str], None] | None,
+) -> pd.DataFrame:
+    labels = list(dict.fromkeys(pep_df["gene_name"].dropna().astype(str)))
+    allowlist = _normalize_allowlist_for_cta_labels(selection_allowlist, labels)
+    live_ms = _live_ms_support_for_peptides(pep_df, hits)
+    live_by_label = live_ms.set_index("gene_name") if "gene_name" in live_ms.columns else live_ms
+
+    keep: set[str] = set(labels)
+    dropped: dict[str, list[str]] = defaultdict(list)
+
+    if not include_predicted_only:
+        support_column = (
+            "ms_cta_exclusive_peptide_count" if require_cta_exclusive else "ms_peptide_count"
+        )
+        for label in labels:
+            if label in allowlist:
+                continue
+            support = _live_ms_int_value(live_by_label, label, support_column)
+            if support <= 0:
+                keep.discard(label)
+                dropped["no live MS support"].append(label)
+
+    if min_restriction_confidence is not None:
+        wanted = {value.upper() for value in min_restriction_confidence}
+        confidence_by_label = _live_ms_restriction_confidence(labels, live_ms)
+        for label, confidence in confidence_by_label.items():
+            if label in allowlist or label not in keep:
+                continue
+            if str(confidence).upper() not in wanted:
+                keep.discard(label)
+                dropped["live restriction_confidence"].append(label)
+
+    if exclude_vital_tissue_expression:
+        for label in sorted(_live_vital_healthy_ms_labels(pep_df, hits)):
+            if label in allowlist or label not in keep:
+                continue
+            keep.discard(label)
+            dropped["live vital healthy MS"].append(label)
+
+    if dropped:
+        reason_text = "; ".join(
+            f"{reason}: {', '.join(values[:5])}{' ...' if len(values) > 5 else ''}"
+            for reason, values in dropped.items()
+        )
+        _report_progress(
+            on_progress,
+            f"Live hitlist MS gates kept {len(keep)}/{len(labels)} CTA target(s) "
+            f"for scoring; dropped {reason_text}.",
+        )
+
+    return pep_df[pep_df["gene_name"].isin(keep)].reset_index(drop=True)
 
 
 def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list[str]:

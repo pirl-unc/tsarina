@@ -212,11 +212,6 @@ def test_csv_has_all_new_columns():
         "rna_max_somatic_ntpm",
         "rna_somatic_detected_count",
         "ms_restriction",
-        "ms_cta_exclusive_peptide_count",
-        "ms_cta_exclusive_cancer_peptide_count",
-        "ms_cta_exclusive_healthy_somatic_peptide_count",
-        "ms_cta_exclusive_healthy_reproductive_peptide_count",
-        "ms_cta_exclusive_healthy_thymus_peptide_count",
         "restriction",
         "restriction_confidence",
     ]
@@ -228,6 +223,14 @@ def test_csv_has_no_old_columns():
     df = CTA_evidence()
     for col in ["cta_tier", "evidence", "filtered", "ms_safety"]:
         assert col not in df.columns, f"Stale column present: {col}"
+
+
+def test_csv_has_no_runtime_ms_count_columns():
+    df = CTA_evidence()
+    count_columns = [
+        column for column in df.columns if column.startswith("ms_") and "count" in column
+    ]
+    assert count_columns == []
 
 
 # ── Backward compatibility ────────────────────────────────────────────────

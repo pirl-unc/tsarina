@@ -97,8 +97,8 @@ def CTA_evidence() -> pd.DataFrame:
         runtime by :func:`CTA_detailed_evidence` when public MS data are
         available.
     ms_cta_exclusive_*_peptide_count : int
-        MS peptide counts restricted to peptides absent from non-CTA proteins.
-        Broad ``ms_*`` peptide count columns remain all-CTA counts.
+        Runtime-only columns added by :func:`CTA_detailed_evidence`; the
+        packaged CTA evidence table does not bundle MS count snapshots.
     restriction : str
         Synthesized restriction integrating protein + RNA + MS:
         ``TESTIS`` / ``PLACENTAL`` / ``REPRODUCTIVE`` / ``SOMATIC`` / ``NO_DATA``.

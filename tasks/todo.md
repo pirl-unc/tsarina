@@ -1,3 +1,47 @@
+# PR - Use Live Hitlist MS Evidence For Panel Construction (2026-05-06)
+
+## Goal
+
+Stop treating packaged gene-level MS counts as the source of truth for automatic
+CTA panel construction. Panel selection should rank by non-MS signals first, then
+compute MS safety and CTA-exclusive support for candidate CTAs from the current
+hitlist observations index. The packaged CSV should not need bundled
+``ms_*``/``ms_cta_exclusive_*`` count columns for panel behavior.
+
+## Plan
+
+- [x] Make automatic panel selection ignore bundled MS count/confidence columns
+      and use live hitlist-derived MS support for candidate filtering/ranking.
+- [x] Add a clear error when automatic panel construction needs public MS
+      evidence but the hitlist index cannot be built or read.
+- [x] Remove packaged MS count columns from ``cancer-testis-antigens.csv`` and
+      adjust evidence helpers/tests to treat those counts as runtime-derived.
+- [x] Preserve explicit CTA requests and existing peptide-level pMHC evidence
+      behavior.
+- [x] Update docs to say hitlist observations are a panel dependency, not an
+      optional freshness improvement.
+- [x] Bump the patch version.
+- [x] Run ``./format.sh``, ``./lint.sh``, and ``./test.sh``.
+- [ ] Open, merge, and deploy the PR.
+
+## Review
+
+- Automatic panel construction now ranks initial candidates by non-MS columns
+  such as HPA tumor prevalence, then recomputes current hitlist-derived public
+  MS support, live MS restriction confidence, and vital healthy-MS vetoes for
+  each candidate batch before pMHC scoring.
+- ``tsarina/data/cancer-testis-antigens.csv`` no longer bundles runtime
+  ``ms_*count*`` columns; tests assert packaged evidence remains count-free.
+- Removed stale MS-count rank behavior: asking to rank by removed packaged
+  ``ms_*count*`` columns raises a clear error instead of silently falling back
+  to alphabetical ordering.
+- Explicit CTA requests still bypass automatic CTA-family gates, while the
+  per-peptide pMHC evidence path continues to use current hitlist observations.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (304 tests).
+
+---
+
 # PR - Fix XAGE CTA-Exclusive MS Counts (2026-05-06)
 
 ## Goal

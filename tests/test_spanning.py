@@ -89,6 +89,11 @@ def _stub_ms_hits(peptides, **kwargs) -> pd.DataFrame:
             "mhc_allele_provenance": ["unmatched"] * len(peptides),
             "mhc_allele_set": [""] * len(peptides),
             "is_monoallelic": [False] * len(peptides),
+            "src_cancer": [True] * len(peptides),
+            "src_healthy_tissue": [False] * len(peptides),
+            "src_healthy_reproductive": [False] * len(peptides),
+            "src_healthy_thymus": [False] * len(peptides),
+            "src_ebv_lcl": [False] * len(peptides),
             "pmid": ["1"] * len(peptides),
             "cell_line_name": [""] * len(peptides),
             "cell_name": [""] * len(peptides),
@@ -152,7 +157,7 @@ def _stub_pipeline(monkeypatch):
         },
         raising=True,
     )
-    # Stub the bundled CTA dataframe so cta_count / rank_by paths work.
+    # Stub the CTA dataframe so cta_count / rank_by paths work.
     cta_csv = pd.DataFrame(
         {
             "Symbol": [
@@ -250,18 +255,14 @@ def test_selection_allowlist_is_pinned_into_automatic_top_n():
     assert ctas == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B"]
 
 
-def test_ms_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
+def test_removed_packaged_ms_rank_column_raises(monkeypatch):
     cta_csv = pd.DataFrame(
         {
             "Symbol": ["BROADONLY", "EXCLUSIVE"],
             "Ensembl_Gene_ID": ["E7", "E8"],
             "filtered": ["true", "true"],
             "never_expressed": ["false", "false"],
-            "restriction_confidence": ["HIGH", "HIGH"],
             "restriction": ["TESTIS", "TESTIS"],
-            "ms_cancer_peptide_count": [100, 10],
-            "ms_cta_exclusive_cancer_peptide_count": [1, 5],
-            "ms_healthy_somatic_tissues": ["", ""],
         }
     )
     monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
@@ -271,18 +272,17 @@ def test_ms_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
         raising=True,
     )
 
-    ctas = _resolve_ctas(
-        ctas=None,
-        cta_count=2,
-        cta_rank_by="ms_cta_exclusive_cancer_peptide_count",
-        min_restriction_confidence=("HIGH", "MODERATE"),
-        restriction_levels=None,
-        selection_allowlist=[],
-        exclude_vital_tissue_expression=False,
-        exclude_non_magea4_mage_family=False,
-    )
-
-    assert ctas == ["EXCLUSIVE", "BROADONLY"]
+    with pytest.raises(ValueError, match="runtime-derived public-MS column"):
+        _resolve_ctas(
+            ctas=None,
+            cta_count=2,
+            cta_rank_by="ms_cta_exclusive_cancer_peptide_count",
+            min_restriction_confidence=None,
+            restriction_levels=None,
+            selection_allowlist=[],
+            exclude_vital_tissue_expression=False,
+            exclude_non_magea4_mage_family=False,
+        )
 
 
 def test_default_rank_column_prefers_tumor_prevalence(monkeypatch):
@@ -331,17 +331,14 @@ def test_default_rank_column_prefers_tumor_prevalence(monkeypatch):
     assert ctas == ["TUMORHIGH", "MSHIGH"]
 
 
-def test_default_rank_column_keeps_ms_supported_candidates_before_zero_ms(monkeypatch):
+def test_live_ms_gate_drops_zero_ms_candidate_after_prevalence_rank(monkeypatch):
     cta_csv = pd.DataFrame(
         {
             "Symbol": ["MSLOW", "ZEROMSHIGH"],
             "Ensembl_Gene_ID": ["E7", "E8"],
             "filtered": ["true", "true"],
             "never_expressed": ["false", "false"],
-            "restriction_confidence": ["HIGH", "HIGH"],
             "restriction": ["TESTIS", "TESTIS"],
-            "ms_cta_exclusive_cancer_peptide_count": [1, 0],
-            "ms_healthy_somatic_tissues": ["", ""],
         }
     )
     cancer_features = pd.DataFrame(
@@ -362,19 +359,64 @@ def test_default_rank_column_keeps_ms_supported_candidates_before_zero_ms(monkey
         lambda **kw: cancer_features,
         raising=True,
     )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "peptide": ["MSLOWPEP", "ZEROPEP"],
+                "length": [9, 9],
+                "gene_name": ["MSLOW", "ZEROMSHIGH"],
+                "gene_id": ["E7", "E8"],
+            }
+        ),
+        raising=True,
+    )
 
-    ctas = _resolve_ctas(
-        ctas=None,
-        cta_count=2,
+    def _live_hits(peptides, **kwargs):
+        return pd.DataFrame(
+            {
+                "peptide": ["MSLOWPEP"],
+                "mhc_restriction": ["HLA class I"],
+                "mhc_allele_provenance": ["unmatched"],
+                "mhc_allele_set": [""],
+                "is_monoallelic": [False],
+                "src_cancer": [True],
+                "src_healthy_tissue": [False],
+                "src_healthy_reproductive": [False],
+                "src_healthy_thymus": [False],
+                "pmid": ["1"],
+            }
+        )
+
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", _live_hits, raising=True)
+
+    df = spanning_pmhc_set(
+        cta_count=1,
+        alleles=["HLA-A*02:01"],
         cta_rank_by=_DEFAULT_RANK_COLUMN,
-        min_restriction_confidence=("HIGH", "MODERATE"),
-        restriction_levels=None,
         selection_allowlist=[],
         exclude_vital_tissue_expression=False,
         exclude_non_magea4_mage_family=False,
+        max_percentile=10.0,
     )
 
-    assert ctas == ["MSLOW", "ZEROMSHIGH"]
+    assert list(df["cta"]) == ["MSLOW"]
+    assert df.attrs["input_cta_order"] == ["ZEROMSHIGH", "MSLOW"]
+    assert df.attrs["empty_ctas"] == ["ZEROMSHIGH"]
+
+
+def test_panel_requires_live_hitlist_ms_evidence(monkeypatch):
+    def _missing_hitlist(peptides, **kwargs):
+        raise FileNotFoundError("missing observations.parquet")
+
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", _missing_hitlist, raising=True)
+
+    with pytest.raises(RuntimeError, match="hitlist observations index"):
+        spanning_pmhc_set(
+            cta_count=1,
+            alleles=["HLA-A*02:01"],
+            max_percentile=10.0,
+        )
 
 
 def test_automatic_selection_hides_empty_ctas_by_default():
