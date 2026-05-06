@@ -48,9 +48,12 @@ from typing import TextIO
 
 import pandas as pd
 
-_DEFAULT_RANK_COLUMN = "ms_cta_exclusive_cancer_peptide_count"
+_DEFAULT_RANK_COLUMN = "tumor_prevalence_panel_score"
+_MS_RANK_COLUMN = "ms_cta_exclusive_cancer_peptide_count"
 _DEFAULT_PANEL = "global53_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
+_DEFAULT_CANCER_RNA_THRESHOLD = 2.0
+_DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
 _DEFAULT_MONOALLELIC_MS_MAX_PERCENTILE = 2.0
 _DEFAULT_SAMPLE_ALLELE_MS_MAX_PERCENTILE = 1.0
 _DEFAULT_UNRESTRICTED_MS_MAX_PERCENTILE = 0.5
@@ -147,6 +150,8 @@ def spanning_pmhc_set(
     cta_count: int = 25,
     cta_rank_by: str = _DEFAULT_RANK_COLUMN,
     ctas: Iterable[str] | None = None,
+    cancer_rna_threshold: float = _DEFAULT_CANCER_RNA_THRESHOLD,
+    cancer_type_prevalence_floor: float = _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
     min_restriction_confidence: Iterable[str] | None = ("HIGH", "MODERATE"),
     restriction_levels: Iterable[str] | None = None,
     selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
@@ -189,16 +194,25 @@ def spanning_pmhc_set(
         ``include_empty_ctas=True`` restores the audit view of the top
         ``cta_count`` ranked candidates, including failures.
     cta_rank_by
-        Column in the bundled CTA CSV used to rank candidates.  Default
-        ``"ms_cta_exclusive_cancer_peptide_count"`` (CTA-exclusive
-        peptides observed in cancer MS first). Falls back to alphabetical
-        ``Symbol`` order when the column is missing or all-NaN.
+        Column used to rank candidates. Default
+        ``"tumor_prevalence_panel_score"`` combines bundled HPA cancer RNA
+        sample prevalence and cancer-type breadth. The previous MS-first
+        behavior remains available with
+        ``"ms_cta_exclusive_cancer_peptide_count"``. Falls back to
+        alphabetical ``Symbol`` order when the column is missing or all-NaN.
     ctas
         Explicit list of gene symbols.  Overrides ``cta_count`` /
         ``cta_rank_by``.  Genes not present in the bundled CTA CSV are
         silently dropped.  Note: ``min_restriction_confidence`` and
         ``restriction_levels`` gates do **not** apply on this path —
         the explicit list wins verbatim.
+    cancer_rna_threshold
+        HPA cancer RNA pTPM threshold used to compute the default tumor
+        prevalence rank. Default 2.0.
+    cancer_type_prevalence_floor
+        Minimum fraction of samples in a cancer type above
+        ``cancer_rna_threshold`` for that cancer type to count toward tumor
+        breadth. Default 0.05 (5%).
     min_restriction_confidence
         Allowed ``restriction_confidence`` bins (e.g. ``("HIGH",
         "MODERATE")``).  Pass ``None`` to disable.  Applied before
@@ -355,6 +369,8 @@ def spanning_pmhc_set(
         ctas=ctas,
         cta_count=None if automatic_backfill else cta_count,
         cta_rank_by=cta_rank_by,
+        cancer_rna_threshold=cancer_rna_threshold,
+        cancer_type_prevalence_floor=cancer_type_prevalence_floor,
         min_restriction_confidence=min_restriction_confidence,
         restriction_levels=restriction_levels,
         selection_allowlist=selection_allowlist,
@@ -362,7 +378,12 @@ def spanning_pmhc_set(
         vital_tissue_max_ntpm=vital_tissue_max_ntpm,
         exclude_non_magea4_mage_family=exclude_non_magea4_mage_family,
     )
-    cta_rank_values = _cta_rank_values(cta_candidates, cta_rank_by)
+    cta_rank_values = _cta_rank_values(
+        cta_candidates,
+        cta_rank_by,
+        cancer_rna_threshold=cancer_rna_threshold,
+        cancer_type_prevalence_floor=cancer_type_prevalence_floor,
+    )
 
     cta_input_text = (
         f"up to {cta_count} non-empty CTAs from {len(cta_candidates)} ranked candidates"
@@ -510,6 +531,9 @@ def spanning_pmhc_set(
         allele_frequency_sources=allele_frequency_sources,
     )
     summary["candidate_cta_count"] = len(cta_candidates)
+    summary["cta_rank_by"] = cta_rank_by
+    summary["cancer_rna_threshold"] = cancer_rna_threshold
+    summary["cancer_type_prevalence_floor"] = cancer_type_prevalence_floor
     summary["input_cta_count"] = len(processed_cta_list)
     summary["empty_cta_count"] = len(empty_ctas)
     summary["empty_ctas"] = empty_ctas
@@ -1018,12 +1042,73 @@ def _output_cta_list(
     return output, empty
 
 
+def _cta_rank_dataframe(
+    *,
+    cta_rank_by: str,
+    cancer_rna_threshold: float,
+    cancer_type_prevalence_floor: float,
+) -> pd.DataFrame:
+    from .loader import cta_dataframe
+
+    df = cta_dataframe().copy()
+    if cta_rank_by == _DEFAULT_RANK_COLUMN or cta_rank_by.startswith("cancer_"):
+        df = _add_cancer_expression_rank_columns(
+            df,
+            cancer_rna_threshold=cancer_rna_threshold,
+            cancer_type_prevalence_floor=cancer_type_prevalence_floor,
+        )
+    return df
+
+
+def _add_cancer_expression_rank_columns(
+    df: pd.DataFrame,
+    *,
+    cancer_rna_threshold: float,
+    cancer_type_prevalence_floor: float,
+) -> pd.DataFrame:
+    if "Ensembl_Gene_ID" not in df.columns:
+        return df
+    try:
+        from .cancer_expression import cta_cancer_expression_features
+
+        features = cta_cancer_expression_features(
+            rna_threshold=cancer_rna_threshold,
+            cancer_type_prevalence_floor=cancer_type_prevalence_floor,
+        )
+    except (FileNotFoundError, ValueError):
+        return df
+    if features.empty or "gene_id" not in features.columns:
+        return df
+
+    out = df.copy()
+    out["_gene_id_for_cancer_expression"] = out["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+    feature_cols = [
+        column
+        for column in features.columns
+        if column not in {"gene_id", "symbol"} and column not in out.columns
+    ]
+    if not feature_cols:
+        out = out.drop(columns=["_gene_id_for_cancer_expression"])
+        return out
+    features = features[["gene_id", *feature_cols]].drop_duplicates(subset=["gene_id"])
+    out = out.merge(
+        features,
+        left_on="_gene_id_for_cancer_expression",
+        right_on="gene_id",
+        how="left",
+    )
+    out = out.drop(columns=["_gene_id_for_cancer_expression", "gene_id"])
+    return out
+
+
 def _resolve_ctas(
     ctas: Iterable[str] | None,
     cta_count: int | None,
     cta_rank_by: str,
-    min_restriction_confidence: Iterable[str] | None,
-    restriction_levels: Iterable[str] | None,
+    cancer_rna_threshold: float = _DEFAULT_CANCER_RNA_THRESHOLD,
+    cancer_type_prevalence_floor: float = _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
+    min_restriction_confidence: Iterable[str] | None = ("HIGH", "MODERATE"),
+    restriction_levels: Iterable[str] | None = None,
     selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
     exclude_vital_tissue_expression: bool = True,
     vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
@@ -1033,7 +1118,7 @@ def _resolve_ctas(
     wins; else filter the bundled CTA CSV and take top-N by rank. If
     ``cta_count`` is ``None``, return all ranked automatic candidates."""
     from .gene_sets import CTA_gene_names
-    from .loader import cta_dataframe, passes_filters_mask
+    from .loader import passes_filters_mask
 
     valid = CTA_gene_names()
     allowlist = _normalize_cta_labels(selection_allowlist, valid)
@@ -1041,10 +1126,13 @@ def _resolve_ctas(
     if ctas is not None:
         return _normalize_cta_labels(ctas, valid)
 
-    df = cta_dataframe()
+    df = _cta_rank_dataframe(
+        cta_rank_by=cta_rank_by,
+        cancer_rna_threshold=cancer_rna_threshold,
+        cancer_type_prevalence_floor=cancer_type_prevalence_floor,
+    )
     if "Symbol" not in df.columns:
         return []
-    df = df.copy()
     df["_cta_display"] = df["Symbol"].map(_cta_display_name)
     df["_is_selection_allowlisted"] = df["_cta_display"].isin(allowlist)
     df = df[passes_filters_mask(df)]
@@ -1074,7 +1162,13 @@ def _resolve_ctas(
         df = df[~(vital_rna | vital_ms) | df["_is_selection_allowlisted"]]
 
     if cta_rank_by in df.columns and df[cta_rank_by].notna().any():
-        df = df.sort_values(cta_rank_by, ascending=False, na_position="last")
+        sort_columns = [cta_rank_by]
+        if cta_rank_by == _DEFAULT_RANK_COLUMN and _MS_RANK_COLUMN in df.columns:
+            df["_has_cta_exclusive_cancer_ms"] = (
+                pd.to_numeric(df[_MS_RANK_COLUMN], errors="coerce").fillna(0).gt(0)
+            )
+            sort_columns = ["_has_cta_exclusive_cancer_ms", cta_rank_by, _MS_RANK_COLUMN]
+        df = df.sort_values(sort_columns, ascending=False, na_position="last")
     else:
         df = df.sort_values("Symbol")
 
@@ -1229,13 +1323,20 @@ def _unique_vital_healthy_ms_cta_labels(candidate_df: pd.DataFrame) -> set[str]:
     return veto_labels
 
 
-def _cta_rank_values(cta_list: list[str], cta_rank_by: str) -> dict[str, float | str]:
-    from .loader import cta_dataframe
-
+def _cta_rank_values(
+    cta_list: list[str],
+    cta_rank_by: str,
+    cancer_rna_threshold: float = _DEFAULT_CANCER_RNA_THRESHOLD,
+    cancer_type_prevalence_floor: float = _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
+) -> dict[str, float | str]:
     if not cta_list:
         return {}
 
-    df = cta_dataframe()
+    df = _cta_rank_dataframe(
+        cta_rank_by=cta_rank_by,
+        cancer_rna_threshold=cancer_rna_threshold,
+        cancer_type_prevalence_floor=cancer_type_prevalence_floor,
+    )
     if "Symbol" not in df.columns or cta_rank_by not in df.columns:
         return {}
 

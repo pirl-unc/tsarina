@@ -198,7 +198,30 @@ def _stub_pipeline(monkeypatch):
             "ms_healthy_somatic_tissues": ["heart", "", "heart", "blood", "", "", "", ""],
         }
     )
+    cancer_features = pd.DataFrame(
+        {
+            "gene_id": ["E0", "E0B", "E1", "E2", "E5", "E3A", "E3B", "E4"],
+            "symbol": [
+                "MAGEA1",
+                "MAGEB2",
+                "MAGEA4",
+                "PRAME",
+                "VITALRNA",
+                "CTAG1A",
+                "CTAG1B",
+                "BAGE",
+            ],
+            "tumor_prevalence_panel_score": [100, 90, 80, 70, 60, 50, 50, 40],
+            "cancer_rna_prevalent_cancer_type_count": [20, 19, 18, 17, 16, 15, 15, 14],
+            "cancer_rna_sample_prevalence": [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.4, 0.3],
+        }
+    )
     monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+    monkeypatch.setattr(
+        "tsarina.cancer_expression.cta_cancer_expression_features",
+        lambda **kw: cancer_features,
+        raising=True,
+    )
 
 
 # ── CTA selection ──────────────────────────────────────────────────────
@@ -227,7 +250,7 @@ def test_selection_allowlist_is_pinned_into_automatic_top_n():
     assert ctas == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B"]
 
 
-def test_default_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
+def test_ms_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
     cta_csv = pd.DataFrame(
         {
             "Symbol": ["BROADONLY", "EXCLUSIVE"],
@@ -251,7 +274,7 @@ def test_default_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
     ctas = _resolve_ctas(
         ctas=None,
         cta_count=2,
-        cta_rank_by=_DEFAULT_RANK_COLUMN,
+        cta_rank_by="ms_cta_exclusive_cancer_peptide_count",
         min_restriction_confidence=("HIGH", "MODERATE"),
         restriction_levels=None,
         selection_allowlist=[],
@@ -260,6 +283,98 @@ def test_default_rank_column_prefers_cta_exclusive_cancer_ms(monkeypatch):
     )
 
     assert ctas == ["EXCLUSIVE", "BROADONLY"]
+
+
+def test_default_rank_column_prefers_tumor_prevalence(monkeypatch):
+    cta_csv = pd.DataFrame(
+        {
+            "Symbol": ["MSHIGH", "TUMORHIGH"],
+            "Ensembl_Gene_ID": ["E7", "E8"],
+            "filtered": ["true", "true"],
+            "never_expressed": ["false", "false"],
+            "restriction_confidence": ["HIGH", "HIGH"],
+            "restriction": ["TESTIS", "TESTIS"],
+            "ms_cta_exclusive_cancer_peptide_count": [100, 1],
+            "ms_healthy_somatic_tissues": ["", ""],
+        }
+    )
+    cancer_features = pd.DataFrame(
+        {
+            "gene_id": ["E7", "E8"],
+            "symbol": ["MSHIGH", "TUMORHIGH"],
+            "tumor_prevalence_panel_score": [1.0, 5.0],
+        }
+    )
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"MSHIGH", "TUMORHIGH"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.cancer_expression.cta_cancer_expression_features",
+        lambda **kw: cancer_features,
+        raising=True,
+    )
+
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=2,
+        cta_rank_by=_DEFAULT_RANK_COLUMN,
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=[],
+        exclude_vital_tissue_expression=False,
+        exclude_non_magea4_mage_family=False,
+    )
+
+    assert ctas == ["TUMORHIGH", "MSHIGH"]
+
+
+def test_default_rank_column_keeps_ms_supported_candidates_before_zero_ms(monkeypatch):
+    cta_csv = pd.DataFrame(
+        {
+            "Symbol": ["MSLOW", "ZEROMSHIGH"],
+            "Ensembl_Gene_ID": ["E7", "E8"],
+            "filtered": ["true", "true"],
+            "never_expressed": ["false", "false"],
+            "restriction_confidence": ["HIGH", "HIGH"],
+            "restriction": ["TESTIS", "TESTIS"],
+            "ms_cta_exclusive_cancer_peptide_count": [1, 0],
+            "ms_healthy_somatic_tissues": ["", ""],
+        }
+    )
+    cancer_features = pd.DataFrame(
+        {
+            "gene_id": ["E7", "E8"],
+            "symbol": ["MSLOW", "ZEROMSHIGH"],
+            "tumor_prevalence_panel_score": [1.0, 10.0],
+        }
+    )
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"MSLOW", "ZEROMSHIGH"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.cancer_expression.cta_cancer_expression_features",
+        lambda **kw: cancer_features,
+        raising=True,
+    )
+
+    ctas = _resolve_ctas(
+        ctas=None,
+        cta_count=2,
+        cta_rank_by=_DEFAULT_RANK_COLUMN,
+        min_restriction_confidence=("HIGH", "MODERATE"),
+        restriction_levels=None,
+        selection_allowlist=[],
+        exclude_vital_tissue_expression=False,
+        exclude_non_magea4_mage_family=False,
+    )
+
+    assert ctas == ["MSLOW", "ZEROMSHIGH"]
 
 
 def test_automatic_selection_hides_empty_ctas_by_default():
@@ -1057,6 +1172,7 @@ def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):
 
     long = spanning_pmhc_set(
         cta_count=2,
+        cta_rank_by="ms_cta_exclusive_cancer_peptide_count",
         alleles=["HLA-A*02:01"],
         selection_allowlist=(),
         exclude_vital_tissue_expression=False,
@@ -1370,6 +1486,8 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
         cta_count=25,
         cta_rank_by="ms_cancer_peptide_count",
         ctas=None,
+        cancer_rna_threshold=2.0,
+        cancer_type_prevalence_floor=0.05,
         min_restriction_confidence=["HIGH", "MODERATE"],
         restriction_levels=None,
         selection_allowlist=["PRAME", "CTAG1A/CTAG1B", "MAGEA4"],
@@ -1406,6 +1524,8 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
 
     assert "on_progress" in captured_kwargs
     assert callable(captured_kwargs["on_progress"])
+    assert captured_kwargs["cancer_rna_threshold"] == 2.0
+    assert captured_kwargs["cancer_type_prevalence_floor"] == 0.05
     assert captured_kwargs["selection_allowlist"] == ("PRAME", "CTAG1A/CTAG1B", "MAGEA4")
     assert captured_kwargs["exclude_vital_tissue_expression"] is True
     assert captured_kwargs["vital_tissue_max_ntpm"] == 2.0
@@ -1490,6 +1610,8 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         cta_count=25,
         cta_rank_by="ms_cancer_peptide_count",
         ctas=None,
+        cancer_rna_threshold=2.0,
+        cancer_type_prevalence_floor=0.05,
         min_restriction_confidence=["HIGH", "MODERATE"],
         restriction_levels=None,
         selection_allowlist=["PRAME", "CTAG1A/CTAG1B", "MAGEA4"],

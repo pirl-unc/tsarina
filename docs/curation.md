@@ -197,8 +197,28 @@ scanner for those files instead of the cached observations index.
 The broad `ms_*_peptide_count` columns count all peptide evidence assigned to
 CTA genes. The `ms_cta_exclusive_*_peptide_count` columns use the stricter
 CTA-exclusive peptide set: peptides found in any non-clean-CTA protein are not
-counted there. Automatic panel ranking uses
-`ms_cta_exclusive_cancer_peptide_count` by default.
+counted there.
+
+Automatic panel ranking now uses bundled HPA cancer RNA prevalence by default
+(`tumor_prevalence_panel_score`): cancer-type breadth at pTPM >= 2.0 and a 5%
+sample-prevalence floor, then sample-level prevalence, with HPA cancer IHC as a
+weak tie-breaker. Candidates with CTA-exclusive cancer-MS support sort before
+zero-MS candidates to keep automatic backfill from spending early batches on
+unsupported genes. The previous MS-first automatic rank remains available with
+`--cta-rank-by ms_cta_exclusive_cancer_peptide_count`.
+
+The bundled HPA cancer prevalence tables can be regenerated for an updated CTA
+candidate CSV with:
+
+```bash
+python scripts/regenerate_hpa_cancer_prevalence.py \
+  --cta-csv tsarina/data/cancer-testis-antigens.csv \
+  --output-dir tsarina/data
+```
+
+The script streams HPA's large `rna_cancer_sample.tsv.gz` table and writes only
+per-gene/cancer prevalence summaries for genes in the CTA CSV, plus a compact
+subset of HPA's cancer IHC count table.
 
 ### Axis-aware API
 

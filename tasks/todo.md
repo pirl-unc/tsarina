@@ -1,3 +1,54 @@
+# PR - Fix XAGE CTA-Exclusive MS Counts (2026-05-06)
+
+## Goal
+
+Fix stale bundled XAGE1A/XAGE1B MS evidence counts so shared XAGE peptides that
+are absent from non-CTA proteins count as CTA-exclusive evidence for both
+paralogs and for the grouped XAGE target. Also regenerate stale
+``restriction_confidence`` values so PAGE2/PAGE5 and other genes match the
+current synthesis algorithm. Track this as
+https://github.com/pirl-unc/tsarina/issues/58 and
+https://github.com/pirl-unc/tsarina/issues/59.
+
+## Plan
+
+- [x] Update bundled XAGE1A/XAGE1B rows with the recomputed cancer-only MS and
+      CTA-exclusive cancer-MS counts.
+- [x] Regenerate bundled ``restriction_confidence`` values from the current
+      synthesis algorithm.
+- [x] Add a regression test locking the expected XAGE shared-peptide count.
+- [x] Extend the tier consistency test to check ``restriction_confidence``.
+- [x] Add compact HPA cancer RNA/IHC prevalence tables for the full bundled CTA
+      candidate universe.
+- [x] Add a regeneration script that streams HPA RNA sample data and subsets it
+      to whatever CTA CSV is present, so larger future CTA sets are handled.
+- [x] Use bundled tumor RNA prevalence features in automatic panel ranking while
+      keeping the previous MS-count rank available via ``--cta-rank-by``.
+- [x] Bump the patch version.
+- [x] Run ``./format.sh``, ``./lint.sh``, and ``./test.sh``.
+- [ ] Open, merge, and deploy the PR.
+
+## Review
+
+- Recomputed XAGE1A/XAGE1B packaged MS evidence so their four shared
+  cancer-MS peptides count as CTA-exclusive for both paralogs.
+- Regenerated stale ``restriction_confidence`` values and extended the
+  consistency test to catch future drift.
+- Added bundled HPA cancer RNA/IHC prevalence summaries for all 358 current CTA
+  candidates plus ``scripts/regenerate_hpa_cancer_prevalence.py`` for future
+  larger candidate sets.
+- Automatic panel ranking now defaults to HPA tumor RNA prevalence breadth /
+  sample prevalence, with MS-supported CTAs sorted before zero-MS candidates and
+  the previous MS-first ranking still available via
+  ``--cta-rank-by ms_cta_exclusive_cancer_peptide_count``.
+- Real default-panel smoke run selected 25 targets including
+  ``XAGE1A/XAGE1B``, ``PAGE2/PAGE2B``, and ``PAGE5``.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (301 passed, 1 skipped locally because the optional sibling ``mhcflurry``
+  checkout is not importable).
+
+---
+
 # PR - Avoid Default MHCflurry Allele Chunking (2026-05-05)
 
 ## Goal
