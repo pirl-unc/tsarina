@@ -265,11 +265,12 @@ CTA-family safety gates.
 
 Default automatic ranking uses `tumor_prevalence_panel_score`, computed from
 bundled HPA cancer RNA prevalence at pTPM >= 2.0 and cancer-type breadth at a
-5% sample-prevalence floor, with HPA cancer IHC as a weak tie-breaker. Genes
-with CTA-exclusive cancer-MS support are ranked before zero-MS candidates to
-avoid wasting downstream pMHC scoring on unsupported genes. Use
-`--cancer-rna-threshold`, `--cancer-type-prevalence-floor`, or
-`--cta-rank-by ms_cta_exclusive_cancer_peptide_count` to change this ranking.
+5% sample-prevalence floor, with HPA cancer IHC as a weak tie-breaker. Public
+MS support and safety gates are recomputed from the current hitlist observations
+index for each candidate batch before pMHC scoring; packaged CTA evidence does
+not carry MS count columns. Use `--cancer-rna-threshold`,
+`--cancer-type-prevalence-floor`, or `--cta-rank-by <column>` to change the
+initial non-MS candidate ranking.
 
 Automatic panel output scans lower-ranked CTA candidates to backfill CTAs with
 zero selected pMHCs after peptide enumeration, CTA-exclusivity, public-MS, and

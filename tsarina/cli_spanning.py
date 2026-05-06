@@ -70,9 +70,9 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help=(
             "Column used to rank candidates "
             f"(default '{_DEFAULT_CTA_RANK_BY}', computed from bundled HPA cancer "
-            "RNA prevalence; use 'ms_cta_exclusive_cancer_peptide_count' for the "
-            "previous MS-first rank; falls back to alphabetical Symbol order if "
-            "the column is missing or all-NaN)."
+            "RNA prevalence; live public-MS support/safety is recomputed from "
+            "the hitlist observations index before pMHC scoring; falls back to "
+            "alphabetical Symbol order if a non-MS rank column is missing or all-NaN)."
         ),
     )
     p.add_argument(

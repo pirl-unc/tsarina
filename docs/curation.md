@@ -179,12 +179,12 @@ Never-expressed and unfiltered genes receive an empty `restriction`.
 
 ### Axis 3: `ms_safety` — MS evidence classification
 
-The bundled CSV includes precomputed public MHC-ligand MS aggregates from the
+Panel construction recomputes public MHC-ligand MS support from the current
 hitlist observations index. In the default cached path, hitlist builds that
 index from registered IEDB and CEDAR exports plus hitlist's manually curated
-supplementary MS rows. These counts do not use hitlist's bulk proteomics or
-line-expression indexes. Passing explicit IEDB/CEDAR paths uses the raw export
-scanner for those files instead of the cached observations index.
+supplementary MS rows. These panel-time counts do not use hitlist's bulk
+proteomics or line-expression indexes. Passing explicit IEDB/CEDAR paths uses
+the raw export scanner for those files instead of the cached observations index.
 
 | Value | Criteria |
 |-------|----------|
@@ -194,18 +194,18 @@ scanner for those files instead of the cached observations index.
 | `RECURRENT_HEALTHY` | Multiple peptides or tissues in healthy somatic MS (genuine off-target) |
 | `NO_MS_DATA` | No MS evidence available for this gene's peptides |
 
-The broad `ms_*_peptide_count` columns count all peptide evidence assigned to
-CTA genes. The `ms_cta_exclusive_*_peptide_count` columns use the stricter
+The packaged CTA evidence table intentionally does not include MS count columns.
+Use `CTA_detailed_evidence()` or `tsarina panel` to recompute current
+hitlist-derived counts. The runtime `ms_cta_exclusive_*` counts use the stricter
 CTA-exclusive peptide set: peptides found in any non-clean-CTA protein are not
 counted there.
 
 Automatic panel ranking now uses bundled HPA cancer RNA prevalence by default
 (`tumor_prevalence_panel_score`): cancer-type breadth at pTPM >= 2.0 and a 5%
 sample-prevalence floor, then sample-level prevalence, with HPA cancer IHC as a
-weak tie-breaker. Candidates with CTA-exclusive cancer-MS support sort before
-zero-MS candidates to keep automatic backfill from spending early batches on
-unsupported genes. The previous MS-first automatic rank remains available with
-`--cta-rank-by ms_cta_exclusive_cancer_peptide_count`.
+weak tie-breaker. Public-MS support/safety is then recomputed from hitlist for
+candidate batches before pMHC scoring. This keeps MS evidence live without
+bundling derived count snapshots.
 
 The bundled HPA cancer prevalence tables can be regenerated for an updated CTA
 candidate CSV with:
