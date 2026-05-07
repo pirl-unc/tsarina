@@ -208,8 +208,8 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=float,
         default=1.0,
         help=(
-            "Max percentile for multi-allelic sample-genotype MS support where the "
-            "panel allele is best among sample alleles (default 1.0)."
+            "Max percentile for multi-allelic MS support where the panel allele is "
+            "best among the exact or donor-set candidate alleles (default 1.0)."
         ),
     )
     p.add_argument(
@@ -359,8 +359,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "peptide-HLA candidate for that CTA and allele. Defaults to up to 25 "
             "non-empty CTAs crossed with the Global-53 HLA-A/B/C panel, 8-11mers, "
             "and tier-specific presentation-percentile cutoffs: mono-allelic MS <2.0, "
-            "multi-allelic "
-            "sample-genotype MS <1.0, unrestricted MS <0.5. Prediction-only "
+            "multi-allelic deconvolved MS <1.0, unrestricted MS <0.5. Prediction-only "
             "candidates are excluded unless --include-predicted-only is supplied. "
             "CTAs with identical peptide sets or selected pMHC panels are grouped by default. "
             "The default output is a readable table plus coverage summary."
