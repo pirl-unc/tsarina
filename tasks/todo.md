@@ -1,3 +1,42 @@
+# PR - Handle Peptide Attribution Provenance (2026-05-07)
+
+## Goal
+
+Recover sample-narrowed hitlist observations whose provenance is
+``peptide_attribution`` and make the sample-bag deconvolution rule explicit:
+donor allele bags are candidate sets, and selected pMHC evidence comes from
+prediction against the bag, not from treating the bag as an HLA assignment.
+
+## Plan
+
+- [x] Treat ``peptide_attribution`` rows like ``sample_allele_match`` rows when
+      extending the allele scoring set.
+- [x] Attribute sample-narrowed MS evidence only to the best predicted allele
+      within the donor allele set.
+- [x] Keep genuinely class-only rows with no usable exact or donor-set
+      assignment on the stricter ``unrestricted_ms`` path.
+- [x] Add regression coverage for class-only donor-set evidence and
+      ``peptide_attribution`` provenance.
+- [x] Update docs to clarify that sample-bag rows are prediction-deconvolved.
+- [x] Bump the patch version.
+- [x] Run ``./format.sh``, ``./lint.sh``, and ``./test.sh``.
+- [ ] Merge and deploy the PR.
+
+## Review
+
+- ``sample_allele_match`` and ``peptide_attribution`` now share the
+  sample-narrowed evidence path.
+- Class-only rows with donor allele bags are deconvolved by prediction: only
+  the best predicted allele in the bag gets ``sample_allele_ms`` support.
+- Rows with no usable exact or donor-set allele assignment remain on the
+  stricter ``unrestricted_ms`` path.
+- Documentation now states that donor bags are candidate sets, not direct HLA
+  assignments.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (306 tests).
+
+---
+
 # PR - Use Live Hitlist MS Evidence For Panel Construction (2026-05-06)
 
 ## Goal
