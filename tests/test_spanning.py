@@ -821,6 +821,11 @@ def test_monoallelic_ms_tier_and_threshold(monkeypatch):
 
 
 def test_sample_allele_ms_requires_best_among_sample_alleles(monkeypatch):
+    """Class-only rows with donor allele sets are deconvolved by prediction.
+
+    The row's donor bag is not an HLA assignment by itself: only the best
+    predicted allele among the sample alleles gets ``sample_allele_ms`` support.
+    """
     hits = pd.DataFrame(
         {
             "peptide": ["MAGEAPEP1"],
