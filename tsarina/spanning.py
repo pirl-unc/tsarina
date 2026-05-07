@@ -1672,23 +1672,38 @@ def _filter_peptides_by_live_ms_safety(
     return pep_df[pep_df["gene_name"].isin(keep)].reset_index(drop=True)
 
 
-def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list[str]:
-    """Return panel alleles plus sample-genotype alleles needed for best-of-sample checks."""
+def _exact_hla_alleles(value: object) -> set[str]:
     from .mhc import split_mhc_restrictions
 
+    return {
+        allele
+        for allele in split_mhc_restrictions(value)
+        if allele.startswith("HLA-") and "*" in allele
+    }
+
+
+def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list[str]:
+    """Return panel alleles plus alleles needed for deconvolution checks."""
     out = list(dict.fromkeys(allele_list))
     seen = set(out)
-    if hits.empty or "mhc_allele_set" not in hits.columns:
+    panel_alleles = set(allele_list)
+    if hits.empty:
         return out
 
-    for _, row in hits.iterrows():
-        if str(row.get("mhc_allele_provenance", "")).strip() not in _SAMPLE_NARROWED_PROVENANCES:
-            continue
-        value = row.get("mhc_allele_set", "")
-        for allele in split_mhc_restrictions(value):
-            if allele.startswith("HLA-") and "*" in allele and allele not in seen:
+    def add_alleles(alleles: set[str]) -> None:
+        for allele in sorted(alleles):
+            if allele not in seen:
                 out.append(allele)
                 seen.add(allele)
+
+    for _, row in hits.iterrows():
+        restriction_alleles = _exact_hla_alleles(row.get("mhc_restriction", ""))
+        if len(restriction_alleles) > 1 and panel_alleles & restriction_alleles:
+            add_alleles(restriction_alleles)
+
+        provenance = str(row.get("mhc_allele_provenance", "")).strip()
+        if provenance in _SAMPLE_NARROWED_PROVENANCES:
+            add_alleles(_exact_hla_alleles(row.get("mhc_allele_set", "")))
     return out
 
 
@@ -1808,23 +1823,23 @@ def _is_truthy(value: object) -> bool:
     return str(value).strip().lower() in {"true", "1", "yes"}
 
 
-def _is_best_sample_allele(
+def _is_best_deconvolved_allele(
     peptide: str,
     allele: str,
-    sample_alleles: set[str],
+    candidate_alleles: set[str],
     score_lookup: dict[tuple[str, str], float],
 ) -> bool:
     allele_score = score_lookup.get((peptide, allele))
     if allele_score is None:
         return False
-    sample_scores = [
-        score_lookup[(peptide, sample_allele)]
-        for sample_allele in sample_alleles
-        if (peptide, sample_allele) in score_lookup
+    candidate_scores = [
+        score_lookup[(peptide, candidate_allele)]
+        for candidate_allele in candidate_alleles
+        if (peptide, candidate_allele) in score_lookup
     ]
-    if not sample_scores:
+    if not candidate_scores:
         return False
-    return allele_score <= min(sample_scores) + 1e-12
+    return allele_score <= min(candidate_scores) + 1e-12
 
 
 def _build_evidence_stats(
@@ -1833,8 +1848,6 @@ def _build_evidence_stats(
     score_lookup: dict[tuple[str, str], float],
 ) -> dict[tuple[str, str | None, str], dict[str, object]]:
     """Build evidence buckets keyed by peptide, allele, and evidence tier."""
-    from .mhc import split_mhc_restrictions
-
     stats: dict[tuple[str, str | None, str], dict[str, object]] = {}
     if hits.empty or "peptide" not in hits.columns:
         return stats
@@ -1845,33 +1858,29 @@ def _build_evidence_stats(
         if not isinstance(peptide_value, str) or not peptide_value.strip():
             continue
         peptide = peptide_value.strip()
-        restrictions = set(split_mhc_restrictions(row.get("mhc_restriction", "")))
-        exact_panel_alleles = {
-            allele for allele in restrictions if allele in panel_alleles and "*" in allele
-        }
+        restriction_alleles = _exact_hla_alleles(row.get("mhc_restriction", ""))
+        exact_panel_alleles = restriction_alleles & panel_alleles
         is_monoallelic = _is_truthy(row.get("is_monoallelic", False))
-        sample_alleles = set(split_mhc_restrictions(row.get("mhc_allele_set", "")))
+        sample_alleles = _exact_hla_alleles(row.get("mhc_allele_set", ""))
         provenance = str(row.get("mhc_allele_provenance", "")).strip()
         matched = False
 
-        if is_monoallelic and exact_panel_alleles:
+        if is_monoallelic and len(restriction_alleles) == 1 and exact_panel_alleles:
             for allele in exact_panel_alleles:
                 _add_evidence(stats, (peptide, allele, "monoallelic_ms"), row)
             matched = True
         elif provenance in _SAMPLE_NARROWED_PROVENANCES and sample_alleles:
             for allele in sorted(panel_alleles & sample_alleles):
-                if _is_best_sample_allele(peptide, allele, sample_alleles, score_lookup):
+                if _is_best_deconvolved_allele(peptide, allele, sample_alleles, score_lookup):
                     _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
                     matched = True
         elif exact_panel_alleles:
             for allele in exact_panel_alleles:
-                _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
-            matched = True
+                if _is_best_deconvolved_allele(peptide, allele, restriction_alleles, score_lookup):
+                    _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
+                    matched = True
 
-        has_specific_restriction = any(
-            allele.startswith("HLA-") and "*" in allele for allele in restrictions
-        )
-        if not matched and not has_specific_restriction:
+        if not matched and not restriction_alleles:
             _add_evidence(stats, (peptide, None, "unrestricted_ms"), row)
 
     return {

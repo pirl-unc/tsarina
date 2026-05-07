@@ -957,6 +957,33 @@ def test_sample_allele_ms_exact_sample_restrictions_still_use_best_haplotype(mon
     assert row["evidence_tier"] == "sample_allele_ms"
 
 
+def test_multiallelic_exact_restrictions_use_best_prediction(monkeypatch):
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1"],
+            "mhc_restriction": ["HLA-A*02:01;HLA-B*07:02"],
+            "mhc_allele_provenance": ["exact"],
+            "mhc_allele_set": [""],
+            "is_monoallelic": [False],
+            "pmid": ["224"],
+            "cell_line_name": ["multi-allelic sample"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01", "HLA-B*07:02"],
+        sample_allele_ms_max_percentile=1.0,
+        output_format="long",
+    )
+
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["allele"] == "HLA-A*02:01"
+    assert row["evidence_tier"] == "sample_allele_ms"
+
+
 def test_unrestricted_ms_tier_uses_processing_evidence(monkeypatch):
     hits = pd.DataFrame(
         {

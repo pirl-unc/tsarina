@@ -1,3 +1,43 @@
+# PR - Deconvolve Multi-Allelic MS Evidence (2026-05-07)
+
+## Goal
+
+Make all multi-allelic MS evidence prediction-deconvolved rather than treating
+every listed allele as equally supported. The ranking should be
+monoallelic/exact MS > multi-allelic sample/restriction deconvolution >
+unrestricted class-I MS prediction > pure prediction.
+
+## Plan
+
+- [x] Score exact multi-allele restriction rows against every listed allele
+      needed to choose a best-of-restriction allele.
+- [x] Attribute non-monoallelic exact restriction rows only to the best
+      predicted listed allele, not every listed panel allele.
+- [x] Preserve current sample-narrowed donor-bag behavior and unrestricted
+      class-I fallback.
+- [x] Add regression coverage for exact multi-allele rows where multiple panel
+      alleles pass the sample cutoff.
+- [x] Update docs/CLI wording to describe the evidence ladder.
+- [x] Bump the patch version.
+- [x] Run ``./format.sh``, ``./lint.sh``, and ``./test.sh``.
+- [ ] Open, merge, and deploy the PR.
+
+## Review
+
+- Exact multi-allele restriction rows now score all listed HLA alleles needed
+  for deconvolution when the row overlaps the selected panel.
+- Non-monoallelic exact rows now assign ``sample_allele_ms`` only to the best
+  predicted listed allele rather than every listed panel allele.
+- Sample-narrowed donor-bag rows keep the same best-of-set behavior, and
+  class-only rows with no usable exact/donor set stay ``unrestricted_ms``.
+- Docs and CLI help now describe the intended tier ladder:
+  monoallelic MS > multi-allelic deconvolved MS > unrestricted class-I MS >
+  pure prediction.
+- Verification passed: ``./format.sh``, ``./lint.sh``, and ``./test.sh``
+  (307 tests).
+
+---
+
 # PR - Handle Peptide Attribution Provenance (2026-05-07)
 
 ## Goal
