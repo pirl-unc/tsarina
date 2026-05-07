@@ -847,6 +847,85 @@ def test_sample_allele_ms_requires_best_among_sample_alleles(monkeypatch):
     assert row["ms_pmids"] == "222"
 
 
+def test_peptide_attribution_provenance_treated_like_sample_allele_match(monkeypatch):
+    """Regression for hitlist#45 / pirl-unc/tsarina#62.  hitlist v1.30.39
+    introduced a new ``mhc_allele_provenance`` value, ``peptide_attribution``,
+    emitted for class-only IEDB rows whose peptide appears in a paper
+    supplement (Sarkizova 2020 patient cohort etc.) — the candidate set
+    is narrowed to the matched donor's typed alleles.  Same shape as
+    ``sample_allele_match`` but strictly more specific.
+
+    Spanning's ``_attribute_panel_evidence_with_observations`` previously
+    filtered ``provenance == "sample_allele_match"`` and silently skipped
+    these rows, dropping ~36 K Sarkizova patient-tumor MS observations
+    from panel-evidence attribution.  After the fix the same row gets
+    treated as ``sample_allele_ms`` evidence."""
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1"],
+            "mhc_restriction": ["HLA-A*02:01;HLA-B*07:02"],
+            "mhc_allele_provenance": ["peptide_attribution"],  # NEW provenance
+            "mhc_allele_set": ["HLA-A*02:01;HLA-B*07:02"],
+            "is_monoallelic": [False],
+            "pmid": ["31844290"],  # Sarkizova
+            "cell_line_name": ["MEL2"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01", "HLA-B*07:02"],
+        sample_allele_ms_max_percentile=1.0,
+        output_format="long",
+    )
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["allele"] == "HLA-A*02:01"
+    assert row["evidence_tier"] == "sample_allele_ms"
+    assert row["ms_pmids"] == "31844290"
+
+
+def test_extend_alleles_picks_up_peptide_attribution_donor_set(monkeypatch):
+    """``_extend_alleles_from_observations`` walks observation rows and
+    extends the panel allele list with the donor's typed alleles when
+    available.  Pre-tsarina#62 it filtered on ``sample_allele_match``
+    only; after the fix ``peptide_attribution`` rows are also visited.
+
+    This is a ``best-of-sample`` correctness gate — without the donor
+    alleles in the working list, scoring functions can't pick the best
+    haplotype for the peptide even when the data is on the row."""
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MAGEAPEP1"],
+            "mhc_restriction": ["HLA-A*02:01;HLA-B*07:02;HLA-C*06:02"],
+            "mhc_allele_provenance": ["peptide_attribution"],
+            "mhc_allele_set": ["HLA-A*02:01;HLA-B*07:02;HLA-C*06:02"],
+            "is_monoallelic": [False],
+            "pmid": ["31844290"],
+            "cell_line_name": ["MEL2"],
+        }
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    # Panel only includes HLA-A*02:01.  After best-of-sample extension
+    # the working allele list should also include the row's typed
+    # B*07:02 and C*06:02 — and the picked allele for the row should
+    # win out as the best haplotype across all three.
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        sample_allele_ms_max_percentile=1.0,
+        output_format="long",
+    )
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["evidence_tier"] == "sample_allele_ms"
+    # The picked allele must come from the panel intersect the
+    # row's sample alleles.
+    assert row["allele"] == "HLA-A*02:01"
+
+
 def test_sample_allele_ms_exact_sample_restrictions_still_use_best_haplotype(monkeypatch):
     hits = pd.DataFrame(
         {

@@ -58,6 +58,26 @@ _DEFAULT_SAMPLE_ALLELE_MS_MAX_PERCENTILE = 1.0
 _DEFAULT_UNRESTRICTED_MS_MAX_PERCENTILE = 0.5
 _DEFAULT_PREDICTED_ONLY_MAX_PERCENTILE = 0.1
 _DEFAULT_PEPTIDES_PER_CELL = 3
+
+#: ``mhc_allele_provenance`` values whose ``mhc_allele_set`` carries a
+#: sample-narrowed candidate set (donor's typed alleles, possibly
+#: per-peptide attributed via paper supplements).  Both shapes feed the
+#: same downstream "sample_allele_ms" evidence path.
+#:
+#: - ``sample_allele_match``: bag = donor's typed alleles from IEDB
+#:   ``Host | MHC Types Present``.
+#: - ``peptide_attribution``: bag = donor's typed alleles narrowed via
+#:   per-peptide attribution from a paper supplement (hitlist#45,
+#:   e.g. Sarkizova 2020 patient tumor cohort).  Strictly more specific
+#:   than ``sample_allele_match`` — same shape, narrower set.
+#:
+#: Pre-hitlist v1.30.39 only ``sample_allele_match`` existed; the
+#: ``peptide_attribution`` path was added when Sarkizova's 36 K
+#: patient-tumor MS rows shifted from class-only to attribution-narrowed
+#: sets.  See pirl-unc/tsarina#62.
+_SAMPLE_NARROWED_PROVENANCES: frozenset[str] = frozenset(
+    {"sample_allele_match", "peptide_attribution"}
+)
 _CTAG1_GROUP_LABEL = "CTAG1A/CTAG1B"
 _CTAG1_ALIASES = {
     "NYESO1",
@@ -1662,7 +1682,7 @@ def _score_alleles_for_panel(allele_list: list[str], hits: pd.DataFrame) -> list
         return out
 
     for _, row in hits.iterrows():
-        if str(row.get("mhc_allele_provenance", "")).strip() != "sample_allele_match":
+        if str(row.get("mhc_allele_provenance", "")).strip() not in _SAMPLE_NARROWED_PROVENANCES:
             continue
         value = row.get("mhc_allele_set", "")
         for allele in split_mhc_restrictions(value):
@@ -1838,7 +1858,7 @@ def _build_evidence_stats(
             for allele in exact_panel_alleles:
                 _add_evidence(stats, (peptide, allele, "monoallelic_ms"), row)
             matched = True
-        elif provenance == "sample_allele_match" and sample_alleles:
+        elif provenance in _SAMPLE_NARROWED_PROVENANCES and sample_alleles:
             for allele in sorted(panel_alleles & sample_alleles):
                 if _is_best_sample_allele(peptide, allele, sample_alleles, score_lookup):
                     _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
