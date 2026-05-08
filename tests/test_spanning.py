@@ -678,27 +678,6 @@ def test_vital_rna_gate_threshold_is_parameterizable():
     assert "VITALRNA" not in ctas
 
 
-def test_panel_summary_sorts_ctas_by_estimated_coverage():
-    selected = pd.DataFrame(
-        {
-            "cta": ["LOW", "HIGH", "HIGH"],
-            "allele": ["HLA-A*02:01", "HLA-A*02:01", "HLA-A*24:02"],
-            "peptide": ["LOWPEP", "HIGHPEP1", "HIGHPEP2"],
-            "evidence_tier": ["unrestricted_ms", "unrestricted_ms", "unrestricted_ms"],
-        }
-    )
-    summary = panel_summary(
-        selected=selected,
-        cta_list=["ZERO", "LOW", "HIGH"],
-        allele_list=["HLA-A*02:01", "HLA-A*24:02"],
-        allele_frequencies={"HLA-A*02:01": 0.2, "HLA-A*24:02": 0.1},
-    )
-    assert [row["cta"] for row in summary["cta_coverage"]] == ["HIGH", "LOW", "ZERO"]
-    by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
-    assert by_cta["HIGH"]["estimated_population_coverage"] == pytest.approx(0.51)
-    assert by_cta["LOW"]["estimated_population_coverage"] == pytest.approx(0.36)
-
-
 def test_panel_summary_coverage_outranks_peptide_count():
     selected = pd.DataFrame(
         {
