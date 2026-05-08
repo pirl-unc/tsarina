@@ -2143,9 +2143,9 @@ def panel_summary(
     cta_rows = sorted(
         cta_rows,
         key=lambda row: (
+            -float(row["estimated_population_coverage"]),
             -int(row["selected_peptide_count"]),
             -int(row["covered_hla_count"]),
-            -float(row["estimated_population_coverage"]),
             str(row["cta"]),
         ),
     )

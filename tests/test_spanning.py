@@ -678,7 +678,7 @@ def test_vital_rna_gate_threshold_is_parameterizable():
     assert "VITALRNA" not in ctas
 
 
-def test_panel_summary_sorts_ctas_by_selected_peptides():
+def test_panel_summary_sorts_ctas_by_estimated_coverage():
     selected = pd.DataFrame(
         {
             "cta": ["LOW", "HIGH", "HIGH"],
@@ -697,6 +697,41 @@ def test_panel_summary_sorts_ctas_by_selected_peptides():
     by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
     assert by_cta["HIGH"]["estimated_population_coverage"] == pytest.approx(0.51)
     assert by_cta["LOW"]["estimated_population_coverage"] == pytest.approx(0.36)
+
+
+def test_panel_summary_coverage_outranks_peptide_count():
+    selected = pd.DataFrame(
+        {
+            "cta": ["MANY", "MANY", "MANY", "BROAD"],
+            "allele": [
+                "HLA-A*02:01",
+                "HLA-A*02:01",
+                "HLA-A*02:01",
+                "HLA-A*24:02",
+            ],
+            "peptide": ["MANYPEP1", "MANYPEP2", "MANYPEP3", "BROADPEP"],
+            "evidence_tier": [
+                "unrestricted_ms",
+                "unrestricted_ms",
+                "unrestricted_ms",
+                "unrestricted_ms",
+            ],
+        }
+    )
+    summary = panel_summary(
+        selected=selected,
+        cta_list=["MANY", "BROAD"],
+        allele_list=["HLA-A*02:01", "HLA-A*24:02"],
+        allele_frequencies={"HLA-A*02:01": 0.1, "HLA-A*24:02": 0.4},
+    )
+    assert [row["cta"] for row in summary["cta_coverage"]] == ["BROAD", "MANY"]
+    by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
+    assert by_cta["BROAD"]["selected_peptide_count"] == 1
+    assert by_cta["MANY"]["selected_peptide_count"] == 3
+    assert (
+        by_cta["BROAD"]["estimated_population_coverage"]
+        > by_cta["MANY"]["estimated_population_coverage"]
+    )
 
 
 def test_panel_summary_counts_ms_tiers_per_cta():
