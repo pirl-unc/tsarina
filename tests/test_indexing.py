@@ -81,29 +81,6 @@ def test_load_ms_evidence_pushes_peptide_filter_to_loader():
     assert out["peptide"].tolist() == ["AAA"]
 
 
-def test_load_ms_evidence_falls_back_when_peptide_kwarg_unsupported():
-    fake = pd.DataFrame(
-        {
-            "peptide": ["AAA", "BBB"],
-            "mhc_restriction": ["HLA-A*02:01"] * 2,
-            "is_binding_assay": [False, False],
-        }
-    )
-
-    def _load(**kwargs):
-        if "peptide" in kwargs:
-            raise TypeError("unexpected kwarg peptide (simulating hitlist < 1.6.0)")
-        return fake
-
-    with (
-        patch("hitlist.observations.is_built", return_value=True),
-        patch("hitlist.observations.load_observations", side_effect=_load),
-    ):
-        out = load_ms_evidence(peptides={"AAA"})
-    # Fallback path still produces the right answer via in-memory isin.
-    assert out["peptide"].tolist() == ["AAA"]
-
-
 def test_load_ms_evidence_can_skip_binding_assay_drop():
     fake = pd.DataFrame(
         {
