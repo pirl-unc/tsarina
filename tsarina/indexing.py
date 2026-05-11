@@ -68,10 +68,8 @@ def load_ms_evidence(
     """Load MS evidence rows from the hitlist observations index.
 
     Ensures the index exists (building if needed) and runs a pushdown-filtered
-    parquet read for ``mhc_class``, ``mhc_species``, and the peptide set.
-    ``gene_name`` is forwarded to hitlist's ``load_observations`` and is only
-    honored on builds whose observations parquet carries a ``gene_name``
-    column; prefer passing ``peptides`` when you already have a peptide list.
+    parquet read for ``mhc_class``, ``mhc_species``, ``gene_name``, and the
+    peptide set.
 
     Parameters
     ----------
@@ -83,9 +81,9 @@ def load_ms_evidence(
     mhc_species
         Species filter (default ``"Homo sapiens"``; None disables).
     gene_name
-        Only honored on hitlist builds whose observations parquet carries a
-        ``gene_name`` column.  Prefer ``peptides`` when you already have a
-        peptide list in hand.
+        Filter to rows whose peptide maps to this gene (or list of genes).
+        Resolved through hitlist's ``peptide_mappings`` sidecar, which is
+        built alongside the observations index.
     columns
         Project the parquet read to these columns.
     auto_build
