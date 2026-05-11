@@ -213,10 +213,9 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
 
 @functools.lru_cache(maxsize=1)
 def _cached_proteome_index(ensembl_release: int, lengths: tuple[int, ...]):
-    # Holds the full Ensembl proteome index (~8-15 GB peak during build) for
-    # the lifetime of the process. Cache size 1 because the index is keyed
-    # only on (release, lengths) and a second key would double resident
-    # memory; back-to-back queries with different inputs evict the prior one.
+    # Only one (release, lengths) is used per process. The index is
+    # ~8-15 GB resident, so caching more than one entry would double
+    # memory without improving hit rate.
     from hitlist.proteome import ProteomeIndex
 
     return ProteomeIndex.from_ensembl(release=ensembl_release, lengths=lengths, verbose=False)

@@ -339,9 +339,8 @@ def test_cached_path_explicit_lengths_override_class_default(tmp_path):
 
 
 def test_enumerate_gene_peptides_caches_proteome_index_across_calls():
-    """Building the Ensembl ProteomeIndex is the dominant cost on the niche
-    enumeration path (~8-15 GB peak). Second invocation with the same
-    (release, lengths) must hit the lru_cache, not rebuild."""
+    """Second invocation with the same (release, lengths) must reuse the
+    cached ~8-15 GB Ensembl ProteomeIndex instead of rebuilding."""
     from tsarina import cli_hits
 
     class _StubProteomeIndex:
@@ -354,8 +353,9 @@ def test_enumerate_gene_peptides_caches_proteome_index_across_calls():
             "hitlist.proteome.ProteomeIndex.from_ensembl",
             return_value=_StubProteomeIndex(),
         ) as from_ensembl:
-            cli_hits._enumerate_gene_peptides("TARGET", 112, (9,))
+            df = cli_hits._enumerate_gene_peptides("TARGET", 112, (9,))
             cli_hits._enumerate_gene_peptides("TARGET", 112, (9,))
         from_ensembl.assert_called_once()
+        assert "peptide" in df.columns
     finally:
         cli_hits._cached_proteome_index.cache_clear()

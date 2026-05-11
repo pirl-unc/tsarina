@@ -67,10 +67,9 @@ def load_ms_evidence(
 ) -> pd.DataFrame:
     """Load MS evidence rows from the hitlist observations index.
 
-    Ensures the index exists (building if needed), then runs a pushdown-filtered
-    parquet read for ``mhc_class`` / ``mhc_species`` (and ``gene_name`` if a
-    flanking-built index is present), and finally filters to the supplied
-    peptide set in memory.
+    Ensures the index exists (building if needed) and runs a pushdown-filtered
+    parquet read for ``mhc_class``, ``mhc_species``, ``gene_name``, and the
+    peptide set.
 
     Parameters
     ----------
