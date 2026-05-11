@@ -456,6 +456,42 @@ def _format_percent(value: object) -> str:
         return "n/a"
 
 
+# HPA-style TCGA cancer-type display name → TCGA project code. Used to keep
+# the panel summary table narrow.
+_TCGA_PROJECT_CODE = {
+    "Bladder Urothelial Carcinoma": "BLCA",
+    "Breast Invasive Carcinoma": "BRCA",
+    "Cervical Squamous Cell Carcinoma and Endocervical Adenocarcinoma": "CESC",
+    "Colon Adenocarcinoma": "COAD",
+    "Glioblastoma Multiforme": "GBM",
+    "Head and Neck Squamous Cell Carcinoma": "HNSC",
+    "Kidney Chromophobe": "KICH",
+    "Kidney Renal Clear Cell Carcinoma": "KIRC",
+    "Kidney Renal Papillary Cell Carcinoma": "KIRP",
+    "Liver Hepatocellular Carcinoma": "LIHC",
+    "Lung Adenocarcinoma": "LUAD",
+    "Lung Squamous Cell Carcinoma": "LUSC",
+    "Ovary Serous Cystadenocarcinoma": "OV",
+    "Pancreatic Adenocarcinoma": "PAAD",
+    "Prostate Adenocarcinoma": "PRAD",
+    "Rectum Adenocarcinoma": "READ",
+    "Skin Cuteneous Melanoma": "SKCM",
+    "Stomach Adenocarcinoma": "STAD",
+    "Testicular Germ Cell Tumor": "TGCT",
+    "Thyroid Carcinoma": "THCA",
+    "Uterine Corpus Endometrial Carcinoma": "UCEC",
+}
+
+
+def _abbreviate_tcga_cancer_type(value: object) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    return _TCGA_PROJECT_CODE.get(text, text[:12])
+
+
 def _format_rank_value(value: object) -> str:
     try:
         number = float(value)
@@ -618,6 +654,9 @@ def format_panel_summary(df) -> str:
             str(row.get("sample_allele_ms_pmhc_count", 0)),
             str(row.get("unrestricted_ms_pmhc_count", 0)),
             _format_percent(row["estimated_population_coverage"]),
+            _format_percent(row.get("tcga_pan_prevalence_tpm_ge_1", 0.0)),
+            _format_percent(row.get("tcga_pan_prevalence_tpm_ge_5", 0.0)),
+            _abbreviate_tcga_cancer_type(row.get("tcga_top_cancer_type", "")),
         ]
         for row in summary["cta_coverage"]
     ]
@@ -634,6 +673,9 @@ def format_panel_summary(df) -> str:
                     "Sample MS",
                     "Unres MS",
                     "Est. coverage",
+                    "TCGA >1 TPM",
+                    "TCGA >5 TPM",
+                    "TCGA top type",
                 ],
                 cta_rows,
             ),

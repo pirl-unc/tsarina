@@ -137,12 +137,21 @@ def CTA_detailed_evidence(
         Gene symbols to compute MS restriction for.  If None, uses all
         CTA genes (slower — enumerates peptides for all 358 genes).
 
+    TCGA tumor RNA prevalence columns (always added):
+    ``tcga_sample_count``, ``tcga_cancer_type_count``, ``tcga_max_ptpm``,
+    ``tcga_expressed_samples_tpm_ge_1``, ``tcga_expressed_samples_tpm_ge_5``,
+    ``tcga_pan_prevalence_tpm_ge_1``, ``tcga_pan_prevalence_tpm_ge_5``,
+    ``tcga_top_cancer_type_tpm_ge_1``,
+    ``tcga_top_cancer_type_prevalence_tpm_ge_1``. Sourced from the
+    cohort=TCGA rows of the bundled HPA cancer RNA-seq prevalence table.
+
     Returns
     -------
     pd.DataFrame
         CTA evidence DataFrame with additional detail columns.
     """
     df = cta_dataframe().copy()
+    df = _attach_tcga_prevalence(df)
 
     if hpa_bulk_path is not None:
         from .hpa import enrich_hpa_evidence, extract_per_tissue_detail, parse_ntpm_entries
@@ -173,6 +182,51 @@ def CTA_detailed_evidence(
         df = _compute_ms_restriction(df, iedb_path, cedar_path, genes=genes)
 
     return df
+
+
+_TCGA_PREVALENCE_NUMERIC_DEFAULTS = {
+    "tcga_sample_count": 0,
+    "tcga_cancer_type_count": 0,
+    "tcga_max_ptpm": 0.0,
+    "tcga_expressed_samples_tpm_ge_1": 0,
+    "tcga_expressed_samples_tpm_ge_5": 0,
+    "tcga_pan_prevalence_tpm_ge_1": 0.0,
+    "tcga_pan_prevalence_tpm_ge_5": 0.0,
+    "tcga_top_cancer_type_prevalence_tpm_ge_1": 0.0,
+}
+_TCGA_PREVALENCE_STRING_DEFAULTS = {"tcga_top_cancer_type_tpm_ge_1": ""}
+
+
+def _attach_tcga_prevalence(df: pd.DataFrame) -> pd.DataFrame:
+    """Left-merge TCGA pan-cancer prevalence features onto the CTA evidence table.
+
+    Joins on the stripped Ensembl gene id so transcript-versioned ids in the
+    evidence frame still match. Genes without TCGA expression measurements get
+    zero/empty defaults rather than NaN, so downstream filters and table
+    rendering stay stable.
+    """
+    if "Ensembl_Gene_ID" not in df.columns:
+        return df
+
+    from .cancer_expression import cta_tcga_expression_features
+
+    features = cta_tcga_expression_features()
+    if features.empty:
+        for column, default in _TCGA_PREVALENCE_NUMERIC_DEFAULTS.items():
+            df[column] = default
+        for column, default in _TCGA_PREVALENCE_STRING_DEFAULTS.items():
+            df[column] = default
+        return df
+
+    join_key = "_tcga_gene_id"
+    df[join_key] = df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+    features = features.rename(columns={"gene_id": join_key}).drop(columns=["symbol"])
+    merged = df.merge(features, on=join_key, how="left").drop(columns=[join_key])
+    for column, default in _TCGA_PREVALENCE_NUMERIC_DEFAULTS.items():
+        merged[column] = pd.to_numeric(merged[column], errors="coerce").fillna(default)
+    for column, default in _TCGA_PREVALENCE_STRING_DEFAULTS.items():
+        merged[column] = merged[column].fillna(default).astype(str)
+    return merged
 
 
 def _compute_ms_restriction(

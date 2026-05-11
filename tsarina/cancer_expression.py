@@ -18,6 +18,8 @@ _RNA_PREVALENCE_CSV = join(_DATA_DIR, "hpa-cancer-rna-prevalence.csv")
 _IHC_PREVALENCE_CSV = join(_DATA_DIR, "hpa-cancer-ihc-prevalence.csv")
 _DEFAULT_RNA_THRESHOLD = 2.0
 _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
+_TCGA_COHORT = "TCGA"
+_TCGA_DEFAULT_THRESHOLDS = (1.0, 5.0)
 
 
 def _threshold_label(value: float) -> str:
@@ -224,3 +226,115 @@ def _ihc_features(
             "cancer_ihc_medium_high_sample_prevalence": 0.0,
         }
     )
+
+
+def cta_tcga_expression_features(
+    *,
+    thresholds: tuple[float, ...] = _TCGA_DEFAULT_THRESHOLDS,
+    rna_prevalence: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Per-gene TCGA pan-cancer RNA prevalence summary.
+
+    Aggregates the TCGA-cohort rows of the bundled HPA cancer RNA prevalence
+    table into one row per ``(gene_id, symbol)`` with prevalence at each
+    requested pTPM threshold (defaults: ``1.0`` and ``5.0``), the originating
+    TCGA cancer type that maximizes prevalence at the lowest threshold, and
+    counts of distinct TCGA cancer types contributing samples.
+
+    The underlying TCGA expression measurements are the cohort=``TCGA`` rows
+    of HPA v23's ``cancer RNA-Seq`` tab, which republishes harmonized TCGA
+    Pan-Cancer pTPM values. Sample counts and 21 distinct TCGA project codes
+    (BRCA, LUAD, ...) are preserved.
+    """
+    rna = hpa_cancer_rna_prevalence() if rna_prevalence is None else rna_prevalence
+    if rna.empty or "cohort" not in rna.columns:
+        return pd.DataFrame(columns=["gene_id", "symbol"])
+
+    tcga = rna[rna["cohort"] == _TCGA_COHORT].copy()
+    if tcga.empty:
+        return pd.DataFrame(columns=["gene_id", "symbol"])
+
+    if not thresholds:
+        raise ValueError("cta_tcga_expression_features requires at least one threshold")
+    sorted_thresholds = tuple(sorted(thresholds))
+    threshold_labels = {t: _threshold_label(t) for t in sorted_thresholds}
+
+    required = {"gene_id", "symbol", "cancer_type", "samples"}
+    missing = required - set(tcga.columns)
+    if missing:
+        raise ValueError(
+            f"Bundled HPA cancer RNA prevalence table missing TCGA column(s): {sorted(missing)}"
+        )
+    tcga["samples"] = pd.to_numeric(tcga["samples"], errors="coerce").fillna(0)
+    for threshold, label in threshold_labels.items():
+        count_col = f"expressed_samples_ptpm_ge_{label}"
+        if count_col not in tcga.columns:
+            raise ValueError(
+                f"Bundled HPA cancer RNA prevalence table missing column {count_col!r} "
+                f"required for TCGA threshold {threshold:g} pTPM"
+            )
+        tcga[count_col] = pd.to_numeric(tcga[count_col], errors="coerce").fillna(0)
+
+    per_type = tcga.groupby(["gene_id", "symbol", "cancer_type"], as_index=False, sort=False).agg(
+        samples=("samples", "sum"),
+        **{
+            f"expressed_samples_ptpm_ge_{label}": (f"expressed_samples_ptpm_ge_{label}", "sum")
+            for label in threshold_labels.values()
+        },
+        max_ptpm=("max_ptpm", "max"),
+    )
+    for label in threshold_labels.values():
+        count_col = f"expressed_samples_ptpm_ge_{label}"
+        prev_col = f"cancer_type_prevalence_tpm_ge_{label}"
+        per_type[prev_col] = per_type[count_col] / per_type["samples"].where(
+            per_type["samples"] != 0, pd.NA
+        )
+
+    primary_label = threshold_labels[sorted_thresholds[0]]
+    primary_prev_col = f"cancer_type_prevalence_tpm_ge_{primary_label}"
+    top_type_col = f"tcga_top_cancer_type_tpm_ge_{primary_label}"
+    top_prev_col = f"tcga_top_cancer_type_prevalence_tpm_ge_{primary_label}"
+
+    ranked = per_type.sort_values(
+        ["gene_id", "symbol", primary_prev_col],
+        ascending=[True, True, False],
+        na_position="last",
+    )
+    tops = (
+        ranked.drop_duplicates(["gene_id", "symbol"], keep="first")[
+            ["gene_id", "symbol", "cancer_type", primary_prev_col]
+        ]
+        .rename(
+            columns={
+                "cancer_type": top_type_col,
+                primary_prev_col: top_prev_col,
+            }
+        )
+        .reset_index(drop=True)
+    )
+    tops[top_type_col] = tops[top_type_col].astype(str).fillna("")
+    tops[top_prev_col] = pd.to_numeric(tops[top_prev_col], errors="coerce").fillna(0.0)
+
+    base_aggs: dict[str, tuple[str, str]] = {
+        "tcga_sample_count": ("samples", "sum"),
+        "tcga_cancer_type_count": ("cancer_type", "nunique"),
+        "tcga_max_ptpm": ("max_ptpm", "max"),
+    }
+    for label in threshold_labels.values():
+        base_aggs[f"tcga_expressed_samples_tpm_ge_{label}"] = (
+            f"expressed_samples_ptpm_ge_{label}",
+            "sum",
+        )
+
+    summary = per_type.groupby(["gene_id", "symbol"], as_index=False, sort=False).agg(**base_aggs)
+    for label in threshold_labels.values():
+        prev_col = f"tcga_pan_prevalence_tpm_ge_{label}"
+        summary[prev_col] = summary[f"tcga_expressed_samples_tpm_ge_{label}"] / summary[
+            "tcga_sample_count"
+        ].where(summary["tcga_sample_count"] != 0, pd.NA)
+        summary[prev_col] = summary[prev_col].fillna(0.0)
+
+    summary = summary.merge(tops, on=["gene_id", "symbol"], how="left")
+    summary[top_type_col] = summary[top_type_col].fillna("")
+    summary[top_prev_col] = summary[top_prev_col].fillna(0.0)
+    return summary
