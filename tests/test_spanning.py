@@ -713,6 +713,72 @@ def test_panel_summary_coverage_outranks_peptide_count():
     )
 
 
+def test_panel_summary_attaches_tcga_prevalence_when_features_provided():
+    selected = pd.DataFrame(
+        {
+            "cta": ["PRAME", "MERGED"],
+            "allele": ["HLA-A*02:01", "HLA-A*02:01"],
+            "peptide": ["P1", "P2"],
+            "evidence_tier": ["unrestricted_ms", "unrestricted_ms"],
+            "cta_members": ["PRAME", "ALPHA/BETA"],
+        }
+    )
+    tcga_features = pd.DataFrame(
+        {
+            "gene_id": ["E1", "E2", "E3"],
+            "symbol": ["PRAME", "ALPHA", "BETA"],
+            "tcga_sample_count": [6918, 6918, 6918],
+            "tcga_cancer_type_count": [21, 21, 21],
+            "tcga_max_ptpm": [538.0, 100.0, 200.0],
+            "tcga_expressed_samples_tpm_ge_1": [3036, 100, 500],
+            "tcga_expressed_samples_tpm_ge_5": [2190, 20, 200],
+            "tcga_pan_prevalence_tpm_ge_1": [0.44, 0.01, 0.07],
+            "tcga_pan_prevalence_tpm_ge_5": [0.32, 0.003, 0.03],
+            "tcga_top_cancer_type_tpm_ge_1": [
+                "Skin Cuteneous Melanoma",
+                "Stomach Adenocarcinoma",
+                "Lung Adenocarcinoma",
+            ],
+            "tcga_top_cancer_type_prevalence_tpm_ge_1": [0.98, 0.10, 0.25],
+        }
+    )
+    summary = panel_summary(
+        selected=selected,
+        cta_list=["PRAME", "MERGED"],
+        allele_list=["HLA-A*02:01"],
+        allele_frequencies={"HLA-A*02:01": 0.25},
+        tcga_features=tcga_features,
+    )
+    by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
+    assert by_cta["PRAME"]["tcga_pan_prevalence_tpm_ge_1"] == pytest.approx(0.44)
+    assert by_cta["PRAME"]["tcga_top_cancer_type"] == "Skin Cuteneous Melanoma"
+    # Merged label keeps the BETA member's top cancer type (BETA has higher
+    # pan-cancer prevalence at TPM>=1 than ALPHA).
+    assert by_cta["MERGED"]["tcga_pan_prevalence_tpm_ge_1"] == pytest.approx(0.07)
+    assert by_cta["MERGED"]["tcga_top_cancer_type"] == "Lung Adenocarcinoma"
+
+
+def test_panel_summary_omits_tcga_values_without_features():
+    selected = pd.DataFrame(
+        {
+            "cta": ["PRAME"],
+            "allele": ["HLA-A*02:01"],
+            "peptide": ["P1"],
+            "evidence_tier": ["unrestricted_ms"],
+        }
+    )
+    summary = panel_summary(
+        selected=selected,
+        cta_list=["PRAME"],
+        allele_list=["HLA-A*02:01"],
+        allele_frequencies={"HLA-A*02:01": 0.25},
+    )
+    row = summary["cta_coverage"][0]
+    assert row["tcga_pan_prevalence_tpm_ge_1"] == 0.0
+    assert row["tcga_pan_prevalence_tpm_ge_5"] == 0.0
+    assert row["tcga_top_cancer_type"] == ""
+
+
 def test_panel_summary_counts_ms_tiers_per_cta():
     selected = pd.DataFrame(
         {

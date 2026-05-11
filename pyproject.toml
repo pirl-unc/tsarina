@@ -7,7 +7,8 @@ name = "tsarina"
 dynamic = ["version"]
 description = "Personalized cancer immunotherapy target selection from curated shared antigen data"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     {name = "Alex Rubinsteyn", email = "alex.rubinsteyn@unc.edu"}
 ]
@@ -16,7 +17,6 @@ classifiers = [
     "Environment :: Console",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",

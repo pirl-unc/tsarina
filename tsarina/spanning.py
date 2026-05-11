@@ -576,6 +576,7 @@ def spanning_pmhc_set(
         allele_list=allele_list,
         allele_frequencies=allele_frequencies,
         allele_frequency_sources=allele_frequency_sources,
+        tcga_features=_load_tcga_features_safely(),
     )
     summary["candidate_cta_count"] = len(cta_candidates)
     summary["cta_rank_by"] = cta_rank_by
@@ -2080,12 +2081,91 @@ def _selected_tier_row_counts(selected: pd.DataFrame) -> dict[str, int]:
     return counts
 
 
+_TCGA_PANEL_FIELDS = (
+    "tcga_pan_prevalence_tpm_ge_1",
+    "tcga_pan_prevalence_tpm_ge_5",
+    "tcga_max_ptpm",
+    "tcga_top_cancer_type",
+)
+
+
+def _load_tcga_features_safely() -> pd.DataFrame | None:
+    """Best-effort load of bundled TCGA prevalence; ``None`` if unavailable.
+
+    Wrapped so a malformed or missing bundled CSV cannot break panel
+    construction — callers should still get a populated summary, just
+    without the TCGA columns.
+    """
+    try:
+        from .cancer_expression import cta_tcga_expression_features
+
+        return cta_tcga_expression_features()
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+def _empty_tcga_panel_summary() -> dict[str, object]:
+    return {
+        "tcga_pan_prevalence_tpm_ge_1": 0.0,
+        "tcga_pan_prevalence_tpm_ge_5": 0.0,
+        "tcga_max_ptpm": 0.0,
+        "tcga_top_cancer_type": "",
+    }
+
+
+def _tcga_features_by_symbol(
+    tcga_features: pd.DataFrame | None,
+) -> dict[str, dict[str, object]]:
+    if tcga_features is None or tcga_features.empty or "symbol" not in tcga_features.columns:
+        return {}
+    return {
+        str(row["symbol"]): {
+            "tcga_pan_prevalence_tpm_ge_1": float(
+                row.get("tcga_pan_prevalence_tpm_ge_1", 0.0) or 0.0
+            ),
+            "tcga_pan_prevalence_tpm_ge_5": float(
+                row.get("tcga_pan_prevalence_tpm_ge_5", 0.0) or 0.0
+            ),
+            "tcga_max_ptpm": float(row.get("tcga_max_ptpm", 0.0) or 0.0),
+            "tcga_top_cancer_type": str(row.get("tcga_top_cancer_type_tpm_ge_1", "") or ""),
+        }
+        for _, row in tcga_features.iterrows()
+    }
+
+
+def _tcga_summary_for_cta(
+    cta_members: str,
+    tcga_lookup: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    """Aggregate TCGA prevalence across the (possibly merged) CTA members.
+
+    For each slash-joined member symbol we pull its TCGA summary and keep the
+    member with the highest ``tcga_pan_prevalence_tpm_ge_1`` so the top
+    cancer-type string corresponds to a real underlying gene rather than a
+    cross-member mash-up.
+    """
+    if not tcga_lookup or not cta_members:
+        return _empty_tcga_panel_summary()
+    members = [m for m in str(cta_members).split("/") if m]
+    rows = [tcga_lookup[m] for m in members if m in tcga_lookup]
+    if not rows:
+        return _empty_tcga_panel_summary()
+    best = max(rows, key=lambda r: float(r["tcga_pan_prevalence_tpm_ge_1"]))
+    return {
+        "tcga_pan_prevalence_tpm_ge_1": max(float(r["tcga_pan_prevalence_tpm_ge_1"]) for r in rows),
+        "tcga_pan_prevalence_tpm_ge_5": max(float(r["tcga_pan_prevalence_tpm_ge_5"]) for r in rows),
+        "tcga_max_ptpm": max(float(r["tcga_max_ptpm"]) for r in rows),
+        "tcga_top_cancer_type": str(best["tcga_top_cancer_type"]),
+    }
+
+
 def panel_summary(
     selected: pd.DataFrame,
     cta_list: list[str],
     allele_list: list[str],
     allele_frequencies: dict[str, float] | None = None,
     allele_frequency_sources: dict[str, str] | None = None,
+    tcga_features: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     """Summarize a selected panel table.
 
@@ -2094,9 +2174,16 @@ def panel_summary(
     sum to a carrier probability, then combine loci. The values are intended
     for ranking and sanity-checking panel breadth, not for clinical-grade
     population-genetics inference.
+
+    ``tcga_features`` is the optional output of
+    :func:`tsarina.cancer_expression.cta_tcga_expression_features`. When
+    supplied, the per-CTA coverage rows gain ``tcga_pan_prevalence_tpm_ge_1``,
+    ``tcga_pan_prevalence_tpm_ge_5``, ``tcga_max_ptpm`` and
+    ``tcga_top_cancer_type`` columns (max across slash-joined CTA members).
     """
     allele_frequencies = allele_frequencies or dict.fromkeys(allele_list, 0.0)
     allele_frequency_sources = allele_frequency_sources or dict.fromkeys(allele_list, "missing")
+    tcga_lookup = _tcga_features_by_symbol(tcga_features)
     possible_cell_count = len(cta_list) * len(allele_list)
 
     if selected.empty:
@@ -2125,6 +2212,7 @@ def panel_summary(
         coverage = _combined_carrier_probability(
             {allele: allele_frequencies.get(allele, 0.0) for allele in covered_alleles}
         )
+        tcga_summary = _tcga_summary_for_cta(cta_members, tcga_lookup)
         cta_rows.append(
             {
                 "cta": cta,
@@ -2138,6 +2226,7 @@ def panel_summary(
                 "unrestricted_ms_pmhc_count": tier_row_counts.get("unrestricted_ms", 0),
                 "predicted_only_pmhc_count": tier_row_counts.get("predicted_only", 0),
                 "estimated_population_coverage": coverage,
+                **tcga_summary,
             }
         )
     cta_rows = sorted(
@@ -2262,6 +2351,7 @@ def _empty_output(
         allele_list=allele_list,
         allele_frequencies=allele_frequencies,
         allele_frequency_sources=allele_frequency_sources,
+        tcga_features=_load_tcga_features_safely(),
     )
     input_cta_list = input_cta_list or cta_list
     empty_ctas = empty_ctas or []
