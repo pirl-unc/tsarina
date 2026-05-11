@@ -26,6 +26,7 @@ override that bypasses the index).
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
 
 import pandas as pd
@@ -210,15 +211,23 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     return p
 
 
+@functools.lru_cache(maxsize=1)
+def _cached_proteome_index(ensembl_release: int, lengths: tuple[int, ...]):
+    # Only one (release, lengths) is used per process. The index is
+    # ~8-15 GB resident, so caching more than one entry would double
+    # memory without improving hit rate.
+    from hitlist.proteome import ProteomeIndex
+
+    return ProteomeIndex.from_ensembl(release=ensembl_release, lengths=lengths, verbose=False)
+
+
 def _enumerate_gene_peptides(
     gene: str,
     ensembl_release: int,
     lengths: tuple[int, ...],
 ) -> pd.DataFrame:
     """Build a DataFrame of (peptide, protein_id, gene_name, gene_id, position, n_flank, c_flank)."""
-    from hitlist.proteome import ProteomeIndex
-
-    idx = ProteomeIndex.from_ensembl(release=ensembl_release, lengths=lengths, verbose=False)
+    idx = _cached_proteome_index(ensembl_release, lengths)
 
     target_ids = [pid for pid, meta in idx.protein_meta.items() if meta.get("gene_name") == gene]
     if not target_ids:

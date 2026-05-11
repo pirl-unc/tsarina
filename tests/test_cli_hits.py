@@ -336,3 +336,26 @@ def test_cached_path_explicit_lengths_override_class_default(tmp_path):
     kwargs = ms_only.call_args.kwargs
     assert kwargs.get("length_min") == 9
     assert kwargs.get("length_max") == 10
+
+
+def test_enumerate_gene_peptides_caches_proteome_index_across_calls():
+    """Second invocation with the same (release, lengths) must reuse the
+    cached ~8-15 GB Ensembl ProteomeIndex instead of rebuilding."""
+    from tsarina import cli_hits
+
+    class _StubProteomeIndex:
+        proteins = {"P1": "MAGEAPEPTIDESEQX"}
+        protein_meta = {"P1": {"gene_name": "TARGET", "gene_id": "ENSG"}}
+
+    cli_hits._cached_proteome_index.cache_clear()
+    try:
+        with patch(
+            "hitlist.proteome.ProteomeIndex.from_ensembl",
+            return_value=_StubProteomeIndex(),
+        ) as from_ensembl:
+            df = cli_hits._enumerate_gene_peptides("TARGET", 112, (9,))
+            cli_hits._enumerate_gene_peptides("TARGET", 112, (9,))
+        from_ensembl.assert_called_once()
+        assert "peptide" in df.columns
+    finally:
+        cli_hits._cached_proteome_index.cache_clear()

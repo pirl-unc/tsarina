@@ -67,10 +67,11 @@ def load_ms_evidence(
 ) -> pd.DataFrame:
     """Load MS evidence rows from the hitlist observations index.
 
-    Ensures the index exists (building if needed), then runs a pushdown-filtered
-    parquet read for ``mhc_class`` / ``mhc_species`` (and ``gene_name`` if a
-    flanking-built index is present), and finally filters to the supplied
-    peptide set in memory.
+    Ensures the index exists (building if needed) and runs a pushdown-filtered
+    parquet read for ``mhc_class``, ``mhc_species``, and the peptide set.
+    ``gene_name`` is forwarded to hitlist's ``load_observations`` and is only
+    honored on builds whose observations parquet carries a ``gene_name``
+    column; prefer passing ``peptides`` when you already have a peptide list.
 
     Parameters
     ----------
@@ -82,8 +83,9 @@ def load_ms_evidence(
     mhc_species
         Species filter (default ``"Homo sapiens"``; None disables).
     gene_name
-        Only supported on flanking-built indices.  Use ``peptides`` instead
-        when you already have a peptide list in hand.
+        Only honored on hitlist builds whose observations parquet carries a
+        ``gene_name`` column.  Prefer ``peptides`` when you already have a
+        peptide list in hand.
     columns
         Project the parquet read to these columns.
     auto_build
@@ -101,30 +103,18 @@ def load_ms_evidence(
     if auto_build and not is_built():
         ensure_index_built()
 
-    # Push peptide set down to the parquet reader when possible — hitlist
-    # 1.6.0+ accepts a ``peptide=`` filter.  Fall back to in-memory isin
-    # for older installs.
     load_kwargs: dict = {
         "mhc_class": mhc_class,
         "species": mhc_species,
         "gene_name": gene_name,
         "columns": columns,
     }
-    peptide_list: list[str] | None = None
     if peptides is not None:
-        peptide_list = (
+        load_kwargs["peptide"] = (
             sorted(peptides) if isinstance(peptides, (set, frozenset)) else list(peptides)
         )
-        load_kwargs["peptide"] = peptide_list
 
-    try:
-        df = load_observations(**load_kwargs)
-    except TypeError:
-        # Older hitlist without ``peptide=`` pushdown.
-        load_kwargs.pop("peptide", None)
-        df = load_observations(**load_kwargs)
-        if peptide_list is not None:
-            df = df[df["peptide"].isin(set(peptide_list))]
+    df = load_observations(**load_kwargs)
 
     if drop_binding_assays and "is_binding_assay" in df.columns:
         df = df[~df["is_binding_assay"]]
