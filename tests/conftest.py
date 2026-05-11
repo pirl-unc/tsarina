@@ -12,53 +12,54 @@
 
 """Shared pytest fixtures.
 
-The autouse fixture in this file installs a tiny in-memory stand-in for
-``mhcflurry.Class1PresentationPredictor`` into the cached singleton at
-``tsarina.scoring._MHCFLURRY_PRESENTATION_PREDICTOR``. This prevents the
-real predictor — which loads ~140 Keras models and consumes 3-6 GB per
-process — from ever being instantiated during the test suite.
+The autouse fixture in this file installs a sentinel object into the
+cached predictor singleton at
+``tsarina.scoring._MHCFLURRY_PRESENTATION_PREDICTOR``. The sentinel
+prevents the real ``Class1PresentationPredictor`` — which loads ~140
+Keras models and consumes 3-6 GB per process — from ever being
+instantiated during the test suite, and refuses to fabricate
+predictions if a test path reaches it.
 
 See issue #68: without this stub, any test path that reaches
 ``score_presentation(..., predictor="mhcflurry")`` without per-test
-monkeypatching can trigger an OOM (~55 GB observed) when multiplied
-across pytest-cov subprocesses.
+monkeypatching loaded real MHCflurry. Multiplied across pytest-xdist
+workers this produced an OOM (~55 GB observed) on developer machines.
 
-Tests that need to exercise the real loader path (e.g. asserting the
-ImportError raised when mhcflurry isn't installed) reset the singleton
-to ``None`` themselves; the loader function is unchanged and will
-attempt the real import when the singleton is cleared.
+Per-test stubs of ``tsarina.scoring.score_presentation`` or
+``tsarina.scoring._load_mhcflurry_presentation_predictor`` continue to
+override this sentinel at the call site, so tests with their own scoring
+fakes are unaffected. Tests that need to exercise the real loader path
+(e.g. asserting the ImportError raised when mhcflurry isn't installed)
+reset the singleton to ``None`` themselves.
 """
 
 from __future__ import annotations
 
-import pandas as pd
 import pytest
 
 
-class _StubMHCflurryPresentationPredictor:
-    """Deterministic stand-in for ``Class1PresentationPredictor``.
+class _UnstubbedMHCflurryPredictor:
+    """Sentinel ``Class1PresentationPredictor`` that refuses to predict.
 
-    Mirrors the keyword-only ``predict`` surface that
-    ``tsarina.scoring._score_mhcflurry`` invokes and returns a DataFrame
-    with the columns the downstream code reads.
+    Installed into ``tsarina.scoring._MHCFLURRY_PRESENTATION_PREDICTOR`` by
+    the autouse fixture below so that no test path can accidentally load
+    real MHCflurry. If a test reaches this object's ``predict`` method,
+    that's a bug in the test (it forgot to stub
+    ``tsarina.scoring.score_presentation`` or
+    ``tsarina.scoring._load_mhcflurry_presentation_predictor``) — fail
+    loudly rather than return dummy values that could be silently
+    asserted on.
     """
 
     def predict(self, *, peptides, alleles, include_affinity_percentile, verbose):
-        rows = []
-        for sample_name, sample_alleles in alleles.items():
-            assert sample_alleles == [sample_name]
-            for peptide in peptides:
-                rows.append(
-                    {
-                        "peptide": peptide,
-                        "sample_name": sample_name,
-                        "best_allele": sample_name,
-                        "affinity": 50.0,
-                        "presentation_score": 0.95,
-                        "presentation_percentile": 0.5,
-                    }
-                )
-        return pd.DataFrame(rows)
+        raise AssertionError(
+            "Real MHCflurry predictor was reached during the test suite. "
+            "Stub `tsarina.scoring.score_presentation` (preferred) or "
+            "`tsarina.scoring._load_mhcflurry_presentation_predictor` in "
+            "the test that triggered this call. To exercise the real "
+            "loader path, reset the singleton to None first: "
+            "`monkeypatch.setattr(scoring, '_MHCFLURRY_PRESENTATION_PREDICTOR', None)`."
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +69,6 @@ def _stub_mhcflurry_predictor(monkeypatch):
     monkeypatch.setattr(
         scoring,
         "_MHCFLURRY_PRESENTATION_PREDICTOR",
-        _StubMHCflurryPresentationPredictor(),
+        _UnstubbedMHCflurryPredictor(),
         raising=True,
     )
