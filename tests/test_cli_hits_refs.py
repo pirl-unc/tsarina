@@ -137,11 +137,11 @@ def test_refs_handler_merges_gene_ident_cols_from_cached_path(tmp_path):
     assert all(out["gene_names"] == "PRAME")
 
 
-def test_refs_handler_passes_through_when_no_gene_ident_cols(tmp_path):
-    """When the scan result lacks gene_names / gene_ids / protein_ids
-    (e.g. raw-scan override path without the enumeration frame), the
-    refs branch should still produce the aggregator output rather than
-    erroring or dropping rows."""
+def test_refs_handler_emits_empty_gene_idents_when_mappings_sidecar_is_empty(tmp_path):
+    """When peptide_mappings yields no rows for the loaded peptides (e.g.
+    a sidecar that hasn't indexed this gene yet), the refs handler must
+    still produce the aggregator output and pass empty-string gene
+    identifiers through rather than erroring or dropping rows."""
     import argparse
     from unittest.mock import patch
 
@@ -160,6 +160,14 @@ def test_refs_handler_passes_through_when_no_gene_ident_cols(tmp_path):
             "src_cancer": [True],
             "src_healthy_tissue": [False],
             "is_monoallelic": [False],
+        }
+    )
+    empty_mappings = pd.DataFrame(
+        {
+            "peptide": pd.Series(dtype=str),
+            "gene_name": pd.Series(dtype=str),
+            "gene_id": pd.Series(dtype=str),
+            "protein_id": pd.Series(dtype=str),
         }
     )
 
@@ -187,12 +195,16 @@ def test_refs_handler_passes_through_when_no_gene_ident_cols(tmp_path):
     with (
         patch("tsarina.indexing.ensure_index_built"),
         patch("hitlist.observations.load_observations", return_value=hits_frame),
+        patch("hitlist.mappings.load_peptide_mappings", return_value=empty_mappings),
     ):
         cli_hits.handle(args)
 
-    out = pd.read_csv(output_csv)
-    # Output has the aggregator columns but no gene_ident_cols since
-    # the input didn't provide them.
+    # Empty cells round-trip through CSV as NaN by default; read with
+    # keep_default_na=False so the empty-string contract from
+    # annotate_observations_with_genes is preserved.
+    out = pd.read_csv(output_csv, keep_default_na=False)
     assert "ms_pmhc_hit_count" in out.columns
-    assert "gene_names" not in out.columns
     assert list(out["peptide"]) == ["QYIAQFTSQF"]
+    assert out["gene_names"].tolist() == [""]
+    assert out["gene_ids"].tolist() == [""]
+    assert out["protein_ids"].tolist() == [""]

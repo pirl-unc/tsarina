@@ -241,6 +241,17 @@ def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
             "mhc_restriction": ["HLA-A*02:01"] * 3,
         }
     )
+    # Post-1.30.46 the fast path re-attaches gene columns via
+    # ``load_peptide_mappings``; the test focus is length filtering, so
+    # provide an empty-mappings stub to keep the loader real-import-free.
+    empty_mappings = pd.DataFrame(
+        {
+            "peptide": pd.Series(dtype=str),
+            "gene_name": pd.Series(dtype=str),
+            "gene_id": pd.Series(dtype=str),
+            "protein_id": pd.Series(dtype=str),
+        }
+    )
     captured: dict[str, pd.DataFrame] = {}
 
     def _capture_write(path, df):
@@ -249,6 +260,7 @@ def test_cached_path_non_contiguous_lengths_exact_set_filter(tmp_path):
     with (
         patch("tsarina.indexing.ensure_index_built"),
         patch("hitlist.observations.load_observations", return_value=hits) as ms_only,
+        patch("hitlist.mappings.load_peptide_mappings", return_value=empty_mappings),
         patch("tsarina.cli_hits._write", side_effect=_capture_write),
         patch(
             "hitlist.aggregate.aggregate_per_pmhc",
@@ -336,6 +348,103 @@ def test_cached_path_explicit_lengths_override_class_default(tmp_path):
     kwargs = ms_only.call_args.kwargs
     assert kwargs.get("length_min") == 9
     assert kwargs.get("length_max") == 10
+
+
+def test_cached_path_reattaches_gene_columns_on_post_1_30_46_parquets(tmp_path):
+    """hitlist 1.30.46 (#238) split gene_names / gene_ids / protein_ids out of
+    observations.parquet — no-projection loads return them only if the caller
+    already had them in columns=.  tsarina's fast path doesn't project, so it
+    must re-attach those columns via peptide_mappings; otherwise per-peptide
+    aggregation drops gene identifiers on freshly-built parquets."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(9,))
+    # Post-1.30.46 shape: no gene_names / gene_ids / protein_ids on the obs frame.
+    hits = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA", "BBBBBBBBB"],
+            "mhc_restriction": ["HLA-A*02:01"] * 2,
+        }
+    )
+    mappings = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA", "AAAAAAAAAA", "BBBBBBBBB"],
+            "gene_name": ["PRAME", "PRAME", "MAGEA4"],
+            "gene_id": ["ENSG_PRAME", "ENSG_PRAME", "ENSG_MAGEA4"],
+            "protein_id": ["ENSP_PRAME_1", "ENSP_PRAME_2", "ENSP_MAGEA4"],
+        }
+    )
+    captured: dict[str, pd.DataFrame] = {}
+
+    def _capture_write(path, df):
+        captured["df"] = df
+
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=hits),
+        patch("hitlist.mappings.load_peptide_mappings", return_value=mappings) as mappings_loader,
+        patch("tsarina.cli_hits._write", side_effect=_capture_write),
+        patch(
+            "hitlist.aggregate.aggregate_per_pmhc",
+            side_effect=lambda df: df[["peptide", "mhc_restriction"]].copy(),
+        ),
+    ):
+        cli_hits.handle(args)
+
+    mappings_loader.assert_called_once()
+    out = captured["df"]
+    assert "gene_names" in out.columns
+    by_peptide = out.set_index("peptide")["gene_names"].to_dict()
+    assert by_peptide["AAAAAAAAA"] == "PRAME"
+    assert by_peptide["BBBBBBBBB"] == "MAGEA4"
+
+
+def test_cached_path_reattaches_gene_columns_on_load_all_evidence_path(tmp_path):
+    """Parity with ``test_cached_path_reattaches_gene_columns_on_post_1_30_46_parquets``
+    for the ``include_binding_assays=True`` branch — both branches share
+    the re-attach guard, so the binding-assays + observations union path
+    must also pick up gene columns from peptide_mappings on freshly-built
+    parquets."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(9,), include_binding_assays=True)
+    hits = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA"],
+            "mhc_restriction": ["HLA-A*02:01"],
+            "evidence_kind": ["ms"],
+        }
+    )
+    mappings = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA"],
+            "gene_name": ["PRAME"],
+            "gene_id": ["ENSG_PRAME"],
+            "protein_id": ["ENSP_PRAME"],
+        }
+    )
+    captured: dict[str, pd.DataFrame] = {}
+
+    def _capture_write(path, df):
+        captured["df"] = df
+
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_all_evidence", return_value=hits) as all_ev,
+        patch("hitlist.mappings.load_peptide_mappings", return_value=mappings) as mappings_loader,
+        patch("tsarina.cli_hits._write", side_effect=_capture_write),
+        patch(
+            "hitlist.aggregate.aggregate_per_pmhc",
+            side_effect=lambda df: df[["peptide", "mhc_restriction"]].copy(),
+        ),
+    ):
+        cli_hits.handle(args)
+
+    all_ev.assert_called_once()
+    mappings_loader.assert_called_once()
+    out = captured["df"]
+    assert "gene_names" in out.columns
+    assert out.set_index("peptide")["gene_names"]["AAAAAAAAA"] == "PRAME"
 
 
 def test_enumerate_gene_peptides_caches_proteome_index_across_calls():

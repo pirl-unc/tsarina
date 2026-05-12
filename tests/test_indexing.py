@@ -11,6 +11,7 @@ def test_ensure_index_built_skips_when_already_built(tmp_path: Path, capsys):
     fake_path.write_text("dummy")
     with (
         patch("hitlist.observations.is_built", return_value=True),
+        patch("hitlist.mappings.is_mappings_built", return_value=True),
         patch("hitlist.observations.observations_path", return_value=fake_path),
         patch("hitlist.builder.build_observations") as build,
     ):
@@ -25,6 +26,25 @@ def test_ensure_index_built_triggers_build_when_missing(tmp_path: Path, capsys):
     fake_path = tmp_path / "obs.parquet"
     with (
         patch("hitlist.observations.is_built", return_value=False),
+        patch("hitlist.mappings.is_mappings_built", return_value=False),
+        patch("hitlist.observations.observations_path", return_value=fake_path),
+        patch("hitlist.builder.build_observations") as build,
+    ):
+        ensure_index_built()
+    build.assert_called_once()
+    assert "Building hitlist observations index" in capsys.readouterr().err
+
+
+def test_ensure_index_built_rebuilds_when_only_sidecar_is_missing(tmp_path: Path, capsys):
+    """Observations parquet present but peptide_mappings.parquet missing
+    (e.g. partial build via ``build_mappings=False``, or sidecar deleted)
+    must trigger a rebuild — otherwise downstream gene-attach paths
+    raise ``FileNotFoundError`` mid-query."""
+    fake_path = tmp_path / "obs.parquet"
+    fake_path.write_text("dummy")
+    with (
+        patch("hitlist.observations.is_built", return_value=True),
+        patch("hitlist.mappings.is_mappings_built", return_value=False),
         patch("hitlist.observations.observations_path", return_value=fake_path),
         patch("hitlist.builder.build_observations") as build,
     ):
@@ -38,6 +58,7 @@ def test_ensure_index_built_force_triggers_rebuild(tmp_path: Path):
     fake_path.write_text("dummy")
     with (
         patch("hitlist.observations.is_built", return_value=True),
+        patch("hitlist.mappings.is_mappings_built", return_value=True),
         patch("hitlist.observations.observations_path", return_value=fake_path),
         patch("hitlist.builder.build_observations") as build,
     ):
