@@ -28,7 +28,16 @@ import pandas as pd
 
 
 def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
-    """Ensure the hitlist observations parquet exists; build if not.
+    """Ensure both the hitlist observations parquet and its peptide_mappings
+    sidecar exist; build if either is missing.
+
+    tsarina depends on the sidecar for gene-identifier resolution
+    (``annotate_observations_with_genes`` in the cached fast path,
+    ``gene_name=`` filter pushdown in ``load_ms_evidence``). hitlist's
+    default ``build_observations`` produces both in one pass, so a
+    missing sidecar means either a partial manual build
+    (``build_mappings=False``) or sidecar deletion — either way, rebuild
+    so callers downstream don't trip a ``FileNotFoundError`` mid-query.
 
     Parameters
     ----------
@@ -44,9 +53,10 @@ def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
         Path to ``observations.parquet``.
     """
     from hitlist.builder import build_observations
+    from hitlist.mappings import is_mappings_built
     from hitlist.observations import is_built, observations_path
 
-    if force or not is_built():
+    if force or not is_built() or not is_mappings_built():
         if verbose:
             print(
                 "Building hitlist observations index (one-time ~2-5 min; cached afterwards)...",

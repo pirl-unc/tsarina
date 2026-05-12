@@ -466,6 +466,12 @@ def handle(args: argparse.Namespace) -> None:
         # back automatically, so re-attach here using hitlist's own
         # aggregator so downstream gene_ident_cols logic keeps working on
         # both pre- and post-1.30.46 parquets.
+        #
+        # Test note: any test that mocks ``hitlist.observations.load_observations``
+        # (or ``load_all_evidence``) with a non-empty frame lacking
+        # ``gene_names`` must also mock ``hitlist.mappings.load_peptide_mappings``
+        # — otherwise the real loader raises ``FileNotFoundError`` against
+        # a CI environment without a built sidecar.
         if not hits.empty and "gene_names" not in hits.columns:
             from hitlist.mappings import annotate_observations_with_genes, load_peptide_mappings
 
