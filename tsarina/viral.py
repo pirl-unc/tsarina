@@ -275,10 +275,11 @@ def human_exclusive_viral_peptides(
     -----
     The human k-mer set is computed once per
     ``(ensembl_release, lengths)`` via
-    :func:`hitlist.proteome.proteome_kmer_set` and cached process-wide.
-    First call pays the Ensembl walk once; subsequent calls with the
-    same inputs return immediately.  The cache is shared across any
-    sibling pirl-unc package that calls the same primitive.
+    :func:`hitlist.proteome.proteome_kmer_set` and cached both in-process
+    and on disk (hitlist 1.30.49+ persists the ``ProteomeIndex`` to
+    ``~/.hitlist/proteome_index_cache/`` so repeat invocations across
+    fresh processes — e.g. per-patient cluster jobs — skip the cold
+    Ensembl build entirely).
     """
     from hitlist.proteome import proteome_kmer_set
 
@@ -326,11 +327,11 @@ def cancer_specific_viral_peptides(
     Notes
     -----
     Both the CTA and non-CTA k-mer sets are computed via
-    :func:`hitlist.proteome.proteome_kmer_set` and cached process-wide,
-    shared with :func:`cta_exclusive_peptides` /
-    :func:`human_exclusive_viral_peptides` where their gene filters
-    overlap.  First call pays the Ensembl walk; subsequent calls with
-    the same ``(release, lengths)`` return in sub-millisecond time.
+    :func:`hitlist.proteome.proteome_kmer_set` and cached both
+    in-process and on disk (hitlist 1.30.49+).  The on-disk
+    ``ProteomeIndex`` cache amortizes the Ensembl build across fresh
+    processes — relevant for per-patient cluster jobs that re-invoke
+    this entry point in a shell loop.
     """
     from hitlist.proteome import proteome_kmer_set
 

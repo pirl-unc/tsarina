@@ -338,6 +338,55 @@ def test_cached_path_explicit_lengths_override_class_default(tmp_path):
     assert kwargs.get("length_max") == 10
 
 
+def test_cached_path_reattaches_gene_columns_on_post_1_30_46_parquets(tmp_path):
+    """hitlist 1.30.46 (#238) split gene_names / gene_ids / protein_ids out of
+    observations.parquet — no-projection loads return them only if the caller
+    already had them in columns=.  tsarina's fast path doesn't project, so it
+    must re-attach those columns via peptide_mappings; otherwise per-peptide
+    aggregation drops gene identifiers on freshly-built parquets."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(9,))
+    # Post-1.30.46 shape: no gene_names / gene_ids / protein_ids on the obs frame.
+    hits = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA", "BBBBBBBBB"],
+            "mhc_restriction": ["HLA-A*02:01"] * 2,
+        }
+    )
+    mappings = pd.DataFrame(
+        {
+            "peptide": ["AAAAAAAAA", "AAAAAAAAAA", "BBBBBBBBB"],
+            "gene_name": ["PRAME", "PRAME", "MAGEA4"],
+            "gene_id": ["ENSG_PRAME", "ENSG_PRAME", "ENSG_MAGEA4"],
+            "protein_id": ["ENSP_PRAME_1", "ENSP_PRAME_2", "ENSP_MAGEA4"],
+        }
+    )
+    captured: dict[str, pd.DataFrame] = {}
+
+    def _capture_write(path, df):
+        captured["df"] = df
+
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=hits),
+        patch("hitlist.mappings.load_peptide_mappings", return_value=mappings) as mappings_loader,
+        patch("tsarina.cli_hits._write", side_effect=_capture_write),
+        patch(
+            "hitlist.aggregate.aggregate_per_pmhc",
+            side_effect=lambda df: df[["peptide", "mhc_restriction"]].copy(),
+        ),
+    ):
+        cli_hits.handle(args)
+
+    mappings_loader.assert_called_once()
+    out = captured["df"]
+    assert "gene_names" in out.columns
+    by_peptide = out.set_index("peptide")["gene_names"].to_dict()
+    assert by_peptide["AAAAAAAAA"] == "PRAME"
+    assert by_peptide["BBBBBBBBB"] == "MAGEA4"
+
+
 def test_enumerate_gene_peptides_caches_proteome_index_across_calls():
     """Second invocation with the same (release, lengths) must reuse the
     cached ~8-15 GB Ensembl ProteomeIndex instead of rebuilding."""
