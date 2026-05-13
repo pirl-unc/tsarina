@@ -220,8 +220,13 @@ def test_csv_has_all_new_columns():
 
 
 def test_csv_has_no_old_columns():
+    """Guard against pre-rename column names creeping back in.
+
+    ``filtered`` is deliberately retained as a backward-compat alias of
+    ``passes_filters`` (tsarina#61), so it's exempted here even though
+    the rest of the list still represents stale columns."""
     df = CTA_evidence()
-    for col in ["cta_tier", "evidence", "filtered", "ms_safety"]:
+    for col in ["cta_tier", "evidence", "ms_safety"]:
         assert col not in df.columns, f"Stale column present: {col}"
 
 

@@ -86,9 +86,13 @@ def test_evidence_has_expected_columns():
 
 
 def test_evidence_uses_passes_filters_column_name():
+    """``passes_filters`` is the canonical name. ``filtered`` is now
+    surfaced as a backward-compat alias (tsarina#61) — both must be
+    present and identical."""
     df = CTA_evidence()
     assert "passes_filters" in df.columns
-    assert "filtered" not in df.columns
+    assert "filtered" in df.columns
+    assert df["filtered"].equals(df["passes_filters"])
 
 
 def test_xage1b_passes_relaxed_no_protein_threshold():

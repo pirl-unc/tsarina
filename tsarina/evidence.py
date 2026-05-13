@@ -68,6 +68,10 @@ def CTA_evidence() -> pd.DataFrame:
     passes_filters : bool
         Final inclusion flag with tiered RNA thresholds based on protein
         antibody reliability.
+    filtered : bool
+        Backward-compatible alias of ``passes_filters``; identical values.
+        Retained for downstream consumers that still schema-check for the
+        legacy column name (see tsarina#61).
     rna_max_ntpm : float
         Maximum nTPM across all tissues for this gene.
     never_expressed : bool

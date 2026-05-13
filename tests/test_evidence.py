@@ -1,6 +1,18 @@
 import pandas as pd
 
-from tsarina.evidence import _attach_tcga_prevalence, _compute_ms_restriction
+from tsarina.evidence import CTA_evidence, _attach_tcga_prevalence, _compute_ms_restriction
+
+
+def test_CTA_evidence_exposes_filtered_alias_of_passes_filters():
+    """tsarina#61: legacy ``filtered`` column must travel alongside the
+    canonical ``passes_filters`` so consumers that still schema-check
+    for the old name (e.g. pirlygenes pre-#241) accept the live table
+    instead of falling back to their own snapshot."""
+    df = CTA_evidence()
+    assert "passes_filters" in df.columns
+    assert "filtered" in df.columns
+    # The two columns must agree row-for-row, including dtype.
+    assert df["filtered"].equals(df["passes_filters"])
 
 
 def test_compute_ms_restriction_uses_public_ms_loader(monkeypatch):
