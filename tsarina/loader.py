@@ -25,7 +25,14 @@ LEGACY_FILTERED_COLUMN = "filtered"
 @lru_cache(maxsize=1)
 def _load_cta_dataframe() -> pd.DataFrame:
     path = join(_DATA_DIR, "cancer-testis-antigens.csv")
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    # Surface the legacy inclusion flag alongside the canonical one so
+    # downstream consumers that still schema-check for ``filtered`` (e.g.
+    # pirlygenes pre-#241) can read the live tsarina table without
+    # falling back to their own bundled snapshot.  See tsarina#61.
+    if PASSES_FILTERS_COLUMN in df.columns and LEGACY_FILTERED_COLUMN not in df.columns:
+        df[LEGACY_FILTERED_COLUMN] = df[PASSES_FILTERS_COLUMN]
+    return df
 
 
 def cta_dataframe() -> pd.DataFrame:
