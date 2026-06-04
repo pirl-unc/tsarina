@@ -1357,3 +1357,39 @@ they were in three states: XAGE3 already expressed; XAGE5 passes but flagged
   (pure data); XAGE5 needs pirlygenes to delegate to tsarina (filed as a
   pirlygenes issue, not implemented here).
 - Verification passed: `./format.sh`, `./lint.sh`, `./test.sh` (321 passed).
+
+---
+
+# PR - Add MAGEB6 (CTA), evaluate #79 dual-corroborated candidates (2026-06-04)
+
+## Goal
+
+Pick up tsarina#79: add the CTA genes "corroborated by both CTexploreR and
+CTdatabase" that are missing from the panel.
+
+## Finding
+
+Evaluated all 9 dual-corroborated candidates against the real HPA filter
+(RNA reproductive-restriction + the protein-in-somatic rule). They are strong
+by *database membership* but only **MAGEB6** passes tsarina's HPA standard:
+
+- MAGEB6 (ENSG00000176746): testis-only 3.0 nTPM, no protein -> PASSES (TESTIS).
+- RNF17: perfect RNA (1.0) but HPA protein in blood vessel/heart/kidney -> fails.
+- TAF7L: protein in pancreas; ROPN1 0.85 + salivary; NXF2 0.37; CT45A5/A6 brain;
+  NLRP4 protein in blood vessel -> all fail somatic.
+- DSCR8: HPA 404 (retired / not in HPA).
+
+This is exactly the value tsarina's HPA filter adds over raw DB membership.
+
+## Plan
+
+- [x] Add MAGEB6 via `scripts/add_cta_gene.py` (generalizes add_xage2.py;
+      asserts each gene passes before writing; idempotent).
+- [x] Tests (counts 262->263 / 282->283; MAGEB6 membership) + version 1.4.2->1.4.3.
+- [x] Comment the full evaluation on tsarina#79.
+
+## Review
+
+- `CTA_gene_names()` 262 -> 263 (+MAGEB6, clean TESTIS).
+- Documented why the other 8 candidates fail on #79 rather than bulk-adding.
+- Verification: `./format.sh`, `./lint.sh`, `./test.sh` (323 passed).
