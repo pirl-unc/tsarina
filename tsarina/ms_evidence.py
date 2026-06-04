@@ -144,3 +144,86 @@ def aggregate_ms_hits_for_iedb_columns(hits: pd.DataFrame) -> pd.DataFrame:
             "ms_alleles": "iedb_alleles",
         }
     )[["peptide", "iedb_hit_count", "iedb_alleles"]]
+
+
+#: Substrings flagging an MS source tissue as a vital organ (per
+#: ``tiers.SAFETY_TISSUE_GROUPS`` — brain/heart/lung/liver/pancreas — plus the
+#: CNS spellings MS datasets use).  Matched case-insensitively against the row's
+#: source tissue.
+_VITAL_ORGAN_KEYWORDS: frozenset[str] = frozenset(
+    {"brain", "cerebell", "cns", "cortex", "heart", "lung", "liver", "pancrea"}
+)
+
+CTA_HEALTHY_TISSUE_MS_COLUMNS: list[str] = [
+    "peptide",
+    "tissue",
+    "allele",
+    "allele_set",
+    "provenance",
+    "pmid",
+    "vital_organ",
+]
+
+
+def cta_healthy_tissue_ms_hits(
+    gene: str,
+    *,
+    mhc_class: str | None = "I",
+    mhc_species: str | None = "Homo sapiens",
+) -> pd.DataFrame:
+    """Per-peptide healthy *somatic*-tissue MS hits for a CTA gene.
+
+    The gene-level ``ms_restriction`` tier collapses detail that matters for
+    safety; this surfaces the underlying immunopeptidome hits at
+    peptide x tissue x allele granularity so consumers can do allele-aware,
+    peptide-level screening (tsarina#76).
+
+    Reproductive and thymic hits (expected for CTAs) are excluded — only
+    ``src_healthy_tissue`` (non-reproductive, non-thymus) rows are returned.
+
+    Parameters
+    ----------
+    gene
+        Gene symbol (or alias — resolved via the hitlist peptide mappings).
+    mhc_class, mhc_species
+        Passed through to :func:`tsarina.indexing.load_ms_evidence`.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per healthy-somatic MS observation, columns:
+        ``peptide``, ``tissue``, ``allele`` (recorded ``mhc_restriction``),
+        ``allele_set`` (candidate set for multiallelic samples),
+        ``provenance``, ``pmid``, and ``vital_organ`` (bool — tissue matches a
+        ``SAFETY_TISSUE_GROUPS`` vital organ).  Empty if the gene has no
+        healthy-somatic MS hits.
+    """
+    from .indexing import load_ms_evidence
+
+    df = load_ms_evidence(gene_name=gene, mhc_class=mhc_class, mhc_species=mhc_species)
+    if df.empty or "src_healthy_tissue" not in df.columns:
+        return pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
+
+    hits = df[df["src_healthy_tissue"].astype(bool)].copy()
+    if hits.empty:
+        return pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
+
+    tissue = hits.get("source_tissue", pd.Series("", index=hits.index)).fillna("").astype(str)
+    if "cell_name" in hits.columns:
+        cell = hits["cell_name"].fillna("").astype(str)
+        tissue = tissue.where(tissue.str.strip() != "", cell)
+    low = tissue.str.lower()
+    vital = low.map(lambda t: any(keyword in t for keyword in _VITAL_ORGAN_KEYWORDS))
+
+    out = pd.DataFrame(
+        {
+            "peptide": hits["peptide"].astype(str).values,
+            "tissue": tissue.values,
+            "allele": hits.get("mhc_restriction", pd.Series("", index=hits.index)).values,
+            "allele_set": hits.get("mhc_allele_set", pd.Series("", index=hits.index)).values,
+            "provenance": hits.get("mhc_allele_provenance", pd.Series("", index=hits.index)).values,
+            "pmid": hits.get("pmid", pd.Series("", index=hits.index)).values,
+            "vital_organ": vital.values,
+        }
+    )
+    return out.reset_index(drop=True)
