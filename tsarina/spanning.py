@@ -768,13 +768,20 @@ def _cta_group_order(
             label = peptide_set_label
         else:
             label = _cta_group_label(source_tuple)
-        members: list[str] = []
-        seen_members: set[str] = set()
-        for source_cta in source_ctas:
-            for member in _selected_member_labels(selected, source_cta):
-                if member not in seen_members:
-                    members.append(member)
-                    seen_members.add(member)
+        if label in _CTA_GROUPS:
+            # Explicit group (NY-ESO-1 / XAGE1): the source ``cta`` was already
+            # collapsed to the group label upstream, so recover the underlying
+            # member genes from the group definition rather than reporting the
+            # collapsed label as its own member.
+            members = list(_CTA_GROUPS[label])
+        else:
+            members = []
+            seen_members: set[str] = set()
+            for source_cta in source_ctas:
+                for member in _selected_member_labels(selected, source_cta):
+                    if member not in seen_members:
+                        members.append(member)
+                        seen_members.add(member)
         labels.append(label)
         grouped.append({"cta": label, "members": members, "source_ctas": list(source_tuple)})
     return labels, grouped
