@@ -62,13 +62,36 @@ HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS: dict[str, float] = {
     "Enhanced": 0.80,
     "Supported": 0.90,
     "Approved": 0.95,
-    "Uncertain": 0.98,
-    "Missing": 0.98,
+    "Uncertain": 0.97,
+    "Missing": 0.97,
 }
 
 #: Maximum number of tissues with RNA detected (nTPM >= 1) for the
 #: strict marker-based filter.
 HPA_MARKER_STRICT_MAX_RNA_TISSUES: int = 7
+
+#: RNA expression floor (nTPM) for the ``never_expressed`` flag.  A gene with
+#: no HPA protein (IHC) data and a maximum RNA nTPM below this value across all
+#: tissues is flagged ``never_expressed`` -- it passes the reproductive-
+#: restriction filter only because the ``+1`` deflation pseudocount yields a
+#: 1.0 fraction when every tissue is below 1 nTPM, but HPA lacks the signal to
+#: confirm restriction.  Kept explicit/parameterized rather than baked as a
+#: magic number into the bundled table.  See tsarina#78.
+HPA_EXPRESSION_FLOOR_NTPM: float = 2.0
+
+#: Cancer-testis antigens manually rescued into the expressed CTA set despite
+#: being flagged ``never_expressed`` (max RNA < ``HPA_EXPRESSION_FLOOR_NTPM``,
+#: no protein data).  These are borderline-but-real CTAs where the low HPA
+#: signal reflects detection limits rather than true absence -- corroborated by
+#: source-database membership and/or tumor MS evidence.  Preferred over a
+#: blanket lowering of the global floor, which would admit paralog
+#: cross-mapping noise.  Keyed by (unversioned) Ensembl gene ID.  See
+#: tsarina#78.
+MANUALLY_EXPRESSED_CTA: frozenset[str] = frozenset(
+    {
+        "ENSG00000171405",  # XAGE5 -- testis 1.1 nTPM; CTpedia/CTexploreR/daSilva2017
+    }
+)
 
 # ── Protein reliability ordering ────────────────────────────────────────────
 

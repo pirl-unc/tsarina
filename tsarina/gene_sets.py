@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from .loader import cta_dataframe, passes_filters_mask
+from .tissues import MANUALLY_EXPRESSED_CTA
 
 
 def _cta_by_column(
@@ -28,7 +29,16 @@ def _cta_by_column(
     if filtered_only:
         mask = passes_filters_mask(df)
     if exclude_never_expressed and "never_expressed" in df.columns:
-        mask = mask & ~(df["never_expressed"].astype(str).str.lower() == "true")
+        never_expressed = df["never_expressed"].astype(str).str.lower() == "true"
+        # Keep manually rescued borderline-but-real CTAs (e.g. XAGE5) in the
+        # expressed set even though HPA flags them never_expressed.  See
+        # tsarina#78 and tsarina.tissues.MANUALLY_EXPRESSED_CTA.
+        if "Ensembl_Gene_ID" in df.columns:
+            rescued = (
+                df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0].isin(MANUALLY_EXPRESSED_CTA)
+            )
+            never_expressed = never_expressed & ~rescued
+        mask = mask & ~never_expressed
     subset = df[mask] if not isinstance(mask, bool) else df
     result: set[str] = set()
     if column in subset.columns:

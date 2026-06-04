@@ -1313,3 +1313,47 @@ Review:
   percentile-rank calibration, and `HLA-C*14:02` had the CTA-MS support.
 - Local validation passed: targeted panel tests (`19 passed`), `./format.sh`,
   `./lint.sh`, and `./test.sh` (`269 passed`).
+
+---
+
+# PR - Add XAGE2 + Lower CTA No-Protein Threshold to 0.97 + Parameterize Floor (2026-06-04)
+
+## Goal
+
+Surface the XAGE-family CTAs the user asked for, properly. Investigation showed
+they were in three states: XAGE3 already expressed; XAGE5 passes but flagged
+`never_expressed` (1.1 nTPM); XAGE2 absent from the source universe.
+
+## Plan / Decisions (with the user)
+
+- [x] **Add XAGE2** (`ENSG00000155622`, CTpedia/CT12.2; tsarina#79). Built its
+      row from HPA `rna_tissue_consensus.tsv` via the in-repo generators
+      (`tiers.enrich_rna_per_tissue` + `tiers.assign_all_axes`); validated the
+      deflated-fraction formula reproduces XAGE3 (0.9922) and XAGE5 (1.0) and
+      that the `passes_filters`/`never_expressed` rules reproduce all 358 shipped
+      rows exactly.
+- [x] **Investigated XAGE2's lung 5.3 nTPM**: not contamination — replicates
+      across GTEx (2.0), HPA (5.3), FANTOM (12.6). Genuine low-level lung
+      expression; XAGE2 carries `safety_flags=lung`.
+- [x] **Lowered the no-protein/Uncertain adaptive threshold 0.98 -> 0.97**
+      (`HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS`). Flips exactly CT83 (KK-LC-1) and
+      PRM3 to pass; XAGE2 (0.977) passes. DPPA3 (0.9688) stays out.
+- [x] **Parameterized the `never_expressed` floor** as
+      `HPA_EXPRESSION_FLOOR_NTPM = 2.0` and **rescued XAGE5** via
+      `MANUALLY_EXPRESSED_CTA` rather than a blanket floor drop (tsarina#78).
+- [x] Updated docs/curation.md, tests (counts 258->262, 279->282; new XAGE2 /
+      XAGE5 / CT83+PRM3 / parameterization tests), minor version bump 1.3.6 ->
+      1.4.0.
+
+## Review
+
+- `CTA_gene_names()` 258 -> 262 (+XAGE2, +CT83, +PRM3, +XAGE5). All four carry
+  honest evidence: CT83/PRM3/XAGE2 are SOMATIC-restricted with visible
+  somatic signals; XAGE2 keeps `safety_flags=lung`.
+- XAGE5 stays `never_expressed=True` in the table (HPA truth) but is returned
+  by `CTA_gene_names()` via the explicit rescue set — closes tsarina#78.
+- `scripts/add_xage2.py` is the reproducible, validated generator (kept in-repo).
+- Verified end-to-end: XAGE2/CT83/PRM3 surface in pirlygenes automatically
+  (pure data); XAGE5 needs pirlygenes to delegate to tsarina (filed as a
+  pirlygenes issue, not implemented here).
+- Verification passed: `./format.sh`, `./lint.sh`, `./test.sh` (321 passed).
