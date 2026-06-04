@@ -1315,17 +1315,21 @@ def test_identical_selected_pmhc_ctas_are_grouped(monkeypatch):
 
 
 def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
+    # CT45A1/CT45A2 are near-identical paralogs that are NOT a predefined
+    # explicit group, so they exercise the automatic identical-peptide-set
+    # grouping path.  (XAGE1A/XAGE1B are now an explicit group — covered by
+    # test_xage1_aliases_resolve_to_grouped_label.)
     peptides = pd.DataFrame(
         {
             "peptide": [
-                "XAGEPEP1",
-                "XAGEPEP2",
-                "XAGEPEP1",
-                "XAGEPEP2",
+                "CT45PEP1",
+                "CT45PEP2",
+                "CT45PEP1",
+                "CT45PEP2",
                 "PAGE2PEP1",
             ],
             "length": [9, 9, 9, 9, 9],
-            "gene_name": ["XAGE1A", "XAGE1A", "XAGE1B", "XAGE1B", "PAGE2"],
+            "gene_name": ["CT45A1", "CT45A1", "CT45A2", "CT45A2", "PAGE2"],
             "gene_id": ["E10", "E10", "E11", "E11", "E12"],
         }
     )
@@ -1333,6 +1337,58 @@ def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
         "tsarina.peptides.cta_exclusive_peptides",
         lambda **kw: peptides,
         raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"CT45A1", "CT45A2", "PAGE2"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.loader.cta_dataframe",
+        lambda: pd.DataFrame(
+            {
+                "Symbol": ["CT45A1", "CT45A2", "PAGE2"],
+                "ms_cta_exclusive_cancer_peptide_count": [3, 2, 1],
+            }
+        ),
+        raising=True,
+    )
+    messages: list[str] = []
+
+    long = spanning_pmhc_set(
+        ctas=["CT45A1", "CT45A2", "PAGE2"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+        on_progress=messages.append,
+    )
+
+    assert long.attrs["cta_order"] == ["CT45A1/CT45A2", "PAGE2"]
+    assert long.attrs["cta_groups"] == [
+        {"cta": "CT45A1/CT45A2", "members": ["CT45A1", "CT45A2"]},
+        {"cta": "PAGE2", "members": ["PAGE2"]},
+    ]
+    grouped = long[long["cta"] == "CT45A1/CT45A2"].iloc[0]
+    assert grouped["cta_members"] == "CT45A1;CT45A2"
+    assert grouped["peptide"] == "CT45PEP1"
+    assert any("CT45A1/CT45A2" in msg for msg in messages)
+
+
+def test_xage1_explicit_group_panel_preserves_member_genes(monkeypatch):
+    # Selecting via the XAGE1 alias resolves to the explicit XAGE1A/XAGE1B
+    # group (identical 81-aa protein); the panel collapses them to one row but
+    # reports both member genes. Covers the _CTA_GROUPS member recovery.
+    peptides = pd.DataFrame(
+        {
+            "peptide": ["XAGEPEP1", "XAGEPEP1", "PAGE2PEP1"],
+            "length": [9, 9, 9],
+            "gene_name": ["XAGE1A", "XAGE1B", "PAGE2"],
+            "gene_id": ["E10", "E11", "E12"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides", lambda **kw: peptides, raising=True
     )
     monkeypatch.setattr(
         "tsarina.gene_sets.CTA_gene_names",
@@ -1349,26 +1405,20 @@ def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
         ),
         raising=True,
     )
-    messages: list[str] = []
 
     long = spanning_pmhc_set(
-        ctas=["XAGE1A", "XAGE1B", "PAGE2"],
+        ctas=["XAGE1", "PAGE2"],  # selected by the XAGE1 group alias
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
         peptides_per_cell=1,
         output_format="long",
-        on_progress=messages.append,
     )
 
-    assert long.attrs["cta_order"] == ["XAGE1A/XAGE1B", "PAGE2"]
-    assert long.attrs["cta_groups"] == [
-        {"cta": "XAGE1A/XAGE1B", "members": ["XAGE1A", "XAGE1B"]},
-        {"cta": "PAGE2", "members": ["PAGE2"]},
-    ]
+    assert "XAGE1A/XAGE1B" in long.attrs["cta_order"]
+    group = next(g for g in long.attrs["cta_groups"] if g["cta"] == "XAGE1A/XAGE1B")
+    assert group["members"] == ["XAGE1A", "XAGE1B"]
     grouped = long[long["cta"] == "XAGE1A/XAGE1B"].iloc[0]
     assert grouped["cta_members"] == "XAGE1A;XAGE1B"
-    assert grouped["peptide"] == "XAGEPEP1"
-    assert any("XAGE1A/XAGE1B" in msg for msg in messages)
 
 
 def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):
@@ -2094,3 +2144,35 @@ def test_multi_length_long_format_preserves_winner_length(monkeypatch):
     rows = {r["cta"]: r for _, r in long.iterrows()}
     assert int(rows["MAGEA4"]["length"]) == 9  # MAGEAPEP1
     assert int(rows["PRAME"]["length"]) == 10  # PRAMEPEP0X
+
+
+def test_xage1_aliases_resolve_to_grouped_label():
+    """XAGE1A/XAGE1B encode the identical protein and group like NY-ESO-1.
+
+    All XAGE1 spellings (incl. the Ensembl synonyms XAGE1C/D/E and the legacy
+    GAGED2) resolve to the ``XAGE1A/XAGE1B`` grouped label. See tsarina#77."""
+    from tsarina.spanning import (
+        _cta_display_name,
+        _expand_cta_symbols,
+        _normalize_cta_labels,
+    )
+
+    for name in ("XAGE1", "XAGE1A", "XAGE1B", "XAGE1C", "XAGE1D", "XAGE1E", "GAGED2"):
+        assert _cta_display_name(name) == "XAGE1A/XAGE1B"
+
+    valid = {"XAGE1A", "XAGE1B", "CTAG1A", "CTAG1B", "MAGEA4"}
+    labels = _normalize_cta_labels(["XAGE1C", "NY-ESO-1", "MAGEA4"], valid)
+    assert labels == ["XAGE1A/XAGE1B", "CTAG1A/CTAG1B", "MAGEA4"]
+
+    assert _expand_cta_symbols(["XAGE1A/XAGE1B"]) == ["XAGE1A", "XAGE1B"]
+
+
+def test_xage_family_aliases_backfilled():
+    """The XAGE family + MAGEB6 carry their HGNC synonyms (tsarina#77)."""
+    from tsarina import CTA_evidence
+
+    df = CTA_evidence().set_index("Symbol")
+    assert "XAGE1C" in str(df.loc["XAGE1B", "Aliases"])
+    assert "XAGE1E" in str(df.loc["XAGE1B", "Aliases"])
+    assert "GAGED2" in str(df.loc["XAGE1A", "Aliases"])
+    assert "CT12.2" in str(df.loc["XAGE2", "Aliases"])
