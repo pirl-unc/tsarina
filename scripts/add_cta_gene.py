@@ -56,7 +56,7 @@ CSV_PATH = REPO_ROOT / "tsarina" / "data" / "cancer-testis-antigens.csv"
 #: and pass the reproductive-restriction filter (asserted before writing).
 GENE_SPECS = [
     {
-        # MAGEB6 / CT3.2 — dual-corroborated (CTdatabase + CTexploreR), tsarina#79.
+        # MAGEB6 / CT3.4 — dual-corroborated (CTdatabase + CTexploreR), tsarina#79.
         # HPA: testis-only at 3.0 nTPM, protein not detected. Deflated
         # reproductive fraction 1.0; clean testis restriction.
         "Symbol": "MAGEB6",

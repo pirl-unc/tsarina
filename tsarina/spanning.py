@@ -89,6 +89,23 @@ _CTAG1_ALIASES = {
     "CTAG1ACTAG1B",
     "CTAG1BCTAG1A",
 }
+#: XAGE1A and XAGE1B (ENSG00000204379 / ENSG00000204382) encode the *identical*
+#: 81-aa XAGE-1 protein, so they are a single antigen at the pMHC level — group
+#: them like CTAG1A/CTAG1B (NY-ESO-1).  XAGE1C/D/E are Ensembl synonyms of
+#: XAGE1B; GAGED2 is the legacy symbol.
+_XAGE1_GROUP_LABEL = "XAGE1A/XAGE1B"
+_XAGE1_ALIASES = {
+    "XAGE1",
+    "XAGE1A",
+    "XAGE1B",
+    "XAGE1C",
+    "XAGE1D",
+    "XAGE1E",
+    "XAGE1AB",
+    "XAGE1AXAGE1B",
+    "XAGE1BXAGE1A",
+    "GAGED2",
+}
 _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", _CTAG1_GROUP_LABEL, "MAGEA4")
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
@@ -98,6 +115,14 @@ _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY = False
 
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
     _CTAG1_GROUP_LABEL: ("CTAG1A", "CTAG1B"),
+    _XAGE1_GROUP_LABEL: ("XAGE1A", "XAGE1B"),
+}
+
+#: Compact (uppercase-alphanumeric) alias -> grouped CTA label.  Single source
+#: of truth for resolving NY-ESO-1 / XAGE1 style names to their group.
+_GROUP_ALIAS_TO_LABEL: dict[str, str] = {
+    **dict.fromkeys(_CTAG1_ALIASES, _CTAG1_GROUP_LABEL),
+    **dict.fromkeys(_XAGE1_ALIASES, _XAGE1_GROUP_LABEL),
 }
 
 _VITAL_TISSUE_RNA_COLUMNS: tuple[str, ...] = (
@@ -1271,8 +1296,9 @@ def _compact_cta_name(value: object) -> str:
 def _cta_display_name(symbol: object) -> str:
     token = str(symbol).strip()
     compact = _compact_cta_name(token)
-    if compact in _CTAG1_ALIASES:
-        return _CTAG1_GROUP_LABEL
+    group = _GROUP_ALIAS_TO_LABEL.get(compact)
+    if group:
+        return group
     if compact.startswith("MAGEA") and compact[5:].isdigit():
         return compact
     return token
@@ -1294,8 +1320,8 @@ def _normalize_cta_labels(values: Iterable[str] | None, valid_symbols: set[str])
         compact = _compact_cta_name(value)
         if not compact:
             continue
-        if compact in _CTAG1_ALIASES:
-            label = _CTAG1_GROUP_LABEL
+        if compact in _GROUP_ALIAS_TO_LABEL:
+            label = _GROUP_ALIAS_TO_LABEL[compact]
         elif compact in valid_by_compact:
             label = _cta_display_name(valid_by_compact[compact])
         else:

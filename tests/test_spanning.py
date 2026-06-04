@@ -2094,3 +2094,35 @@ def test_multi_length_long_format_preserves_winner_length(monkeypatch):
     rows = {r["cta"]: r for _, r in long.iterrows()}
     assert int(rows["MAGEA4"]["length"]) == 9  # MAGEAPEP1
     assert int(rows["PRAME"]["length"]) == 10  # PRAMEPEP0X
+
+
+def test_xage1_aliases_resolve_to_grouped_label():
+    """XAGE1A/XAGE1B encode the identical protein and group like NY-ESO-1.
+
+    All XAGE1 spellings (incl. the Ensembl synonyms XAGE1C/D/E and the legacy
+    GAGED2) resolve to the ``XAGE1A/XAGE1B`` grouped label. See tsarina#77."""
+    from tsarina.spanning import (
+        _cta_display_name,
+        _expand_cta_symbols,
+        _normalize_cta_labels,
+    )
+
+    for name in ("XAGE1", "XAGE1A", "XAGE1B", "XAGE1C", "XAGE1D", "XAGE1E", "GAGED2"):
+        assert _cta_display_name(name) == "XAGE1A/XAGE1B"
+
+    valid = {"XAGE1A", "XAGE1B", "CTAG1A", "CTAG1B", "MAGEA4"}
+    labels = _normalize_cta_labels(["XAGE1C", "NY-ESO-1", "MAGEA4"], valid)
+    assert labels == ["XAGE1A/XAGE1B", "CTAG1A/CTAG1B", "MAGEA4"]
+
+    assert _expand_cta_symbols(["XAGE1A/XAGE1B"]) == ["XAGE1A", "XAGE1B"]
+
+
+def test_xage_family_aliases_backfilled():
+    """The XAGE family + MAGEB6 carry their HGNC synonyms (tsarina#77)."""
+    from tsarina import CTA_evidence
+
+    df = CTA_evidence().set_index("Symbol")
+    assert "XAGE1C" in str(df.loc["XAGE1B", "Aliases"])
+    assert "XAGE1E" in str(df.loc["XAGE1B", "Aliases"])
+    assert "GAGED2" in str(df.loc["XAGE1A", "Aliases"])
+    assert "CT12.2" in str(df.loc["XAGE2", "Aliases"])
