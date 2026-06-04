@@ -27,7 +27,10 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "hitlist>=1.30.49",
+    # 1.30.57: cell_name split into cell_line_name + cell_type (handled via
+    # the cell-column fallbacks in spanning.py / ms_evidence.py).  1.30.49+
+    # already required for the post-1.30.46 gene-column sidecar re-attach.
+    "hitlist>=1.30.57",
     "mhcgnomes>=3.20.0",
     "pandas",
     "numpy",
