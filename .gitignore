@@ -28,3 +28,6 @@ site/
 
 # uv lockfile — not tracked (resolved from pyproject; see deploy.sh)
 uv.lock
+
+# curation source-data download cache (scripts/cta_sources.py)
+.cache/

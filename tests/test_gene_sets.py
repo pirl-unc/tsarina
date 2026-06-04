@@ -251,3 +251,30 @@ def test_never_expressed_column_matches_parameterized_floor():
     rule = no_protein & (df["rna_max_ntpm"] < HPA_EXPRESSION_FLOOR_NTPM)
     shipped = df["never_expressed"].astype(str).str.lower() == "true"
     assert (rule == shipped).all()
+
+
+def test_cta_symbol_for_alias_resolves_common_names():
+    """Common antigen names + NCBI synonyms resolve to official symbols (#77)."""
+    from tsarina import cta_symbol_for_alias
+
+    # The issue's headline example: NY-ESO-1 / ESO1 -> CTAG1B (not the paralog).
+    assert cta_symbol_for_alias("NY-ESO-1") == "CTAG1B"
+    assert cta_symbol_for_alias("ESO1") == "CTAG1B"
+    # Punctuation/case-insensitive.
+    assert cta_symbol_for_alias("ny eso 1") == "CTAG1B"
+    # NCBI + curated synonyms across the table.
+    assert cta_symbol_for_alias("CT12.2") == "XAGE2"
+    assert cta_symbol_for_alias("XAGE1C") == "XAGE1B"
+    assert cta_symbol_for_alias("MAGE4") == "MAGEA4"
+    # Official symbols resolve to themselves.
+    assert cta_symbol_for_alias("MAGEA4") == "MAGEA4"
+    assert cta_symbol_for_alias("CTAG1A") == "CTAG1A"
+    # Unknown names return None.
+    assert cta_symbol_for_alias("not-a-gene") is None
+
+
+def test_aliases_backfilled_for_most_genes():
+    """The Aliases column is populated broadly, not ~96% empty (#77)."""
+    df = CTA_evidence()
+    with_aliases = (df["Aliases"].fillna("").astype(str).str.len() > 0).sum()
+    assert with_aliases >= 300
