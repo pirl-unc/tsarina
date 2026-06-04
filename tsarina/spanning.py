@@ -1320,6 +1320,8 @@ def _normalize_cta_labels(values: Iterable[str] | None, valid_symbols: set[str])
     if values is None:
         return []
 
+    from .gene_sets import cta_symbol_for_alias
+
     valid_by_compact = {_compact_cta_name(symbol): symbol for symbol in valid_symbols}
     labels: list[str] = []
     seen: set[str] = set()
@@ -1327,6 +1329,12 @@ def _normalize_cta_labels(values: Iterable[str] | None, valid_symbols: set[str])
         compact = _compact_cta_name(value)
         if not compact:
             continue
+        if compact not in _GROUP_ALIAS_TO_LABEL and compact not in valid_by_compact:
+            # Resolve a synonym / alias (NY-ESO-1, ESO1, CT12.2, ...) to its
+            # official symbol, then fall through to group/symbol matching below.
+            resolved = cta_symbol_for_alias(value)
+            if resolved is not None:
+                compact = _compact_cta_name(resolved)
         if compact in _GROUP_ALIAS_TO_LABEL:
             label = _GROUP_ALIAS_TO_LABEL[compact]
         elif compact in valid_by_compact:

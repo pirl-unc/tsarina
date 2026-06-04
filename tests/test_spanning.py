@@ -2176,3 +2176,24 @@ def test_xage_family_aliases_backfilled():
     assert "XAGE1E" in str(df.loc["XAGE1B", "Aliases"])
     assert "GAGED2" in str(df.loc["XAGE1A", "Aliases"])
     assert "CT12.2" in str(df.loc["XAGE2", "Aliases"])
+
+
+def test_selection_resolves_synonyms_to_symbols():
+    """CTA selection accepts synonyms / colloquial names, not just HGNC symbols.
+
+    Wires tsarina.gene_sets.cta_symbol_for_alias into the panel selection path
+    (tsarina#77)."""
+    from tsarina.spanning import _normalize_cta_labels
+
+    valid = {"CTAG1A", "CTAG1B", "XAGE2", "MAGEA4", "PRAME"}
+    assert _normalize_cta_labels(["ESO1"], valid) == ["CTAG1A/CTAG1B"]
+    assert _normalize_cta_labels(["CT12.2"], valid) == ["XAGE2"]
+    assert _normalize_cta_labels(["OIP4"], valid) == ["PRAME"]
+    # Mixed synonyms + symbols resolve together, de-duplicated.
+    assert _normalize_cta_labels(["NY-ESO-1", "CT12.2", "MAGEA4"], valid) == [
+        "CTAG1A/CTAG1B",
+        "XAGE2",
+        "MAGEA4",
+    ]
+    # Unknown names are still dropped.
+    assert _normalize_cta_labels(["not-a-gene"], valid) == []
