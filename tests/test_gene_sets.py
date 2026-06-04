@@ -17,11 +17,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 262
+    assert len(CTA_gene_names()) == 263
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 262
+    assert len(CTA_gene_ids()) == 263
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -125,6 +125,21 @@ def test_ct83_and_prm3_pass_at_097_threshold():
     PRM3, whose deflated reproductive fraction is in [0.97, 0.98)."""
     expressed = CTA_gene_names()
     assert {"CT83", "PRM3"} <= expressed
+
+
+def test_mageb6_added_clean_testis():
+    """MAGEB6 (CT3.2) — dual-corroborated CTA from #79, the only one of the 9
+    candidates that passes the HPA reproductive-restriction filter (testis-only
+    3.0 nTPM, no protein)."""
+    df = CTA_evidence()
+    rows = df[df["Symbol"] == "MAGEB6"]
+    assert len(rows) == 1
+    row = rows.iloc[0]
+    assert row["Ensembl_Gene_ID"] == "ENSG00000176746"
+    assert bool(row["passes_filters"])
+    assert not bool(row["never_expressed"])
+    assert row["restriction"] == "TESTIS"
+    assert "MAGEB6" in CTA_gene_names()
 
 
 def test_xage5_rescued_into_expressed_set():
