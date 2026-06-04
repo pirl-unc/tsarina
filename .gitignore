@@ -25,3 +25,6 @@ site/
 *.swo
 *~
 .DS_Store
+
+# uv lockfile — not tracked (resolved from pyproject; see deploy.sh)
+uv.lock
