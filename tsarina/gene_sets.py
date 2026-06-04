@@ -14,8 +14,74 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 from .loader import cta_dataframe, passes_filters_mask
 from .tissues import MANUALLY_EXPRESSED_CTA
+
+
+def _normalize_alias(name: object) -> str:
+    """Collapse a gene name/alias to its comparison key (uppercase alphanumeric).
+
+    So ``NY-ESO-1``, ``ny eso 1`` and ``NYESO1`` all compare equal.
+    """
+    return "".join(ch for ch in str(name).upper() if ch.isalnum())
+
+
+#: Canonical resolution for synonyms NCBI shares across near-identical paralogs,
+#: where the colloquial name conventionally denotes one specific gene.  Keyed by
+#: normalized alias.  Highest precedence in :func:`_alias_to_symbol`.
+_CANONICAL_ALIAS_OVERRIDES: dict[str, str] = {
+    "NYESO1": "CTAG1B",  # NY-ESO-1 is the cloned CTAG1B; CTAG1A is the paralog.
+    "ESO1": "CTAG1B",
+}
+
+
+@lru_cache(maxsize=1)
+def _alias_to_symbol() -> dict[str, str]:
+    """Map normalized alias/synonym -> official CTA Symbol.
+
+    Precedence: curated canonical overrides > official symbols > first synonym
+    in table order.  Built from the ``Symbol`` and ``Aliases`` columns.
+    """
+    df = cta_dataframe()
+    symbols = set(df["Symbol"].astype(str))
+    mapping: dict[str, str] = {}
+    if "Aliases" in df.columns:
+        for symbol, aliases in zip(df["Symbol"], df["Aliases"]):
+            if not isinstance(aliases, str):
+                continue
+            for alias in aliases.split(";"):
+                key = _normalize_alias(alias)
+                if key and key not in mapping:
+                    mapping[key] = str(symbol)
+    # Official symbols take precedence over any synonym collision.
+    for symbol in df["Symbol"]:
+        key = _normalize_alias(symbol)
+        if key:
+            mapping[key] = str(symbol)
+    # Curated canonical overrides win, but only for symbols actually present.
+    for key, symbol in _CANONICAL_ALIAS_OVERRIDES.items():
+        if symbol in symbols:
+            mapping[key] = symbol
+    return mapping
+
+
+def cta_symbol_for_alias(name: str) -> str | None:
+    """Resolve a CTA gene name or synonym to its official Symbol.
+
+    Case- and punctuation-insensitive, so ``"NY-ESO-1"``, ``"ESO1"`` and
+    ``"CTAG1B"`` all resolve to ``"CTAG1B"``.  Returns ``None`` if *name* is
+    not a known CTA symbol or synonym.  See tsarina#77.
+
+    Examples
+    --------
+    >>> cta_symbol_for_alias("NY-ESO-1")
+    'CTAG1B'
+    >>> cta_symbol_for_alias("not-a-gene") is None
+    True
+    """
+    return _alias_to_symbol().get(_normalize_alias(name))
 
 
 def _cta_by_column(

@@ -40,6 +40,7 @@ from .gene_sets import (
     CTA_testis_restricted_gene_names,
     CTA_unfiltered_gene_ids,
     CTA_unfiltered_gene_names,
+    cta_symbol_for_alias,
 )
 from .tiers import (
     CONFIDENCE_VALUES,
@@ -85,6 +86,7 @@ __all__ = [
     "CTA_unfiltered_gene_names",
     "__version__",
     "cta_cancer_expression_features",
+    "cta_symbol_for_alias",
     "get_panel",
     "hpa_cancer_ihc_prevalence",
     "hpa_cancer_rna_prevalence",

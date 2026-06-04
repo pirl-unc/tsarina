@@ -50,6 +50,9 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from cta_sources import rna_tissue_consensus_path  # noqa: E402
 
 from tsarina import tiers  # noqa: E402
 from tsarina.tissues import (  # noqa: E402
@@ -182,8 +185,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--consensus",
-        default="/tmp/hpa/rna_tissue_consensus.tsv",
-        help="Path to HPA rna_tissue_consensus.tsv",
+        default=None,
+        help="Local HPA rna_tissue_consensus path; default downloads + caches from HPA.",
     )
     parser.add_argument(
         "--check",
@@ -216,7 +219,7 @@ def main() -> None:
     flipped = df.loc[new_pf != shipped_pf, "Symbol"].tolist()
     print(f"\nThreshold {new_threshold}: passes_filters flips fail->pass: {flipped}")
 
-    xage2 = build_xage2_row(Path(args.consensus), columns)
+    xage2 = build_xage2_row(rna_tissue_consensus_path(args.consensus), columns)
     print("\nXAGE2 row:")
     for key in ["Symbol", "Ensembl_Gene_ID", "source_databases", "rna_placenta_ntpm",
                 "rna_max_somatic_tissue", "rna_max_somatic_ntpm", "rna_deflated_reproductive_frac",

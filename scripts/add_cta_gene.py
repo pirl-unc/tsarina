@@ -42,6 +42,9 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from cta_sources import rna_tissue_consensus_path  # noqa: E402
 
 from tsarina import tiers  # noqa: E402
 from tsarina.tissues import (  # noqa: E402
@@ -158,16 +161,17 @@ def build_row(spec: dict, consensus: pd.DataFrame, columns: list[str], consensus
     return {c: out.get(c) for c in columns}
 
 
-_DEFAULT_CONSENSUS = "/tmp/hpa/rna_tissue_consensus.tsv"
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--consensus", default=_DEFAULT_CONSENSUS)
+    parser.add_argument(
+        "--consensus",
+        default=None,
+        help="Local HPA rna_tissue_consensus path; default downloads + caches from HPA.",
+    )
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
-    consensus_path = Path(args.consensus)
+    consensus_path = rna_tissue_consensus_path(args.consensus)
 
     df = pd.read_csv(CSV_PATH)
     columns = list(df.columns)

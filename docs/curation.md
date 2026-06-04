@@ -277,6 +277,27 @@ CTAs are rescued into the expressed set via
 in the table (HPA truth) but are still returned by `CTA_gene_names()`. Currently
 rescued: **XAGE5** (`ENSG00000171405`; testis 1.1 nTPM; CTpedia/CTexploreR/daSilva2017).
 
+## Aliases and name resolution
+
+The `Aliases` column is populated for every gene from NCBI `gene_info` synonyms
+(matched by Ensembl gene ID), merged with curated colloquial names NCBI omits
+(e.g. `NY-ESO-1`).  Regenerate with `python scripts/backfill_aliases.py` (it
+downloads + caches the NCBI source; see tsarina#77).
+
+`cta_symbol_for_alias(name)` resolves a CTA name or synonym to its official
+symbol, case- and punctuation-insensitive:
+
+```python
+from tsarina import cta_symbol_for_alias
+cta_symbol_for_alias("NY-ESO-1")   # -> "CTAG1B"
+cta_symbol_for_alias("ESO1")       # -> "CTAG1B"
+cta_symbol_for_alias("CT12.2")     # -> "XAGE2"
+cta_symbol_for_alias("not-a-gene") # -> None
+```
+
+So callers querying CTAs by common antigen names rather than HGNC symbols no
+longer silently miss hits.
+
 ## Gene symbol maintenance
 
 Gene symbols are updated to current HGNC nomenclature, with old symbols preserved in the `Aliases` column. Known renames:
