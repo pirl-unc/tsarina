@@ -42,6 +42,7 @@ from .gene_sets import (
     CTA_unfiltered_gene_names,
     cta_symbol_for_alias,
 )
+from .ms_evidence import cta_healthy_tissue_ms_hits
 from .tiers import (
     CONFIDENCE_VALUES,
     MS_RESTRICTION_VALUES,
@@ -86,6 +87,7 @@ __all__ = [
     "CTA_unfiltered_gene_names",
     "__version__",
     "cta_cancer_expression_features",
+    "cta_healthy_tissue_ms_hits",
     "cta_symbol_for_alias",
     "get_panel",
     "hpa_cancer_ihc_prevalence",

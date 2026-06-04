@@ -97,3 +97,61 @@ def test_aggregate_ms_hits_for_iedb_columns_keeps_legacy_shape():
             "iedb_alleles": "HLA-A*02:01",
         }
     ]
+
+
+def test_cta_healthy_tissue_ms_hits_surfaces_tissue_allele_pmid_vital(monkeypatch):
+    """Per-peptide healthy-somatic MS hits with vital-organ flag (tsarina#76)."""
+    import tsarina.indexing
+
+    rows = pd.DataFrame(
+        {
+            "peptide": ["HEARTPEP", "BLOODPEP", "CANCERPEP", "TESTISPEP"],
+            "mhc_restriction": ["HLA-B*49:01", "HLA-B*44:03", "HLA-A*02:01", "HLA-A*01:01"],
+            "mhc_allele_set": ["HLA-B*49:01", "HLA-B*44:03", "HLA-A*02:01", "HLA-A*01:01"],
+            "mhc_allele_provenance": ["exact", "sample_allele_match", "exact", "exact"],
+            "pmid": ["33858848", "38920720", "111", "222"],
+            "source_tissue": ["Heart", "Blood", "Melanoma", "Testis"],
+            "cell_name": ["", "", "", ""],
+            # only the first two are healthy somatic
+            "src_healthy_tissue": [True, True, False, False],
+        }
+    )
+    monkeypatch.setattr(tsarina.indexing, "load_ms_evidence", lambda **kw: rows, raising=True)
+
+    from tsarina import cta_healthy_tissue_ms_hits
+
+    out = cta_healthy_tissue_ms_hits("MAGEA4")
+    # Only the two healthy-somatic rows survive (cancer/testis dropped).
+    assert list(out["peptide"]) == ["HEARTPEP", "BLOODPEP"]
+    assert list(out["tissue"]) == ["Heart", "Blood"]
+    assert list(out["pmid"]) == ["33858848", "38920720"]
+    # Heart is a vital organ; blood is not.
+    assert list(out["vital_organ"]) == [True, False]
+    assert set(out.columns) == {
+        "peptide",
+        "tissue",
+        "allele",
+        "allele_set",
+        "provenance",
+        "pmid",
+        "vital_organ",
+    }
+
+
+def test_cta_healthy_tissue_ms_hits_empty_when_no_healthy_hits(monkeypatch):
+    import tsarina.indexing
+
+    rows = pd.DataFrame(
+        {
+            "peptide": ["CANCERPEP"],
+            "mhc_restriction": ["HLA-A*02:01"],
+            "source_tissue": ["Melanoma"],
+            "src_healthy_tissue": [False],
+        }
+    )
+    monkeypatch.setattr(tsarina.indexing, "load_ms_evidence", lambda **kw: rows, raising=True)
+
+    from tsarina import cta_healthy_tissue_ms_hits
+
+    out = cta_healthy_tissue_ms_hits("PRAME")
+    assert out.empty

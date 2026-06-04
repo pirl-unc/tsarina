@@ -202,6 +202,59 @@ the raw export scanner for those files instead of the cached observations index.
 | `RECURRENT_HEALTHY` | Multiple peptides or tissues in healthy somatic MS (genuine off-target) |
 | `NO_MS_DATA` | No MS evidence available for this gene's peptides |
 
+### `restriction_confidence` formula
+
+`tiers.synthesize_restriction` averages a per-source evidence score (protein
+IHC, RNA, MS) and bins it: **≥ 1.2 → HIGH, ≥ 0.8 → MODERATE, else LOW**. So
+`MODERATE` ≈ one solid source, uncorroborated.
+
+### Published CTAs across the axes
+
+The tiers describe evidence **quality**, not target **validity**.  A naive hard
+gate of `restriction ∈ {TESTIS, PLACENTAL}` × `confidence ≥ MODERATE` would
+reject clinically-validated targets that are in the expressed (POSITIVE) set:
+
+| gene | in `CTA_gene_names()` | restriction | confidence | ms_restriction | hard gate |
+|---|:---:|---|---|---|:---:|
+| NY-ESO-1 (CTAG1B) | ✅ | TESTIS | HIGH | CANCER_ONLY | ✅ admit |
+| NUTM1 | ✅ | TESTIS | HIGH | CANCER_ONLY | ✅ admit |
+| HORMAD1 | ✅ | TESTIS | MODERATE | CANCER_ONLY | ✅ admit |
+| PAGE2 | ✅ | TESTIS | MODERATE | CANCER_ONLY | ✅ admit |
+| PAGE5 | ✅ | TESTIS | MODERATE | CANCER_ONLY | ✅ admit |
+| **MAGE-A4** | ✅ | **REPRODUCTIVE** | MODERATE | RECURRENT_HEALTHY | ❌ reject |
+| **PRAME** | ✅ | TESTIS | **LOW** | SINGLETON_HEALTHY | ❌ reject |
+| **XAGE1A** | ✅ | **SOMATIC** | MODERATE | CANCER_ONLY | ❌ reject |
+
+MAGE-A4 (FDA-approved afami-cel/Tecelra), PRAME (e.g. IMA203), and XAGE1A are all
+real targets the gate would drop.  (CTAG2, the third NY-ESO-1 paralog, correctly
+lands in the somatic-leak held-out class — `CTA_excluded_*`.)  **Use the tiers as
+ranking signals, not hard filters.**
+
+### Peptide-level healthy-tissue screening
+
+The gene-level `ms_restriction` collapses detail that matters for safety.
+`cta_healthy_tissue_ms_hits(gene)` surfaces the underlying healthy-*somatic* MS
+hits at peptide × tissue × allele granularity (reproductive/thymic hits, which
+are expected for CTAs, are excluded):
+
+```python
+from tsarina import cta_healthy_tissue_ms_hits
+
+cta_healthy_tissue_ms_hits("PRAME")
+#   peptide tissue       allele provenance      pmid  vital_organ
+# SQLTTLSFY  Blood  HLA class I  unmatched  29557506        False
+# -> cautious gene tier (SINGLETON_HEALTHY), but clean: 1 blood hit, 0 vital organs.
+
+cta_healthy_tissue_ms_hits("MAGEA4")
+# -> 3 heart-eluted peptides (AETSYVKV family, HLA-B*49:01; PMID 33858848,
+#    vital_organ=True) + 1 blood hit. The clinical epitope GVYDGREHTV (A*02:01)
+#    is seen only in cancer, never on heart.
+```
+
+`vital_organ` flags tissues matching a `SAFETY_TISSUE_GROUPS` vital organ
+(brain / heart / lung / liver / pancreas) — the "which organ / which allele /
+which peptide" detail a per-patient screen needs.
+
 The packaged CTA evidence table intentionally does not include MS count columns.
 Use `CTA_detailed_evidence()` or `tsarina panel` to recompute current
 hitlist-derived counts. The runtime `ms_cta_exclusive_*` counts use the stricter
