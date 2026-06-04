@@ -140,7 +140,15 @@ permissive RNA threshold:
 | Enhanced (orthogonal validation) + reproductive only | >= 80% |
 | Supported (consistent characterization) + reproductive only | >= 90% |
 | Approved (basic validation) + reproductive only | >= 95% |
-| Uncertain or no protein data available | >= 98% |
+| Uncertain or no protein data available | >= 97% |
+
+The thresholds live in `tsarina.tissues.HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS`.
+The no-protein/`Uncertain` gate was relaxed 0.99 → 0.98 (tsarina#51) and then
+0.98 → 0.97 to admit borderline reproductive-restricted genes whose dominant
+tissue is strongly expressed but which carry a low-level somatic signal — e.g.
+**XAGE2** (placenta 187 nTPM, lung 5.3; tsarina#79), **CT83**/KK-LC-1 (62 nTPM,
+salivary 2.7), and **PRM3** (86 nTPM, bone marrow 2.6). Such genes keep a
+visible `safety_flags` entry for the somatic tissue.
 
 **Additional filter criteria**:
 - Gene must be protein-coding (Ensembl biotype = `protein_coding`)
@@ -252,11 +260,22 @@ detailed = CTA_detailed_evidence(hpa_bulk_path="proteinatlas.tsv")
 
 The `never_expressed` column flags genes where:
 - No HPA protein (IHC) data is available, AND
-- Maximum RNA nTPM across all tissues is < 2
+- Maximum RNA nTPM across all tissues is below the expression floor
+
+The floor is the explicit, parameterized constant
+`tsarina.tissues.HPA_EXPRESSION_FLOOR_NTPM` (default **2 nTPM**), rather than a
+magic number baked into the flag (tsarina#78).
 
 These genes pass the filter (because the `+1` pseudocount gives a 1.0 deflated fraction when all nTPMs are below 1), but the evidence for their tissue restriction is weak — HPA simply doesn't have enough signal to confirm or deny reproductive specificity. They are typically very low-abundance transcripts below HPA's detection sensitivity. Many are still legitimate CTAs supported by other evidence (e.g., CTpedia listing, tumor mass spectrometry detection), but users should be aware of the limited HPA evidence.
 
 Currently **24 genes** are flagged as low evidence.
+
+**Manual rescue**: rather than lowering the global floor (which would admit
+paralog cross-mapping noise; see tsarina#78), individual borderline-but-real
+CTAs are rescued into the expressed set via
+`tsarina.tissues.MANUALLY_EXPRESSED_CTA`. These genes keep `never_expressed = True`
+in the table (HPA truth) but are still returned by `CTA_gene_names()`. Currently
+rescued: **XAGE5** (`ENSG00000171405`; testis 1.1 nTPM; CTpedia/CTexploreR/daSilva2017).
 
 ## Gene symbol maintenance
 
@@ -380,8 +399,8 @@ p.non_cta.columns       # Symbol, Ensembl_Gene_ID
 
 | Partition | Description | Typical count |
 |---|---|---|
-| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~258 |
-| `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~21 |
+| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~262 |
+| `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~20 |
 | `p.non_cta` | All other protein-coding genes, **including** CTAs that fail the reproductive-tissue filter (somatic expression). Clean non-CTA comparison set. | ~19,800 |
 
 These three sets are **non-overlapping** and their union covers all protein-coding genes from Ensembl.

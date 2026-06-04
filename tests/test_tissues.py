@@ -51,8 +51,8 @@ def test_adaptive_thresholds():
     assert adaptive_rna_threshold("Enhanced") == 0.80
     assert adaptive_rna_threshold("Supported") == 0.90
     assert adaptive_rna_threshold("Approved") == 0.95
-    assert adaptive_rna_threshold("Uncertain") == 0.98
-    assert adaptive_rna_threshold("no data") == 0.98
+    assert adaptive_rna_threshold("Uncertain") == 0.97
+    assert adaptive_rna_threshold("no data") == 0.97
 
 
 def test_threshold_order_is_monotonic():

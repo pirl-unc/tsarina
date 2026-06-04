@@ -17,11 +17,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 258
+    assert len(CTA_gene_names()) == 262
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 258
+    assert len(CTA_gene_ids()) == 262
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -104,6 +104,39 @@ def test_xage1b_passes_relaxed_no_protein_threshold():
     assert "XAGE1B" in CTA_gene_names()
 
 
+def test_xage2_added_with_lung_safety_flag():
+    """XAGE2 (CTpedia CT12.2) is added; it passes the relaxed 0.97 gate but
+    carries a visible lung safety flag (real somatic expression). See
+    tsarina#79."""
+    df = CTA_evidence()
+    rows = df[df["Symbol"] == "XAGE2"]
+    assert len(rows) == 1
+    row = rows.iloc[0]
+    assert row["Ensembl_Gene_ID"] == "ENSG00000155622"
+    assert bool(row["passes_filters"])
+    assert not bool(row["never_expressed"])
+    assert not bool(row["rna_98_pct_filter"])  # 0.977 < 0.98, passes only at 0.97
+    assert "lung" in str(row["safety_flags"])
+    assert "XAGE2" in CTA_gene_names()
+
+
+def test_ct83_and_prm3_pass_at_097_threshold():
+    """Lowering the no-protein gate 0.98 -> 0.97 admits CT83 (KK-LC-1) and
+    PRM3, whose deflated reproductive fraction is in [0.97, 0.98)."""
+    expressed = CTA_gene_names()
+    assert {"CT83", "PRM3"} <= expressed
+
+
+def test_xage5_rescued_into_expressed_set():
+    """XAGE5 stays flagged never_expressed (HPA truth) but is rescued into the
+    expressed set via MANUALLY_EXPRESSED_CTA. See tsarina#78."""
+    df = CTA_evidence()
+    row = df[df["Symbol"] == "XAGE5"].iloc[0]
+    assert bool(row["never_expressed"])  # HPA-derived flag preserved
+    assert "XAGE5" in CTA_gene_names()  # but rescued into expressed set
+    assert "XAGE5" not in CTA_never_expressed_gene_names()
+
+
 def test_evidence_does_not_bundle_runtime_ms_count_columns():
     df = CTA_evidence()
     count_columns = [
@@ -183,3 +216,23 @@ def test_by_axes_confidence():
 def test_by_axes_gene_id_column():
     ids = CTA_by_axes(restriction="TESTIS", column="Ensembl_Gene_ID")
     assert len(ids) == len(CTA_testis_restricted_gene_names())
+
+
+def test_no_protein_threshold_is_0_97():
+    """The no-protein/Uncertain adaptive gate is the parameterized 0.97."""
+    from tsarina.tissues import HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS
+
+    assert HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS["Missing"] == 0.97
+    assert HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS["Uncertain"] == 0.97
+
+
+def test_never_expressed_column_matches_parameterized_floor():
+    """The bundled ``never_expressed`` column equals the documented rule:
+    no protein IHC data AND max RNA nTPM < HPA_EXPRESSION_FLOOR_NTPM."""
+    from tsarina.tissues import HPA_EXPRESSION_FLOOR_NTPM
+
+    df = CTA_evidence()
+    no_protein = df["protein_reliability"].astype(str).str.lower().isin(["no data", "nan", ""])
+    rule = no_protein & (df["rna_max_ntpm"] < HPA_EXPRESSION_FLOOR_NTPM)
+    shipped = df["never_expressed"].astype(str).str.lower() == "true"
+    assert (rule == shipped).all()
