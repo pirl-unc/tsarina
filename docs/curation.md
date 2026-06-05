@@ -86,6 +86,42 @@ Several additional databases were evaluated but not used as primary sources:
 
 Genes from these sources are cross-referenced in the `source_databases` column (e.g., `daSilva2017` tag indicates the gene appears in the da Silva full 1,103-gene set).
 
+## Scope and provenance (tsarina#79)
+
+**Protein-coding only.** Every CTA in the table is `biotype == protein_coding`;
+the filter rejects non-coding genes outright (see [Filter logic](#filter-logic)).
+So the lncRNA / antisense CT genes in CTexploreR's `CT_genes` list
+(LINC*, *-AS1, *-DT, …) are **deliberately out of scope** — tsarina curates
+protein-coding pMHC targets, not the full CT transcriptome. This is the
+resolution of the lncRNA/antisense scope question in tsarina#79.
+
+**Every gene carries source provenance.** The `source_databases` column is
+populated for all genes — there are **no sourceless or "literature-only"
+entries**. Each token records membership in a published source:
+
+| `source_databases` token | meaning |
+|---|---|
+| `CTpedia` | CTdatabase / CTpedia (curated CT antigen reference) |
+| `CTexploreR_CT` / `CTexploreR_CTP` | CTexploreR testis-specific / testis-preferential |
+| `daSilva2017` | da Silva 2017 full 1,103-gene RNA-seq screen |
+| `daSilva2017_protein` | da Silva 2017 tumor-MS protein-level subset |
+
+Provenance is therefore **queryable directly**: a gene in a hand-curated CT
+database vs. one surfaced only by the high-throughput da Silva screen are
+distinguishable by token. Current split: **285** genes are in a curated CT
+database (CTpedia and/or CTexploreR); **75** are screen-only (`daSilva2017`,
+not in a curated CT database). To select by provenance:
+
+```python
+from tsarina import CTA_evidence
+df = CTA_evidence()
+curated = df[df["source_databases"].str.contains("CTpedia|CTexploreR")]   # 285
+screen_only = df[~df["source_databases"].str.contains("CTpedia|CTexploreR")]  # 75 (daSilva)
+```
+
+(The literature/EWSR1-FLI1 sources listed above confirmed genes already present
+in the curated databases — none entered the panel by literature scan alone.)
+
 ## HPA tissue expression annotation
 
 Every gene is scored against [Human Protein Atlas](https://www.proteinatlas.org/) v23 using two data modalities:
