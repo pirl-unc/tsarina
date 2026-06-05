@@ -291,6 +291,14 @@ cta_healthy_tissue_ms_hits("MAGEA4")
 (brain / heart / lung / liver / pancreas) — the "which organ / which allele /
 which peptide" detail a per-patient screen needs.
 
+The same screen is available from the CLI:
+
+```bash
+tsarina hits --gene MAGEA4 --mhc-class I --healthy-tissue
+# peptide,tissue,allele,allele_set,provenance,pmid,vital_organ
+# AETSYVKV,Heart,HLA-B*49:01,...,33858848,True
+```
+
 The packaged CTA evidence table intentionally does not include MS count columns.
 Use `CTA_detailed_evidence()` or `tsarina panel` to recompute current
 hitlist-derived counts. The runtime `ms_cta_exclusive_*` counts use the stricter

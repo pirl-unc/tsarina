@@ -203,6 +203,16 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="Skip IEDB/CEDAR; output the proteome-enumerated peptides only.",
     )
     p.add_argument(
+        "--healthy-tissue",
+        action="store_true",
+        help=(
+            "Safety screen: output this gene's per-peptide healthy-SOMATIC-tissue "
+            "MS hits (tissue, allele, allele_set, provenance, pmid, vital_organ "
+            "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits "
+            "(expected for CTAs) are excluded. See cta_healthy_tissue_ms_hits()."
+        ),
+    )
+    p.add_argument(
         "-o",
         "--output",
         default=None,
@@ -366,6 +376,18 @@ def handle(args: argparse.Namespace) -> None:
         print(f"UniProt {args.uniprot} → gene {gene}", file=sys.stderr)
 
     mhc_species = None if args.species.lower() == "any" else args.species
+
+    # ── 1b. Healthy-tissue safety screen ───────────────────────────────
+    # Short-circuit: peptide x tissue x allele healthy-somatic MS hits for
+    # the gene, with a vital-organ flag — the per-patient safety view.
+    if args.healthy_tissue:
+        from .ms_evidence import cta_healthy_tissue_ms_hits
+
+        hits = cta_healthy_tissue_ms_hits(gene, mhc_class=args.mhc_class, mhc_species=mhc_species)
+        if hits.empty:
+            print(f"No healthy-somatic-tissue MS hits for {gene}.", file=sys.stderr)
+        _write(args.output, hits)
+        return
 
     # ── 2. Proteome-enumeration fallbacks ──────────────────────────────
     # --skip-ms-evidence outputs the theoretical peptide menu.

@@ -118,6 +118,7 @@ def test_refs_handler_merges_gene_ident_cols_from_cached_path(tmp_path):
         iedb_path=None,
         cedar_path=None,
         skip_ms_evidence=False,
+        healthy_tissue=False,
         output=str(output_csv),
     )
     with (
@@ -190,6 +191,7 @@ def test_refs_handler_emits_empty_gene_idents_when_mappings_sidecar_is_empty(tmp
         iedb_path=None,
         cedar_path=None,
         skip_ms_evidence=False,
+        healthy_tissue=False,
         output=str(output_csv),
     )
     with (
