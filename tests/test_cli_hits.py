@@ -101,6 +101,7 @@ def test_include_binding_assays_routes_to_load_all_evidence(tmp_path):
         iedb_path=None,
         cedar_path=None,
         skip_ms_evidence=False,
+        healthy_tissue=False,
         output=str(tmp_path / "out.csv"),
     )
     empty = pd.DataFrame(
@@ -143,6 +144,7 @@ def test_default_cached_path_uses_load_observations_not_union(tmp_path):
         iedb_path=None,
         cedar_path=None,
         skip_ms_evidence=False,
+        healthy_tissue=False,
         output=str(tmp_path / "out.csv"),
     )
     empty = pd.DataFrame({"peptide": pd.Series(dtype=str), "mhc_restriction": pd.Series(dtype=str)})
@@ -175,6 +177,7 @@ def _base_cached_args(tmp_path, lengths, *, include_binding_assays=False, mhc_cl
         iedb_path=None,
         cedar_path=None,
         skip_ms_evidence=False,
+        healthy_tissue=False,
         output=str(tmp_path / "out.csv"),
     )
 
@@ -468,3 +471,45 @@ def test_enumerate_gene_peptides_caches_proteome_index_across_calls():
         assert "peptide" in df.columns
     finally:
         cli_hits._cached_proteome_index.cache_clear()
+
+
+def test_healthy_tissue_flag_outputs_safety_screen(tmp_path):
+    """`--healthy-tissue` short-circuits to the per-peptide healthy-somatic MS
+    safety view (tsarina#76 helper surfaced in the CLI)."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=None)
+    args.healthy_tissue = True
+    screen = pd.DataFrame(
+        {
+            "peptide": ["AETSYVKV", "KEVDPASNTY"],
+            "tissue": ["Heart", "Blood"],
+            "allele": ["HLA-B*49:01", "HLA-B*44:03"],
+            "allele_set": ["HLA-B*49:01", "HLA-B*44:03"],
+            "provenance": ["exact", "sample_allele_match"],
+            "pmid": ["33858848", "38920720"],
+            "vital_organ": [True, False],
+        }
+    )
+    with patch("tsarina.ms_evidence.cta_healthy_tissue_ms_hits", return_value=screen) as helper:
+        cli_hits.handle(args)
+
+    # Called for the resolved gene; output is the safety screen, not the
+    # cancer-MS aggregation.
+    assert helper.call_args.args[0] == "PRAME"
+    out = pd.read_csv(tmp_path / "out.csv")
+    assert list(out["peptide"]) == ["AETSYVKV", "KEVDPASNTY"]
+    assert list(out["vital_organ"]) == [True, False]
+    assert "tissue" in out.columns and "pmid" in out.columns
+
+
+def test_healthy_tissue_flag_handles_no_hits(tmp_path):
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=None)
+    args.healthy_tissue = True
+    from tsarina.ms_evidence import CTA_HEALTHY_TISSUE_MS_COLUMNS
+
+    empty = pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
+    with patch("tsarina.ms_evidence.cta_healthy_tissue_ms_hits", return_value=empty):
+        cli_hits.handle(args)  # must not raise
