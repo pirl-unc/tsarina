@@ -70,6 +70,34 @@ GENE_SPECS = [
         "Full_Name": None,
         "Function": "cancer-testis antigen",
     },
+    # ── tsarina#93: near-identical paralog copies of curated CTAs, absent from
+    # the source DBs but testis-restricted on HPA bulk consensus.  Adding them
+    # to the universe stops their (sequence-identical) protein from polluting the
+    # non-CTA negative set in downstream 9mer-specificity analysis.  Tagged
+    # ``paralog:<curated sibling>``.  Only the clean testis-restricted copies are
+    # added here; the somatic-on-bulk copies (CT45A6, DAZ2, DAZ4) are held out.
+    *(
+        {
+            "Symbol": sym,
+            "Ensembl_Gene_ID": ensg,
+            "Canonical_Transcript_ID": ct,
+            "source_databases": f"paralog:{sibling}",
+            "Aliases": None,
+            "Full_Name": None,
+            "Function": "cancer-testis antigen",
+        }
+        for sym, ensg, ct, sibling in [
+            ("CT47A8", "ENSG00000230347", "ENST00000457977", "CT47A1"),
+            ("CT47A9", "ENSG00000226600", "ENST00000417256", "CT47A1"),
+            ("CT47A10", "ENSG00000224089", "ENST00000430448", "CT47A1"),
+            ("MAGEA2B", "ENSG00000268606", "ENST00000684311", "MAGEA2"),
+            ("CT45A5", "ENSG00000269586", "ENST00000682849", "CT45A1"),
+            ("CT45A8", "ENSG00000278085", "ENST00000611660", "CT45A1"),
+            ("CT45A9", "ENSG00000270946", "ENST00000620704", "CT45A1"),
+            ("SSX4B", "ENSG00000268009", "ENST00000595689", "SSX4"),
+            ("GAGE12D", "ENSG00000227488", "ENST00000405679", "GAGE12C"),
+        ]
+    ),
 ]
 
 _NO_PROTEIN = {"no data", "nan", ""}

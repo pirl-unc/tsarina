@@ -105,18 +105,21 @@ entries**. Each token records membership in a published source:
 | `CTexploreR_CT` / `CTexploreR_CTP` | CTexploreR testis-specific / testis-preferential |
 | `daSilva2017` | da Silva 2017 full 1,103-gene RNA-seq screen |
 | `daSilva2017_protein` | da Silva 2017 tumor-MS protein-level subset |
+| `paralog:<sibling>` | near-identical paralog copy of the named curated CTA, added by tsarina's paralog reasoning (not in a source DB) — see below |
 
 Provenance is therefore **queryable directly**: a gene in a hand-curated CT
 database vs. one surfaced only by the high-throughput da Silva screen are
 distinguishable by token. Current split: **282** genes are in a curated CT
-database (CTpedia and/or CTexploreR); **72** are screen-only (`daSilva2017`,
-not in a curated CT database). To select by provenance:
+database (CTpedia and/or CTexploreR); **72** are screen-only (`daSilva2017`); and
+**6** are `paralog:` copies (see below). To select by provenance:
 
 ```python
 from tsarina import CTA_evidence
 df = CTA_evidence()
-curated = df[df["source_databases"].str.contains("CTpedia|CTexploreR")]   # 282
-screen_only = df[~df["source_databases"].str.contains("CTpedia|CTexploreR")]  # 72 (daSilva)
+src = df["source_databases"]
+curated = df[src.str.contains("CTpedia|CTexploreR")]               # 282
+paralog = df[src.str.contains("paralog")]                         # 6
+screen_only = df[src.str.contains("daSilva") & ~src.str.contains("CTpedia|CTexploreR")]  # 72
 ```
 
 (The literature/EWSR1-FLI1 sources listed above confirmed genes already present
@@ -141,6 +144,26 @@ universe at load time via `tsarina.tissues.NON_CTA_EXCLUDED_GENE_IDS`
 Testis-specific histone *variants* (e.g. `H1-6` / HIST1H1T) are genuine CTAs and
 are **kept** — the exclusion is a curated per-gene deny-list, not a blanket
 family filter.
+
+### Paralog copies (tsarina#93)
+
+Some CTA families have near-identical paralog copies that aren't in any source
+database. Left out of the universe, their (sequence-identical) protein lands in
+the *non-CTA* set of downstream sequence analyses and cancels the family's
+specificity. The testis-restricted copies are added to the universe tagged
+`paralog:<curated sibling>` (e.g. `paralog:CT47A1`): `CT47A8/A9/A10`,
+`CT45A8/A9` (`paralog:CT45A1`), `GAGE12D` (`paralog:GAGE12C`). Most are
+`never_expressed` (very low HPA RNA) so they sit in the universe/filtered sets
+but not the expressed default.
+
+Three more — `MAGEA2B`, `CT45A5`, `SSX4B` — were already in the universe **by
+Ensembl ID** under a different symbol (`MAGEA2`, `CT45A10`, `SSX4`); they are
+added as aliases so symbol lookups resolve. Three somatic-on-bulk-HPA copies
+(`CT45A6`, `DAZ2`, `DAZ4`) are held out — their bulk signal (likely DAZ
+cross-mapping at a hard-to-map multicopy Y locus) fails the restriction filter.
+`DAZ1` (already curated) is testis-restricted on bulk; its reported gastric
+single-cell signal is below the bulk resolution tsarina curates on, and it is
+already `never_expressed`.
 
 ## HPA tissue expression annotation
 

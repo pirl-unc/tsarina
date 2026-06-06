@@ -17,11 +17,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 260
+    assert len(CTA_gene_names()) == 261
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 260
+    assert len(CTA_gene_ids()) == 261
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -299,3 +299,18 @@ def test_non_cta_exclusion_preserves_evidence_unfiltered_invariant():
     from tsarina import CTA_evidence, CTA_unfiltered_gene_names
 
     assert len(CTA_evidence()) == len(CTA_unfiltered_gene_names())
+
+
+def test_paralog_copies_added_to_universe():
+    """Near-identical CTA paralog copies are in the universe so they don't
+    pollute downstream non-CTA negative sets (tsarina#93). Tagged paralog:<sibling>."""
+    from tsarina import CTA_evidence, CTA_unfiltered_gene_names, cta_symbol_for_alias
+
+    universe = CTA_unfiltered_gene_names()
+    for gene in ("CT47A8", "CT47A9", "CT47A10", "CT45A8", "CT45A9", "GAGE12D"):
+        assert gene in universe, f"{gene} should be in the universe"
+    df = CTA_evidence().set_index("Symbol")
+    assert df.loc["GAGE12D", "source_databases"].startswith("paralog:")
+    # Copies already present by Ensembl ID resolve via alias to their existing row.
+    assert cta_symbol_for_alias("MAGEA2B") == "MAGEA2"
+    assert cta_symbol_for_alias("SSX4B") == "SSX4"
