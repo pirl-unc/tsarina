@@ -24,8 +24,16 @@ LEGACY_FILTERED_COLUMN = "filtered"
 
 @lru_cache(maxsize=1)
 def _load_cta_dataframe() -> pd.DataFrame:
+    from .tissues import NON_CTA_EXCLUDED_GENE_IDS
+
     path = join(_DATA_DIR, "cancer-testis-antigens.csv")
     df = pd.read_csv(path)
+    # Drop non-CTA conserved/multicopy genes that entered via a source DB
+    # (core histones, alpha-tubulins, hCG-beta) so they don't pollute the CTA
+    # universe or pass the filter on a testis-enriched copy.  See tsarina#92.
+    if "Ensembl_Gene_ID" in df.columns and NON_CTA_EXCLUDED_GENE_IDS:
+        unversioned = df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+        df = df[~unversioned.isin(NON_CTA_EXCLUDED_GENE_IDS)].reset_index(drop=True)
     # Surface the legacy inclusion flag alongside the canonical one so
     # downstream consumers that still schema-check for ``filtered`` (e.g.
     # pirlygenes pre-#241) can read the live tsarina table without

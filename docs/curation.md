@@ -108,19 +108,39 @@ entries**. Each token records membership in a published source:
 
 Provenance is therefore **queryable directly**: a gene in a hand-curated CT
 database vs. one surfaced only by the high-throughput da Silva screen are
-distinguishable by token. Current split: **285** genes are in a curated CT
-database (CTpedia and/or CTexploreR); **75** are screen-only (`daSilva2017`,
+distinguishable by token. Current split: **282** genes are in a curated CT
+database (CTpedia and/or CTexploreR); **72** are screen-only (`daSilva2017`,
 not in a curated CT database). To select by provenance:
 
 ```python
 from tsarina import CTA_evidence
 df = CTA_evidence()
-curated = df[df["source_databases"].str.contains("CTpedia|CTexploreR")]   # 285
-screen_only = df[~df["source_databases"].str.contains("CTpedia|CTexploreR")]  # 75 (daSilva)
+curated = df[df["source_databases"].str.contains("CTpedia|CTexploreR")]   # 282
+screen_only = df[~df["source_databases"].str.contains("CTpedia|CTexploreR")]  # 72 (daSilva)
 ```
 
 (The literature/EWSR1-FLI1 sources listed above confirmed genes already present
 in the curated databases — none entered the panel by literature scan alone.)
+
+### Non-CTA exclusions (conserved/multicopy families)
+
+A few genes enter the CTA universe via a source database but are **not** cancer-
+testis antigens — conserved/multicopy housekeeping families and a placental
+gene. They can even pass the reproductive-restriction filter on a testis-
+enriched copy, yet they make poor targets (ubiquitous/essential proteins) and
+pollute any CTA-keyed sequence/expression analysis. They are dropped from the
+universe at load time via `tsarina.tissues.NON_CTA_EXCLUDED_GENE_IDS`
+(tsarina#92):
+
+| excluded | family | why not a CTA |
+|---|---|---|
+| `H4C6`, `H2BC1`, `H2BC3` | core histones (H4, H2B) | conserved, multicopy nucleosome core |
+| `TUBA3C`, `TUBA3E` | alpha-tubulins | essential cytoskeleton |
+| `CGB8` | chorionic gonadotropin beta | placental, multicopy |
+
+Testis-specific histone *variants* (e.g. `H1-6` / HIST1H1T) are genuine CTAs and
+are **kept** — the exclusion is a curated per-gene deny-list, not a blanket
+family filter.
 
 ## HPA tissue expression annotation
 
