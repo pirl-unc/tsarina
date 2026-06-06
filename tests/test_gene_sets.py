@@ -17,11 +17,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 263
+    assert len(CTA_gene_names()) == 260
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 263
+    assert len(CTA_gene_ids()) == 260
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -278,3 +278,24 @@ def test_aliases_backfilled_for_most_genes():
     df = CTA_evidence()
     with_aliases = (df["Aliases"].fillna("").astype(str).str.len() > 0).sum()
     assert with_aliases >= 300
+
+
+def test_non_cta_conserved_genes_excluded_from_universe():
+    """Conserved/multicopy non-CTAs (core histones, alpha-tubulins, hCG-beta)
+    are dropped from the CTA universe (tsarina#92); testis-specific histone
+    variants are kept."""
+    from tsarina import CTA_evidence, CTA_unfiltered_gene_names
+
+    universe = CTA_unfiltered_gene_names()
+    evidence_symbols = set(CTA_evidence()["Symbol"])
+    for gene in ("H4C6", "H2BC1", "H2BC3", "CGB8", "TUBA3C", "TUBA3E"):
+        assert gene not in universe, f"{gene} should be excluded from the universe"
+        assert gene not in evidence_symbols, f"{gene} should not be a CTA_evidence row"
+    # The testis-specific linker histone H1t (H1-6) is a legit CTA — kept.
+    assert "H1-6" in universe
+
+
+def test_non_cta_exclusion_preserves_evidence_unfiltered_invariant():
+    from tsarina import CTA_evidence, CTA_unfiltered_gene_names
+
+    assert len(CTA_evidence()) == len(CTA_unfiltered_gene_names())

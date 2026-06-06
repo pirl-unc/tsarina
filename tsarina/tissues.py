@@ -93,6 +93,25 @@ MANUALLY_EXPRESSED_CTA: frozenset[str] = frozenset(
     }
 )
 
+#: Genes that entered the CTA universe via a source database but are NOT cancer-
+#: testis antigens: conserved/multicopy housekeeping families (core histones,
+#: alpha-tubulins) and placental chorionic gonadotropin.  These can pass the
+#: reproductive-restriction filter on a testis-enriched copy, yet they make poor
+#: targets (ubiquitous/essential proteins) and pollute any CTA-keyed sequence or
+#: expression analysis.  Dropped from the universe at load time.  Keyed by
+#: (unversioned) Ensembl gene ID.  See tsarina#92.  Note: testis-specific
+#: histone variants (e.g. H1-6 / HIST1H1T) are deliberately NOT excluded.
+NON_CTA_EXCLUDED_GENE_IDS: frozenset[str] = frozenset(
+    {
+        "ENSG00000274618",  # H4C6   -- core histone H4 (conserved/multicopy)
+        "ENSG00000146047",  # H2BC1  -- core histone H2B
+        "ENSG00000276410",  # H2BC3  -- core histone H2B
+        "ENSG00000213030",  # CGB8   -- chorionic gonadotropin beta (placental)
+        "ENSG00000198033",  # TUBA3C -- alpha-tubulin (conserved/essential)
+        "ENSG00000152086",  # TUBA3E -- alpha-tubulin
+    }
+)
+
 # ── Protein reliability ordering ────────────────────────────────────────────
 
 #: HPA antibody reliability tiers, ordered from strongest to weakest.

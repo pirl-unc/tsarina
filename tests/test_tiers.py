@@ -242,11 +242,11 @@ def test_csv_has_no_runtime_ms_count_columns():
 
 
 def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 263
+    assert len(CTA_gene_names()) == 260
 
 
 def test_filtered_count_unchanged():
-    assert len(CTA_filtered_gene_names()) == 283
+    assert len(CTA_filtered_gene_names()) == 280
 
 
 # ── assign_all_axes runtime consistency ──────────────────────────────────
