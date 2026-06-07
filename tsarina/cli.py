@@ -24,6 +24,11 @@ Usage::
     tsarina data build                          # build the observations index
     tsarina data build --force                  # rebuild from scratch
 
+    tsarina data sources list                    # HPA/NCBI curation data: versions + cache
+    tsarina data sources download                # fetch all (pinned HPA version)
+    tsarina data sources download hpa_normal_tissue --hpa-version v23
+    tsarina data sources path hpa_rna_consensus  # print cached path
+
     tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
     tsarina hits --gene PRAME --allele HLA-A*24:02
     tsarina panel -o panel.csv
@@ -122,6 +127,58 @@ def _data_build(args: argparse.Namespace) -> None:
     print(f"Observations index: {path}")
 
 
+def _fmt_bytes(size: int | None) -> str:
+    if not size:
+        return "-"
+    for unit, scale in (("GB", 1e9), ("MB", 1e6), ("KB", 1e3)):
+        if size >= scale:
+            return f"{size / scale:.1f} {unit}"
+    return f"{size} B"
+
+
+def _data_sources(args: argparse.Namespace) -> None:
+    from . import reference_data
+
+    action = getattr(args, "sources_command", None) or "list"
+    if action == "list":
+        rows = reference_data.status()
+        print(f"{'Dataset':<20} {'Cached':<8} {'Version':<10} {'Size':>9}  Description")
+        print("-" * 92)
+        for r in rows:
+            cached = "yes" if r["cached"] else "no"
+            ver = r["cached_version"] or f"({r['default_version']})"
+            print(
+                f"{r['name']:<20} {cached:<8} {ver:<10} {_fmt_bytes(r['bytes']):>9}  "
+                f"{r['description']}"
+            )
+        print(f"\nCache directory: {reference_data.cache_dir()}")
+        print(
+            "Default HPA version: "
+            f"{reference_data.DEFAULT_HPA_VERSION} "
+            "(only release serving both RNA consensus and normal_tissue)"
+        )
+        return
+    if action == "download":
+        names = args.names or list(reference_data.REFERENCE_DATASETS)
+        for name in names:
+            try:
+                path = reference_data.download(name, version=args.hpa_version, force=args.force)
+            except reference_data.ReferenceDataError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+            print(f"Ready: {name} -> {path}")
+        return
+    if action == "path":
+        from . import reference_data as rd
+
+        try:
+            print(rd.local_path(args.name, version=args.hpa_version))
+        except rd.ReferenceDataError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
+
+
 def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     data_parser = sub.add_parser("data", help="Manage external datasets")
     data_sub = data_parser.add_subparsers(dest="data_command")
@@ -150,6 +207,20 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     )
     p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
 
+    p_src = data_sub.add_parser(
+        "sources",
+        help="Manage versioned HPA/NCBI curation reference data (RNA, IHC, gene_info)",
+    )
+    src_sub = p_src.add_subparsers(dest="sources_command")
+    src_sub.add_parser("list", help="Show reference datasets, versions, and cache status")
+    p_src_dl = src_sub.add_parser("download", help="Download reference dataset(s)")
+    p_src_dl.add_argument("names", nargs="*", help="Dataset name(s); default: all")
+    p_src_dl.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
+    p_src_dl.add_argument("--force", "-f", action="store_true", help="Re-download")
+    p_src_path = src_sub.add_parser("path", help="Print the cache path for a dataset")
+    p_src_path.add_argument("name", help="Dataset name")
+    p_src_path.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
+
 
 def _handle_data(args: argparse.Namespace) -> None:
     handlers = {
@@ -160,10 +231,11 @@ def _handle_data(args: argparse.Namespace) -> None:
         "path": _data_path,
         "remove": _data_remove,
         "build": _data_build,
+        "sources": _data_sources,
     }
     if args.data_command is None:
         print(
-            "Usage: tsarina data {list,available,register,fetch,path,remove,build}",
+            "Usage: tsarina data {list,available,register,fetch,path,remove,build,sources}",
             file=sys.stderr,
         )
         sys.exit(1)
