@@ -12,74 +12,63 @@
 
 """Reproducible source-data fetchers for the CTA curation scripts.
 
-Each curation script (``add_xage2.py``, ``add_cta_gene.py``,
-``backfill_aliases.py``) depends on a large upstream reference file (HPA RNA
-tissue consensus, NCBI ``gene_info``).  These helpers download and cache those
-files on demand so the scripts are self-contained, durable artifacts — re-run
-any of them later and the source is fetched fresh, no manual ``/tmp`` setup.
+Thin wrappers over :mod:`tsarina.reference_data` (the versioned download/cache
+layer also exposed as ``tsarina data sources``), so the curation scripts and the
+CLI share one version-stamped cache.  Each helper accepts an optional explicit
+local path/URL override; otherwise it returns the cached pinned-version copy,
+downloading on demand.
 
-Cache lives at ``<repo>/.cache/`` (gitignored).  Pass an explicit local path to
-any of the scripts' ``--*`` source flags to use a pre-downloaded copy instead.
+Inspect or pre-fetch from the CLI::
+
+    tsarina data sources list
+    tsarina data sources download
 """
 
 from __future__ import annotations
 
-import urllib.request
-import zipfile
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-_CACHE_DIR = _REPO_ROOT / ".cache"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+import sys  # noqa: E402
 
-RNA_TISSUE_CONSENSUS_URL = "https://www.proteinatlas.org/download/tsv/rna_tissue_consensus.tsv.zip"
-NCBI_GENE_INFO_URL = (
-    "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
-)
+sys.path.insert(0, str(REPO_ROOT))
+
+from tsarina import reference_data  # noqa: E402
 
 
-def _download(url: str, dest: Path) -> None:
-    _CACHE_DIR.mkdir(exist_ok=True)
-    print(f"  downloading {url} -> {dest} ...")
-    with urllib.request.urlopen(url, timeout=300) as response:
-        dest.write_bytes(response.read())
+def _resolve(name: str, source: str | None, version: str | None = None) -> Path:
+    """Return a local path for *name*, honoring an explicit local/URL override."""
+    if source is None:
+        return reference_data.ensure(name, version=version)
+    if not source.startswith(("http://", "https://")):
+        # Explicit local file (e.g. a pre-downloaded .tsv) — use as-is.
+        return Path(source)
+    return _fetch_url(name, source)
+
+
+def _fetch_url(name: str, url: str) -> Path:
+    """Fetch an explicit URL override into a side cache slot (no manifest)."""
+    import urllib.request
+
+    spec = reference_data.REFERENCE_DATASETS[name]
+    dest = reference_data.cache_dir() / name / "override" / spec["filename"]
+    if not dest.exists():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        raw = urllib.request.urlopen(url, timeout=600).read()
+        reference_data._extract_to(raw, url, dest)
+    return dest
 
 
 def rna_tissue_consensus_path(source: str | None = None) -> Path:
-    """Return a local path to HPA ``rna_tissue_consensus.tsv``.
+    """Local path to HPA ``rna_tissue_consensus.tsv`` (pinned HPA version)."""
+    return _resolve("hpa_rna_consensus", source)
 
-    ``source`` may be a local ``.tsv``/``.zip`` path or a URL (default: HPA).
-    The zip is extracted into the cache; an existing extract is reused.
-    """
-    src = source or RNA_TISSUE_CONSENSUS_URL
-    if src.endswith(".tsv") and not src.startswith(("http://", "https://")):
-        return Path(src)
 
-    tsv_path = _CACHE_DIR / "rna_tissue_consensus.tsv"
-    if tsv_path.exists():
-        return tsv_path
-
-    if src.startswith(("http://", "https://")):
-        zip_path = _CACHE_DIR / "rna_tissue_consensus.tsv.zip"
-        if not zip_path.exists():
-            _download(src, zip_path)
-    else:
-        zip_path = Path(src)
-
-    with zipfile.ZipFile(zip_path) as zf:
-        member = next(n for n in zf.namelist() if n.endswith(".tsv"))
-        _CACHE_DIR.mkdir(exist_ok=True)
-        with zf.open(member) as fsrc:
-            tsv_path.write_bytes(fsrc.read())
-    return tsv_path
+def normal_tissue_path(source: str | None = None) -> Path:
+    """Local path to HPA ``normal_tissue.tsv`` IHC table (pinned HPA version)."""
+    return _resolve("hpa_normal_tissue", source)
 
 
 def ncbi_gene_info_path(source: str | None = None) -> Path:
-    """Return a local path to NCBI human ``gene_info.gz`` (download + cache)."""
-    src = source or NCBI_GENE_INFO_URL
-    if not src.startswith(("http://", "https://")):
-        return Path(src)
-
-    dest = _CACHE_DIR / "Homo_sapiens.gene_info.gz"
-    if not dest.exists():
-        _download(src, dest)
-    return dest
+    """Local path to NCBI human ``gene_info.gz``."""
+    return _resolve("ncbi_gene_info", source)
