@@ -14,9 +14,12 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
+
+from .tiers import SAFETY_TISSUE_GROUPS, VITAL_TISSUE_MS_NAMES
 
 SOURCE_FLAG_OUTPUTS: dict[str, str] = {
     "src_cancer": "ms_cancer",
@@ -146,13 +149,102 @@ def aggregate_ms_hits_for_iedb_columns(hits: pd.DataFrame) -> pd.DataFrame:
     )[["peptide", "iedb_hit_count", "iedb_alleles"]]
 
 
-#: Substrings flagging an MS source tissue as a vital organ (per
-#: ``tiers.SAFETY_TISSUE_GROUPS`` — brain/heart/lung/liver/pancreas — plus the
-#: CNS spellings MS datasets use).  Matched case-insensitively against the row's
-#: source tissue.
-_VITAL_ORGAN_KEYWORDS: frozenset[str] = frozenset(
-    {"brain", "cerebell", "cns", "cortex", "heart", "lung", "liver", "pancrea"}
+#: Exact vital-organ tissue names, taken verbatim from the RNA-side safety
+#: vocabulary so this MS screen can never drift from it: every brain subregion
+#: in :data:`tiers.SAFETY_TISSUE_GROUPS` (plus heart/lung/liver/pancreas) and the
+#: MS-specific spellings in :data:`tiers.VITAL_TISSUE_MS_NAMES` (e.g.
+#: ``"central nervous system (cns)"``).  Any one of these is a vital organ.
+_VITAL_ORGAN_EXACT_NAMES: frozenset[str] = frozenset().union(*SAFETY_TISSUE_GROUPS.values()) | {
+    name.lower() for name in VITAL_TISSUE_MS_NAMES
+}
+
+#: Stems flagging an MS source tissue / cell name as a vital organ
+#: (brain/CNS, heart, lung, liver, pancreas) -- the MS-side counterpart of
+#: :data:`tiers.SAFETY_TISSUE_GROUPS`.  Stems (not whole words) so spelling
+#: variants and inflections are caught: ``hepat`` -> hepatic/hepatocyte,
+#: ``cerebr`` -> cerebral/cerebrum, ``thalam`` -> thalamus/hypothalamus,
+#: ``myocard`` -> myocardium/myocardial, ``pulmonar`` -> pulmonary.  Matched as
+#: plain substrings so compound names match too (``brain`` -> midbrain/
+#: brainstem; ``medulla oblongata`` avoids bare ``medulla``, which also names
+#: the non-vital adrenal/renal medulla).  Brain/CNS gets the widest net because
+#: a missed vital-organ hit (false negative) is worse for a safety screen than
+#: an over-flag.
+_VITAL_ORGAN_SUBSTRINGS: tuple[str, ...] = (
+    # brain / CNS
+    "brain",
+    "cerebr",
+    "cerebell",
+    "central nervous system",
+    "spinal cord",
+    "hippocamp",
+    "amygdala",
+    "thalam",
+    "basal ganglia",
+    "choroid plexus",
+    "medulla oblongata",
+    "white matter",
+    "retina",
+    # heart
+    "heart",
+    "cardiac",
+    "myocard",
+    # lung
+    "lung",
+    "pulmonar",
+    # liver
+    "hepat",
+    # pancreas
+    "pancrea",
+    "islet",
 )
+
+#: Short/ambiguous vital-organ stems matched at a word boundary so they cannot
+#: appear spuriously inside an unrelated tissue: ``\bliver`` does not match
+#: ``deliver``; ``cns``/``pons`` stay whole words.
+_VITAL_ORGAN_WORD_BOUNDED: tuple[str, ...] = ("cns", "liver", "pons")
+
+_VITAL_ORGAN_REGEX = re.compile(
+    "|".join(
+        [
+            *(re.escape(stem) for stem in _VITAL_ORGAN_SUBSTRINGS),
+            *(rf"\b{re.escape(stem)}" for stem in _VITAL_ORGAN_WORD_BOUNDED),
+        ]
+    )
+)
+
+#: Organ qualifiers that make a ``"... cortex"`` non-CNS, and therefore NOT a
+#: vital organ.  ``"renal"`` also covers ``"adrenal"`` (substring), but both are
+#: listed for clarity; ``"ovar"`` covers ovary/ovarian, ``"thym"`` thymic/thymus,
+#: ``"lymph"``/``"nodal"`` lymph-node cortex.  Everything else containing
+#: ``"cortex"`` (cerebral, frontal, temporal, motor, visual, ...) is treated as
+#: brain -- an inclusive bias appropriate for a safety screen.
+_NON_CNS_CORTEX_QUALIFIERS: tuple[str, ...] = (
+    "adrenal",
+    "renal",
+    "kidney",
+    "ovar",
+    "thym",
+    "lymph",
+    "nodal",
+)
+
+
+def _is_vital_organ_tissue(tissue: str) -> bool:
+    """Whether an MS source-tissue / cell name denotes a vital organ.
+
+    Vital organs are brain/CNS, heart, lung, liver, and pancreas -- the
+    MS-side counterpart of :data:`tiers.SAFETY_TISSUE_GROUPS`.  Matching is
+    case-insensitive and whitespace-normalized.
+    """
+    text = " ".join(str(tissue).lower().split())
+    if not text:
+        return False
+    if text in _VITAL_ORGAN_EXACT_NAMES:
+        return True
+    if "cortex" in text and not any(q in text for q in _NON_CNS_CORTEX_QUALIFIERS):
+        return True
+    return _VITAL_ORGAN_REGEX.search(text) is not None
+
 
 CTA_HEALTHY_TISSUE_MS_COLUMNS: list[str] = [
     "peptide",
@@ -212,8 +304,7 @@ def cta_healthy_tissue_ms_hits(
     if "cell_name" in hits.columns:
         cell = hits["cell_name"].fillna("").astype(str)
         tissue = tissue.where(tissue.str.strip() != "", cell)
-    low = tissue.str.lower()
-    vital = low.map(lambda t: any(keyword in t for keyword in _VITAL_ORGAN_KEYWORDS))
+    vital = tissue.map(_is_vital_organ_tissue)
 
     out = pd.DataFrame(
         {

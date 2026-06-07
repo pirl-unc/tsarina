@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from tsarina.ms_evidence import (
     aggregate_ms_hits_by_peptide,
@@ -155,3 +156,113 @@ def test_cta_healthy_tissue_ms_hits_empty_when_no_healthy_hits(monkeypatch):
 
     out = cta_healthy_tissue_ms_hits("PRAME")
     assert out.empty
+
+
+# ── Vital-organ matcher (_is_vital_organ_tissue) ──────────────────────────────
+
+
+def test_vital_organ_matcher_covers_safety_source_of_truth():
+    """The MS screen must flag every tissue in the RNA-side vital vocabulary.
+
+    Guards against drift: if a tissue is added to SAFETY_TISSUE_GROUPS or
+    VITAL_TISSUE_MS_NAMES, this fails until the MS screen covers it too.
+    """
+    from tsarina.ms_evidence import _is_vital_organ_tissue
+    from tsarina.tiers import SAFETY_TISSUE_GROUPS, VITAL_TISSUE_MS_NAMES
+
+    source_of_truth = set().union(*SAFETY_TISSUE_GROUPS.values()) | set(VITAL_TISSUE_MS_NAMES)
+    missed = sorted(name for name in source_of_truth if not _is_vital_organ_tissue(name))
+    assert missed == []
+
+
+@pytest.mark.parametrize(
+    "tissue",
+    [
+        # heart
+        "Heart",
+        "heart muscle",
+        "Cardiac muscle",
+        "myocardium",
+        "left ventricle myocardium",
+        # lung
+        "Lung",
+        "pulmonary",
+        # liver
+        "Liver",
+        "livers",
+        "hepatic tissue",
+        "hepatocyte",
+        # pancreas
+        "Pancreas",
+        "pancreatic islets",
+        "islets of Langerhans",
+        # brain / CNS (incl. cortex spellings and subregions)
+        "Brain",
+        "midbrain",
+        "brainstem",
+        "Cerebellum",
+        "cerebellar cortex",
+        "Cerebral cortex",
+        "frontal cortex",
+        "visual cortex",
+        "Central nervous system (CNS)",
+        "CNS",
+        "spinal cord",
+        "Hippocampus",
+        "hippocampal formation",
+        "amygdala",
+        "thalamus",
+        "hypothalamus",
+        "pons",
+        "basal ganglia",
+        "choroid plexus",
+        "medulla oblongata",
+        "white matter",
+        "retina",
+    ],
+)
+def test_vital_organ_matcher_true(tissue):
+    from tsarina.ms_evidence import _is_vital_organ_tissue
+
+    assert _is_vital_organ_tissue(tissue) is True
+
+
+@pytest.mark.parametrize(
+    "tissue",
+    [
+        "",
+        "Blood",
+        "Bone Marrow",
+        "Skin",
+        "Breast",
+        "Colon",
+        "Kidney",
+        "Stomach",
+        "Lymph Node",
+        # non-CNS cortices must NOT masquerade as brain
+        "adrenal cortex",
+        "renal cortex",
+        "kidney cortex",
+        "ovarian cortex",
+        "lymph node cortex",
+        "thymic cortex",
+        # bare "medulla" names adrenal/renal medulla, not brain
+        "adrenal medulla",
+        "renal medulla",
+        # expected-tissue / unrelated
+        "thymus",
+        "testis",
+        "ovary",
+        "placenta",
+        # substring traps
+        "delivery",
+        "striated muscle",
+        "skeletal muscle",
+        "gastric cardia",
+        "melanoma",
+    ],
+)
+def test_vital_organ_matcher_false(tissue):
+    from tsarina.ms_evidence import _is_vital_organ_tissue
+
+    assert _is_vital_organ_tissue(tissue) is False
