@@ -31,3 +31,6 @@ uv.lock
 
 # curation source-data download cache (scripts/cta_sources.py)
 .cache/
+
+# regeneration sidecar (scripts/regenerate_table.py dry run)
+*.regen.csv

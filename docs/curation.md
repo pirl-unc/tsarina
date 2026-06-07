@@ -168,7 +168,18 @@ already `never_expressed`.
 
 ## HPA tissue expression annotation
 
-Every gene is scored against [Human Protein Atlas](https://www.proteinatlas.org/) v23 using two data modalities:
+Every gene is scored against [Human Protein Atlas](https://www.proteinatlas.org/) v23 using two data modalities.
+
+> **Reproducibility / provenance.** Both HPA modalities are pinned to release
+> **v23** — the most recent HPA version whose download mirror serves *both*
+> `rna_tissue_consensus` (RNA) and `normal_tissue` (IHC) as a matched pair, so
+> the whole table is derived from one release. Fetch and inspect the sources
+> with `tsarina data sources {list,download}`; regenerate every RNA/protein
+> column for the bundled table with `python scripts/regenerate_table.py`
+> (`--apply` to write). A small curated `_CROSS_REACTIVE_IHC` override in that
+> script forces the IHC to "no data" for sequence-near-identical paralog
+> antigens (MAGEB6, XAGE2, CT45A8, CT45A9) whose shared antibody cross-reacts
+> (Low-level protein in tissues with ~0 nTPM RNA).
 
 ### RNA expression
 
@@ -566,7 +577,7 @@ p.non_cta.columns       # Symbol, Ensembl_Gene_ID
 
 | Partition | Description | Typical count |
 |---|---|---|
-| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~262 |
+| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~263 |
 | `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~20 |
 | `p.non_cta` | All other protein-coding genes, **including** CTAs that fail the reproductive-tissue filter (somatic expression). Clean non-CTA comparison set. | ~19,800 |
 
