@@ -71,6 +71,17 @@ _NON_SOMATIC: frozenset[str] = PERMISSIVE_REPRODUCTIVE_TISSUES | frozenset({"thy
 
 #: Safety-critical tissue groups with nTPM threshold.
 #: Genes with max nTPM >= threshold in any tissue in the group get flagged.
+#:
+#: The ``brain`` group spans two HPA vocabularies on purpose.  Ten names are
+#: present in the bulk ``rna_tissue_consensus`` and so drive the RNA safety flag
+#: (``rna_brain_max_ntpm``): amygdala, basal ganglia, cerebellum, cerebral
+#: cortex, choroid plexus, hippocampal formation, hypothalamus, midbrain,
+#: retina, spinal cord.  Four names (medulla oblongata, pons, thalamus, white
+#: matter) come from HPA's finer brain-specific dataset; they are absent from
+#: the consensus -- inert for the RNA flag (``.get(t, 0.0)``) -- but are kept
+#: because the MS vital-organ screen
+#: (:data:`tsarina.ms_evidence._VITAL_ORGAN_EXACT_NAMES`) derives its vocabulary
+#: from this group and immunopeptidome ``source_tissue`` fields do use them.
 SAFETY_TISSUE_GROUPS: dict[str, set[str]] = {
     "brain": {
         "amygdala",
@@ -84,6 +95,7 @@ SAFETY_TISSUE_GROUPS: dict[str, set[str]] = {
         "midbrain",
         "pons",
         "retina",
+        "spinal cord",
         "thalamus",
         "white matter",
     },

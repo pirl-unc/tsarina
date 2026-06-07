@@ -181,9 +181,10 @@ def adaptive_rna_threshold(protein_reliability: str) -> float:
         Minimum deflated reproductive fraction required to pass the
         adaptive confidence filter.
     """
-    key = (
-        protein_reliability
-        if protein_reliability in HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS
-        else "Missing"
-    )
+    # Normalize whitespace/case so a non-canonical label (e.g. " enhanced ")
+    # maps to its tier instead of silently falling back to the strict "Missing"
+    # threshold.  Unknown labels (incl. "no data") use the "Missing" floor.
+    normalized = str(protein_reliability).strip().casefold()
+    by_casefold = {k.casefold(): k for k in HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS}
+    key = by_casefold.get(normalized, "Missing")
     return HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS[key]
