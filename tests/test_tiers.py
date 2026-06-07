@@ -378,3 +378,18 @@ def test_ms_empty_inputs():
     assert "ms_restriction" in result.columns
     assert "ms_ebv_lcl_peptide_count" in result.columns
     assert "ms_cta_exclusive_cancer_peptide_count" in result.columns
+
+
+def test_vital_organ_vocabulary_is_publicly_exported():
+    """The vital-organ vocabulary is consumable from the package top level so
+    downstream tools (e.g. vaxrank safety scoring) share it (vaxrank#303)."""
+    import tsarina
+    from tsarina.tiers import VITAL_TISSUE_MS_NAMES
+
+    assert {"brain", "heart", "lung", "liver", "pancreas"} <= set(tsarina.SAFETY_TISSUE_GROUPS)
+    assert "heart" in tsarina.VITAL_TISSUE_MS_NAMES
+    assert tsarina.VITAL_TISSUE_MS_NAMES is VITAL_TISSUE_MS_NAMES
+    # spanning's internal alias points at the same shared vocabulary
+    from tsarina.spanning import _VITAL_TISSUE_MS_NAMES
+
+    assert _VITAL_TISSUE_MS_NAMES is VITAL_TISSUE_MS_NAMES

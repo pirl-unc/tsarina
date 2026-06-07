@@ -132,17 +132,9 @@ _VITAL_TISSUE_RNA_COLUMNS: tuple[str, ...] = (
     "rna_liver_max_ntpm",
     "rna_pancreas_max_ntpm",
 )
-_VITAL_TISSUE_MS_NAMES: frozenset[str] = frozenset(
-    {
-        "brain",
-        "central nervous system (cns)",
-        "cerebellum",
-        "heart",
-        "lung",
-        "liver",
-        "pancreas",
-    }
-)
+# Vital-organ MS tissue vocabulary now lives in tiers.py (public, shared with
+# downstream consumers); keep the private alias for internal use here.
+from .tiers import VITAL_TISSUE_MS_NAMES as _VITAL_TISSUE_MS_NAMES  # noqa: E402
 
 _MS_SOURCE_FLAG_DEFAULTS: dict[str, bool] = {
     "src_cancer": False,

@@ -48,6 +48,8 @@ from .tiers import (
     MS_RESTRICTION_VALUES,
     RESTRICTION_VALUES,
     RNA_RESTRICTION_LEVELS,
+    SAFETY_TISSUE_GROUPS,
+    VITAL_TISSUE_MS_NAMES,
 )
 from .tissues import (
     CORE_REPRODUCTIVE_TISSUES,
@@ -68,6 +70,8 @@ __all__ = [
     "PERMISSIVE_REPRODUCTIVE_TISSUES",
     "RESTRICTION_VALUES",
     "RNA_RESTRICTION_LEVELS",
+    "SAFETY_TISSUE_GROUPS",
+    "VITAL_TISSUE_MS_NAMES",
     "CTA_by_axes",
     "CTA_detailed_evidence",
     "CTA_evidence",

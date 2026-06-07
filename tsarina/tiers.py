@@ -96,6 +96,23 @@ SAFETY_TISSUE_GROUPS: dict[str, set[str]] = {
 #: Default nTPM threshold for safety flags.
 SAFETY_NTPM_THRESHOLD: float = 5.0
 
+#: Vital-organ tissue names as they appear in MS (immunopeptidome) source-tissue
+#: fields — the MS-side counterpart of :data:`SAFETY_TISSUE_GROUPS` (which uses
+#: HPA tissue names).  A healthy-tissue MS hit in one of these is a vital-organ
+#: off-target signal.  Public so downstream consumers (e.g. vaxrank safety
+#: scoring) can screen against the same vocabulary.  See tsarina#76 / vaxrank#303.
+VITAL_TISSUE_MS_NAMES: frozenset[str] = frozenset(
+    {
+        "brain",
+        "central nervous system (cns)",
+        "cerebellum",
+        "heart",
+        "lung",
+        "liver",
+        "pancreas",
+    }
+)
+
 
 # ── Rank functions ─────────────────────────────────────────────────────────
 

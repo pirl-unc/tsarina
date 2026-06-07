@@ -335,6 +335,10 @@ cta_healthy_tissue_ms_hits("MAGEA4")
 (brain / heart / lung / liver / pancreas) — the "which organ / which allele /
 which peptide" detail a per-patient screen needs.
 
+The vital-organ vocabulary is exported for downstream consumers (e.g. vaxrank
+safety scoring): `tsarina.SAFETY_TISSUE_GROUPS` (HPA tissue names, grouped) and
+`tsarina.VITAL_TISSUE_MS_NAMES` (the MS source-tissue spellings).
+
 The same screen is available from the CLI:
 
 ```bash
