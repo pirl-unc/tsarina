@@ -13,9 +13,14 @@
 """Human Protein Atlas tissue expression enrichment for CTA gene evidence.
 
 Ingests raw HPA data files (proteinatlas.tsv, normal_tissue.tsv,
-rna_tissue_consensus.tsv) and computes ~30 tissue restriction columns
-per gene: deflated nTPM fractions, protein support rankings, adaptive
-confidence thresholds, and composite restriction flags.
+rna_tissue_consensus.tsv) and computes tissue restriction columns per
+gene: per-tissue nTPM maps/sets, protein support rankings, and
+core-restriction flags.
+
+The bundled CTA table's filter-driving columns (``rna_deflated_reproductive_frac``,
+``passes_filters``) are produced by the regeneration scripts in ``scripts/``
+(see ``add_cta_gene.py``), not here -- this module only enriches ad-hoc
+evidence frames via :func:`tsarina.evidence.CTA_detailed_evidence`.
 
 Typical usage::
 
@@ -32,13 +37,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from .tissues import (
     CORE_REPRODUCTIVE_TISSUES,
     EXTENDED_REPRODUCTIVE_TISSUES,
-    HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,
     HPA_MARKER_STRICT_MAX_RNA_TISSUES,
     PERMISSIVE_REPRODUCTIVE_TISSUES,
 )
@@ -80,23 +83,6 @@ def parse_ntpm_entries(value) -> dict[str, float]:
     return entries
 
 
-def deflated_ntpm_map(entries: dict[str, float]) -> dict[str, float]:
-    """Apply deflation: max(0, nTPM - 1) per tissue."""
-    return {tissue: max(0.0, val - 1.0) for tissue, val in entries.items()}
-
-
-def reproductive_fraction_weighted(entries: dict[str, float], allowed: frozenset[str]) -> float:
-    """Compute deflated reproductive fraction from nTPM map."""
-    if not entries:
-        return np.nan
-    weighted = deflated_ntpm_map(entries)
-    total = float(sum(weighted.values()))
-    if total <= 0:
-        return 1.0
-    repro_total = float(sum(v for t, v in weighted.items() if t in allowed))
-    return repro_total / total
-
-
 def best_protein_support_label(has_protein: bool, reliability: str) -> str:
     """Return the best HPA protein reliability tier from a semicolon-separated string."""
     if not has_protein:
@@ -119,9 +105,10 @@ def enrich_hpa_evidence(
 ) -> pd.DataFrame:
     """Enrich a gene DataFrame with HPA tissue restriction columns.
 
-    Computes ~30 columns of tissue restriction evidence from Human Protein
-    Atlas data, including deflated nTPM fractions, protein support rankings,
-    adaptive confidence thresholds, and composite restriction flags.
+    Computes per-tissue RNA nTPM maps/sets, protein support rankings, and
+    core-restriction flags from Human Protein Atlas data.  The deflated
+    reproductive-fraction filter that drives the bundled CTA table lives in
+    ``scripts/`` (see module docstring), not here.
 
     Parameters
     ----------
@@ -141,7 +128,7 @@ def enrich_hpa_evidence(
     Returns
     -------
     pd.DataFrame
-        Input DataFrame with ~30 additional HPA evidence columns.
+        Input DataFrame with additional HPA evidence columns.
     """
     df = gene_df.copy()
 
@@ -225,60 +212,11 @@ def enrich_hpa_evidence(
         lambda ts: ";".join(sorted(ts - EXTENDED_REPRODUCTIVE_TISSUES))
     )
 
-    # Deflated reproductive fractions
-    df["rna_reproductive_fraction_weighted__core"] = df["rna_tissue_ntpm_map"].map(
-        lambda m: reproductive_fraction_weighted(m, CORE_REPRODUCTIVE_TISSUES)
-    )
-    df["rna_reproductive_fraction_weighted__extended"] = df["rna_tissue_ntpm_map"].map(
-        lambda m: reproductive_fraction_weighted(m, EXTENDED_REPRODUCTIVE_TISSUES)
-    )
-
-    # Threshold flags
-    core_frac = df["rna_reproductive_fraction_weighted__core"].fillna(-1)
-    ext_frac = df["rna_reproductive_fraction_weighted__extended"].fillna(-1)
-    df["rna_repro_frac_ge_0_80__extended"] = ext_frac.ge(0.80)
-    df["rna_repro_frac_ge_0_90__core"] = core_frac.ge(0.90)
-    df["rna_repro_frac_ge_0_90__extended"] = ext_frac.ge(0.90)
-    df["rna_repro_frac_ge_0_95__extended"] = ext_frac.ge(0.95)
-    df["rna_repro_frac_ge_0_98__extended"] = ext_frac.ge(0.98)
-    df["rna_repro_frac_ge_0_99__extended"] = ext_frac.ge(0.99)
-
-    # Adaptive confidence: protein tier → required RNA fraction
-    df["protein_confidence_tier"] = df["hpa_best_protein_support"]
-    df["adaptive_rna_fraction_required"] = df["protein_confidence_tier"].map(
-        HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS
-    )
-
-    # Has evidence flags
-    if "protein_reproductive" not in df.columns:
-        df["protein_reproductive"] = df["protein_core_restricted"]
-    df["protein_reproductive_or_missing"] = df["protein_reproductive"].fillna(False) | (
-        df["hpa_best_protein_support"] == "Missing"
-    )
-
-    has_rna = df["rna_tissue_set"].map(lambda ts: len(ts) > 0)
-
-    # Composite restriction flags
-    df["hpa_adaptive_confidence_restricted"] = (
-        df["protein_reproductive_or_missing"]
-        & has_rna
-        & ext_frac.ge(
-            df["adaptive_rna_fraction_required"].fillna(
-                HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS["Missing"]
-            )
-        )
-    )
-
+    # Composite restriction flag: protein-reliable, core-restricted, few RNA tissues.
     df["hpa_marker_strict_restricted"] = (
         df["protein_core_restricted"]
         & df["hpa_protein_reliability_enhanced"]
         & df["rna_detected_tissues_le_7"]
-    )
-
-    df["hpa_marker_extended_rna80_restricted"] = (
-        df["protein_core_restricted"]
-        & df["hpa_protein_reliability_enhanced"]
-        & df["rna_repro_frac_ge_0_80__extended"]
     )
 
     return df

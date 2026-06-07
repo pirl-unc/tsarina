@@ -55,6 +55,16 @@ def test_adaptive_thresholds():
     assert adaptive_rna_threshold("no data") == 0.97
 
 
+def test_adaptive_threshold_normalizes_whitespace_and_case():
+    # Non-canonical labels must map to their tier, not silently fall to "Missing".
+    assert adaptive_rna_threshold(" Enhanced ") == 0.80
+    assert adaptive_rna_threshold("enhanced") == 0.80
+    assert adaptive_rna_threshold("SUPPORTED") == 0.90
+    # Genuinely unknown labels still use the strict "Missing" floor.
+    assert adaptive_rna_threshold("bogus") == 0.97
+    assert adaptive_rna_threshold("Missing") == 0.97
+
+
 def test_threshold_order_is_monotonic():
     tiers = ["Enhanced", "Supported", "Approved", "Uncertain"]
     thresholds = [HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS[t] for t in tiers]
