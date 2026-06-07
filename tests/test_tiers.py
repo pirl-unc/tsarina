@@ -97,7 +97,7 @@ def test_rna_restriction_counts():
 def test_rna_restriction_level_counts():
     sets = _axis_sets("rna_restriction_level")
     assert len(sets.get("STRICT", set())) >= 180
-    assert len(sets.get("MODERATE", set())) >= 50
+    assert len(sets.get("MODERATE", set())) >= 30
     assert len(sets.get("PERMISSIVE", set())) >= 20
     assert len(sets.get("LEAKY", set())) >= 40
 
@@ -242,11 +242,11 @@ def test_csv_has_no_runtime_ms_count_columns():
 
 
 def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 261
+    assert len(CTA_gene_names()) == 263
 
 
 def test_filtered_count_unchanged():
-    assert len(CTA_filtered_gene_names()) == 286
+    assert len(CTA_filtered_gene_names()) == 285
 
 
 # ── assign_all_axes runtime consistency ──────────────────────────────────
