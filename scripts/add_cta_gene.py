@@ -166,7 +166,7 @@ def build_row(spec: dict, consensus: pd.DataFrame, columns: list[str], consensus
     row["rna_deflated_reproductive_and_thymus_frac"] = round(
         _fraction(ntpm, core_thymus, deflate=True), 4
     )
-    for pct, thr in [("80", 0.80), ("90", 0.90), ("95", 0.95), ("98", 0.98), ("99", 0.99)]:
+    for pct, thr in [("80", 0.80), ("90", 0.90), ("95", 0.95), ("97", 0.97), ("98", 0.98), ("99", 0.99)]:
         row[f"rna_{pct}_pct_filter"] = bool(deflated >= thr)
     row["rna_max_ntpm"] = round(max(ntpm.values()), 1)
     row["rna_thymus"] = bool(ntpm.get("thymus", 0.0) >= 1.0)

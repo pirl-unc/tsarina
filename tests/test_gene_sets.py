@@ -288,7 +288,7 @@ def test_non_cta_conserved_genes_excluded_from_universe():
 
     universe = CTA_unfiltered_gene_names()
     evidence_symbols = set(CTA_evidence()["Symbol"])
-    for gene in ("H4C6", "H2BC1", "H2BC3", "CGB8", "TUBA3C", "TUBA3E"):
+    for gene in ("H4C6", "H2BC1", "H2BC3", "H1-1", "CGB8", "TUBA3C", "TUBA3E"):
         assert gene not in universe, f"{gene} should be excluded from the universe"
         assert gene not in evidence_symbols, f"{gene} should not be a CTA_evidence row"
     # The testis-specific linker histone H1t (H1-6) is a legit CTA — kept.
@@ -314,3 +314,20 @@ def test_paralog_copies_added_to_universe():
     # Copies already present by Ensembl ID resolve via alias to their existing row.
     assert cta_symbol_for_alias("MAGEA2B") == "MAGEA2"
     assert cta_symbol_for_alias("SSX4B") == "SSX4"
+
+
+def test_rna_97_pct_filter_column_matches_active_threshold():
+    """The bundled table carries rna_97_pct_filter for the active no-protein
+    gate (0.97), consistent with the deflated reproductive fraction."""
+    df = CTA_evidence()
+    assert "rna_97_pct_filter" in df.columns
+    rule = df["rna_deflated_reproductive_frac"] >= 0.97
+    col = df["rna_97_pct_filter"].astype(str).str.lower() == "true"
+    assert (rule == col).all()
+    # Ordered between the 95 and 98 columns.
+    cols = list(df.columns)
+    assert (
+        cols.index("rna_95_pct_filter")
+        < cols.index("rna_97_pct_filter")
+        < cols.index("rna_98_pct_filter")
+    )
