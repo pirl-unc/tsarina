@@ -160,7 +160,7 @@ def build_xage2_row(consensus_path: Path, template_columns: list[str]) -> dict:
     )
 
     # Percentile filter booleans use the deflated reproductive fraction.
-    for pct, thr in [("80", 0.80), ("90", 0.90), ("95", 0.95), ("98", 0.98), ("99", 0.99)]:
+    for pct, thr in [("80", 0.80), ("90", 0.90), ("95", 0.95), ("97", 0.97), ("98", 0.98), ("99", 0.99)]:
         row[f"rna_{pct}_pct_filter"] = bool(deflated >= thr)
 
     row["rna_max_ntpm"] = round(max(ntpm.values()), 1)

@@ -138,6 +138,7 @@ universe at load time via `tsarina.tissues.NON_CTA_EXCLUDED_GENE_IDS`
 | excluded | family | why not a CTA |
 |---|---|---|
 | `H4C6`, `H2BC1`, `H2BC3` | core histones (H4, H2B) | conserved, multicopy nucleosome core |
+| `H1-1` | somatic linker histone H1.1 (HIST1H1A) | conserved/multicopy; somatic, not testis-specific |
 | `TUBA3C`, `TUBA3E` | alpha-tubulins | essential cytoskeleton |
 | `CGB8` | chorionic gonadotropin beta | placental, multicopy |
 
@@ -486,6 +487,7 @@ All Ensembl Gene IDs are validated against Ensembl release 112. Canonical transc
 | `rna_80_pct_filter` | Deflated reproductive fraction >= 80% |
 | `rna_90_pct_filter` | Deflated reproductive fraction >= 90% |
 | `rna_95_pct_filter` | Deflated reproductive fraction >= 95% |
+| `rna_97_pct_filter` | Deflated reproductive fraction >= 97% (the active no-protein/`Uncertain` gate) |
 | `rna_98_pct_filter` | Deflated reproductive fraction >= 98% |
 | `rna_99_pct_filter` | Deflated reproductive fraction >= 99% |
 | `passes_filters` | Final inclusion flag (see filter logic above) |
