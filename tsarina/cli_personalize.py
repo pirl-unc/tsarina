@@ -110,7 +110,6 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--mtec-matrix-path",
-        "--mtec-matrix",
         dest="mtec_matrix_path",
         default=None,
         help="Path to mTEC gene TPM matrix (TSV); gates CTAs by thymic expression.",
@@ -119,7 +118,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--mtec-max-tpm",
         type=float,
         default=1.0,
-        help="Maximum mean mTEC TPM when --mtec-matrix is given (default 1.0).",
+        help="Maximum mean mTEC TPM when --mtec-matrix-path is given (default 1.0).",
     )
     p.add_argument(
         "--no-require-human-exclusive-viral",

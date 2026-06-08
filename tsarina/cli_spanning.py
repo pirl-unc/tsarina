@@ -217,15 +217,6 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help="Max percentile for prediction-only candidates when enabled (default 0.1).",
     )
     p.add_argument(
-        # Deprecated shortcut (sets all MS-supported tier cutoffs at once); hidden
-        # from --help in favor of the explicit per-tier --*-ms-max-percentile flags.
-        # Still honored, with a stderr deprecation warning, for back-compat.
-        "--max-percentile",
-        type=float,
-        default=None,
-        help=argparse.SUPPRESS,
-    )
-    p.add_argument(
         "--peptides-per-cell",
         type=int,
         default=3,
@@ -295,32 +286,9 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         choices=("auto", "on", "off"),
         default="auto",
         help=(
-            "Progress reporting: 'auto' = messages + bars when stderr is a TTY "
-            "(default); 'on' = force messages and bars; 'off' = silent."
+            "Progress reporting: 'auto' = messages + scoring bars when stderr is a "
+            "TTY (default); 'on' = force both; 'off' = silent."
         ),
-    )
-    # Fine-grained bar override (applies only when progress != off). Kept for
-    # back-compat; --progress is the preferred single control.
-    p.add_argument(
-        "--progress-bars",
-        dest="progress_bars",
-        action="store_true",
-        default=None,
-        help=argparse.SUPPRESS,
-    )
-    p.add_argument(
-        "--no-progress-bars",
-        dest="progress_bars",
-        action="store_false",
-        help=argparse.SUPPRESS,
-    )
-    # Deprecated alias for --progress off.
-    p.add_argument(
-        "--no-progress",
-        dest="progress",
-        action="store_const",
-        const="off",
-        help=argparse.SUPPRESS,
     )
     p.add_argument(
         "--score-chunk-size",
@@ -373,26 +341,16 @@ def handle(args: argparse.Namespace) -> None:
     else:
         min_restriction_confidence = tuple(v.upper() for v in args.min_restriction_confidence)
 
-    if args.max_percentile is not None:
-        print(
-            "Warning: --max-percentile is deprecated; use the per-tier "
-            "--monoallelic-ms-max-percentile / --sample-allele-ms-max-percentile / "
-            "--unrestricted-ms-max-percentile flags.",
-            file=sys.stderr,
-        )
-
     def _on_progress(msg: str) -> None:
         print(msg, file=sys.stderr)
 
     show_progress = args.progress != "off"
-    progress_bar = False
-    if show_progress:
-        if args.progress_bars is not None:
-            progress_bar = args.progress_bars
-        elif args.progress == "on":
-            progress_bar = True
-        else:  # auto
-            progress_bar = sys.stderr.isatty()
+    if not show_progress:
+        progress_bar = False
+    elif args.progress == "on":
+        progress_bar = True
+    else:  # auto
+        progress_bar = sys.stderr.isatty()
 
     output_format = "long" if args.format == "table" else args.format
     df = spanning_pmhc_set(
@@ -418,7 +376,6 @@ def handle(args: argparse.Namespace) -> None:
         unrestricted_ms_max_percentile=args.unrestricted_ms_max_percentile,
         include_predicted_only=args.include_predicted_only,
         predicted_only_max_percentile=args.predicted_only_max_percentile,
-        max_percentile=args.max_percentile,
         peptides_per_cell=args.peptides_per_cell,
         group_identical_cta_pmhcs=args.group_identical_cta_pmhcs,
         group_identical_cta_peptide_sets=args.group_identical_cta_peptide_sets,

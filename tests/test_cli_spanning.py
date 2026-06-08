@@ -21,6 +21,8 @@ library-level coverage in ``test_spanning.py``.
 import subprocess
 import sys
 
+import pytest
+
 HEADLINE_FLAGS = (
     "--cta-count",
     "--ctas",
@@ -46,12 +48,14 @@ PANEL_ONLY_FLAGS = (
     "--predictor",
 )
 
-#: Deprecated flags hidden from --help but still parsed for back-compat.
-DEPRECATED_HIDDEN_FLAGS = (
+#: Flags removed in the CLI reorg (must no longer parse).
+REMOVED_FLAGS = (
     "--max-percentile",
     "--no-progress",
     "--progress-bars",
     "--no-progress-bars",
+    "--iedb-path",
+    "--cedar-path",
 )
 
 
@@ -71,48 +75,27 @@ def test_panel_help_exits_zero():
         assert flag in r.stdout, f"missing help text for {flag}"
 
 
-def test_panel_deprecated_flags_hidden_from_help():
-    r = _run_cli("panel", "--help")
-    for flag in DEPRECATED_HIDDEN_FLAGS:
-        assert flag not in r.stdout, f"{flag} should be hidden from --help"
+def test_panel_removed_flags_rejected():
+    """Flags dropped in the reorg must no longer be accepted."""
+    import argparse
+
+    from tsarina import cli_spanning
+
+    for flag in REMOVED_FLAGS:
+        p = argparse.ArgumentParser()
+        cli_spanning._configure_parser(p)
+        with pytest.raises(SystemExit):
+            p.parse_args([flag, "x"])
 
 
-def test_panel_deprecated_flags_still_parse():
-    """Hidden deprecated flags must keep working (back-compat aliases)."""
+def test_panel_progress_and_iedb_parse():
     import argparse
 
     from tsarina import cli_spanning
 
     p = argparse.ArgumentParser()
     cli_spanning._configure_parser(p)
-    args = p.parse_args(
-        [
-            "--max-percentile",
-            "1.0",
-            "--no-progress",
-            "--progress-bars",
-            "--iedb-path",
-            "x.csv",
-            "--cedar-path",
-            "y.csv",
-            "--ctas",
-            "MAGEA4",
-        ]
-    )
-    assert args.max_percentile == 1.0
-    assert args.progress == "off"
-    assert args.progress_bars is True
-    assert args.iedb_path == "x.csv"
-    assert args.cedar_path == "y.csv"
-
-
-def test_panel_iedb_alias_matches_iedb_path():
-    import argparse
-
-    from tsarina import cli_spanning
-
-    p = argparse.ArgumentParser()
-    cli_spanning._configure_parser(p)
+    assert p.parse_args(["--progress", "off"]).progress == "off"
     assert p.parse_args(["--iedb", "z.csv"]).iedb_path == "z.csv"
 
 

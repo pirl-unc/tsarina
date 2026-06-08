@@ -16,13 +16,14 @@ def test_parse_lengths_ok_and_error():
         cli_common.parse_lengths("8,x")
 
 
-def test_iedb_cedar_aliases_share_dest():
+def test_iedb_cedar_args_map_to_path_dests():
     p = argparse.ArgumentParser()
     cli_common.add_iedb_cedar_args(p)
     assert p.parse_args(["--iedb", "a"]).iedb_path == "a"
-    assert p.parse_args(["--iedb-path", "b"]).iedb_path == "b"
     assert p.parse_args(["--cedar", "c"]).cedar_path == "c"
-    assert p.parse_args(["--cedar-path", "d"]).cedar_path == "d"
+    # The historical *-path spellings are gone (single canonical spelling).
+    with pytest.raises(SystemExit):
+        p.parse_args(["--iedb-path", "b"])
 
 
 def test_add_predictor_arg_choices_and_default():

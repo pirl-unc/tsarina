@@ -21,7 +21,7 @@ current 51-tissue consensus, and ``rna_max_ntpm`` is below a per-tissue value in
 253 rows (impossible within one snapshot).  See the tissue-derivation audit.
 
 This script re-derives **all RNA and protein/IHC columns** for **every existing
-row** from a single pinned HPA release (``tsarina data sources``; default v23 --
+row** from a single pinned HPA release (``tsarina reference``; default v23 --
 the newest release serving both ``rna_tissue_consensus`` and ``normal_tissue``),
 using the same generators the per-gene ``add_cta_gene.py`` uses, so the whole
 table is internally consistent and reproducible from one release.  Identity,

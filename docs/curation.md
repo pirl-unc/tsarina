@@ -174,7 +174,7 @@ Every gene is scored against [Human Protein Atlas](https://www.proteinatlas.org/
 > **v23** — the most recent HPA version whose download mirror serves *both*
 > `rna_tissue_consensus` (RNA) and `normal_tissue` (IHC) as a matched pair, so
 > the whole table is derived from one release. Fetch and inspect the sources
-> with `tsarina data sources {list,fetch}`; regenerate every RNA/protein
+> with `tsarina reference {list,fetch}`; regenerate every RNA/protein
 > column for the bundled table with `python scripts/regenerate_table.py`
 > (`--apply` to write). A small curated `_CROSS_REACTIVE_IHC` override in that
 > script forces the IHC to "no data" for sequence-near-identical paralog

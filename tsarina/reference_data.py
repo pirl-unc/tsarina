@@ -21,7 +21,7 @@ for example, serves the RNA consensus but not ``normal_tissue`` -- only the
 pinned ``v23`` archive carries both, so the two must be fetched as a matched
 pair).
 
-Surfaced on the CLI as ``tsarina data sources {list,download,path}`` -- the
+Surfaced on the CLI as ``tsarina reference {list,fetch,path}`` -- the
 HPA/NCBI counterpart of the hitlist-backed ``tsarina data`` (IEDB/CEDAR/viral).
 
 Cache layout (one subdir per dataset+version, plus a JSON manifest)::
@@ -220,7 +220,7 @@ def ensure(name: str, version: str | None = None) -> Path:
 
 
 def status() -> list[dict]:
-    """Return one status row per dataset for ``tsarina data sources list``."""
+    """Return one status row per dataset for ``tsarina reference list``."""
     manifest = _read_manifest()
     rows = []
     for name, spec in sorted(REFERENCE_DATASETS.items()):
