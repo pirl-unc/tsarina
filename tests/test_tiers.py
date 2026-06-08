@@ -36,7 +36,7 @@ def test_rna_restriction_levels():
 
 
 def test_ms_restriction_values():
-    assert len(MS_RESTRICTION_VALUES) == 5
+    assert len(MS_RESTRICTION_VALUES) == 6
 
 
 def test_confidence_values():

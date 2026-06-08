@@ -78,16 +78,16 @@ def CTA_evidence() -> pd.DataFrame:
         True if no HPA protein data AND maximum RNA nTPM < 2.
     protein_restriction : str
         Protein-based tissue restriction: ``TESTIS``, ``PLACENTAL``,
-        or ``NO_DATA`` (no protein data).
+        ``REPRODUCTIVE``, ``SOMATIC``, or ``NO_DATA`` (no protein data).
     protein_testis, protein_ovary, protein_placenta : str
         Per-tissue IHC detection: ``"True"`` / ``"False"`` if protein
         data exists, empty string if no protein data.
     rna_restriction : str
         RNA-based tissue restriction: ``TESTIS``, ``PLACENTAL``,
-        ``REPRODUCTIVE``, or ``NO_DATA``.
+        ``REPRODUCTIVE``, ``SOMATIC``, or ``NO_DATA``.
     rna_restriction_level : str
-        RNA restriction quality: ``STRICT`` / ``MODERATE`` / ``PERMISSIVE``
-        or empty.
+        RNA restriction quality: ``STRICT`` / ``MODERATE`` / ``PERMISSIVE`` /
+        ``LEAKY`` or ``NO_DATA``.
     rna_testis_ntpm, rna_ovary_ntpm, rna_placenta_ntpm : float
         Per-tissue RNA expression (nTPM) from HPA consensus.
     rna_max_somatic_tissue : str

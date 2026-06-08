@@ -34,7 +34,6 @@ import pandas as pd
 def greedy_select_genes(
     candidate_df: pd.DataFrame,
     n_genes: int = 10,
-    coverage_col: str = "candidate_pmhc_count",
     ms_col: str | None = "ms_hit_count",
     expression_col: str | None = "source_tpm",
     mtec_col: str | None = "mean_mtec_tpm",
@@ -52,8 +51,6 @@ def greedy_select_genes(
         plus optional scoring columns. One row per gene-peptide pair.
     n_genes
         Number of genes to select (default 10).
-    coverage_col
-        Column with pMHC candidate count per gene (computed if missing).
     ms_col
         Column for MS evidence count tie-breaking. None to skip.
     expression_col

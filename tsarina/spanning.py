@@ -1961,13 +1961,16 @@ def _candidate_rows(
             if tier == "unrestricted_ms" and key not in evidence_stats:
                 key = (peptide, None, tier)
             tier_evidence = evidence_stats.get(key)
-            if tier_evidence is not None and percentile < cutoffs[tier]:
+            # Inclusive: the docstrings call these the *maximum* percentile, and
+            # personalize._assign_tiers uses an inclusive (<=) cutoff too.
+            if tier_evidence is not None and percentile <= cutoffs[tier]:
                 chosen_tier = tier
                 evidence = tier_evidence
                 break
 
         if chosen_tier is None:
-            if not include_predicted_only or percentile >= cutoffs["predicted_only"]:
+            # Inclusive maximum: reject only when strictly above the cutoff.
+            if not include_predicted_only or percentile > cutoffs["predicted_only"]:
                 continue
             chosen_tier = "predicted_only"
             evidence = {
