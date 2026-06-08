@@ -10,16 +10,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI smoke tests for ``tsarina reference`` and the bare-``data`` default.
+"""CLI smoke tests for ``tsarina reference`` plus the bare-``data`` default.
 
-Exercises the parser wiring + dispatch end-to-end via subprocess (no network:
-``list``/``path`` only read the manifest / compute paths). The cache is
-redirected to a tmp dir so the tests never touch the real cache or download.
+The ``reference`` checks run end-to-end via subprocess (no network: ``list`` /
+``path`` only read the manifest / compute paths), isolated to a tmp cache via
+``TSARINA_DATA_DIR`` (the env var ``reference_data`` honors). The bare-``data``
+routing check is a hermetic unit test that stubs the hitlist-delegated
+``list_datasets`` rather than touching hitlist's own data dir.
 """
 
+import argparse
 import os
 import subprocess
 import sys
+
+import tsarina.cli as cli
 
 
 def _run(*args: str, cache_dir, check: bool = True) -> subprocess.CompletedProcess:
@@ -90,9 +95,41 @@ def test_data_sources_removed(tmp_path):
     assert "invalid choice: 'sources'" in (r.stderr + r.stdout)
 
 
-def test_data_bare_defaults_to_list(tmp_path):
-    # `tsarina data` with no subcommand should list (not error), like reference.
-    r = _run("data", cache_dir=tmp_path)
-    assert r.returncode == 0
-    # Either the registered table or the empty-registry hint, but never a usage error.
-    assert "Usage: tsarina data" not in (r.stderr + r.stdout)
+def test_reference_fetch_continues_past_failures(monkeypatch, capsys):
+    """`fetch all` attempts every dataset even if one fails, then exits non-zero."""
+    import pytest
+
+    from tsarina import reference_data
+
+    attempted = []
+
+    def _fake_download(name, version=None, force=False):
+        attempted.append(name)
+        if name == "hpa_normal_tissue":
+            raise reference_data.ReferenceDataError("boom")
+        return f"/cache/{name}"
+
+    monkeypatch.setattr(reference_data, "download", _fake_download)
+    args = argparse.Namespace(names=[], hpa_version=None, force=False)
+    with pytest.raises(SystemExit) as exc:
+        cli._reference_fetch(args)
+    assert exc.value.code == 1
+    # All three datasets were attempted despite the middle one failing.
+    assert set(attempted) == set(reference_data.REFERENCE_DATASETS)
+    err = capsys.readouterr().err
+    assert "hpa_normal_tissue" in err and "Failed to fetch" in err
+
+
+def test_data_bare_defaults_to_list(monkeypatch, capsys):
+    """Bare `tsarina data` routes to list (not a usage error), like reference.
+
+    Hermetic: stubs the hitlist-delegated registry calls so the test owns its
+    state instead of reading hitlist's real data dir.
+    """
+    monkeypatch.setattr(cli, "list_datasets", lambda: {})
+    monkeypatch.setattr(cli, "data_dir", lambda: "/tmp/does-not-matter")
+    cli._handle_data(argparse.Namespace(data_command=None))
+    out = capsys.readouterr().out
+    assert "No datasets registered" in out
+    # The empty-registry branch points users at the separate reference command.
+    assert "tsarina reference list" in out

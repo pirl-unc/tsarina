@@ -15,18 +15,18 @@
 Usage::
 
     # MS evidence datasets (IEDB / CEDAR / viral proteomes + the index)
-    tsarina data list [--all]                   # installed datasets (--all = full catalog)
-    tsarina data fetch hpv16                     # auto-download a viral proteome
-    tsarina data register iedb /path/to/file     # register a manual download
-    tsarina data path iedb                       # print path to a dataset
-    tsarina data remove iedb                      # unregister (keeps the file)
-    tsarina data build [--force]                 # build the observations index
+    tsarina data list [--all]                 # installed datasets (--all = full catalog)
+    tsarina data fetch hpv16                  # auto-download a viral proteome
+    tsarina data register iedb /path/to/file  # register a manual download
+    tsarina data path iedb                    # print path to a dataset
+    tsarina data remove iedb                  # unregister (keeps the file)
+    tsarina data build [--force]              # build the observations index
 
     # Curation reference data (HPA RNA/IHC + NCBI gene_info), version-pinned
-    tsarina reference list                       # versions + cache status
-    tsarina reference fetch                       # fetch all (pinned HPA version)
+    tsarina reference list                    # versions + cache status
+    tsarina reference fetch                   # fetch all (pinned HPA version)
     tsarina reference fetch hpa_normal_tissue --hpa-version v23
-    tsarina reference path hpa_rna_consensus     # print cached path
+    tsarina reference path hpa_rna_consensus  # print cached path
 
     # Analysis
     tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
@@ -168,13 +168,19 @@ def _reference_fetch(args: argparse.Namespace) -> None:
     from . import reference_data
 
     names = args.names or list(reference_data.REFERENCE_DATASETS)
+    # Attempt every dataset; a single flaky URL shouldn't abort a "fetch all".
+    failures = []
     for name in names:
         try:
             path = reference_data.download(name, version=args.hpa_version, force=args.force)
         except reference_data.ReferenceDataError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
+            print(f"Error: {name}: {e}", file=sys.stderr)
+            failures.append(name)
+            continue
         print(f"Ready: {name} -> {path}")
+    if failures:
+        print(f"Failed to fetch: {', '.join(failures)}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _reference_path(args: argparse.Namespace) -> None:
