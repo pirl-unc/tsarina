@@ -25,8 +25,8 @@ Usage::
     tsarina data build --force                  # rebuild from scratch
 
     tsarina data sources list                    # HPA/NCBI curation data: versions + cache
-    tsarina data sources download                # fetch all (pinned HPA version)
-    tsarina data sources download hpa_normal_tissue --hpa-version v23
+    tsarina data sources fetch                    # fetch all (pinned HPA version)
+    tsarina data sources fetch hpa_normal_tissue --hpa-version v23
     tsarina data sources path hpa_rna_consensus  # print cached path
 
     tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
@@ -53,6 +53,9 @@ from .downloads import (
 
 
 def _data_list(args: argparse.Namespace) -> None:
+    if getattr(args, "all", False):
+        _data_available(args)
+        return
     datasets = list_datasets()
     if not datasets:
         print("No datasets registered.")
@@ -76,6 +79,8 @@ def _data_list(args: argparse.Namespace) -> None:
         desc = info.get("description", "")
         print(f"{name:<12} {size_str:>12}  {source_label:<14} {desc}")
     print(f"\nData directory: {data_dir()}")
+    print("(`tsarina data list --all` shows the full catalog; HPA/NCBI curation")
+    print(" reference data is separate: `tsarina data sources list`.)")
 
 
 def _data_available(args: argparse.Namespace) -> None:
@@ -158,7 +163,13 @@ def _data_sources(args: argparse.Namespace) -> None:
             "(only release serving both RNA consensus and normal_tissue)"
         )
         return
-    if action == "download":
+    if action in ("fetch", "download"):
+        if action == "download":
+            print(
+                "Note: 'data sources download' is now 'data sources fetch' "
+                "(verb unified with 'data fetch').",
+                file=sys.stderr,
+            )
         names = args.names or list(reference_data.REFERENCE_DATASETS)
         for name in names:
             try:
@@ -183,8 +194,11 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     data_parser = sub.add_parser("data", help="Manage external datasets")
     data_sub = data_parser.add_subparsers(dest="data_command")
 
-    data_sub.add_parser("list", help="Show registered datasets")
-    data_sub.add_parser("available", help="Show all known datasets")
+    p_list = data_sub.add_parser("list", help="Show registered datasets (--all for full catalog)")
+    p_list.add_argument(
+        "--all", action="store_true", help="Show the full catalog, not just installed datasets."
+    )
+    data_sub.add_parser("available", help="Alias for `list --all` (full catalog)")
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar)")
@@ -213,10 +227,15 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     )
     src_sub = p_src.add_subparsers(dest="sources_command")
     src_sub.add_parser("list", help="Show reference datasets, versions, and cache status")
-    p_src_dl = src_sub.add_parser("download", help="Download reference dataset(s)")
-    p_src_dl.add_argument("names", nargs="*", help="Dataset name(s); default: all")
-    p_src_dl.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
-    p_src_dl.add_argument("--force", "-f", action="store_true", help="Re-download")
+    # Primary verb is 'fetch' (matches 'tsarina data fetch'); 'download' kept as alias.
+    for verb, verb_help in (
+        ("fetch", "Fetch reference dataset(s)"),
+        ("download", "Deprecated alias of `fetch`"),
+    ):
+        p_src_dl = src_sub.add_parser(verb, help=verb_help)
+        p_src_dl.add_argument("names", nargs="*", help="Dataset name(s); default: all")
+        p_src_dl.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
+        p_src_dl.add_argument("--force", "-f", action="store_true", help="Re-download")
     p_src_path = src_sub.add_parser("path", help="Print the cache path for a dataset")
     p_src_path.add_argument("name", help="Dataset name")
     p_src_path.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")

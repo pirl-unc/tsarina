@@ -22,7 +22,10 @@ import math
 import sys
 from pathlib import Path
 
-_SUPPORTED_PREDICTORS = ("mhcflurry", "netmhcpan", "netmhcpan_el")
+from .cli_common import add_iedb_cedar_args, add_predictor_arg
+from .cli_common import parse_lengths as _parse_lengths
+from .cli_common import split_csv as _split_csv
+
 _SUPPORTED_FORMATS = ("table", "wide", "long")
 _SUPPORTED_PANELS = (
     "iedb27_ab",
@@ -40,17 +43,6 @@ _DEFAULT_SELECTION_ALLOWLIST = "PRAME,CTAG1A/CTAG1B,MAGEA4"
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 _DEFAULT_CANCER_RNA_THRESHOLD = 2.0
 _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
-
-
-def _split_csv(value: str) -> list[str]:
-    return [s.strip() for s in value.split(",") if s.strip()]
-
-
-def _parse_lengths(value: str) -> tuple[int, ...]:
-    try:
-        return tuple(int(x) for x in _split_csv(value))
-    except ValueError as e:
-        raise argparse.ArgumentTypeError(f"--lengths must be integers: {value!r}") from e
 
 
 def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -191,12 +183,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action="store_false",
         help="Allow CTA peptides that also appear in non-CTA proteins.",
     )
-    p.add_argument(
-        "--predictor",
-        choices=_SUPPORTED_PREDICTORS,
-        default="mhcflurry",
-        help="mhctools predictor (default mhcflurry).",
-    )
+    add_predictor_arg(p, context="pMHC presentation scoring")
     p.add_argument(
         "--monoallelic-ms-max-percentile",
         type=float,
@@ -230,13 +217,13 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help="Max percentile for prediction-only candidates when enabled (default 0.1).",
     )
     p.add_argument(
+        # Deprecated shortcut (sets all MS-supported tier cutoffs at once); hidden
+        # from --help in favor of the explicit per-tier --*-ms-max-percentile flags.
+        # Still honored, with a stderr deprecation warning, for back-compat.
         "--max-percentile",
         type=float,
         default=None,
-        help=(
-            "Deprecated shortcut: set all MS-supported tier cutoffs to this value. "
-            "Does not enable predicted-only candidates."
-        ),
+        help=argparse.SUPPRESS,
     )
     p.add_argument(
         "--peptides-per-cell",
@@ -276,16 +263,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "affinity percentile rank. Requires the external NetMHCpan backend."
         ),
     )
-    p.add_argument(
-        "--iedb-path",
-        default=None,
-        help="Optional explicit IEDB ligand CSV; default uses cached hitlist observations.",
-    )
-    p.add_argument(
-        "--cedar-path",
-        default=None,
-        help="Optional explicit CEDAR CSV; default uses cached hitlist observations.",
-    )
+    add_iedb_cedar_args(p)
     p.add_argument(
         "--format",
         choices=_SUPPORTED_FORMATS,
@@ -308,28 +286,41 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Show automatically selected CTAs that have no selected pMHCs after "
-            "peptide, exclusivity, public-MS, and prediction gates. Explicit --ctas "
-            "requests are always preserved."
+            "peptide, exclusivity, public-MS, and prediction gates. Note: passing "
+            "--ctas forces this on (explicit requests are always preserved)."
         ),
     )
     p.add_argument(
-        "--no-progress",
-        dest="progress",
-        action="store_false",
-        help="Suppress progress messages and scoring progress bars.",
+        "--progress",
+        choices=("auto", "on", "off"),
+        default="auto",
+        help=(
+            "Progress reporting: 'auto' = messages + bars when stderr is a TTY "
+            "(default); 'on' = force messages and bars; 'off' = silent."
+        ),
     )
+    # Fine-grained bar override (applies only when progress != off). Kept for
+    # back-compat; --progress is the preferred single control.
     p.add_argument(
         "--progress-bars",
         dest="progress_bars",
         action="store_true",
         default=None,
-        help="Force tqdm progress bars for chunked scoring.",
+        help=argparse.SUPPRESS,
     )
     p.add_argument(
         "--no-progress-bars",
         dest="progress_bars",
         action="store_false",
-        help="Disable tqdm progress bars while keeping progress messages.",
+        help=argparse.SUPPRESS,
+    )
+    # Deprecated alias for --progress off.
+    p.add_argument(
+        "--no-progress",
+        dest="progress",
+        action="store_const",
+        const="off",
+        help=argparse.SUPPRESS,
     )
     p.add_argument(
         "--score-chunk-size",
@@ -382,12 +373,26 @@ def handle(args: argparse.Namespace) -> None:
     else:
         min_restriction_confidence = tuple(v.upper() for v in args.min_restriction_confidence)
 
+    if args.max_percentile is not None:
+        print(
+            "Warning: --max-percentile is deprecated; use the per-tier "
+            "--monoallelic-ms-max-percentile / --sample-allele-ms-max-percentile / "
+            "--unrestricted-ms-max-percentile flags.",
+            file=sys.stderr,
+        )
+
     def _on_progress(msg: str) -> None:
         print(msg, file=sys.stderr)
 
+    show_progress = args.progress != "off"
     progress_bar = False
-    if args.progress:
-        progress_bar = sys.stderr.isatty() if args.progress_bars is None else args.progress_bars
+    if show_progress:
+        if args.progress_bars is not None:
+            progress_bar = args.progress_bars
+        elif args.progress == "on":
+            progress_bar = True
+        else:  # auto
+            progress_bar = sys.stderr.isatty()
 
     output_format = "long" if args.format == "table" else args.format
     df = spanning_pmhc_set(
@@ -422,7 +427,7 @@ def handle(args: argparse.Namespace) -> None:
         cedar_path=args.cedar_path,
         output_format=output_format,
         include_empty_ctas=True if args.ctas is not None else args.show_empty_ctas,
-        on_progress=_on_progress if args.progress else None,
+        on_progress=_on_progress if show_progress else None,
         progress_bar=progress_bar,
         score_chunk_size=args.score_chunk_size,
         progress_file=sys.stderr,

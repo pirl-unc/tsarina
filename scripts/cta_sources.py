@@ -21,7 +21,7 @@ downloading on demand.
 Inspect or pre-fetch from the CLI::
 
     tsarina data sources list
-    tsarina data sources download
+    tsarina data sources fetch
 """
 
 from __future__ import annotations

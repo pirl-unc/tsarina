@@ -21,11 +21,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-_SUPPORTED_PREDICTORS = ("mhcflurry", "netmhcpan", "netmhcpan_el")
-
-
-def _split_csv(value: str) -> list[str]:
-    return [s.strip() for s in value.split(",") if s.strip()]
+from .cli_common import add_iedb_cedar_args, add_predictor_arg
+from .cli_common import parse_lengths as _parse_lengths
+from .cli_common import split_csv as _split_csv
 
 
 def _parse_cta(value: str) -> dict[str, float]:
@@ -41,13 +39,6 @@ def _parse_cta(value: str) -> dict[str, float]:
         except ValueError as e:
             raise argparse.ArgumentTypeError(f"--cta TPM '{tpm_s}' is not a number") from e
     return out
-
-
-def _parse_lengths(value: str) -> tuple[int, ...]:
-    try:
-        return tuple(int(x) for x in _split_csv(value))
-    except ValueError as e:
-        raise argparse.ArgumentTypeError(f"--lengths must be integers: {value!r}") from e
 
 
 def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -118,6 +109,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--mtec-matrix-path",
         "--mtec-matrix",
         dest="mtec_matrix_path",
         default=None,
@@ -152,24 +144,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         action="store_true",
         help="Disable MHC presentation scoring (skip topiary).",
     )
-    p.add_argument(
-        "--predictor",
-        choices=_SUPPORTED_PREDICTORS,
-        default="mhcflurry",
-        help="mhctools predictor used for presentation scoring (default mhcflurry).",
-    )
-    p.add_argument(
-        "--iedb",
-        dest="iedb_path",
-        default=None,
-        help="Override IEDB path (default: hitlist registry).",
-    )
-    p.add_argument(
-        "--cedar",
-        dest="cedar_path",
-        default=None,
-        help="Override CEDAR path (default: hitlist registry).",
-    )
+    add_predictor_arg(p, context="presentation scoring")
+    add_iedb_cedar_args(p)
     p.add_argument(
         "--skip-ms-evidence",
         action="store_true",
