@@ -14,21 +14,21 @@
 
 Usage::
 
-    tsarina data list                           # show registered datasets
-    tsarina data available                      # show all known datasets
-    tsarina data register iedb /path/to/file    # register a manual download
-    tsarina data fetch hpv16                    # auto-download a viral proteome
-    tsarina data fetch hpv16 --force            # re-download
-    tsarina data path iedb                      # print path to registered file
-    tsarina data remove iedb                    # unregister (keeps the file)
-    tsarina data build                          # build the observations index
-    tsarina data build --force                  # rebuild from scratch
+    # MS evidence datasets (IEDB / CEDAR / viral proteomes + the index)
+    tsarina data list [--all]                   # installed datasets (--all = full catalog)
+    tsarina data fetch hpv16                     # auto-download a viral proteome
+    tsarina data register iedb /path/to/file     # register a manual download
+    tsarina data path iedb                       # print path to a dataset
+    tsarina data remove iedb                      # unregister (keeps the file)
+    tsarina data build [--force]                 # build the observations index
 
-    tsarina data sources list                    # HPA/NCBI curation data: versions + cache
-    tsarina data sources fetch                    # fetch all (pinned HPA version)
-    tsarina data sources fetch hpa_normal_tissue --hpa-version v23
-    tsarina data sources path hpa_rna_consensus  # print cached path
+    # Curation reference data (HPA RNA/IHC + NCBI gene_info), version-pinned
+    tsarina reference list                       # versions + cache status
+    tsarina reference fetch                       # fetch all (pinned HPA version)
+    tsarina reference fetch hpa_normal_tissue --hpa-version v23
+    tsarina reference path hpa_rna_consensus     # print cached path
 
+    # Analysis
     tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
     tsarina hits --gene PRAME --allele HLA-A*24:02
     tsarina panel -o panel.csv
@@ -60,7 +60,7 @@ def _data_list(args: argparse.Namespace) -> None:
     if not datasets:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
-        print("Run 'tsarina data available' to see known datasets.")
+        print("Run 'tsarina data list --all' to see known datasets.")
         return
     print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
     print("-" * 72)
@@ -80,7 +80,7 @@ def _data_list(args: argparse.Namespace) -> None:
         print(f"{name:<12} {size_str:>12}  {source_label:<14} {desc}")
     print(f"\nData directory: {data_dir()}")
     print("(`tsarina data list --all` shows the full catalog; HPA/NCBI curation")
-    print(" reference data is separate: `tsarina data sources list`.)")
+    print(" reference data is separate: `tsarina reference list`.)")
 
 
 def _data_available(args: argparse.Namespace) -> None:
@@ -141,64 +141,86 @@ def _fmt_bytes(size: int | None) -> str:
     return f"{size} B"
 
 
-def _data_sources(args: argparse.Namespace) -> None:
+# ── reference subcommands (HPA / NCBI curation data) ────────────────────────
+
+
+def _reference_list(args: argparse.Namespace) -> None:
     from . import reference_data
 
-    action = getattr(args, "sources_command", None) or "list"
-    if action == "list":
-        rows = reference_data.status()
-        print(f"{'Dataset':<20} {'Cached':<8} {'Version':<10} {'Size':>9}  Description")
-        print("-" * 92)
-        for r in rows:
-            cached = "yes" if r["cached"] else "no"
-            ver = r["cached_version"] or f"({r['default_version']})"
-            print(
-                f"{r['name']:<20} {cached:<8} {ver:<10} {_fmt_bytes(r['bytes']):>9}  "
-                f"{r['description']}"
-            )
-        print(f"\nCache directory: {reference_data.cache_dir()}")
+    rows = reference_data.status()
+    print(f"{'Dataset':<20} {'Cached':<8} {'Version':<10} {'Size':>9}  Description")
+    print("-" * 92)
+    for r in rows:
+        cached = "yes" if r["cached"] else "no"
+        ver = r["cached_version"] or f"({r['default_version']})"
         print(
-            "Default HPA version: "
-            f"{reference_data.DEFAULT_HPA_VERSION} "
-            "(only release serving both RNA consensus and normal_tissue)"
+            f"{r['name']:<20} {cached:<8} {ver:<10} {_fmt_bytes(r['bytes']):>9}  {r['description']}"
         )
-        return
-    if action in ("fetch", "download"):
-        if action == "download":
-            print(
-                "Note: 'data sources download' is now 'data sources fetch' "
-                "(verb unified with 'data fetch').",
-                file=sys.stderr,
-            )
-        names = args.names or list(reference_data.REFERENCE_DATASETS)
-        for name in names:
-            try:
-                path = reference_data.download(name, version=args.hpa_version, force=args.force)
-            except reference_data.ReferenceDataError as e:
-                print(f"Error: {e}", file=sys.stderr)
-                sys.exit(1)
-            print(f"Ready: {name} -> {path}")
-        return
-    if action == "path":
-        from . import reference_data as rd
+    print(f"\nCache directory: {reference_data.cache_dir()}")
+    print(
+        f"Default HPA version: {reference_data.DEFAULT_HPA_VERSION} "
+        "(only release serving both RNA consensus and normal_tissue)"
+    )
 
+
+def _reference_fetch(args: argparse.Namespace) -> None:
+    from . import reference_data
+
+    names = args.names or list(reference_data.REFERENCE_DATASETS)
+    for name in names:
         try:
-            print(rd.local_path(args.name, version=args.hpa_version))
-        except rd.ReferenceDataError as e:
+            path = reference_data.download(name, version=args.hpa_version, force=args.force)
+        except reference_data.ReferenceDataError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-        return
+        print(f"Ready: {name} -> {path}")
+
+
+def _reference_path(args: argparse.Namespace) -> None:
+    from . import reference_data
+
+    try:
+        print(reference_data.local_path(args.name, version=args.hpa_version))
+    except reference_data.ReferenceDataError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _build_reference_parser(sub: argparse._SubParsersAction) -> None:
+    ref = sub.add_parser(
+        "reference",
+        help="Versioned HPA/NCBI curation reference data (RNA, IHC, gene_info)",
+    )
+    ref_sub = ref.add_subparsers(dest="reference_command")
+    ref_sub.add_parser("list", help="Show reference datasets, versions, and cache status")
+    p_fetch = ref_sub.add_parser("fetch", help="Fetch reference dataset(s); default: all")
+    p_fetch.add_argument("names", nargs="*", help="Dataset name(s); default: all")
+    p_fetch.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
+    p_fetch.add_argument("--force", "-f", action="store_true", help="Re-download")
+    p_path = ref_sub.add_parser("path", help="Print the cache path for a dataset")
+    p_path.add_argument("name", help="Dataset name")
+    p_path.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
+
+
+def _handle_reference(args: argparse.Namespace) -> None:
+    handlers = {
+        "list": _reference_list,
+        "fetch": _reference_fetch,
+        "path": _reference_path,
+    }
+    handlers[getattr(args, "reference_command", None) or "list"](args)
 
 
 def _build_data_parser(sub: argparse._SubParsersAction) -> None:
-    data_parser = sub.add_parser("data", help="Manage external datasets")
+    data_parser = sub.add_parser(
+        "data", help="MS evidence datasets (IEDB/CEDAR/viral) + observations index"
+    )
     data_sub = data_parser.add_subparsers(dest="data_command")
 
-    p_list = data_sub.add_parser("list", help="Show registered datasets (--all for full catalog)")
+    p_list = data_sub.add_parser("list", help="Show installed datasets (--all for full catalog)")
     p_list.add_argument(
         "--all", action="store_true", help="Show the full catalog, not just installed datasets."
     )
-    data_sub.add_parser("available", help="Alias for `list --all` (full catalog)")
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar)")
@@ -221,40 +243,19 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     )
     p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
 
-    p_src = data_sub.add_parser(
-        "sources",
-        help="Manage versioned HPA/NCBI curation reference data (RNA, IHC, gene_info)",
-    )
-    src_sub = p_src.add_subparsers(dest="sources_command")
-    src_sub.add_parser("list", help="Show reference datasets, versions, and cache status")
-    # Primary verb is 'fetch' (matches 'tsarina data fetch'); 'download' kept as alias.
-    for verb, verb_help in (
-        ("fetch", "Fetch reference dataset(s)"),
-        ("download", "Deprecated alias of `fetch`"),
-    ):
-        p_src_dl = src_sub.add_parser(verb, help=verb_help)
-        p_src_dl.add_argument("names", nargs="*", help="Dataset name(s); default: all")
-        p_src_dl.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
-        p_src_dl.add_argument("--force", "-f", action="store_true", help="Re-download")
-    p_src_path = src_sub.add_parser("path", help="Print the cache path for a dataset")
-    p_src_path.add_argument("name", help="Dataset name")
-    p_src_path.add_argument("--hpa-version", default=None, help="HPA release (e.g. v23)")
-
 
 def _handle_data(args: argparse.Namespace) -> None:
     handlers = {
         "list": _data_list,
-        "available": _data_available,
         "register": _data_register,
         "fetch": _data_fetch,
         "path": _data_path,
         "remove": _data_remove,
         "build": _data_build,
-        "sources": _data_sources,
     }
     if args.data_command is None:
         print(
-            "Usage: tsarina data {list,available,register,fetch,path,remove,build,sources}",
+            "Usage: tsarina data {list,register,fetch,path,remove,build}",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -274,6 +275,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command")
 
     _build_data_parser(sub)
+    _build_reference_parser(sub)
     cli_personalize.build_parser(sub)
     cli_hits.build_parser(sub)
     cli_spanning.build_parser(sub)
@@ -293,6 +295,8 @@ def main() -> None:
 
     if args.command == "data":
         _handle_data(args)
+    elif args.command == "reference":
+        _handle_reference(args)
     elif args.command == "personalize":
         cli_personalize.handle(args)
     elif args.command == "hits":

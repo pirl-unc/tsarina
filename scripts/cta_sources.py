@@ -13,15 +13,15 @@
 """Reproducible source-data fetchers for the CTA curation scripts.
 
 Thin wrappers over :mod:`tsarina.reference_data` (the versioned download/cache
-layer also exposed as ``tsarina data sources``), so the curation scripts and the
+layer also exposed as ``tsarina reference``), so the curation scripts and the
 CLI share one version-stamped cache.  Each helper accepts an optional explicit
 local path/URL override; otherwise it returns the cached pinned-version copy,
 downloading on demand.
 
 Inspect or pre-fetch from the CLI::
 
-    tsarina data sources list
-    tsarina data sources fetch
+    tsarina reference list
+    tsarina reference fetch
 """
 
 from __future__ import annotations

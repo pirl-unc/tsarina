@@ -37,22 +37,15 @@ def parse_lengths(value: str) -> tuple[int, ...]:
 
 
 def add_iedb_cedar_args(parser: argparse.ArgumentParser) -> None:
-    """Add IEDB/CEDAR path overrides with a consistent spelling everywhere.
-
-    Both ``--iedb``/``--cedar`` and ``--iedb-path``/``--cedar-path`` are
-    accepted (the latter are kept so the historical ``panel`` spelling keeps
-    working); all map to ``iedb_path`` / ``cedar_path``.
-    """
+    """Add the IEDB/CEDAR path overrides, spelled the same on every subcommand."""
     parser.add_argument(
         "--iedb",
-        "--iedb-path",
         dest="iedb_path",
         default=None,
         help="Explicit IEDB ligand CSV path (default: hitlist data registry).",
     )
     parser.add_argument(
         "--cedar",
-        "--cedar-path",
         dest="cedar_path",
         default=None,
         help="Explicit CEDAR ligand CSV path (default: hitlist data registry).",

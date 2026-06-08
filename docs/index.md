@@ -253,7 +253,7 @@ scoring, evidence-tier construction, and final selection. Interactive terminals
 also get a `tqdm` scoring progress bar; MHCflurry still scores all alleles in
 one batch by default because chunking repeats its allele-independent processing
 model work. Use `--score-chunk-size` only when you explicitly want chunking, or
-`--no-progress` / `--no-progress-bars` to suppress progress output.
+`--progress off` to suppress progress output.
 
 Use `--selection-allowlist`, `--no-vital-tissue-filter`,
 `--vital-tissue-max-ntpm`, and `--allow-non-magea4-mage-family` to tune
@@ -351,7 +351,7 @@ Tsarina uses the shared hitlist data registry for external datasets:
 
 ```bash
 # See what data is available
-tsarina data available
+tsarina data list --all
 
 # Auto-download viral proteomes from UniProt
 tsarina data fetch hpv16
@@ -380,6 +380,10 @@ tsarina data path iedb
 
 Storage location: `~/.hitlist/` (override with `HITLIST_DATA_DIR` env var).
 `tsarina data` delegates registry and cache management to hitlist.
+
+The separate **`tsarina reference`** command manages the version-pinned HPA/NCBI
+curation reference data (RNA consensus, IHC `normal_tissue`, NCBI `gene_info`)
+used to regenerate the bundled CTA table — `tsarina reference {list,fetch,path}`.
 
 IEDB column indices are resolved dynamically from CSV headers, with fallback to known defaults -- robust to IEDB schema changes.
 
