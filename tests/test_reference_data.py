@@ -1,6 +1,7 @@
-import io
+from __future__ import annotations
+
 import json
-import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -10,28 +11,27 @@ from tsarina import reference_data
 @pytest.fixture
 def isolated_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("TSARINA_DATA_DIR", str(tmp_path))
-    return tmp_path / "sources"
+    # cache_dir() = get_data_dir(subdir="tsarina", envkey=...) / "sources"
+    return tmp_path / "tsarina" / "sources"
 
 
-def _fake_zip(member_name: str, content: bytes) -> bytes:
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr(member_name, content)
-    return buf.getvalue()
+def _stub_downloader(monkeypatch, content: bytes, counter: dict | None = None):
+    """Replace datacache's fetch/decompress with one that writes *content*.
 
+    datacache normally downloads + decompresses to ``full_path``; the stub
+    simulates the post-decompress result so the tests stay offline.
+    """
 
-class _FakeResponse:
-    def __init__(self, payload):
-        self._payload = payload
+    def _impl(full_path, download_url, timeout=None, use_wget_if_available=False):
+        if counter is not None:
+            counter["n"] += 1
+        Path(full_path).write_bytes(content)
 
-    def read(self):
-        return self._payload
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *a):
-        return False
+    monkeypatch.setattr(
+        reference_data.datacache.download,
+        "_download_and_decompress_if_necessary",
+        _impl,
+    )
 
 
 def test_resolve_version_defaults_and_errors():
@@ -44,11 +44,8 @@ def test_resolve_version_defaults_and_errors():
         reference_data.resolve_version("does_not_exist")
 
 
-def test_download_extracts_zip_and_records_manifest(isolated_cache, monkeypatch):
-    payload = _fake_zip("rna_tissue_consensus.tsv", b"Gene\tTissue\tnTPM\n")
-    monkeypatch.setattr(
-        reference_data.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(payload)
-    )
+def test_download_writes_file_and_records_manifest(isolated_cache, monkeypatch):
+    _stub_downloader(monkeypatch, b"Gene\tTissue\tnTPM\n")
 
     path = reference_data.download("hpa_rna_consensus", version="v23")
     assert path.exists()
@@ -64,27 +61,19 @@ def test_download_extracts_zip_and_records_manifest(isolated_cache, monkeypatch)
 
 
 def test_download_reuses_cache_unless_forced(isolated_cache, monkeypatch):
-    calls = {"n": 0}
-
-    def _count(*a, **k):
-        calls["n"] += 1
-        return _FakeResponse(_fake_zip("normal_tissue.tsv", b"x"))
-
-    monkeypatch.setattr(reference_data.urllib.request, "urlopen", _count)
+    counter = {"n": 0}
+    _stub_downloader(monkeypatch, b"x", counter)
 
     reference_data.download("hpa_normal_tissue")
     reference_data.ensure("hpa_normal_tissue")  # cached -> no new fetch
-    assert calls["n"] == 1
+    assert counter["n"] == 1
     reference_data.download("hpa_normal_tissue", force=True)
-    assert calls["n"] == 2
+    assert counter["n"] == 2
 
 
 def test_status_reflects_cache_state(isolated_cache, monkeypatch):
-    monkeypatch.setattr(
-        reference_data.urllib.request,
-        "urlopen",
-        lambda *a, **k: _FakeResponse(_fake_zip("rna_tissue_consensus.tsv", b"y")),
-    )
+    _stub_downloader(monkeypatch, b"y")
+
     before = {r["name"]: r for r in reference_data.status()}
     assert before["hpa_rna_consensus"]["cached"] is False
 
@@ -95,10 +84,21 @@ def test_status_reflects_cache_state(isolated_cache, monkeypatch):
     assert "v23" in after["hpa_rna_consensus"]["available_versions"]
 
 
-def test_non_zip_payload_written_verbatim(isolated_cache, monkeypatch):
+def test_download_failure_raises_reference_error(isolated_cache, monkeypatch):
+    def _boom(full_path, download_url, timeout=None, use_wget_if_available=False):
+        raise OSError("network down")
+
     monkeypatch.setattr(
-        reference_data.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(b"\x1f\x8bRAWGZ")
+        reference_data.datacache.download, "_download_and_decompress_if_necessary", _boom
     )
+    with pytest.raises(reference_data.ReferenceDataError):
+        reference_data.download("ncbi_gene_info")
+
+
+def test_gz_payload_kept_verbatim(isolated_cache, monkeypatch):
+    # gene_info is a .gz whose local name keeps the .gz suffix (datacache leaves
+    # it compressed); the stub mirrors that by writing the raw bytes.
+    _stub_downloader(monkeypatch, b"\x1f\x8bRAWGZ")
     path = reference_data.download("ncbi_gene_info")
     assert path.read_bytes() == b"\x1f\x8bRAWGZ"
     assert path.name == "Homo_sapiens.gene_info.gz"

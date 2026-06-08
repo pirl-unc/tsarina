@@ -24,25 +24,25 @@ pair).
 Surfaced on the CLI as ``tsarina reference {list,fetch,path}`` -- the
 HPA/NCBI counterpart of the hitlist-backed ``tsarina data`` (IEDB/CEDAR/viral).
 
-Cache layout (one subdir per dataset+version, plus a JSON manifest)::
+Cache dir resolution + download/decompress are delegated to **datacache** (the
+same openvax layer pyensembl uses), so we don't hand-roll them.  The base dir is
+``$TSARINA_DATA_DIR`` if set, else a platform-appropriate ``appdirs`` dir (e.g.
+``~/Library/Caches/tsarina`` on macOS).  Layout (one subdir per dataset+version,
+plus a JSON manifest this module adds on top of datacache)::
 
     <cache>/sources/<name>/<version>/<filename>
     <cache>/sources/manifest.json
-
-The cache dir is ``$TSARINA_DATA_DIR`` if set, else ``<repo>/.cache`` when run
-from a source checkout, else ``~/.cache/tsarina``.
 """
 
 from __future__ import annotations
 
 import hashlib
-import io
 import json
-import os
-import urllib.request
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+import datacache
+import datacache.download
 
 #: Default HPA release.  ``v23`` is the most recent HPA version whose download
 #: mirror serves *both* ``rna_tissue_consensus`` and ``normal_tissue`` as a
@@ -94,20 +94,22 @@ class ReferenceDataError(RuntimeError):
 # ── Cache location ───────────────────────────────────────────────────────────
 
 
+#: Env var pointing the cache at a custom location (mirrors pyensembl's
+#: ``PYENSEMBL_CACHE_DIR``).  When unset, datacache picks a platform-appropriate
+#: dir via ``appdirs`` (e.g. ``~/Library/Caches/tsarina`` on macOS).
+CACHE_DIR_ENV_KEY = "TSARINA_DATA_DIR"
+
+
 def cache_dir() -> Path:
-    """Return the reference-data cache directory (created on demand)."""
-    env = os.environ.get("TSARINA_DATA_DIR")
-    if env:
-        base = Path(env).expanduser()
-    else:
-        repo_cache = Path(__file__).resolve().parent.parent / ".cache"
-        # Use the repo's .cache only from a source checkout (where scripts/ lives).
-        if (repo_cache.parent / "scripts").is_dir():
-            base = repo_cache
-        else:
-            base = Path.home() / ".cache" / "tsarina"
-    sources = base / "sources"
-    sources.mkdir(parents=True, exist_ok=True)
+    """Return the reference-data cache directory (created on demand).
+
+    Delegates dir resolution to ``datacache.get_data_dir`` -- the same
+    download/cache layer pyensembl uses -- so tsarina, pyensembl, and other
+    openvax tools share one convention instead of hand-rolling cache paths.
+    """
+    base = datacache.get_data_dir(subdir="tsarina", envkey=CACHE_DIR_ENV_KEY)
+    sources = Path(base) / "sources"
+    datacache.ensure_dir(str(sources))
     return sources
 
 
@@ -165,21 +167,13 @@ def is_cached(name: str, version: str | None = None) -> bool:
 # ── Download ─────────────────────────────────────────────────────────────────
 
 
-def _extract_to(raw: bytes, url: str, dest: Path) -> None:
-    """Write *raw* (a .zip or plain payload) to *dest*, unzipping if needed."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if url.endswith(".zip"):
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            member = next(n for n in zf.namelist() if n.endswith(dest.suffix))
-            dest.write_bytes(zf.read(member))
-    else:
-        dest.write_bytes(raw)
-
-
 def download(name: str, version: str | None = None, *, force: bool = False) -> Path:
     """Download *name*/*version* into the cache and record it in the manifest.
 
     Returns the local path.  A cached copy is reused unless ``force=True``.
+    The actual fetch + ``.zip``/``.gz`` decompression is delegated to datacache
+    (same as pyensembl); this layer adds the dataset registry, version pinning,
+    and the provenance manifest that datacache does not provide.
     """
     version = resolve_version(name, version)
     spec = _dataset(name)
@@ -189,13 +183,15 @@ def download(name: str, version: str | None = None, *, force: bool = False) -> P
     if dest.exists() and not force:
         return dest
 
+    datacache.ensure_dir(str(dest.parent))
     try:
-        with urllib.request.urlopen(url, timeout=600) as response:
-            raw = response.read()
-    except Exception as e:  # surface any network/HTTP failure uniformly
+        datacache.download._download_and_decompress_if_necessary(
+            full_path=str(dest),
+            download_url=url,
+            timeout=600,
+        )
+    except Exception as e:  # surface any network/HTTP/decompress failure uniformly
         raise ReferenceDataError(f"failed to download {name} ({url}): {e}") from e
-
-    _extract_to(raw, url, dest)
 
     manifest = _read_manifest()
     manifest[name] = {

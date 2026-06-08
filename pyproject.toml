@@ -32,6 +32,9 @@ dependencies = [
     # already required for the post-1.30.46 gene-column sidecar re-attach.
     "hitlist>=1.30.57",
     "mhcgnomes>=3.20.0",
+    # Cache-dir resolution + download/decompress for `tsarina reference`
+    # (same openvax layer pyensembl uses).
+    "datacache",
     "pandas",
     "numpy",
     "tqdm",
