@@ -31,20 +31,22 @@ import sys
 
 import pandas as pd
 
+from .cli_common import (
+    add_iedb_cedar_args,
+    add_predictor_arg,
+)
+from .cli_common import (
+    parse_lengths as _parse_lengths,
+)
+from .cli_common import (
+    split_csv as _split_csv,
+)
+from .cli_common import (
+    warn_ignored_flags as _warn_ignored_flags,
+)
+
 _SUPPORTED_FORMATS = ("peptides", "pmhc", "refs", "raw")
-_SUPPORTED_PREDICTORS = ("mhcflurry", "netmhcpan", "netmhcpan_el")
 _SUPPORTED_RESOLUTIONS = ("four_digit", "two_digit", "serological", "class_only")
-
-
-def _split_csv(value: str) -> list[str]:
-    return [s.strip() for s in value.split(",") if s.strip()]
-
-
-def _parse_lengths(value: str) -> tuple[int, ...]:
-    try:
-        return tuple(int(x) for x in _split_csv(value))
-    except ValueError as e:
-        raise argparse.ArgumentTypeError(f"--lengths must be integers: {value!r}") from e
 
 
 # Class-default peptide length windows used when --lengths is omitted.
@@ -179,37 +181,27 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         action="store_true",
         help="Also score observed (peptide, allele) pairs via topiary.",
     )
-    p.add_argument(
-        "--predictor",
-        choices=_SUPPORTED_PREDICTORS,
-        default="mhcflurry",
-        help="mhctools predictor for --predict (default mhcflurry).",
-    )
-    p.add_argument(
-        "--iedb",
-        dest="iedb_path",
-        default=None,
-        help="Override IEDB path (default: hitlist registry).",
-    )
-    p.add_argument(
-        "--cedar",
-        dest="cedar_path",
-        default=None,
-        help="Override CEDAR path (default: hitlist registry).",
-    )
+    add_predictor_arg(p, context="--predict")
+    add_iedb_cedar_args(p)
     p.add_argument(
         "--skip-ms-evidence",
         action="store_true",
-        help="Skip IEDB/CEDAR; output the proteome-enumerated peptides only.",
+        help=(
+            "Mode switch: skip IEDB/CEDAR and output only the proteome-enumerated "
+            "peptide menu. Filtering/aggregation flags (--allele, --serotype, "
+            "--format, --predict, …) are ignored."
+        ),
     )
     p.add_argument(
         "--healthy-tissue",
         action="store_true",
         help=(
-            "Safety screen: output this gene's per-peptide healthy-SOMATIC-tissue "
+            "Mode switch: output this gene's per-peptide healthy-SOMATIC-tissue "
             "MS hits (tissue, allele, allele_set, provenance, pmid, vital_organ "
             "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits "
-            "(expected for CTAs) are excluded. See cta_healthy_tissue_ms_hits()."
+            "(expected for CTAs) are excluded. Only --gene/--uniprot, --mhc-class, "
+            "--species, --output apply; other flags are ignored. See "
+            "cta_healthy_tissue_ms_hits()."
         ),
     )
     p.add_argument(
@@ -377,10 +369,40 @@ def handle(args: argparse.Namespace) -> None:
 
     mhc_species = None if args.species.lower() == "any" else args.species
 
+    # Flags that only apply to the default cancer-MS aggregation path; warn if
+    # the user combines them with a mode switch that ignores them.
+    def _set_aggregation_flags() -> list[str]:
+        flags = []
+        if args.allele:
+            flags.append("--allele")
+        if args.serotype:
+            flags.append("--serotype")
+        if args.min_resolution is not None:
+            flags.append("--min-resolution")
+        if args.include_binding_assays:
+            flags.append("--include-binding-assays")
+        if args.mono_allelic_only:
+            flags.append("--mono-allelic-only")
+        if args.predict:
+            flags.append("--predict")
+        if args.format != "pmhc":
+            flags.append("--format")
+        return flags
+
     # ── 1b. Healthy-tissue safety screen ───────────────────────────────
     # Short-circuit: peptide x tissue x allele healthy-somatic MS hits for
     # the gene, with a vital-organ flag — the per-patient safety view.
     if args.healthy_tissue:
+        ignored = _set_aggregation_flags()
+        if args.lengths is not None:
+            ignored.append("--lengths")
+        if args.skip_ms_evidence:
+            ignored.append("--skip-ms-evidence")
+        if args.iedb_path is not None:
+            ignored.append("--iedb")
+        if args.cedar_path is not None:
+            ignored.append("--cedar")
+        _warn_ignored_flags("--healthy-tissue", ignored)
         from .ms_evidence import cta_healthy_tissue_ms_hits
 
         hits = cta_healthy_tissue_ms_hits(gene, mhc_class=args.mhc_class, mhc_species=mhc_species)
@@ -410,6 +432,7 @@ def handle(args: argparse.Namespace) -> None:
             sys.exit(1)
 
     if args.skip_ms_evidence:
+        _warn_ignored_flags("--skip-ms-evidence", _set_aggregation_flags())
         _write(args.output, pep_df)
         return
 
