@@ -54,13 +54,14 @@ from .downloads import (
 
 def _data_list(args: argparse.Namespace) -> None:
     if getattr(args, "all", False):
-        _data_available(args)
+        _data_list_all(args)
         return
     datasets = list_datasets()
     if not datasets:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
         print("Run 'tsarina data list --all' to see known datasets.")
+        print("(HPA/NCBI curation reference data is separate: `tsarina reference list`.)")
         return
     print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
     print("-" * 72)
@@ -83,7 +84,7 @@ def _data_list(args: argparse.Namespace) -> None:
     print(" reference data is separate: `tsarina reference list`.)")
 
 
-def _data_available(args: argparse.Namespace) -> None:
+def _data_list_all(args: argparse.Namespace) -> None:
     datasets = available_datasets()
     registered = set(list_datasets().keys())
     print(f"{'Name':<12} {'Status':<12} Description")
@@ -253,13 +254,8 @@ def _handle_data(args: argparse.Namespace) -> None:
         "remove": _data_remove,
         "build": _data_build,
     }
-    if args.data_command is None:
-        print(
-            "Usage: tsarina data {list,register,fetch,path,remove,build}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    handlers[args.data_command](args)
+    # Bare `tsarina data` defaults to listing, mirroring `tsarina reference`.
+    handlers[getattr(args, "data_command", None) or "list"](args)
 
 
 # ── Main entry point ────────────────────────────────────────────────────────
