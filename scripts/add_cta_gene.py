@@ -87,6 +87,14 @@ GENE_SPECS = [
             "Function": "cancer-testis antigen",
         }
         for sym, ensg, ct, sibling in [
+            # GAGE10 — full-length GAGE paralog (116 aa, 5 exons), absent from
+            # the bundled universe. Clean testis restriction on HPA bulk (0
+            # somatic tissues). NB: testis nTPM 1.6 < 2.0 floor, so the row
+            # carries never_expressed=True; it still passes the reproductive-
+            # restriction filter. Its sibling GAGE12B (ENSG00000236737) is
+            # deliberately NOT added: in Ensembl that ID is a degenerate 117-bp
+            # 3'-stub (7-aa ORF), not a GAGE protein -- see tsarina#108.
+            ("GAGE10", "ENSG00000215274", "ENST00000407599", "GAGE2A"),
             ("CT47A8", "ENSG00000230347", "ENST00000457977", "CT47A1"),
             ("CT47A9", "ENSG00000226600", "ENST00000417256", "CT47A1"),
             ("CT47A10", "ENSG00000224089", "ENST00000430448", "CT47A1"),
