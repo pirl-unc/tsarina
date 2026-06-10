@@ -246,7 +246,10 @@ def test_gene_names_count_unchanged():
 
 
 def test_filtered_count_unchanged():
-    assert len(CTA_filtered_gene_names()) == 285
+    # 286 = 285 + GAGE10 (full-length GAGE paralog added to the universe; passes
+    # the reproductive-restriction filter). GAGE10 is never_expressed=True
+    # (testis 1.6 nTPM < 2.0 floor), so it is absent from CTA_gene_names above.
+    assert len(CTA_filtered_gene_names()) == 286
 
 
 # ── assign_all_axes runtime consistency ──────────────────────────────────
