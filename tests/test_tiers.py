@@ -252,6 +252,23 @@ def test_filtered_count_unchanged():
     assert len(CTA_filtered_gene_names()) == 286
 
 
+def test_gage10_added_gage12b_excluded():
+    """Pin the two GAGE-audit decisions by identity (not just count; tsarina#108).
+
+    GAGE10 is a full-length GAGE paralog added to the universe; it passes the
+    reproductive-restriction filter but is never_expressed (1.6 < 2.0 floor), so
+    it is in the filtered set but not the expressed set. GAGE12B is deliberately
+    excluded -- its Ensembl ID is a degenerate 117-bp fragment, not a GAGE
+    protein -- so it must be in neither.
+    """
+    filtered = CTA_filtered_gene_names()
+    expressed = CTA_gene_names()
+    assert "GAGE10" in filtered
+    assert "GAGE10" not in expressed
+    assert "GAGE12B" not in filtered
+    assert "GAGE12B" not in expressed
+
+
 # ── assign_all_axes runtime consistency ──────────────────────────────────
 
 
