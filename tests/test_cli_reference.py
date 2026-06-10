@@ -120,6 +120,57 @@ def test_reference_fetch_continues_past_failures(monkeypatch, capsys):
     assert "hpa_normal_tissue" in err and "Failed to fetch" in err
 
 
+def test_is_hpa_dataset_distinguishes_kinds():
+    from tsarina import reference_data
+
+    assert reference_data.is_hpa_dataset("hpa_rna_consensus")
+    assert reference_data.is_hpa_dataset("hpa_normal_tissue")
+    # The rolling NCBI dataset is not version-pinned to an HPA release.
+    assert not reference_data.is_hpa_dataset("ncbi_gene_info")
+    # Unknown datasets are not HPA (no spec to honor --hpa-version).
+    assert not reference_data.is_hpa_dataset("does_not_exist")
+
+
+def test_reference_fetch_hpa_version_only_forwarded_to_hpa_datasets(monkeypatch, capsys):
+    """`fetch all --hpa-version vNN` applies the version only to HPA datasets.
+
+    Regression: the version was forwarded to *every* dataset, so the rolling
+    ``ncbi_gene_info`` (which has no vNN release) raised and aborted the run
+    with exit 1 even though both HPA files downloaded fine.
+    """
+    from tsarina import reference_data
+
+    seen = {}
+
+    def _fake_download(name, version=None, force=False):
+        seen[name] = version
+        return f"/cache/{name}"
+
+    monkeypatch.setattr(reference_data, "download", _fake_download)
+    args = argparse.Namespace(names=[], hpa_version="v23", force=False)
+    cli._reference_fetch(args)  # must not raise / exit
+
+    assert seen["hpa_rna_consensus"] == "v23"
+    assert seen["hpa_normal_tissue"] == "v23"
+    assert seen["ncbi_gene_info"] is None
+
+
+def test_reference_path_hpa_version_not_forwarded_to_non_hpa(monkeypatch, capsys):
+    """`path <ncbi> --hpa-version vNN` ignores the version for non-HPA datasets."""
+    from tsarina import reference_data
+
+    seen = {}
+
+    def _fake_local_path(name, version=None):
+        seen[name] = version
+        return f"/cache/{name}"
+
+    monkeypatch.setattr(reference_data, "local_path", _fake_local_path)
+    args = argparse.Namespace(name="ncbi_gene_info", hpa_version="v23")
+    cli._reference_path(args)
+    assert seen["ncbi_gene_info"] is None
+
+
 def test_data_bare_defaults_to_list(monkeypatch, capsys):
     """Bare `tsarina data` routes to list (not a usage error), like reference.
 

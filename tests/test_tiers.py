@@ -332,6 +332,26 @@ def test_ms_recurrent_healthy():
     assert result.iloc[0]["ms_restriction"] == "RECURRENT_HEALTHY"
 
 
+def test_ms_unclassified_for_source_free_evidence():
+    # A peptide with MS evidence but no classifiable source flag (e.g. cell-line
+    # only, which the classifier ignores) must be UNCLASSIFIED_MS, *not*
+    # NO_MS_DATA -- the gene does have MS data, just none we can place.
+    hits = pd.DataFrame(
+        {
+            "peptide": ["ABCDEFGH"],
+            "src_cancer": [False],
+            "src_healthy_tissue": [False],
+            "src_healthy_reproductive": [False],
+            "src_healthy_thymus": [False],
+            "source_tissue": ["cell_line"],
+        }
+    )
+    gene_map = pd.DataFrame({"peptide": ["ABCDEFGH"], "gene_name": ["GENE1"]})
+    result = aggregate_gene_ms_safety(hits, gene_map)
+    assert result.iloc[0]["ms_peptide_count"] > 0
+    assert result.iloc[0]["ms_restriction"] == "UNCLASSIFIED_MS"
+
+
 def test_ms_cta_exclusive_counts_are_separate_from_all_cta_counts():
     hits = pd.DataFrame(
         {
