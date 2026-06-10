@@ -17,11 +17,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 263
+    assert len(CTA_gene_names()) == 272
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 263
+    assert len(CTA_gene_ids()) == 272
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -281,18 +281,22 @@ def test_aliases_backfilled_for_most_genes():
 
 
 def test_non_cta_conserved_genes_excluded_from_universe():
-    """Conserved/multicopy non-CTAs (core histones, alpha-tubulins, hCG-beta)
-    are dropped from the CTA universe (tsarina#92); testis-specific histone
-    variants are kept."""
+    """Conserved/multicopy non-CTAs (core histones, alpha-tubulins) are dropped
+    from the CTA universe (tsarina#92); testis-specific histone variants are
+    kept. hCG-beta (CGB8) is no longer excluded by hand — it now enters the
+    candidate universe with the rest of the placental-antigen families and is
+    judged by the reproductive-restriction filter (tsarina#110)."""
     from tsarina import CTA_evidence, CTA_unfiltered_gene_names
 
     universe = CTA_unfiltered_gene_names()
     evidence_symbols = set(CTA_evidence()["Symbol"])
-    for gene in ("H4C6", "H2BC1", "H2BC3", "H1-1", "CGB8", "TUBA3C", "TUBA3E"):
+    for gene in ("H4C6", "H2BC1", "H2BC3", "H1-1", "TUBA3C", "TUBA3E"):
         assert gene not in universe, f"{gene} should be excluded from the universe"
         assert gene not in evidence_symbols, f"{gene} should not be a CTA_evidence row"
     # The testis-specific linker histone H1t (H1-6) is a legit CTA — kept.
     assert "H1-6" in universe
+    # hCG-beta now enters the universe as a placental candidate (tsarina#110).
+    assert "CGB8" in universe
 
 
 def test_non_cta_exclusion_preserves_evidence_unfiltered_invariant():
@@ -304,16 +308,21 @@ def test_non_cta_exclusion_preserves_evidence_unfiltered_invariant():
 def test_paralog_copies_added_to_universe():
     """Near-identical CTA paralog copies are in the universe so they don't
     pollute downstream non-CTA negative sets (tsarina#93). Tagged paralog:<sibling>."""
-    from tsarina import CTA_evidence, CTA_unfiltered_gene_names, cta_symbol_for_alias
+    from tsarina import CTA_evidence, CTA_unfiltered_gene_names
 
     universe = CTA_unfiltered_gene_names()
     for gene in ("CT47A8", "CT47A9", "CT47A10", "CT45A8", "CT45A9", "GAGE12D"):
         assert gene in universe, f"{gene} should be in the universe"
     df = CTA_evidence().set_index("Symbol")
     assert df.loc["GAGE12D", "source_databases"].startswith("paralog:")
-    # Copies already present by Ensembl ID resolve via alias to their existing row.
-    assert cta_symbol_for_alias("MAGEA2B") == "MAGEA2"
-    assert cta_symbol_for_alias("SSX4B") == "SSX4"
+    # MAGEA2B/SSX4B/CT45A5 previously carried their siblings' Ensembl gene IDs,
+    # so they collided with the existing rows and were silently dropped. With the
+    # corrected IDs (tsarina#110) they are now distinct universe rows of their own
+    # — identical-protein paralogs that must be present so their peptides don't
+    # leak into the non-CTA negative set.
+    for gene, sibling in (("MAGEA2B", "MAGEA2"), ("SSX4B", "SSX4"), ("CT45A5", "CT45A1")):
+        assert gene in universe, f"{gene} should be in the universe"
+        assert df.loc[gene, "source_databases"] == f"paralog:{sibling}"
 
 
 def test_rna_97_pct_filter_column_matches_active_threshold():

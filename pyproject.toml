@@ -71,8 +71,13 @@ version = {attr = "tsarina.version.__version__"}
 [tool.setuptools.packages.find]
 include = ["tsarina*"]
 
+# Explicit globs, not a blanket data/*.csv: the latter also matches the
+# regeneration dry-run sidecar (data/*.regen.csv, written by
+# scripts/regenerate_table.py, gitignored, not loaded at runtime), which then
+# leaks into the build. setuptools globs can't negate, so list the shipped
+# files instead.
 [tool.setuptools.package-data]
-tsarina = ["data/*.csv"]
+tsarina = ["data/cancer-testis-antigens.csv", "data/hpa-*.csv"]
 
 [tool.ruff]
 target-version = "py39"
