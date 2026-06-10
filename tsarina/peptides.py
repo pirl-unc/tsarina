@@ -186,7 +186,10 @@ def cta_peptides(
                 continue
             try:
                 seq = t.protein_sequence
-            except Exception:
+            except (ValueError, KeyError, TypeError):
+                # pyensembl raises these for transcripts lacking a usable
+                # translation; let unexpected errors surface rather than
+                # silently dropping the transcript.
                 continue
             if seq and len(seq) > best_length:
                 best_transcript = t
@@ -273,7 +276,11 @@ def _non_cta_overlapping_peptides(
                 continue
             try:
                 protein = transcript.protein_sequence
-            except Exception:
+            except (ValueError, KeyError, TypeError):
+                # pyensembl raises these for transcripts lacking a usable
+                # translation. Narrowed deliberately: silently swallowing every
+                # error here could skip a non-CTA protein and let a peptide pass
+                # as CTA-exclusive when it is not.
                 continue
             if not protein:
                 continue

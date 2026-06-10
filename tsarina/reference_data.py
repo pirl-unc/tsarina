@@ -153,6 +153,16 @@ def resolve_version(name: str, version: str | None = None) -> str:
     return version
 
 
+def is_hpa_dataset(name: str) -> bool:
+    """True if *name* is version-pinned to an HPA release (honors ``--hpa-version``).
+
+    Non-HPA datasets (e.g. the rolling NCBI gene_info) ignore an HPA version, so
+    callers should not forward ``--hpa-version`` to them.
+    """
+    spec = REFERENCE_DATASETS.get(name)
+    return bool(spec and spec["kind"] == "hpa")
+
+
 def local_path(name: str, version: str | None = None) -> Path:
     """Return the expected cache path for *name*/*version* (may not exist yet)."""
     version = resolve_version(name, version)

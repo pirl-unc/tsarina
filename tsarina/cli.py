@@ -171,8 +171,11 @@ def _reference_fetch(args: argparse.Namespace) -> None:
     # Attempt every dataset; a single flaky URL shouldn't abort a "fetch all".
     failures = []
     for name in names:
+        # --hpa-version only applies to HPA datasets; the rolling NCBI dataset
+        # has no such version and would otherwise fail a "fetch all" run.
+        version = args.hpa_version if reference_data.is_hpa_dataset(name) else None
         try:
-            path = reference_data.download(name, version=args.hpa_version, force=args.force)
+            path = reference_data.download(name, version=version, force=args.force)
         except reference_data.ReferenceDataError as e:
             print(f"Error: {name}: {e}", file=sys.stderr)
             failures.append(name)
@@ -186,8 +189,9 @@ def _reference_fetch(args: argparse.Namespace) -> None:
 def _reference_path(args: argparse.Namespace) -> None:
     from . import reference_data
 
+    version = args.hpa_version if reference_data.is_hpa_dataset(args.name) else None
     try:
-        print(reference_data.local_path(args.name, version=args.hpa_version))
+        print(reference_data.local_path(args.name, version=version))
     except reference_data.ReferenceDataError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

@@ -63,14 +63,22 @@ def cta_cancer_expression_features(
     )
     ihc_features = _ihc_features(ihc, cancer_type_prevalence_floor=cancer_type_prevalence_floor)
 
+    if rna_features.empty and ihc_features.empty:
+        return rna_features  # empty frame with [gene_id, symbol]
     if rna_features.empty:
-        return ihc_features
-    if ihc_features.empty:
+        out = ihc_features
+    elif ihc_features.empty:
         out = rna_features
     else:
         out = rna_features.merge(ihc_features, on=["gene_id", "symbol"], how="left")
 
     defaults = {
+        # RNA features are absent when there is no cancer RNA prevalence for
+        # these genes; default them so tumor_prevalence_panel_score still
+        # computes (the function's documented output) instead of KeyError-ing.
+        "cancer_rna_prevalent_cancer_type_count": 0,
+        "cancer_rna_sample_prevalence": 0.0,
+        "cancer_rna_max_cancer_type_prevalence": 0.0,
         "cancer_ihc_total_samples": 0,
         "cancer_ihc_detected_samples": 0,
         "cancer_ihc_medium_high_samples": 0,

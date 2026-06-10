@@ -31,7 +31,7 @@ unified ``restriction`` with ``restriction_confidence``.
 **MS** (IEDB/CEDAR via hitlist, runtime):
 
 - ``ms_restriction``: CANCER_ONLY / EXPECTED_TISSUE / SINGLETON_HEALTHY /
-  RECURRENT_HEALTHY / NO_MS_DATA.
+  RECURRENT_HEALTHY / UNCLASSIFIED_MS / NO_MS_DATA.
 
 **Synthesized**:
 
@@ -60,6 +60,9 @@ MS_RESTRICTION_VALUES: list[str] = [
     "EXPECTED_TISSUE",
     "SINGLETON_HEALTHY",
     "RECURRENT_HEALTHY",
+    # Has MS evidence, but every observation is from an unclassified source
+    # (e.g. cell-line-only). Distinct from NO_MS_DATA (no MS evidence at all).
+    "UNCLASSIFIED_MS",
     "NO_MS_DATA",
 ]
 
@@ -172,10 +175,11 @@ _ALL_REPRODUCTIVE: frozenset[str] = _NON_SOMATIC | frozenset({"endometrium 1", "
 def assign_protein_restriction(row: pd.Series) -> str:
     """Assign tissue restriction from IHC protein data.
 
-    Returns one of: TESTIS, PLACENTAL, REPRODUCTIVE, SOMATIC, or empty.
+    Returns one of: TESTIS, PLACENTAL, REPRODUCTIVE, SOMATIC, or NO_DATA.
     Each single-tissue value means *only* that core tissue detected.
     REPRODUCTIVE means multiple reproductive tissues.
     SOMATIC means non-reproductive tissue detected.
+    NO_DATA means no protein expression data (after dropping thymus).
     """
     tissues = _parse_protein_tissues(str(row.get("protein_strict_expression", "")))
     if not tissues:
@@ -717,7 +721,10 @@ def _classify_gene_ms_restriction(row: pd.Series) -> str:
             return "EXPECTED_TISSUE"
         if n_cancer > 0:
             return "CANCER_ONLY"
-        return "NO_MS_DATA"
+        # MS peptides exist (n_pep > 0) but none carry a classifiable source
+        # flag (cancer/reproductive/thymus/somatic) -- e.g. cell-line-only
+        # evidence. Not the same as having no MS data.
+        return "UNCLASSIFIED_MS"
 
     if n_somatic == 1 and n_somatic_tissues <= 1:
         return "SINGLETON_HEALTHY"

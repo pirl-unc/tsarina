@@ -398,7 +398,9 @@ def _attach_ms_evidence(
         },
         cell_line_output=None,
     )
-    combined = combined.merge(hit_agg, on="peptide", how="left")
+    # validate="m:1": hit_agg is one row per peptide; fail loudly rather than
+    # silently multiply candidate rows if that invariant ever breaks.
+    combined = combined.merge(hit_agg, on="peptide", how="left", validate="m:1")
 
     int_cols = {"ms_hit_count", "ms_allele_count"}
     bool_cols = {"ms_in_cancer", "ms_in_healthy_tissue"}
