@@ -246,7 +246,7 @@ def test_gene_names_count_unchanged():
 
 
 def test_filtered_count():
-    # 297 = 286 + 11 reproductive-restriction-filter passers from the tsarina#110
+    # 297 = 286 + 11 reproductive-restriction-filter passers from the tsarina#111
     # batch (placental-antigen families plus the corrected MAGEA2B/SSX4B
     # identical-protein paralogs, which previously carried their siblings' gene
     # IDs and were silently dropped). Somatically-leaky members (most CGB, PSG4/7,

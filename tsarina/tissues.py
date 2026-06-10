@@ -111,7 +111,7 @@ NON_CTA_EXCLUDED_GENE_IDS: frozenset[str] = frozenset(
         # onco-placental antigen (HPA: placenta 18 nTPM, ~0 elsewhere), not a
         # ubiquitous housekeeping gene -- it now enters the candidate universe
         # with the rest of the CGB family and is judged by the reproductive-
-        # restriction filter rather than excluded by hand (tsarina#110).
+        # restriction filter rather than excluded by hand (tsarina#111).
         "ENSG00000198033",  # TUBA3C -- alpha-tubulin (conserved/essential)
         "ENSG00000152086",  # TUBA3E -- alpha-tubulin
     }

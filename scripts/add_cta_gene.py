@@ -98,7 +98,7 @@ GENE_SPECS = [
             ("CT47A8", "ENSG00000230347", "ENST00000457977", "CT47A1"),
             ("CT47A9", "ENSG00000226600", "ENST00000417256", "CT47A1"),
             ("CT47A10", "ENSG00000224089", "ENST00000430448", "CT47A1"),
-            # Corrected IDs (tsarina#110): the previous entries carried the
+            # Corrected IDs (tsarina#111): the previous entries carried the
             # siblings' gene IDs (ENSG…268606=MAGEA2, …269586=CT45A10), which were
             # already in the table, so they were silently skipped and the real
             # paralogs never got added. MAGEA2B/SSX4B encode a protein identical to
@@ -114,16 +114,21 @@ GENE_SPECS = [
             ("GAGE12D", "ENSG00000227488", "ENST00000405679", "GAGE12C"),
         ]
     ),
-    # ── tsarina#110: placental-antigen families absent from the source DBs.
+    # ── tsarina#111: placental-antigen families absent from the source DBs.
     # hCG-beta (CGB), pregnancy-specific glycoproteins (PSG), placental
     # syncytin/ERV envelopes, placental galectins (PP13/PP14) and placental
     # lactogen / GH are placenta-restricted on HPA bulk and are documented
     # onco-placental tumor antigens -- the placental analogue of the testis-
     # restricted cancer-germline antigens.  Added to the candidate universe and
-    # left to the reproductive-restriction filter (no manual exclusion); the
-    # somatically-broad members (e.g. CSH1, GH2) self-exclude.  CGB8 also dropped
-    # from NON_CTA_EXCLUDED.  Tagged ``placental_antigen``.  All are full-length
-    # protein-coding (139-538 aa; no fragment models -- cf. GAGE12B, tsarina#108).
+    # left to the reproductive-restriction filter (no manual exclusion): the
+    # somatically-broad members (GH2, PSG4/7, CGB1/3/5/7, ERVW-1/FRD-1/V-1) land
+    # in the universe as *excluded* candidates; the placenta-dominant ones (PSG2,
+    # PSG6, LGALS13/14, ERVV-2, ERVH48-1, CSH1, CGB8) pass the reproductive filter
+    # into the expressed set, where any residual somatic/vital leakage (e.g. CSH1
+    # lung ~10 nTPM) is caught downstream by the vital-tissue panel filter rather
+    # than by hand here.  CGB8 also dropped from NON_CTA_EXCLUDED.  Tagged
+    # ``placental_antigen``.  All are full-length protein-coding (139-538 aa; no
+    # fragment models -- cf. GAGE12B, tsarina#108).
     *(
         {
             "Symbol": sym,

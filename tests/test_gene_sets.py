@@ -285,7 +285,7 @@ def test_non_cta_conserved_genes_excluded_from_universe():
     from the CTA universe (tsarina#92); testis-specific histone variants are
     kept. hCG-beta (CGB8) is no longer excluded by hand — it now enters the
     candidate universe with the rest of the placental-antigen families and is
-    judged by the reproductive-restriction filter (tsarina#110)."""
+    judged by the reproductive-restriction filter (tsarina#111)."""
     from tsarina import CTA_evidence, CTA_unfiltered_gene_names
 
     universe = CTA_unfiltered_gene_names()
@@ -295,7 +295,7 @@ def test_non_cta_conserved_genes_excluded_from_universe():
         assert gene not in evidence_symbols, f"{gene} should not be a CTA_evidence row"
     # The testis-specific linker histone H1t (H1-6) is a legit CTA — kept.
     assert "H1-6" in universe
-    # hCG-beta now enters the universe as a placental candidate (tsarina#110).
+    # hCG-beta now enters the universe as a placental candidate (tsarina#111).
     assert "CGB8" in universe
 
 
@@ -317,7 +317,7 @@ def test_paralog_copies_added_to_universe():
     assert df.loc["GAGE12D", "source_databases"].startswith("paralog:")
     # MAGEA2B/SSX4B/CT45A5 previously carried their siblings' Ensembl gene IDs,
     # so they collided with the existing rows and were silently dropped. With the
-    # corrected IDs (tsarina#110) they are now distinct universe rows of their own
+    # corrected IDs (tsarina#111) they are now distinct universe rows of their own
     # — identical-protein paralogs that must be present so their peptides don't
     # leak into the non-CTA negative set.
     for gene, sibling in (("MAGEA2B", "MAGEA2"), ("SSX4B", "SSX4"), ("CT45A5", "CT45A1")):
