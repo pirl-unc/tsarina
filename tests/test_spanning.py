@@ -1421,6 +1421,54 @@ def test_xage1_explicit_group_panel_preserves_member_genes(monkeypatch):
     assert grouped["cta_members"] == "XAGE1A;XAGE1B"
 
 
+def test_ssx4_explicit_group_panel_preserves_member_genes(monkeypatch):
+    # SSX4 (ENSG00000268009) and SSX4B (ENSG00000269791) encode the identical
+    # 188-aa SSX4 protein, so an identical peptide observed under both must
+    # collapse to a single SSX4/SSX4B antigen — the CTAG1A/CTAG1B (NY-ESO-1) and
+    # XAGE1A/XAGE1B situation. Selecting via the bare "SSX4" alias resolves to the
+    # explicit group and the panel reports both member genes.
+    peptides = pd.DataFrame(
+        {
+            "peptide": ["SSX4PEP1", "SSX4PEP1", "PAGE2PEP1"],
+            "length": [9, 9, 9],
+            "gene_name": ["SSX4", "SSX4B", "PAGE2"],
+            "gene_id": ["E20", "E21", "E22"],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides", lambda **kw: peptides, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names",
+        lambda: {"SSX4", "SSX4B", "PAGE2"},
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.loader.cta_dataframe",
+        lambda: pd.DataFrame(
+            {
+                "Symbol": ["SSX4", "SSX4B", "PAGE2"],
+                "ms_cta_exclusive_cancer_peptide_count": [3, 2, 1],
+            }
+        ),
+        raising=True,
+    )
+
+    long = spanning_pmhc_set(
+        ctas=["SSX4", "PAGE2"],  # selected by the bare SSX4 alias
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        peptides_per_cell=1,
+        output_format="long",
+    )
+
+    assert "SSX4/SSX4B" in long.attrs["cta_order"]
+    group = next(g for g in long.attrs["cta_groups"] if g["cta"] == "SSX4/SSX4B")
+    assert group["members"] == ["SSX4", "SSX4B"]
+    grouped = long[long["cta"] == "SSX4/SSX4B"].iloc[0]
+    assert grouped["cta_members"] == "SSX4;SSX4B"
+
+
 def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):
     peptides = pd.DataFrame(
         {

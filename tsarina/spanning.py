@@ -106,6 +106,34 @@ _XAGE1_ALIASES = {
     "XAGE1BXAGE1A",
     "GAGED2",
 }
+#: SSX4 (ENSG00000268009) and SSX4B (ENSG00000269791) are two distinct chrX loci
+#: that encode the *identical* 188-aa (and 153-aa) SSX4 protein — the same
+#: situation as CTAG1A/CTAG1B (NY-ESO-1) and XAGE1A/XAGE1B.  They are one antigen
+#: at the pMHC level, so group them to avoid double-counting identical peptides.
+#: HGNC names the primary locus ``SSX4`` (not ``SSX4A``); ``SSX4A`` is accepted as
+#: a non-standard alias since the symmetric A/B naming is a plausible expectation.
+_SSX4_GROUP_LABEL = "SSX4/SSX4B"
+_SSX4_ALIASES = {
+    "SSX4",
+    "SSX4A",
+    "SSX4B",
+    "SSX4AB",
+    "SSX4SSX4B",
+    "SSX4BSSX4",
+}
+#: MAGEA2 (ENSG00000268606) and MAGEA2B (ENSG00000183305) likewise encode the
+#: identical 314-aa MAGE-A2 protein at distinct chrX loci.  ``MAGEA2A`` is an
+#: HGNC-listed alias of MAGEA2.  Grouped for the same pMHC-dedup reason; note the
+#: pair is also subject to the non-MAGEA4 MAGE-family default exclusion.
+_MAGEA2_GROUP_LABEL = "MAGEA2/MAGEA2B"
+_MAGEA2_ALIASES = {
+    "MAGEA2",
+    "MAGEA2A",
+    "MAGEA2B",
+    "MAGEA2AB",
+    "MAGEA2MAGEA2B",
+    "MAGEA2BMAGEA2",
+}
 _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", _CTAG1_GROUP_LABEL, "MAGEA4")
 _DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
 _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
@@ -116,13 +144,18 @@ _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY = False
 _CTA_GROUPS: dict[str, tuple[str, ...]] = {
     _CTAG1_GROUP_LABEL: ("CTAG1A", "CTAG1B"),
     _XAGE1_GROUP_LABEL: ("XAGE1A", "XAGE1B"),
+    _SSX4_GROUP_LABEL: ("SSX4", "SSX4B"),
+    _MAGEA2_GROUP_LABEL: ("MAGEA2", "MAGEA2B"),
 }
 
 #: Compact (uppercase-alphanumeric) alias -> grouped CTA label.  Single source
-#: of truth for resolving NY-ESO-1 / XAGE1 style names to their group.
+#: of truth for resolving NY-ESO-1 / XAGE1 / SSX4 / MAGEA2 style names to their
+#: identical-protein group.
 _GROUP_ALIAS_TO_LABEL: dict[str, str] = {
     **dict.fromkeys(_CTAG1_ALIASES, _CTAG1_GROUP_LABEL),
     **dict.fromkeys(_XAGE1_ALIASES, _XAGE1_GROUP_LABEL),
+    **dict.fromkeys(_SSX4_ALIASES, _SSX4_GROUP_LABEL),
+    **dict.fromkeys(_MAGEA2_ALIASES, _MAGEA2_GROUP_LABEL),
 }
 
 _VITAL_TISSUE_RNA_COLUMNS: tuple[str, ...] = (
