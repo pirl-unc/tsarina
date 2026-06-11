@@ -238,6 +238,29 @@ Two things this table makes explicit:
   strong evidence even without an antibody, and capping it would mislabel many
   legitimate CTAs (only near-noise sub-floor RNA is capped — see #114).
 
+#### Scope limitation: HERV-K (HML-2) is not gene-level (tsarina#120)
+
+The ERV *env* genes above (syncytins, suppressyn) are discrete HGNC/Ensembl
+protein-coding loci, so they are curated and filtered like any other CTA. The
+most-studied **cancer** ERV antigens are not: **HERV-K (HML-2)** *env*, **Np9**,
+and **Rec** — long-standing immunotherapy-target candidates in melanoma, breast,
+germ-cell/teratocarcinoma, and normal testis — are largely **locus/family-level
+proviral transcription across many near-identical genomic copies**, not single
+annotated genes.
+
+A gene-symbol scan of HPA for `ERVK`/`HERVK` finds only **`ERVK3-1`**, and it is
+somatic (kidney 43.9 nTPM), not reproductive-restricted. So tsarina's
+gene-symbol-seeded CTA curation **structurally cannot see** the HERV-K antigens
+the cancer-ERV literature actually targets — they are neither in the source
+databases nor resolvable to a clean reproductive-restricted HGNC symbol.
+
+Capturing them properly requires **locus/family-level HERV quantification**
+(Telescope / ERVmap / hervquant-style provirus expression) as a *separate*
+antigen-evidence source, rather than HGNC gene symbols. That is out of scope for
+the current gene-symbol pipeline and tracked as future work; this note documents
+the gap so downstream consumers do not assume HERV-K/ERV antigens are covered by
+the CTA panel.
+
 ### Identical-protein groups (proteoforms)
 
 Several CTA families have multiple gene loci that encode a **byte-identical
