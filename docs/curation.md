@@ -197,6 +197,47 @@ self-exclude on the data rather than by hand. All are full-length protein-coding
 (139–538 aa; the fragment-model guard above applies here too). `CGB8` was moved
 out of the non-CTA deny-list into this set.
 
+#### ERV env verdicts and the relaxed reproductive tier (tsarina#119)
+
+The placental ERV envelopes split on the **default** gate by how strongly the
+placental signal dominates, not by absolute somatic level:
+
+| gene | deflated frac | placenta nTPM | max somatic | `restriction` | `passes_filters` |
+|---|---|---|---|---|---|
+| ERVH48-1 (suppressyn) | 0.995 | 148 | retina 1.5 | SOMATIC | ✅ True |
+| ERVV-2 | 1.000 | 8.1 | sk. muscle 0.5 | PLACENTAL | ✅ True |
+| ERVV-1 | 0.954 | 15.5 | kidney 1.7 | SOMATIC | ❌ False |
+| ERVW-1 (syncytin-1) | 0.854 | 52.8 | retina 6.7 | SOMATIC | ❌ False |
+| ERVFRD-1 (syncytin-2) | 0.849 | 35.8 | parathyroid 7.2 | SOMATIC | ❌ False |
+
+Two things this table makes explicit:
+
+- **`restriction` and `passes_filters` measure different things, by design.** The
+  `restriction` label is *categorical* — any non-reproductive somatic detection
+  makes it `SOMATIC`. `passes_filters` is the *deflated reproductive fraction*
+  gate (`>= 0.97`). So a gene can be `SOMATIC` **and** pass (ERVH48-1: it has a
+  retina trace, but placenta at 148 nTPM dominates the fraction). ERVV-1 fails
+  not because it is *more* somatic than ERVH48-1 (its 1.7 nTPM leak is comparable)
+  but because its placental signal (15.5) is far weaker, so the same small leak is
+  a larger fraction.
+
+- **A relaxed, opt-in tier exists for the somatic-leak members.** Syncytin-1/2
+  are placenta-dominant onco-placental antigens that fail the strict gate.
+  `CTA_relaxed_reproductive_gene_names(min_deflated_frac=0.80)` returns the
+  RNA-only candidates that fail the default gate but keep a deflated reproductive
+  fraction above the relaxed floor — including `ERVW-1`, `ERVFRD-1`, and (at
+  `0.90`) `ERVV-1`. It is **disjoint from the default sets** and restricted to
+  RNA-only genes (so the failure is the RNA fraction, not somatic *protein*
+  detection), letting consumers opt into more leakage without loosening defaults.
+
+- **RNA-only caveat.** These ERVs (like many CTAs) have no HPA IHC and no MS
+  evidence (`protein_reliability = "no data"`, `ms_restriction = NO_MS_DATA`), so
+  their restriction calls are transcript-level. That status is directly queryable
+  on those two columns. Confidence is deliberately **not** blanket-capped for
+  RNA-only genes: a clean STRICT testis signal at tens-to-hundreds of nTPM is
+  strong evidence even without an antibody, and capping it would mislabel many
+  legitimate CTAs (only near-noise sub-floor RNA is capped — see #114).
+
 ### Identical-protein groups (proteoforms)
 
 Several CTA families have multiple gene loci that encode a **byte-identical
