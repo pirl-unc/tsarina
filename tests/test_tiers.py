@@ -310,6 +310,17 @@ def test_confidence_capped_for_subfloor_rna_only():
     # MS evidence means real expression despite low RNA -> not capped.
     ms_row = {**base, "rna_max_ntpm": 1.6, "ms_restriction": "CANCER_ONLY"}
     assert synthesize_restriction(pd.Series(ms_row))[1] == "HIGH"
+    # Protein evidence (IHC) likewise means real expression -> not capped even
+    # at sub-floor RNA.
+    prot_row = {
+        **base,
+        "rna_max_ntpm": 1.0,
+        "protein_restriction": "TESTIS",
+        "protein_reliability": "Supported",
+    }
+    assert synthesize_restriction(pd.Series(prot_row))[1] == "HIGH"
+    # Boundary: exactly at the floor is "expressed" (cap is strict <), keeps HIGH.
+    assert synthesize_restriction(pd.Series({**base, "rna_max_ntpm": 2.0})) == ("TESTIS", "HIGH")
 
 
 # ── MS safety aggregation (unit tests with mock data) ────────────────────
