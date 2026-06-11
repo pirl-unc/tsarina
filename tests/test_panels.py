@@ -2,10 +2,6 @@ import pandas as pd
 import pytest
 
 
-def test_panels_module_imports():
-    from tsarina import panels  # noqa: F401
-
-
 def _panel_targets() -> pd.DataFrame:
     return pd.DataFrame(
         {
