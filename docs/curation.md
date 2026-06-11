@@ -2,6 +2,12 @@
 
 This document describes how the tsarina CTA gene set is built, filtered, and maintained.
 
+## Overview
+
+Cancer-testis antigens (CTAs) are proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction makes them attractive targets for cancer immunotherapy because immune responses against them should not damage normal somatic tissues.
+
+The tsarina CTA set is built as an **unbiased union** from multiple published CT antigen databases, then **systematically filtered** using Human Protein Atlas tissue expression data to retain only genes with reproductive-restricted expression.
+
 ## Figures
 
 ### Source overlap
@@ -18,12 +24,6 @@ This document describes how the tsarina CTA gene set is built, filtered, and mai
 
 ### Protein reliability vs RNA fraction
 ![Protein vs RNA](cta-protein-vs-rna.png)
-
-## Overview
-
-Cancer-testis antigens (CTAs) are proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction makes them attractive targets for cancer immunotherapy because immune responses against them should not damage normal somatic tissues.
-
-The tsarina CTA set is built as an **unbiased union** from multiple published CT antigen databases, then **systematically filtered** using Human Protein Atlas tissue expression data to retain only genes with reproductive-restricted expression.
 
 ## Source databases
 
@@ -109,17 +109,19 @@ entries**. Each token records membership in a published source:
 
 Provenance is therefore **queryable directly**: a gene in a hand-curated CT
 database vs. one surfaced only by the high-throughput da Silva screen are
-distinguishable by token. Current split: **282** genes are in a curated CT
-database (CTpedia and/or CTexploreR); **72** are screen-only (`daSilva2017`); and
-**6** are `paralog:` copies (see below). To select by provenance:
+distinguishable by token. Current split (382-gene universe): **283** genes are
+in a curated CT database (CTpedia and/or CTexploreR); **71** are screen-only
+(`daSilva2017`); **10** are `paralog:` copies; and **18** are `placental_antigen`
+(see below). To select by provenance:
 
 ```python
 from tsarina import CTA_evidence
 df = CTA_evidence()
 src = df["source_databases"]
-curated = df[src.str.contains("CTpedia|CTexploreR")]               # 282
-paralog = df[src.str.contains("paralog")]                         # 6
-screen_only = df[src.str.contains("daSilva") & ~src.str.contains("CTpedia|CTexploreR")]  # 72
+curated = df[src.str.contains("CTpedia|CTexploreR")]               # 283
+paralog = df[src.str.contains("paralog")]                         # 10
+placental = df[src.str.contains("placental_antigen")]            # 18
+screen_only = df[src.str.contains("daSilva") & ~src.str.contains("CTpedia|CTexploreR")]  # 71
 ```
 
 (The literature/EWSR1-FLI1 sources listed above confirmed genes already present
@@ -128,23 +130,22 @@ in the curated databases — none entered the panel by literature scan alone.)
 ### Non-CTA exclusions (conserved/multicopy families)
 
 A few genes enter the CTA universe via a source database but are **not** cancer-
-testis antigens — conserved/multicopy housekeeping families and a placental
-gene. They can even pass the reproductive-restriction filter on a testis-
-enriched copy, yet they make poor targets (ubiquitous/essential proteins) and
-pollute any CTA-keyed sequence/expression analysis. They are dropped from the
-universe at load time via `tsarina.tissues.NON_CTA_EXCLUDED_GENE_IDS`
-(tsarina#92):
+testis antigens — conserved/multicopy housekeeping families. They can even pass
+the reproductive-restriction filter on a testis-enriched copy, yet they make
+poor targets (ubiquitous/essential proteins) and pollute any CTA-keyed
+sequence/expression analysis. They are dropped from the universe at load time
+via `tsarina.tissues.NON_CTA_EXCLUDED_GENE_IDS` (tsarina#92):
 
 | excluded | family | why not a CTA |
 |---|---|---|
 | `H4C6`, `H2BC1`, `H2BC3` | core histones (H4, H2B) | conserved, multicopy nucleosome core |
 | `H1-1` | somatic linker histone H1.1 (HIST1H1A) | conserved/multicopy; somatic, not testis-specific |
 | `TUBA3C`, `TUBA3E` | alpha-tubulins | essential cytoskeleton |
-| `CGB8` | chorionic gonadotropin beta | placental, multicopy |
 
 Testis-specific histone *variants* (e.g. `H1-6` / HIST1H1T) are genuine CTAs and
 are **kept** — the exclusion is a curated per-gene deny-list, not a blanket
-family filter.
+family filter. (`CGB8` / hCG-beta was formerly on this deny-list as a placental
+gene, but is now curated as a **placental onco-germline antigen** — see below.)
 
 ### Paralog copies (tsarina#93)
 
@@ -153,9 +154,16 @@ database. Left out of the universe, their (sequence-identical) protein lands in
 the *non-CTA* set of downstream sequence analyses and cancels the family's
 specificity. The testis-restricted copies are added to the universe tagged
 `paralog:<curated sibling>` (e.g. `paralog:CT47A1`): `CT47A8/A9/A10`,
-`CT45A8/A9` (`paralog:CT45A1`), `GAGE12D` (`paralog:GAGE12C`). Most are
-`never_expressed` (very low HPA RNA) so they sit in the universe/filtered sets
-but not the expressed default.
+`CT45A8/A9` (`paralog:CT45A1`), `GAGE12D` (`paralog:GAGE12C`), `GAGE10`
+(`paralog:GAGE2A`). Most are `never_expressed` (very low HPA RNA) so they sit in
+the universe/filtered sets but not the expressed default.
+
+A paralog copy is added only if its annotated protein is real: the
+`add_cta_gene.py` guard refuses **fragment gene models** (tsarina#108). For
+example `GAGE12B` (`ENSG00000236737`) is held out — in Ensembl it is a degenerate
+117-bp, single-exon locus encoding a 7-residue ORF (the shared GAGE C-terminus),
+not a GAGE protein, so its high HPA testis nTPM is quantification noise on a
+malformed model rather than evidence of a real antigen.
 
 Three more — `MAGEA2B`, `CT45A5`, `SSX4B` — were already in the universe **by
 Ensembl ID** under a different symbol (`MAGEA2`, `CT45A10`, `SSX4`); they are
@@ -165,6 +173,55 @@ cross-mapping at a hard-to-map multicopy Y locus) fails the restriction filter.
 `DAZ1` (already curated) is testis-restricted on bulk; its reported gastric
 single-cell signal is below the bulk resolution tsarina curates on, and it is
 already `never_expressed`.
+
+### Placental onco-germline antigens (tsarina#111)
+
+Cancer-testis antigens are the *testicular* members of the cancer-germline
+family; the **placenta** is the other immune-privileged reproductive tissue with
+the same logic. 18 placenta-restricted antigen genes — absent from the
+testis-oriented source databases but documented onco-placental tumor antigens —
+are added to the universe tagged `placental_antigen`:
+
+| family | genes | placental product |
+|---|---|---|
+| hCG-beta | `CGB1`, `CGB2`, `CGB3`, `CGB5`, `CGB7` | chorionic gonadotropin beta |
+| pregnancy-specific glycoproteins | `PSG2`, `PSG4`, `PSG6`, `PSG7` | PSG family |
+| endogenous retrovirus envelopes | `ERVW-1` (syncytin-1), `ERVFRD-1` (syncytin-2), `ERVH48-1` (suppressyn), `ERVV-1`, `ERVV-2` | placental fusogens |
+| placental galectins | `LGALS13` (PP13), `LGALS14` (PP14) | placental protein 13/14 |
+| placental lactogen / GH | `CSH1`, `GH2` | placental hormones |
+
+They enter the universe and are then **judged by the same reproductive-restriction
+filter** — the placenta is a core reproductive tissue, so genuinely placenta-
+restricted members pass, while the somatically-broad members (e.g. `CSH1`, `GH2`)
+self-exclude on the data rather than by hand. All are full-length protein-coding
+(139–538 aa; the fragment-model guard above applies here too). `CGB8` was moved
+out of the non-CTA deny-list into this set.
+
+### Identical-protein groups (proteoforms)
+
+Several CTA families have multiple gene loci that encode a **byte-identical
+protein** — e.g. `CTAG1A`/`CTAG1B` (NY-ESO-1), `SSX4`/`SSX4B`, the 12-member
+`CT47A` family. At the pMHC level these are one antigen: their peptides are
+indistinguishable, so scoring them separately would double-count the same target
+and waste panel slots.
+
+tsarina ships a registry of these groups in `tsarina/data/proteoform-groups.csv`,
+**keyed by Ensembl gene ID** (`proteoform_id`, `member_symbol`, `member_gene_id`,
+`protein_length`, `n_members`). It is **computed from Ensembl protein sequences**
+via `cancerdata.proteoform_groups()` and synced with
+`scripts/sync_proteoform_groups.py` — currently **15 families**. The four anchor
+groups (`CTAG1A/CTAG1B`, `XAGE1A/XAGE1B`, `SSX4/SSX4B`, `MAGEA2/MAGEA2B`) are
+hard-coded as an offline fallback so grouping never silently disappears. Panel
+construction collapses each group to a single target
+(`--group-identical-cta-peptide-sets` / `--group-identical-cta-pmhcs`, on by
+default), and the group label resolves common aliases (e.g. `NY-ESO-1`).
+
+This identical-protein grouping is **CTA-internal**. Cross-mapping against
+*normal non-CTA* proteins is handled separately and at the peptide level: a CTA
+peptide that also occurs in **any** non-CTA protein is dropped by the
+CTA-exclusivity filter (`cta_exclusive_peptides()`, which streams the candidate
+peptides against the non-CTA proteome k-mer set), rather than by grouping
+non-CTA genes.
 
 ## HPA tissue expression annotation
 
@@ -248,35 +305,46 @@ visible `safety_flags` entry for the somatic tissue.
 
 ## Three-axis CTA tier system
 
-Every filter-passing CTA gene is classified along three independent axes:
-**restriction** (what tissues), **evidence** (how confident), and
-**ms_safety** (MS evidence in healthy tissue).
+`tiers.assign_all_axes` classifies every gene along three independent axes:
+**`restriction`** (what tissues), **`restriction_confidence`** (how confident),
+and **`ms_restriction`** (MS evidence in healthy tissue). Counts below are over
+the full 382-gene table.
 
 ### Axis 1: `restriction` — tissue restriction category
 
-Based on IHC protein expression (`protein_strict_expression`). For genes with no protein data, falls back to RNA evidence.
+`tiers.synthesize_restriction` takes the IHC protein restriction
+(`protein_restriction`) when protein data exists, otherwise falls back to the
+RNA restriction (`rna_restriction`).
 
-| Value | Count | Criteria | Clinical implication |
-|-------|-------|----------|---------------------|
-| `TESTIS` | 151 | IHC protein detected only in testis | Serum biomarker for anyone (blood-testis barrier) |
-| `PLACENTAL` | 19 | IHC protein in placenta ± testis (no ovary) | Biomarker for non-pregnant individuals |
-| `OVARIAN` | 4 | IHC protein includes ovary | Biomarker for males |
-| `RNA_ONLY` | 83 | No IHC data; RNA says reproductive-restricted | Restriction category uncertain |
+| Value | Count | Meaning |
+|-------|-------|---------|
+| `TESTIS` | 265 | Only testis detected (the most clinically actionable — blood-testis barrier sequesters these from circulation) |
+| `REPRODUCTIVE` | 25 | Multiple reproductive tissues (testis + ovary/placenta) |
+| `PLACENTAL` | 10 | Only placenta (± testis) |
+| `SOMATIC` | 73 | Detected in a non-reproductive somatic tissue — a leakage flag; these typically **fail** the restriction filter |
+| `NO_DATA` | 9 | No protein and no usable RNA restriction call |
 
-Never-expressed and unfiltered genes receive an empty `restriction`.
+### Axis 2: `restriction_confidence` — confidence in the restriction call
 
-**Serum biomarker rationale**: The blood-testis barrier (Sertoli cell tight junctions) sequesters testicular proteins from circulation. Placental proteins can leak into maternal blood (hCG, AFP). Ovarian proteins may reach circulation during ovulation. The `TESTIS` restriction is the most clinically actionable for liquid biopsy development.
+`synthesize_restriction` averages a per-source evidence score (protein IHC, RNA,
+MS) and bins the mean: **≥ 1.2 → HIGH, ≥ 0.8 → MODERATE, else LOW**. So
+`MODERATE` ≈ one solid uncorroborated source.
 
-### Axis 2: `evidence` — evidence quality
+| Value | Count | Meaning |
+|-------|-------|---------|
+| `HIGH` | 146 | Strong / corroborated evidence for the restriction call |
+| `MODERATE` | 163 | One solid source, uncorroborated |
+| `LOW` | 64 | Weak evidence (e.g. healthy-tissue MS) |
+| `NO_DATA` | 9 | No usable evidence |
 
-| Value | Count | Criteria |
-|-------|-------|----------|
-| `PROTEIN_STRICT` | 105 | Enhanced/Supported IHC + `rna_reproductive` True + deflated frac ≥ 0.99 |
-| `RNA_STRICT` | 76 | No IHC + `rna_reproductive` True + deflated frac ≥ 0.99 |
-| `ADAPTIVE` | 76 | Passes adaptive threshold (protein quality compensates for RNA noise) |
-| `NEVER_EXPRESSED` | 24 | No meaningful HPA signal (no protein + max RNA < 2 nTPM) |
+The confidence is **capped at MODERATE** when the only evidence is RNA below the
+expression floor (`never_expressed`, no protein, no MS) — the scorer otherwise
+grants the same STRICT credit to near-noise RNA as to robust expression, so such
+a call would over-state HIGH (tsarina#114). Genes with protein or MS evidence are
+untouched. Note the axis measures restriction *cleanliness*, not target validity
+or abundance — use it as a ranking signal, not a hard filter (see below).
 
-### Axis 3: `ms_safety` — MS evidence classification
+### Axis 3: `ms_restriction` — MS evidence classification
 
 Panel construction recomputes public MHC-ligand MS support from the current
 hitlist observations index. In the default cached path, hitlist builds that
@@ -291,13 +359,8 @@ the raw export scanner for those files instead of the cached observations index.
 | `EXPECTED_TISSUE` | MS hits only in reproductive/thymic tissue (expected for CTAs) |
 | `SINGLETON_HEALTHY` | 1 peptide in ≤ 1 healthy somatic tissue (possible noise) |
 | `RECURRENT_HEALTHY` | Multiple peptides or tissues in healthy somatic MS (genuine off-target) |
+| `UNCLASSIFIED_MS` | MS evidence exists but every observation is from an unclassifiable source (e.g. cell-line only) — distinct from no data |
 | `NO_MS_DATA` | No MS evidence available for this gene's peptides |
-
-### `restriction_confidence` formula
-
-`tiers.synthesize_restriction` averages a per-source evidence score (protein
-IHC, RNA, MS) and bins it: **≥ 1.2 → HIGH, ≥ 0.8 → MODERATE, else LOW**. So
-`MODERATE` ≈ one solid source, uncorroborated.
 
 ### Published CTAs across the axes
 
@@ -388,14 +451,14 @@ subset of HPA's cancer IHC count table.
 
 ```python
 from tsarina import (
-    CTA_testis_restricted_gene_names,     # 151 genes
-    CTA_placental_restricted_gene_names,  # 19 genes
+    CTA_testis_restricted_gene_names,     # 247 genes
+    CTA_placental_restricted_gene_names,  # 10 genes
     CTA_by_axes,                          # flexible multi-axis filter
-    RESTRICTION_VALUES, EVIDENCE_VALUES, MS_SAFETY_VALUES,
+    RESTRICTION_VALUES, CONFIDENCE_VALUES, MS_RESTRICTION_VALUES,
 )
 
-# Testis-restricted with strict protein evidence
-strict_testis = CTA_by_axes(restriction="TESTIS", evidence="PROTEIN_STRICT")
+# Testis-restricted with high-confidence restriction call
+strict_testis = CTA_by_axes(restriction="TESTIS", restriction_confidence="HIGH")
 
 # All testis + placental genes (serum biomarkers for non-pregnant)
 biomarkers = CTA_by_axes(restriction={"TESTIS", "PLACENTAL"})
@@ -403,7 +466,7 @@ biomarkers = CTA_by_axes(restriction={"TESTIS", "PLACENTAL"})
 # Evidence table — filter by any combination
 from tsarina import CTA_evidence
 df = CTA_evidence()
-testis_strict = df[(df["restriction"] == "TESTIS") & (df["evidence"] == "PROTEIN_STRICT")]
+testis_high = df[(df["restriction"] == "TESTIS") & (df["restriction_confidence"] == "HIGH")]
 
 # Full per-tissue detail (requires HPA data files)
 from tsarina import CTA_detailed_evidence
@@ -424,7 +487,7 @@ magic number baked into the flag (tsarina#78).
 
 These genes pass the filter (because the `+1` pseudocount gives a 1.0 deflated fraction when all nTPMs are below 1), but the evidence for their tissue restriction is weak — HPA simply doesn't have enough signal to confirm or deny reproductive specificity. They are typically very low-abundance transcripts below HPA's detection sensitivity. Many are still legitimate CTAs supported by other evidence (e.g., CTpedia listing, tumor mass spectrometry detection), but users should be aware of the limited HPA evidence.
 
-Currently **24 genes** are flagged as low evidence.
+Currently **29 genes** are flagged as low evidence.
 
 **Manual rescue**: rather than lowering the global floor (which would admit
 paralog cross-mapping noise; see tsarina#78), individual borderline-but-real
@@ -507,17 +570,20 @@ All Ensembl Gene IDs are validated against Ensembl release 112. Canonical transc
 | `rna_99_pct_filter` | Deflated reproductive fraction >= 99% |
 | `passes_filters` | Final inclusion flag (see filter logic above) |
 | `never_expressed` | No HPA protein data AND max RNA nTPM < 2 |
-| `restriction` | Tissue restriction axis: `TESTIS`, `PLACENTAL`, `OVARIAN`, `RNA_ONLY`, or empty |
-| `evidence` | Evidence quality axis: `PROTEIN_STRICT`, `RNA_STRICT`, `ADAPTIVE`, `NEVER_EXPRESSED`, or empty |
+| `restriction` | Tissue restriction axis: `TESTIS`, `PLACENTAL`, `REPRODUCTIVE`, `SOMATIC`, or `NO_DATA` |
+| `rna_restriction` / `rna_restriction_level` | RNA-only restriction call + quality (`STRICT`/`MODERATE`/`PERMISSIVE`/`LEAKY`) |
+| `protein_restriction` | IHC-only restriction call (`TESTIS`/`PLACENTAL`/`REPRODUCTIVE`/`SOMATIC`/`NO_DATA`) |
+| `restriction_confidence` | Confidence axis: `HIGH`, `MODERATE`, `LOW`, or `NO_DATA` |
 | `protein_testis` | IHC protein detected in testis (`True`/`False`/empty if no data) |
 | `protein_ovary` | IHC protein detected in ovary (`True`/`False`/empty if no data) |
 | `protein_placenta` | IHC protein detected in placenta (`True`/`False`/empty if no data) |
-| `ms_safety` | MS safety axis: `NO_MS_DATA` (default); `CANCER_ONLY`, `EXPECTED_TISSUE`, `SINGLETON_HEALTHY`, `RECURRENT_HEALTHY` when computed at runtime |
+| `ms_restriction` | MS safety axis: `CANCER_ONLY`, `EXPECTED_TISSUE`, `SINGLETON_HEALTHY`, `RECURRENT_HEALTHY`, `UNCLASSIFIED_MS`, or `NO_MS_DATA` |
+| `safety_flags` | Semicolon-separated somatic tissue groups with RNA above the safety threshold (visible leakage markers) |
 
 ## Python API
 
 ```python
-from pirlygenes.gene_sets_cancer import (
+from tsarina import (
     CTA_gene_names,                # expressed + filter-passing CTAs (recommended default)
     CTA_gene_ids,                  # same, as Ensembl gene IDs
     CTA_never_expressed_gene_names,# filter-passing but no HPA expression
@@ -525,7 +591,6 @@ from pirlygenes.gene_sets_cancer import (
     CTA_excluded_gene_names,       # CTAs that FAIL filter (somatic expression)
     CTA_unfiltered_gene_names,     # full CTA universe (all source databases)
     CTA_evidence,                  # full DataFrame with all evidence columns
-    CTA_partition,                 # partition ALL protein-coding genes
 )
 
 # Default: expressed, reproductive-restricted CTAs
@@ -551,10 +616,10 @@ tumor_protein = df[df['source_databases'].str.contains('daSilva2017_protein', na
 
 ## Gene partitioning for pMHC analysis
 
-When comparing CTA pMHCs against non-CTA pMHCs, every protein-coding gene needs to go into exactly one bucket. `CTA_partition()` handles this:
+When comparing CTA pMHCs against non-CTA pMHCs, every protein-coding gene needs to go into exactly one bucket. The `CTA_partition_*` functions handle this:
 
 ```python
-from pirlygenes.gene_sets_cancer import (
+from tsarina.partition import (
     CTA_partition_gene_ids,       # sets of Ensembl gene IDs
     CTA_partition_gene_names,     # sets of gene symbols
     CTA_partition_dataframes,     # DataFrames with evidence columns
@@ -578,7 +643,7 @@ p.non_cta.columns       # Symbol, Ensembl_Gene_ID
 | Partition | Description | Typical count |
 |---|---|---|
 | `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~272 |
-| `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~20 |
+| `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~29 |
 | `p.non_cta` | All other protein-coding genes, **including** CTAs that fail the reproductive-tissue filter (somatic expression). Clean non-CTA comparison set. | ~19,800 |
 
 These three sets are **non-overlapping** and their union covers all protein-coding genes from Ensembl.

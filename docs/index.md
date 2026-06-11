@@ -5,16 +5,16 @@
 
 Personalized cancer immunotherapy target selection from curated shared antigen data.
 
-Perseus weaves patient-specific tumor characteristics (mutations, CTA expression, viral infections, HLA type) together with curated public mass spectrometry evidence to produce prioritized lists of targetable peptide-MHC complexes. The name reflects the goal: using shared, public knowledge to personalize cancer immunotherapy -- like Perseus using borrowed divine weapons to slay Medusa.
+tsarina weaves patient-specific tumor characteristics (mutations, CTA expression, viral infections, HLA type) together with curated public mass spectrometry evidence to produce prioritized lists of targetable peptide-MHC complexes. The core idea is to personalize cancer immunotherapy from shared, public knowledge rather than per-patient whole-exome discovery.
 
 ## Concept
 
 The core insight is that many cancer-targetable peptides are **shared across patients**: cancer-testis antigens are recurrently activated in tumors, oncogenic viruses produce the same foreign proteins in every infected cell, and hotspot driver mutations generate identical mutant peptides across thousands of patients. Unlike private passenger-mutation neoantigens that require individual whole-exome sequencing, these shared targets can be curated once and reused.
 
-Perseus combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
+tsarina combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
 
 **Shared targets** (curated once, reused across patients):
-- **CTA genes** — 358 curated from 5 databases, 258 after HPA tissue-restriction filtering
+- **CTA genes** — a 382-gene curated universe (5 source databases plus tsarina-added paralog copies and placental antigens), 272 expressed after HPA tissue-restriction filtering
 - **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
 - **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
 
@@ -29,7 +29,7 @@ Perseus combines curated shared targets with per-patient tumor data to produce a
 - Detected mutations (cross-referenced against hotspot list)
 - Viral status (HPV, EBV, etc.)
 
-Perseus filters shared targets through the patient's HLA type and tumor profile, then ranks the results into a **prioritized target list** annotated with:
+tsarina filters shared targets through the patient's HLA type and tumor profile, then ranks the results into a **prioritized target list** annotated with:
 - **Public MS evidence** — number of independent IEDB/CEDAR references, source context (cancer vs. healthy tissue)
 - **Source protein abundance** — RNA expression in TPM, estimated protein abundance where HPA data permits
 - **Predicted presentation** — MHCflurry presentation percentile, NetMHCpan binding affinity
@@ -50,7 +50,7 @@ pip install tsarina[all]
 
 Proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction means immune responses against them should not damage normal somatic tissues. Thymus expression is expected (AIRE-mediated central tolerance) and excluded from restriction checks.
 
-**358 genes** from 5 source databases, systematically filtered using Human Protein Atlas v23 tissue expression data to **258 expressed CTAs** with predominantly reproductive-restricted expression.
+A **382-gene curated universe** — the union of 5 source databases plus tsarina-added paralog copies and placental onco-germline antigens — systematically filtered using Human Protein Atlas v23 tissue expression data to **272 expressed CTAs** with predominantly reproductive-restricted expression.
 
 ```python
 from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence
@@ -65,11 +65,11 @@ df = CTA_evidence()          # full evidence table with HPA columns
 | [CTexploreR/CTdata](https://www.bioconductor.org/packages/release/bioc/html/CTexploreR.html) | 62 new | [Loriot et al. 2025](https://doi.org/10.1371/journal.pgen.1011734), *PLOS Genetics* |
 | Protein-level CT genes | 89 new | [da Silva et al. 2017](https://doi.org/10.18632/oncotarget.21715), *Oncotarget* |
 | EWSR1-FLI1 CT gene binding sites | 12 | [Gallegos et al. 2019](https://doi.org/10.1128/MCB.00138-19), *Mol Cell Biol* |
-| Meiosis, piRNA, spermatogenesis genes | 28 | Multiple sources (see [docs](docs/curation.md)) |
+| Meiosis, piRNA, spermatogenesis genes | 28 | Multiple sources (see [curation docs](curation.md)) |
 
 #### CTA curation pipeline
 
-**Step 1: Collect.** Take the union of protein-coding CT genes across all 5 source databases → **358 genes**. Duplicates are merged; non-protein-coding genes (e.g., lncRNAs) are excluded.
+**Step 1: Collect.** Take the union of protein-coding CT genes across all 5 source databases, then add tsarina's paralog copies and placental onco-germline antigens → a **382-gene universe**. Duplicates are merged; non-protein-coding genes (e.g., lncRNAs) are excluded.
 
 **Step 2: Annotate for tissue restriction.** The goal is to answer: "is this gene's expression restricted to reproductive tissues?" We use two independent data modalities from Human Protein Atlas v23:
 
@@ -89,12 +89,12 @@ Thymus is excluded from all restriction checks because AIRE drives ectopic expre
    | Enhanced + reproductive only | >= 80% |
    | Supported + reproductive only | >= 90% |
    | Approved + reproductive only | >= 95% |
-   | Uncertain or no protein data | >= 98% |
+   | Uncertain or no protein data | >= 97% |
 
-Result: **258 of 358 genes** pass the filter as expressed CTAs; **279** total
-genes pass filters when the never-expressed low-evidence candidates are included.
+Result: **272 expressed CTAs** pass the filter; **297** genes pass filters in
+total when the never-expressed low-evidence candidates are included.
 
-See [full curation documentation](docs/curation.md) for the deflated fraction formula, never-expressed flag, and figures.
+See [full curation documentation](curation.md) for the deflated fraction formula, never-expressed flag, and figures.
 
 ### Viral (oncogenic virus proteins)
 
@@ -148,7 +148,7 @@ df = mutant_peptides()  # all mutation-spanning 8-11mer peptides
 
 ## Positive and negative peptide sets
 
-Perseus constructs both **positive sets** (cancer-specific peptides from the three target categories) and **negative sets** (peptides observed on normal non-reproductive, non-thymic tissues) using the same IEDB/CEDAR scanning infrastructure with consistent tissue classification.
+tsarina constructs both **positive sets** (cancer-specific peptides from the three target categories) and **negative sets** (peptides observed on normal non-reproductive, non-thymic tissues) using the same IEDB/CEDAR scanning infrastructure with consistent tissue classification.
 
 ### Tissue source classification
 
@@ -415,7 +415,7 @@ scores = score_presentation(
 
 ## Target naming convention
 
-Perseus uses a unified naming scheme across all target categories:
+tsarina uses a unified naming scheme across all target categories:
 
 | Category | `source` column | `source_detail` column | Example |
 |---|---|---|---|
