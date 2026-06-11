@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .tissues import PERMISSIVE_REPRODUCTIVE_TISSUES
+from .tissues import HPA_EXPRESSION_FLOOR_NTPM, PERMISSIVE_REPRODUCTIVE_TISSUES
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -334,6 +334,18 @@ def synthesize_restriction(row: pd.Series) -> tuple[str, str]:
         confidence = "MODERATE"
     else:
         confidence = "LOW"
+
+    # tsarina#114: cap HIGH when the only evidence is RNA below the expression
+    # floor. The scorer credits any STRICT RNA equally regardless of level, so a
+    # gene expressed at ~1-2 nTPM (never_expressed, no protein, no MS) otherwise
+    # earns HIGH from near-noise RNA -- over-stating a restriction call built on
+    # weak evidence. Genes with protein or MS evidence are untouched: an MS
+    # peptide hit means real expression despite low RNA.
+    has_ms_evidence = bool(ms_r) and ms_r not in ("NO_MS_DATA", "NO_DATA", "")
+    if confidence == "HIGH" and not protein_has_data and not has_ms_evidence:
+        rna_max = pd.to_numeric(row.get("rna_max_ntpm"), errors="coerce")
+        if pd.notna(rna_max) and rna_max < HPA_EXPRESSION_FLOOR_NTPM:
+            confidence = "MODERATE"
 
     return (tissue, confidence)
 
