@@ -11,6 +11,7 @@ from tsarina.tiers import (
     confidence_rank,
     ms_restriction_rank,
     restriction_rank,
+    synthesize_restriction,
 )
 
 
@@ -286,6 +287,29 @@ def test_assign_all_axes_matches_csv():
     assert (
         recomputed["restriction_confidence"].fillna("") == df["restriction_confidence"].fillna("")
     ).all()
+
+
+def test_confidence_capped_for_subfloor_rna_only():
+    """tsarina#114: a restriction resting only on RNA below the expression floor
+    (no protein, no MS) is capped at MODERATE — the scorer otherwise grants the
+    same STRICT credit to near-noise RNA as to robust expression."""
+    base = {
+        "protein_restriction": "NO_DATA",
+        "protein_reliability": "no data",
+        "rna_restriction": "TESTIS",
+        "rna_restriction_level": "STRICT",
+        "ms_restriction": "NO_MS_DATA",
+    }
+    # Sub-floor RNA only -> capped to MODERATE (would be HIGH without the cap).
+    assert synthesize_restriction(pd.Series({**base, "rna_max_ntpm": 1.6})) == (
+        "TESTIS",
+        "MODERATE",
+    )
+    # Same gene expressed above the 2.0 floor keeps HIGH.
+    assert synthesize_restriction(pd.Series({**base, "rna_max_ntpm": 5.0})) == ("TESTIS", "HIGH")
+    # MS evidence means real expression despite low RNA -> not capped.
+    ms_row = {**base, "rna_max_ntpm": 1.6, "ms_restriction": "CANCER_ONLY"}
+    assert synthesize_restriction(pd.Series(ms_row))[1] == "HIGH"
 
 
 # ── MS safety aggregation (unit tests with mock data) ────────────────────
