@@ -16,8 +16,13 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+import pandas as pd
+
 from .loader import cta_dataframe, passes_filters_mask
 from .tissues import MANUALLY_EXPRESSED_CTA
+
+#: ``protein_reliability`` spellings that mean "no HPA IHC data for this gene".
+_NO_PROTEIN_RELIABILITY = {"no data", "nan", ""}
 
 
 def _normalize_alias(name: object) -> str:
@@ -207,6 +212,46 @@ def CTA_excluded_gene_names() -> set[str]:
 def CTA_excluded_gene_ids() -> set[str]:
     """CTA Ensembl gene IDs that FAIL the reproductive-tissue filter."""
     return CTA_unfiltered_gene_ids() - CTA_filtered_gene_ids()
+
+
+def _relaxed_reproductive_mask(df: pd.DataFrame, min_deflated_frac: float) -> pd.Series:
+    """Mask for the opt-in relaxed reproductive tier (tsarina#119).
+
+    RNA-only genes (no HPA protein data, so the filter failure is purely the RNA
+    fraction rather than somatic protein detection) that FAIL the default gate
+    but whose deflated reproductive fraction is still >= *min_deflated_frac*.
+    """
+    failed = ~passes_filters_mask(df)
+    rna_only = (
+        df["protein_reliability"].astype(str).str.strip().str.lower().isin(_NO_PROTEIN_RELIABILITY)
+    )
+    frac = pd.to_numeric(df["rna_deflated_reproductive_frac"], errors="coerce")
+    return failed & rna_only & (frac >= float(min_deflated_frac))
+
+
+def CTA_relaxed_reproductive_gene_names(min_deflated_frac: float = 0.80) -> set[str]:
+    """Opt-in less-stringent tier: reproductive-dominant CTAs with somatic leak.
+
+    RNA-only candidates (no HPA protein data) that fail the **default**
+    reproductive-restriction gate but keep a dominant testis/placenta signal --
+    a deflated reproductive fraction of at least *min_deflated_frac* (default
+    0.80), with some somatic leakage. Restricting to RNA-only genes means the
+    failure is the RNA fraction, not somatic protein detection, so relaxing the
+    fraction threshold is meaningful.
+
+    Includes the placental ERV envelopes syncytin-1 (``ERVW-1``) and syncytin-2
+    (``ERVFRD-1``) -- well-known onco-placental antigens -- and ``ERVV-1``.
+    Provided for consumers willing to accept more somatic leak without loosening
+    the default sets (tsarina#119). Disjoint from ``CTA_filtered_gene_names()``.
+    """
+    df = cta_dataframe()
+    return set(df.loc[_relaxed_reproductive_mask(df, min_deflated_frac), "Symbol"])
+
+
+def CTA_relaxed_reproductive_gene_ids(min_deflated_frac: float = 0.80) -> set[str]:
+    """Ensembl gene IDs for :func:`CTA_relaxed_reproductive_gene_names`."""
+    df = cta_dataframe()
+    return set(df.loc[_relaxed_reproductive_mask(df, min_deflated_frac), "Ensembl_Gene_ID"])
 
 
 # ── Axis-based gene set functions ──────────────────────────────────────────

@@ -9,6 +9,8 @@ from tsarina import (
     CTA_gene_names,
     CTA_never_expressed_gene_names,
     CTA_placental_restricted_gene_names,
+    CTA_relaxed_reproductive_gene_ids,
+    CTA_relaxed_reproductive_gene_names,
     CTA_testis_restricted_gene_ids,
     CTA_testis_restricted_gene_names,
     CTA_unfiltered_gene_ids,
@@ -52,6 +54,38 @@ def test_filtered_and_excluded_partition_unfiltered():
 
 def test_excluded_ids_consistent():
     assert CTA_excluded_gene_ids() == CTA_unfiltered_gene_ids() - CTA_filtered_gene_ids()
+
+
+def test_relaxed_reproductive_tier_is_opt_in_and_disjoint():
+    """tsarina#119: the relaxed tier is RNA-only failing genes that remain
+    reproductive-dominant; disjoint from the default sets."""
+    relaxed = CTA_relaxed_reproductive_gene_names()  # default min_deflated_frac=0.80
+    # Opt-in: never overlaps the default expressed/filtered sets.
+    assert relaxed & CTA_filtered_gene_names() == set()
+    assert relaxed & CTA_gene_names() == set()
+    # Every member is an excluded (filter-failing) candidate.
+    assert relaxed <= CTA_excluded_gene_names()
+    # Placental ERV envelopes (syncytin-1/2) are the motivating inclusions.
+    assert {"ERVW-1", "ERVFRD-1"} <= relaxed
+    # A higher floor is a strict subset (fewer, more reproductive-dominant).
+    assert CTA_relaxed_reproductive_gene_names(0.95) <= relaxed
+    # ERVV-1 (deflated frac 0.954) is in at 0.90 but the syncytins (~0.85) are not.
+    at_90 = CTA_relaxed_reproductive_gene_names(0.90)
+    assert "ERVV-1" in at_90
+    assert "ERVW-1" not in at_90
+    # IDs accessor agrees by row.
+    assert len(CTA_relaxed_reproductive_gene_ids()) == len(relaxed)
+
+
+def test_relaxed_reproductive_excludes_somatic_protein_genes():
+    """Genes that fail on somatic *protein* (not RNA fraction) must be excluded
+    -- the tier is restricted to RNA-only genes so the relaxed RNA threshold is
+    meaningful."""
+    df = CTA_evidence()
+    relaxed = CTA_relaxed_reproductive_gene_names()
+    for sym in relaxed:
+        rel = str(df.loc[df["Symbol"] == sym, "protein_reliability"].iloc[0]).strip().lower()
+        assert rel in ("no data", "nan", ""), f"{sym} has protein data but is in relaxed tier"
 
 
 def test_evidence_row_count_matches_unfiltered():
