@@ -216,6 +216,23 @@ def build_row(spec: dict, consensus: pd.DataFrame, columns: list[str], consensus
     sub = consensus[consensus["Gene"] == ensg]
     if sub.empty:
         raise SystemExit(f"{spec['Symbol']} ({ensg}) not found in consensus TSV")
+
+    # Refuse degenerate fragment gene models (tsarina#108). A candidate whose
+    # annotated protein is a stub -- e.g. GAGE12B's 7-aa ENSG00000236737, the
+    # shared GAGE C-terminus -- is a mis-annotation, not an antigen, and its HPA
+    # gene-level nTPM is quantification noise. Unlike a reproductive-filter
+    # failure (recorded as passes_filters=False below), this is never a valid
+    # candidate, so refuse it at addition time where pyensembl data is available.
+    from tsarina.qc import MIN_CTA_PROTEIN_AA, gene_max_protein_length
+
+    protein_length = gene_max_protein_length(ensg)
+    if protein_length is None or protein_length < MIN_CTA_PROTEIN_AA:
+        raise SystemExit(
+            f"{spec['Symbol']} ({ensg}): longest protein is "
+            f"{protein_length} aa (< {MIN_CTA_PROTEIN_AA} aa floor); "
+            "refusing to add a fragment gene model."
+        )
+
     ntpm = {t.strip().lower(): float(v) for t, v in zip(sub["Tissue"], sub["nTPM"])}
 
     core = CORE_REPRODUCTIVE_TISSUES
