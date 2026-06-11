@@ -98,12 +98,71 @@ GENE_SPECS = [
             ("CT47A8", "ENSG00000230347", "ENST00000457977", "CT47A1"),
             ("CT47A9", "ENSG00000226600", "ENST00000417256", "CT47A1"),
             ("CT47A10", "ENSG00000224089", "ENST00000430448", "CT47A1"),
-            ("MAGEA2B", "ENSG00000268606", "ENST00000684311", "MAGEA2"),
-            ("CT45A5", "ENSG00000269586", "ENST00000682849", "CT45A1"),
+            # Corrected IDs (tsarina#111): the previous entries carried the
+            # siblings' gene IDs (ENSG…268606=MAGEA2, …269586=CT45A10), which were
+            # already in the table, so they were silently skipped and the real
+            # paralogs never got added. MAGEA2B/SSX4B encode a protein identical to
+            # MAGEA2/SSX4 (distinct X loci ~tens of kb away — the NY-ESO-1 CTAG1A/B
+            # and XAGE1A/B situation), so the gene must be in the universe or its
+            # identical peptides leak into the non-CTA negative set. CT45A5 is a
+            # distinct protein.
+            ("MAGEA2B", "ENSG00000183305", "ENST00000331220", "MAGEA2"),
+            ("CT45A5", "ENSG00000228836", "ENST00000698999", "CT45A1"),
             ("CT45A8", "ENSG00000278085", "ENST00000611660", "CT45A1"),
             ("CT45A9", "ENSG00000270946", "ENST00000620704", "CT45A1"),
-            ("SSX4B", "ENSG00000268009", "ENST00000595689", "SSX4"),
+            ("SSX4B", "ENSG00000269791", "ENST00000595235", "SSX4"),
             ("GAGE12D", "ENSG00000227488", "ENST00000405679", "GAGE12C"),
+        ]
+    ),
+    # ── tsarina#111: placental-antigen families absent from the source DBs.
+    # hCG-beta (CGB), pregnancy-specific glycoproteins (PSG), placental
+    # syncytin/ERV envelopes, placental galectins (PP13/PP14) and placental
+    # lactogen / GH are placenta-restricted on HPA bulk and are documented
+    # onco-placental tumor antigens -- the placental analogue of the testis-
+    # restricted cancer-germline antigens.  Added to the candidate universe and
+    # left to the reproductive-restriction filter (no manual exclusion): the
+    # somatically-broad members (GH2, PSG4/7, CGB1/3/5/7, ERVW-1/FRD-1/V-1) land
+    # in the universe as *excluded* candidates; the placenta-dominant ones (PSG2,
+    # PSG6, LGALS13/14, ERVV-2, ERVH48-1, CSH1, CGB8) pass the reproductive filter
+    # into the expressed set, where any residual somatic/vital leakage (e.g. CSH1
+    # lung ~10 nTPM) is caught downstream by the vital-tissue panel filter rather
+    # than by hand here.  CGB8 also dropped from NON_CTA_EXCLUDED.  Tagged
+    # ``placental_antigen``.  All are full-length protein-coding (139-538 aa; no
+    # fragment models -- cf. GAGE12B, tsarina#108).
+    *(
+        {
+            "Symbol": sym,
+            "Ensembl_Gene_ID": ensg,
+            "Canonical_Transcript_ID": ct,
+            "source_databases": "placental_antigen",
+            "Aliases": None,
+            "Full_Name": None,
+            # "cancer-germline antigen" is the accurate umbrella covering both the
+            # testis-restricted CT antigens and these placenta-restricted (onco-
+            # placental) members; the per-row ``restriction`` axis (TESTIS /
+            # PLACENTAL / REPRODUCTIVE) carries the subtype.
+            "Function": "cancer-germline antigen",
+        }
+        for sym, ensg, ct in [
+            ("CGB1", "ENSG00000267631", "ENST00000301407"),
+            ("CGB2", "ENSG00000104818", "ENST00000359342"),
+            ("CGB3", "ENSG00000104827", "ENST00000357383"),
+            ("CGB5", "ENSG00000189052", "ENST00000301408"),
+            ("CGB7", "ENSG00000196337", "ENST00000684222"),
+            ("CGB8", "ENSG00000213030", "ENST00000448456"),
+            ("PSG2", "ENSG00000242221", "ENST00000406487"),
+            ("PSG4", "ENSG00000243137", "ENST00000405312"),
+            ("PSG6", "ENSG00000170848", "ENST00000292125"),
+            ("PSG7", "ENSG00000221878", "ENST00000446844"),
+            ("ERVW-1", "ENSG00000242950", "ENST00000603053"),  # syncytin-1
+            ("ERVFRD-1", "ENSG00000244476", "ENST00000472091"),  # syncytin-2
+            ("ERVH48-1", "ENSG00000233056", "ENST00000447535"),  # suppressyn
+            ("ERVV-1", "ENSG00000269526", "ENST00000602168"),
+            ("ERVV-2", "ENSG00000268964", "ENST00000601417"),
+            ("LGALS13", "ENSG00000105198", "ENST00000221797"),  # PP13
+            ("LGALS14", "ENSG00000006659", "ENST00000360675"),  # PP14
+            ("CSH1", "ENSG00000136488", "ENST00000329882"),  # placental lactogen
+            ("GH2", "ENSG00000136487", "ENST00000332800"),  # placental GH
         ]
     ),
 ]
@@ -189,11 +248,12 @@ def build_row(spec: dict, consensus: pd.DataFrame, columns: list[str], consensus
         seed.iloc[0], HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS["Missing"]
     )
     out["never_expressed"] = never_expressed_rule(seed.iloc[0], HPA_EXPRESSION_FLOOR_NTPM)
-    if not out["passes_filters"]:
-        raise SystemExit(
-            f"{spec['Symbol']} does not pass the filter "
-            f"(deflated frac {out['rna_deflated_reproductive_frac']}); refusing to add."
-        )
+    # A candidate that fails the reproductive-restriction filter is recorded with
+    # passes_filters=False (it lands in the universe as an *excluded* candidate),
+    # not refused -- so a curated candidate set "filters down" by the data rather
+    # than by hand. Held-out genes are simply omitted from GENE_SPECS. (Whole-gene
+    # identical-protein paralogs are still worth adding even when never_expressed,
+    # to keep their peptides out of the non-CTA negative set.)
     return {c: out.get(c) for c in columns}
 
 

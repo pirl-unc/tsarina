@@ -242,14 +242,17 @@ def test_csv_has_no_runtime_ms_count_columns():
 
 
 def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 263
+    assert len(CTA_gene_names()) == 272
 
 
-def test_filtered_count_unchanged():
-    # 286 = 285 + GAGE10 (full-length GAGE paralog added to the universe; passes
-    # the reproductive-restriction filter). GAGE10 is never_expressed=True
-    # (testis 1.6 nTPM < 2.0 floor), so it is absent from CTA_gene_names above.
-    assert len(CTA_filtered_gene_names()) == 286
+def test_filtered_count():
+    # 297 = 286 + 11 reproductive-restriction-filter passers from the tsarina#111
+    # batch (placental-antigen families plus the corrected MAGEA2B/SSX4B
+    # identical-protein paralogs, which previously carried their siblings' gene
+    # IDs and were silently dropped). Somatically-leaky members (most CGB, PSG4/7,
+    # GH2, and the distinct-protein CT45A5) land in the universe as excluded
+    # candidates, not counted here.
+    assert len(CTA_filtered_gene_names()) == 297
 
 
 def test_gage10_added_gage12b_excluded():

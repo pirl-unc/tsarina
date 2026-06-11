@@ -15,7 +15,9 @@ echo "==> Running tests..."
 
 echo ""
 echo "==> Cleaning old builds..."
-rm -f dist/*
+# Build hermetically: a stale egg-info/SOURCES.txt or build/ tree can re-leak
+# untracked files (e.g. the gitignored data/*.regen.csv sidecar) into the sdist.
+rm -rf dist/* build/ ./*.egg-info
 
 echo ""
 echo "==> Building distribution..."

@@ -577,7 +577,7 @@ p.non_cta.columns       # Symbol, Ensembl_Gene_ID
 
 | Partition | Description | Typical count |
 |---|---|---|
-| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~263 |
+| `p.cta` | Expressed, reproductive-restricted CTAs. Source of CTA pMHCs. | ~272 |
 | `p.cta_never_expressed` | CTAs from databases but no meaningful HPA expression (max nTPM < 2, no protein data). Pass filter on a technicality (pseudocount). Separate from analysis. | ~20 |
 | `p.non_cta` | All other protein-coding genes, **including** CTAs that fail the reproductive-tissue filter (somatic expression). Clean non-CTA comparison set. | ~19,800 |
 

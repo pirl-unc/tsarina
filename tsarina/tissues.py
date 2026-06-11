@@ -107,7 +107,11 @@ NON_CTA_EXCLUDED_GENE_IDS: frozenset[str] = frozenset(
         "ENSG00000146047",  # H2BC1  -- core histone H2B
         "ENSG00000276410",  # H2BC3  -- core histone H2B
         "ENSG00000124610",  # H1-1   -- somatic linker histone H1.1 (HIST1H1A)
-        "ENSG00000213030",  # CGB8   -- chorionic gonadotropin beta (placental)
+        # CGB8 (ENSG00000213030) was here, but hCG-beta is a placenta-restricted
+        # onco-placental antigen (HPA: placenta 18 nTPM, ~0 elsewhere), not a
+        # ubiquitous housekeeping gene -- it now enters the candidate universe
+        # with the rest of the CGB family and is judged by the reproductive-
+        # restriction filter rather than excluded by hand (tsarina#111).
         "ENSG00000198033",  # TUBA3C -- alpha-tubulin (conserved/essential)
         "ENSG00000152086",  # TUBA3E -- alpha-tubulin
     }
