@@ -1266,11 +1266,15 @@ def test_output_attrs_include_summary_and_order_metadata():
 
 
 def test_identical_selected_pmhc_ctas_are_grouped(monkeypatch):
+    # PARA1/PARA2 are synthetic paralogs that are NOT in the proteoform registry,
+    # so this exercises the automatic identical-selected-pMHC grouping in
+    # isolation from the explicit registry grouping (which would otherwise pull in
+    # byte-identical siblings — see test_ssx4_explicit_group_panel...).
     peptides = pd.DataFrame(
         {
             "peptide": ["SHAREDPEP", "SHAREDPEP", "PRAMEPEP1"],
             "length": [9, 9, 9],
-            "gene_name": ["SPANXD", "SPANXA1", "PRAME"],
+            "gene_name": ["PARA1", "PARA2", "PRAME"],
             "gene_id": ["E10", "E11", "E2"],
         }
     )
@@ -1281,14 +1285,14 @@ def test_identical_selected_pmhc_ctas_are_grouped(monkeypatch):
     )
     monkeypatch.setattr(
         "tsarina.gene_sets.CTA_gene_names",
-        lambda: {"SPANXD", "SPANXA1", "PRAME"},
+        lambda: {"PARA1", "PARA2", "PRAME"},
         raising=True,
     )
     monkeypatch.setattr(
         "tsarina.loader.cta_dataframe",
         lambda: pd.DataFrame(
             {
-                "Symbol": ["SPANXD", "SPANXA1", "PRAME"],
+                "Symbol": ["PARA1", "PARA2", "PRAME"],
                 "ms_cta_exclusive_cancer_peptide_count": [3, 2, 1],
             }
         ),
@@ -1296,40 +1300,40 @@ def test_identical_selected_pmhc_ctas_are_grouped(monkeypatch):
     )
 
     long = spanning_pmhc_set(
-        ctas=["SPANXD", "SPANXA1", "PRAME"],
+        ctas=["PARA1", "PARA2", "PRAME"],
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
         peptides_per_cell=1,
         output_format="long",
     )
 
-    assert long.attrs["cta_order"] == ["SPANXD/SPANXA1", "PRAME"]
+    assert long.attrs["cta_order"] == ["PARA1/PARA2", "PRAME"]
     assert long.attrs["cta_groups"] == [
-        {"cta": "SPANXD/SPANXA1", "members": ["SPANXD", "SPANXA1"]},
+        {"cta": "PARA1/PARA2", "members": ["PARA1", "PARA2"]},
         {"cta": "PRAME", "members": ["PRAME"]},
     ]
-    grouped = long[long["cta"] == "SPANXD/SPANXA1"].iloc[0]
-    assert grouped["cta_members"] == "SPANXD;SPANXA1"
+    grouped = long[long["cta"] == "PARA1/PARA2"].iloc[0]
+    assert grouped["cta_members"] == "PARA1;PARA2"
     assert grouped["peptide"] == "SHAREDPEP"
     assert long.attrs["panel_summary"]["grouped_cta_member_count"] == 1
 
 
 def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
-    # CT45A1/CT45A2 are near-identical paralogs that are NOT a predefined
-    # explicit group, so they exercise the automatic identical-peptide-set
-    # grouping path.  (XAGE1A/XAGE1B are now an explicit group — covered by
-    # test_xage1_aliases_resolve_to_grouped_label.)
+    # PARB1/PARB2 are synthetic near-identical paralogs that are NOT in the
+    # proteoform registry, so they exercise the automatic identical-peptide-set
+    # grouping path in isolation. (Registry families like CT47A or XAGE1A/XAGE1B
+    # are collapsed by the explicit path — covered elsewhere.)
     peptides = pd.DataFrame(
         {
             "peptide": [
-                "CT45PEP1",
-                "CT45PEP2",
-                "CT45PEP1",
-                "CT45PEP2",
+                "PARBPEP1",
+                "PARBPEP2",
+                "PARBPEP1",
+                "PARBPEP2",
                 "PAGE2PEP1",
             ],
             "length": [9, 9, 9, 9, 9],
-            "gene_name": ["CT45A1", "CT45A1", "CT45A2", "CT45A2", "PAGE2"],
+            "gene_name": ["PARB1", "PARB1", "PARB2", "PARB2", "PAGE2"],
             "gene_id": ["E10", "E10", "E11", "E11", "E12"],
         }
     )
@@ -1340,14 +1344,14 @@ def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
     )
     monkeypatch.setattr(
         "tsarina.gene_sets.CTA_gene_names",
-        lambda: {"CT45A1", "CT45A2", "PAGE2"},
+        lambda: {"PARB1", "PARB2", "PAGE2"},
         raising=True,
     )
     monkeypatch.setattr(
         "tsarina.loader.cta_dataframe",
         lambda: pd.DataFrame(
             {
-                "Symbol": ["CT45A1", "CT45A2", "PAGE2"],
+                "Symbol": ["PARB1", "PARB2", "PAGE2"],
                 "ms_cta_exclusive_cancer_peptide_count": [3, 2, 1],
             }
         ),
@@ -1356,7 +1360,7 @@ def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
     messages: list[str] = []
 
     long = spanning_pmhc_set(
-        ctas=["CT45A1", "CT45A2", "PAGE2"],
+        ctas=["PARB1", "PARB2", "PAGE2"],
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
         peptides_per_cell=1,
@@ -1364,15 +1368,15 @@ def test_identical_peptide_set_ctas_are_grouped_by_combined_name(monkeypatch):
         on_progress=messages.append,
     )
 
-    assert long.attrs["cta_order"] == ["CT45A1/CT45A2", "PAGE2"]
+    assert long.attrs["cta_order"] == ["PARB1/PARB2", "PAGE2"]
     assert long.attrs["cta_groups"] == [
-        {"cta": "CT45A1/CT45A2", "members": ["CT45A1", "CT45A2"]},
+        {"cta": "PARB1/PARB2", "members": ["PARB1", "PARB2"]},
         {"cta": "PAGE2", "members": ["PAGE2"]},
     ]
-    grouped = long[long["cta"] == "CT45A1/CT45A2"].iloc[0]
-    assert grouped["cta_members"] == "CT45A1;CT45A2"
-    assert grouped["peptide"] == "CT45PEP1"
-    assert any("CT45A1/CT45A2" in msg for msg in messages)
+    grouped = long[long["cta"] == "PARB1/PARB2"].iloc[0]
+    assert grouped["cta_members"] == "PARB1;PARB2"
+    assert grouped["peptide"] == "PARBPEP1"
+    assert any("PARB1/PARB2" in msg for msg in messages)
 
 
 def test_xage1_explicit_group_panel_preserves_member_genes(monkeypatch):
@@ -1467,6 +1471,37 @@ def test_ssx4_explicit_group_panel_preserves_member_genes(monkeypatch):
     assert group["members"] == ["SSX4", "SSX4B"]
     grouped = long[long["cta"] == "SSX4/SSX4B"].iloc[0]
     assert grouped["cta_members"] == "SSX4;SSX4B"
+
+
+def test_proteoform_registry_groups_loaded_beyond_the_anchors():
+    # _CTA_GROUPS is derived from the cancerdata-synced registry mirror, not the
+    # four hand-maintained anchors, so the larger identical-protein families are
+    # present and collapse too.
+    from tsarina.spanning import _CTA_GROUPS, _GROUP_ALIAS_TO_LABEL, _compact_cta_name
+
+    assert len(_CTA_GROUPS) >= 12  # 15 in the shipped registry; never fewer
+    # The 12-member CT47A family is one group.
+    ct47 = [label for label in _CTA_GROUPS if label.startswith("CT47A")]
+    assert len(ct47) == 1
+    assert len(_CTA_GROUPS[ct47[0]]) == 12
+    # A member resolves to its group label, and the anchors still resolve.
+    assert _GROUP_ALIAS_TO_LABEL[_compact_cta_name("CT47A5")] == ct47[0]
+    assert _GROUP_ALIAS_TO_LABEL[_compact_cta_name("NY-ESO-1")] == "CTAG1A/CTAG1B"
+    assert _GROUP_ALIAS_TO_LABEL[_compact_cta_name("SSX2B")] == "SSX2/SSX2B"
+
+
+def test_proteoform_groups_mirror_in_sync_with_cancerdata():
+    # The mirror is generated by scripts/sync_proteoform_groups.py; if cancerdata
+    # is importable, assert it hasn't drifted from the source of truth.
+    cancerdata = pytest.importorskip("cancerdata")
+    from tsarina.spanning import _load_proteoform_groups
+
+    mirror = {label: tuple(sorted(members)) for label, members in _load_proteoform_groups().items()}
+    source = {
+        label: tuple(sorted(members))
+        for label, members in cancerdata.proteoform_symbol_map().items()
+    }
+    assert mirror == source, "run scripts/sync_proteoform_groups.py to refresh the mirror"
 
 
 def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):
