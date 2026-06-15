@@ -19,9 +19,12 @@ that produce the rest of the table, and ``passes_filters`` / ``never_expressed``
 are recomputed for every row from the documented, parameterized rules.
 
 Only genes with **no HPA IHC protein data** can be added here (the row sets the
-protein columns to "no data").  Genes with protein evidence, or that fail the
-reproductive-restriction filter, must be evaluated separately — this script
-asserts each added gene actually passes before writing.
+protein columns to "no data"); genes with protein evidence must be evaluated
+separately.  Genes that fail the reproductive-restriction filter are **not**
+refused — they are recorded with ``passes_filters=False`` and land in the
+universe as *excluded* candidates, so a curated candidate set filters down by
+the data rather than by hand.  Only fragment gene models (tsarina#108) and genes
+absent from the consensus TSV are hard-refused before writing.
 
 Genes already present (by unversioned Ensembl gene ID) are skipped, so the
 script is idempotent.
@@ -55,8 +58,10 @@ from tsarina.tissues import (  # noqa: E402
 
 CSV_PATH = REPO_ROOT / "tsarina" / "data" / "cancer-testis-antigens.csv"
 
-#: Genes to add.  Each must be protein-coding, have no HPA IHC protein data,
-#: and pass the reproductive-restriction filter (asserted before writing).
+#: Genes to add.  Each must be protein-coding and have no HPA IHC protein data.
+#: The reproductive-restriction filter is recomputed per row at write time;
+#: genes that fail it are kept as excluded candidates (``passes_filters=False``),
+#: not refused.
 GENE_SPECS = [
     {
         # MAGEB6 / CT3.4 — dual-corroborated (CTdatabase + CTexploreR), tsarina#79.
