@@ -165,6 +165,36 @@ GENE_SPECS = [
             ("GH2", "ENSG00000136487", "ENST00000332800"),  # placental GH
         ]
     ),
+    # ── tsarina#124: cancer-placenta-antigen candidates surfaced by the
+    # pirlygenes placental-secretome work (HPA *single-cell* trophoblast scan:
+    # placenta/trophoblast-high, somatic-silent at the cell-type level, absent
+    # from the source DBs).  LGALS16 is the missing third placental galectin
+    # (LGALS13/14 already curated -- a clean gap).  The rest are less-characterized
+    # germline/placental candidates; added to the universe and left to the
+    # bulk-consensus reproductive-restriction filter, which may reclassify some as
+    # SOMATIC-excluded where single-cell silence disagrees with bulk consensus
+    # (e.g. KISS1R hypothalamus, ZFP42/REX1 pluripotent cells) -- exactly the
+    # cross-check the established filter exists to provide.  All protein-coding,
+    # full-length canonical models (142-991 aa).  Tagged ``placental_antigen``
+    # (LGALS16) / ``celltype_germline_candidate`` (the rest).
+    *(
+        {
+            "Symbol": sym,
+            "Ensembl_Gene_ID": ensg,
+            "Canonical_Transcript_ID": ct,
+            "source_databases": src,
+            "Aliases": None,
+            "Full_Name": None,
+            "Function": "cancer-germline antigen",
+        }
+        for sym, ensg, ct, src in [
+            ("LGALS16", "ENSG00000249861", "ENST00000392051", "placental_antigen"),
+            ("NLRP9", "ENSG00000185792", "ENST00000332836", "celltype_germline_candidate"),
+            ("ZFP42", "ENSG00000179059", "ENST00000509524", "celltype_germline_candidate"),
+            ("KISS1R", "ENSG00000116014", "ENST00000234371", "celltype_germline_candidate"),
+            ("CALHM4", "ENSG00000164451", "ENST00000368596", "celltype_germline_candidate"),
+        ]
+    ),
 ]
 
 _NO_PROTEIN = {"no data", "nan", ""}
