@@ -19,11 +19,11 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 275
+    assert len(CTA_gene_names()) == 274
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 275
+    assert len(CTA_gene_ids()) == 274
 
 
 def test_expressed_is_strict_subset_of_filtered():

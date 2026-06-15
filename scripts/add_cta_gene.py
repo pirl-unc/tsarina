@@ -47,7 +47,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cta_sources import rna_tissue_consensus_path  # noqa: E402
+from cta_sources import normal_tissue_path, rna_tissue_consensus_path  # noqa: E402
 
 from tsarina import tiers  # noqa: E402
 from tsarina.tissues import (  # noqa: E402
@@ -57,6 +57,9 @@ from tsarina.tissues import (  # noqa: E402
 )
 
 CSV_PATH = REPO_ROOT / "tsarina" / "data" / "cancer-testis-antigens.csv"
+
+#: pyensembl release used for gene/transcript validation (matches tsarina.qc).
+ENSEMBL_RELEASE = 112
 
 #: Genes to add.  Each must be protein-coding and have no HPA IHC protein data.
 #: The reproductive-restriction filter is recomputed per row at write time;
@@ -182,6 +185,14 @@ GENE_SPECS = [
     # cross-check the established filter exists to provide.  All protein-coding,
     # full-length canonical models (142-991 aa).  Tagged ``placental_antigen``
     # (LGALS16) / ``celltype_germline_candidate`` (the rest).
+    #
+    # NLRP9 was a candidate here but is *omitted*: HPA IHC reliably detects its
+    # protein across 27 somatic tissues (Approved reliability), so it violates the
+    # no-IHC-protein precondition and cannot be honestly added through this
+    # RNA-only path -- it needs separate IHC-aware evaluation (the warn-check in
+    # build_row now flags exactly this case).  KISS1R likewise carries reliable
+    # somatic IHC; it is kept only because bulk RNA independently excludes it
+    # (SOMATIC), so it lands as an excluded candidate regardless of the IHC.
     *(
         {
             "Symbol": sym,
@@ -194,7 +205,6 @@ GENE_SPECS = [
         }
         for sym, ensg, ct, src in [
             ("LGALS16", "ENSG00000249861", "ENST00000392051", "placental_antigen"),
-            ("NLRP9", "ENSG00000185792", "ENST00000332836", "celltype_germline_candidate"),
             ("ZFP42", "ENSG00000179059", "ENST00000509524", "celltype_germline_candidate"),
             ("KISS1R", "ENSG00000116014", "ENST00000234371", "celltype_germline_candidate"),
             ("CALHM4", "ENSG00000164451", "ENST00000368596", "celltype_germline_candidate"),
@@ -246,6 +256,29 @@ def _fraction(ntpm: dict[str, float], allowed: frozenset[str], deflate: bool) ->
     return sum(v for t, v in vals.items() if t in allowed) / total
 
 
+#: HPA IHC reliability tiers that count as usable protein evidence (everything
+#: except "Uncertain").  Detected protein at one of these tiers means the gene
+#: has real IHC data and must be evaluated separately from this RNA-only path.
+_RELIABLE_IHC = frozenset({"Enhanced", "Supported", "Approved"})
+_DETECTED_IHC_LEVELS = frozenset({"High", "Medium", "Low"})
+
+
+def reliable_ihc_tissues(ensg: str, ihc: pd.DataFrame) -> list[str]:
+    """Tissues where HPA IHC *reliably* detects protein for ``ensg``.
+
+    Detected (High/Medium/Low) at Enhanced/Supported/Approved reliability.  A
+    non-empty result means the gene has real protein evidence, so adding it via
+    this RNA-only path (which blanks the protein columns to "no data") is unsound
+    -- the caller warns rather than silently mislabeling it.
+    """
+    sub = ihc[
+        (ihc["Gene"] == ensg.split(".")[0])
+        & ihc["Reliability"].isin(_RELIABLE_IHC)
+        & ihc["Level"].isin(_DETECTED_IHC_LEVELS)
+    ]
+    return sorted(sub["Tissue"].unique())
+
+
 def build_row(spec: dict, consensus: pd.DataFrame, columns: list[str], consensus_path: Path) -> dict:
     ensg = spec["Ensembl_Gene_ID"]
     sub = consensus[consensus["Gene"] == ensg]
@@ -258,15 +291,32 @@ def build_row(spec: dict, consensus: pd.DataFrame, columns: list[str], consensus
     # gene-level nTPM is quantification noise. Unlike a reproductive-filter
     # failure (recorded as passes_filters=False below), this is never a valid
     # candidate, so refuse it at addition time where pyensembl data is available.
+    from pyensembl import EnsemblRelease
+
     from tsarina.qc import MIN_CTA_PROTEIN_AA, gene_max_protein_length
 
-    protein_length = gene_max_protein_length(ensg)
+    ensembl = EnsemblRelease(ENSEMBL_RELEASE)
+    protein_length = gene_max_protein_length(ensg, ensembl=ensembl)
     if protein_length is None or protein_length < MIN_CTA_PROTEIN_AA:
         raise SystemExit(
             f"{spec['Symbol']} ({ensg}): longest protein is "
             f"{protein_length} aa (< {MIN_CTA_PROTEIN_AA} aa floor); "
             "refusing to add a fragment gene model."
         )
+
+    # Validate the curated canonical transcript actually belongs to the gene
+    # (a typo'd ENST would otherwise ship silently; tsarina#124 review).
+    ct = str(spec.get("Canonical_Transcript_ID") or "").split(".")[0]
+    if ct:
+        try:
+            valid_transcripts = {t.transcript_id for t in ensembl.gene_by_id(ensg.split(".")[0]).transcripts}
+        except Exception as exc:  # noqa: BLE001 -- surface lookup failure as a refusal
+            raise SystemExit(f"{spec['Symbol']} ({ensg}): gene not found in pyensembl: {exc}") from exc
+        if ct not in valid_transcripts:
+            raise SystemExit(
+                f"{spec['Symbol']} ({ensg}): canonical transcript {ct} is not a "
+                "transcript of this gene; check Canonical_Transcript_ID."
+            )
 
     ntpm = {t.strip().lower(): float(v) for t, v in zip(sub["Tissue"], sub["nTPM"])}
 
@@ -335,6 +385,7 @@ def main() -> None:
         raise SystemExit("Rule reproduction failed; aborting.")
 
     consensus = pd.read_csv(consensus_path, sep="\t")
+    ihc = pd.read_csv(normal_tissue_path(), sep="\t")
     present = set(df["Ensembl_Gene_ID"])
     new_rows = []
     for spec in GENE_SPECS:
@@ -343,6 +394,21 @@ def main() -> None:
             continue
         row = build_row(spec, consensus, columns, consensus_path)
         new_rows.append(row)
+        # Warn (don't refuse) when a gene actually has reliable HPA IHC protein:
+        # this RNA-only path blanks the protein columns to "no data", so the
+        # reproductive call rests on RNA alone.  Real somatic protein (vs. NLRP-
+        # style antibody cross-reactivity, cf. _CROSS_REACTIVE_IHC) would make the
+        # gene a false positive -- the curator must check before trusting it.
+        ihc_tissues = reliable_ihc_tissues(spec["Ensembl_Gene_ID"], ihc)
+        if ihc_tissues:
+            shown = ", ".join(ihc_tissues[:5]) + (", ..." if len(ihc_tissues) > 5 else "")
+            print(
+                f"!! WARNING {spec['Symbol']}: HPA IHC reliably detects protein in "
+                f"{len(ihc_tissues)} tissue(s) ({shown}); this RNA-only path sets "
+                "protein columns to 'no data'. Confirm cross-reactivity vs. real "
+                "somatic protein before trusting the reproductive call.",
+                file=sys.stderr,
+            )
         print(
             f"add {spec['Symbol']}: passes_filters={row['passes_filters']} "
             f"never_expressed={row['never_expressed']} restriction={row['restriction']} "
