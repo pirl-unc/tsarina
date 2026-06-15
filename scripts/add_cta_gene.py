@@ -186,13 +186,20 @@ GENE_SPECS = [
     # full-length canonical models (142-991 aa).  Tagged ``placental_antigen``
     # (LGALS16) / ``celltype_germline_candidate`` (the rest).
     #
-    # NLRP9 was a candidate here but is *omitted*: HPA IHC reliably detects its
-    # protein across 27 somatic tissues (Approved reliability), so it violates the
-    # no-IHC-protein precondition and cannot be honestly added through this
-    # RNA-only path -- it needs separate IHC-aware evaluation (the warn-check in
-    # build_row now flags exactly this case).  KISS1R likewise carries reliable
-    # somatic IHC; it is kept only because bulk RNA independently excludes it
-    # (SOMATIC), so it lands as an excluded candidate regardless of the IHC.
+    # NLRP9 was held out of the #125 merge pending an IHC-aware evaluation and is
+    # now re-added (tsarina#128).  Its somatic HPA IHC (detected across 27 tissues)
+    # is artifactual, not real protein: it rests on a single low-tier "Approved"
+    # polyclonal (HPA042623) that HPA itself flags for "low specificity" off-target
+    # binding and low IHC<->RNA consistency.  Paralog cross-reactivity is ruled out
+    # on sequence grounds (<=42% identity to any NLRP paralog, <=8-aa shared runs),
+    # so this is generic antibody noise rather than the classic _CROSS_REACTIVE_IHC
+    # paralog case -- but the conclusion is the same.  Every orthogonal modality
+    # (bulk RNA consensus, single-cell, DVP protein) calls NLRP9 oocyte/germline-
+    # restricted (it is a subcortical maternal complex maternal-effect gene, cf.
+    # NLRP5/NLRP7), so it is REPRODUCTIVE.  The build_row IHC warn-check still fires
+    # for it -- expected: the warning *is* the evaluated-and-dismissed artifact.
+    # KISS1R likewise carries reliable somatic IHC but bulk RNA independently
+    # excludes it (SOMATIC), so it lands as an excluded candidate regardless.
     *(
         {
             "Symbol": sym,
@@ -205,6 +212,7 @@ GENE_SPECS = [
         }
         for sym, ensg, ct, src in [
             ("LGALS16", "ENSG00000249861", "ENST00000392051", "placental_antigen"),
+            ("NLRP9", "ENSG00000185792", "ENST00000332836", "celltype_germline_candidate"),
             ("ZFP42", "ENSG00000179059", "ENST00000509524", "celltype_germline_candidate"),
             ("KISS1R", "ENSG00000116014", "ENST00000234371", "celltype_germline_candidate"),
             ("CALHM4", "ENSG00000164451", "ENST00000368596", "celltype_germline_candidate"),

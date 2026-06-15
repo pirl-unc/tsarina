@@ -243,20 +243,22 @@ def test_csv_has_no_runtime_ms_count_columns():
 
 
 def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 274
+    assert len(CTA_gene_names()) == 275
 
 
 def test_filtered_count():
-    # 299 = 286 + 11 reproductive-restriction-filter passers from the tsarina#111
+    # 300 = 286 + 11 reproductive-restriction-filter passers from the tsarina#111
     # batch (placental-antigen families plus the corrected MAGEA2B/SSX4B
     # identical-protein paralogs, which previously carried their siblings' gene
-    # IDs and were silently dropped) + 2 from the tsarina#124 cell-type-scan batch
-    # (LGALS16 PLACENTAL, ZFP42 TESTIS; the SOMATIC KISS1R / CALHM4 land as
-    # excluded candidates). NLRP9 was dropped from the batch -- it has reliable
-    # HPA IHC protein across somatic tissues, so it can't be added via the
-    # RNA-only path (tsarina#124 review). Somatically-leaky members (most CGB,
-    # PSG4/7, GH2, and the distinct-protein CT45A5) are not counted here.
-    assert len(CTA_filtered_gene_names()) == 299
+    # IDs and were silently dropped) + 3 from the tsarina#124 cell-type-scan batch
+    # (LGALS16 PLACENTAL, NLRP9 REPRODUCTIVE, ZFP42 TESTIS; the SOMATIC KISS1R /
+    # CALHM4 land as excluded candidates). NLRP9 was held out of #125 pending an
+    # IHC review and re-added in tsarina#128: its broad somatic HPA IHC is a
+    # single low-tier polyclonal (HPA042623) that HPA flags for low specificity,
+    # contradicted by oocyte/germline-restricted RNA/single-cell/DVP-protein data.
+    # Somatically-leaky members (most CGB, PSG4/7, GH2, and the distinct-protein
+    # CT45A5) are not counted here.
+    assert len(CTA_filtered_gene_names()) == 300
 
 
 def test_gage10_added_gage12b_excluded():
