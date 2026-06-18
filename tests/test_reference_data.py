@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
+import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from hitlist import downloads as hl_downloads
 
 from tsarina import reference_data
 
@@ -16,22 +20,24 @@ def isolated_cache(tmp_path, monkeypatch):
 
 
 def _stub_downloader(monkeypatch, content: bytes, counter: dict | None = None):
-    """Replace datacache's fetch/decompress with one that writes *content*.
+    """Replace hitlist's ``download_to_file`` with one that writes *content*.
 
-    datacache normally downloads + decompresses to ``full_path``; the stub
-    simulates the post-decompress result so the tests stay offline.
+    Mirrors the real helper's cache semantics: a cached *dest* (without ``force``)
+    is left untouched, otherwise the post-decompress bytes are written to *dest* --
+    so the offline tests exercise the same reuse behaviour.
     """
 
-    def _impl(full_path, download_url, timeout=None, use_wget_if_available=False):
+    def _impl(url, dest, *, label="", verbose=True, force=False, decompress=False):
+        dest = Path(dest)
+        if dest.exists() and not force:
+            return dest
         if counter is not None:
             counter["n"] += 1
-        Path(full_path).write_bytes(content)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+        return dest
 
-    monkeypatch.setattr(
-        reference_data.datacache.download,
-        "_download_and_decompress_if_necessary",
-        _impl,
-    )
+    monkeypatch.setattr(reference_data, "download_to_file", _impl)
 
 
 def test_resolve_version_defaults_and_errors():
@@ -85,19 +91,42 @@ def test_status_reflects_cache_state(isolated_cache, monkeypatch):
 
 
 def test_download_failure_raises_reference_error(isolated_cache, monkeypatch):
-    def _boom(full_path, download_url, timeout=None, use_wget_if_available=False):
+    def _boom(url, dest, *, label="", verbose=True, force=False, decompress=False):
         raise OSError("network down")
 
-    monkeypatch.setattr(
-        reference_data.datacache.download, "_download_and_decompress_if_necessary", _boom
-    )
+    monkeypatch.setattr(reference_data, "download_to_file", _boom)
     with pytest.raises(reference_data.ReferenceDataError):
         reference_data.download("ncbi_gene_info")
 
 
+def test_download_through_real_helper_decompresses_zip(isolated_cache, monkeypatch):
+    # End-to-end through the *real* hitlist download_to_file (urlopen stubbed):
+    # an HPA-style .zip is streamed and expanded into the .tsv dest, proving the
+    # tsarina <- hitlist reuse, not just the stub contract.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("rna_tissue_consensus.tsv", b"Gene\tTissue\tnTPM\nTSPY1\ttestis\t99\n")
+
+    @contextmanager
+    def fake_urlopen(url, timeout=None):
+        yield io.BytesIO(buf.getvalue())
+
+    monkeypatch.setattr(hl_downloads.urllib.request, "urlopen", fake_urlopen)
+
+    path = reference_data.download("hpa_rna_consensus", version="v23", verbose=False)
+    assert path.name == "rna_tissue_consensus.tsv"
+    assert path.read_bytes() == b"Gene\tTissue\tnTPM\nTSPY1\ttestis\t99\n"
+    # The compressed archive temp is cleaned up after decompression.
+    assert not path.with_name(path.name + ".zip").exists()
+
+    # Manifest records the decompressed payload.
+    manifest = json.loads((isolated_cache / "manifest.json").read_text())
+    assert manifest["hpa_rna_consensus"]["bytes"] == path.stat().st_size
+
+
 def test_gz_payload_kept_verbatim(isolated_cache, monkeypatch):
-    # gene_info is a .gz whose local name keeps the .gz suffix (datacache leaves
-    # it compressed); the stub mirrors that by writing the raw bytes.
+    # gene_info is a .gz whose local name keeps the .gz suffix, so the downloader
+    # leaves it compressed (no decompress); the stub mirrors that with raw bytes.
     _stub_downloader(monkeypatch, b"\x1f\x8bRAWGZ")
     path = reference_data.download("ncbi_gene_info")
     assert path.read_bytes() == b"\x1f\x8bRAWGZ"

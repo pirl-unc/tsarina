@@ -27,13 +27,14 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    # 1.30.57: cell_name split into cell_line_name + cell_type (handled via
-    # the cell-column fallbacks in spanning.py / ms_evidence.py).  1.30.49+
-    # already required for the post-1.30.46 gene-column sidecar re-attach.
-    "hitlist>=1.30.57",
+    # 1.42.0: reusable download_to_file (progress + cache status + .zip/.gz
+    # decompress) that reference_data.download() delegates to.  1.30.57:
+    # cell_name split into cell_line_name + cell_type (handled via the
+    # cell-column fallbacks in spanning.py / ms_evidence.py).
+    "hitlist>=1.42.0",
     "mhcgnomes>=3.20.0",
-    # Cache-dir resolution + download/decompress for `tsarina reference`
-    # (same openvax layer pyensembl uses).
+    # Cache-dir resolution for `tsarina reference` (same openvax layer pyensembl
+    # uses); the download/decompress itself now goes through hitlist.
     "datacache",
     "pandas",
     "numpy",
