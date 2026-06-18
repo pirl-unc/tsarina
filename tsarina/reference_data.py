@@ -24,9 +24,13 @@ pair).
 Surfaced on the CLI as ``tsarina reference {list,fetch,path}`` -- the
 HPA/NCBI counterpart of the hitlist-backed ``tsarina data`` (IEDB/CEDAR/viral).
 
-Cache dir resolution + download/decompress are delegated to **datacache** (the
-same openvax layer pyensembl uses), so we don't hand-roll them.  The base dir is
-``$TSARINA_DATA_DIR`` if set, else a platform-appropriate ``appdirs`` dir (e.g.
+Cache dir resolution is delegated to **datacache** (the same openvax layer
+pyensembl uses); the download + ``.zip``/``.gz`` decompress go through
+**hitlist**'s ``download_to_file`` -- a streaming, progress-reporting downloader
+shared with ``tsarina data fetch``, so reference fetches show download progress
+and cache status instead of silently buffering the whole file in memory.  The
+base dir is ``$TSARINA_DATA_DIR`` if set, else a platform-appropriate
+``appdirs`` dir (e.g.
 ``~/Library/Caches/tsarina`` on macOS).  Layout (one subdir per dataset+version,
 plus a JSON manifest this module adds on top of datacache)::
 
@@ -42,7 +46,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import datacache
-import datacache.download
+from hitlist.downloads import download_to_file
 
 #: Default HPA release.  ``v23`` is the most recent HPA version whose download
 #: mirror serves *both* ``rna_tissue_consensus`` and ``normal_tissue`` as a
@@ -177,31 +181,35 @@ def is_cached(name: str, version: str | None = None) -> bool:
 # ── Download ─────────────────────────────────────────────────────────────────
 
 
-def download(name: str, version: str | None = None, *, force: bool = False) -> Path:
+def download(
+    name: str, version: str | None = None, *, force: bool = False, verbose: bool = True
+) -> Path:
     """Download *name*/*version* into the cache and record it in the manifest.
 
-    Returns the local path.  A cached copy is reused unless ``force=True``.
-    The actual fetch + ``.zip``/``.gz`` decompression is delegated to datacache
-    (same as pyensembl); this layer adds the dataset registry, version pinning,
-    and the provenance manifest that datacache does not provide.
+    Returns the local path.  A cached copy is reused unless ``force=True``.  The
+    transfer + ``.zip``/``.gz`` decompression is delegated to hitlist's
+    ``download_to_file`` -- a streaming, progress-reporting downloader shared
+    with ``tsarina data fetch`` -- so reference fetches show download progress
+    and cache status.  This layer adds the dataset registry, version pinning,
+    and the provenance manifest that the downloader does not provide.
     """
     version = resolve_version(name, version)
     spec = _dataset(name)
     dest = local_path(name, version)
     url = spec["urls"][version]
 
-    if dest.exists() and not force:
-        return dest
-
-    datacache.ensure_dir(str(dest.parent))
+    was_cached = dest.exists() and not force
     try:
-        datacache.download._download_and_decompress_if_necessary(
-            full_path=str(dest),
-            download_url=url,
-            timeout=600,
-        )
+        # decompress=True expands the HPA .zip archives; the gene_info .gz keeps
+        # its suffix, so download_to_file leaves it compressed (verbatim).
+        download_to_file(url, dest, label=name, verbose=verbose, force=force, decompress=True)
     except Exception as e:  # surface any network/HTTP/decompress failure uniformly
         raise ReferenceDataError(f"failed to download {name} ({url}): {e}") from e
+
+    # A cache hit needs no manifest churn (and no fresh sha256 over a large
+    # file); download_to_file already printed the cache-status line.
+    if was_cached:
+        return dest
 
     manifest = _read_manifest()
     manifest[name] = {
