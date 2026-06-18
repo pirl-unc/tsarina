@@ -40,13 +40,10 @@ plus a JSON manifest this module adds on top of datacache)::
 
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime, timezone
 from pathlib import Path
 
 import datacache
-from hitlist.downloads import download_to_file
+from hitlist.downloads import VersionedDatasetError, VersionedDatasetRegistry
 
 #: Default HPA release.  ``v23`` is the most recent HPA version whose download
 #: mirror serves *both* ``rna_tissue_consensus`` and ``normal_tissue`` as a
@@ -64,6 +61,7 @@ REFERENCE_DATASETS: dict[str, dict] = {
         "description": "HPA RNA consensus tissue nTPM (per-tissue expression)",
         "filename": "rna_tissue_consensus.tsv",
         "kind": "hpa",
+        "default_version": DEFAULT_HPA_VERSION,
         "urls": {
             "v23": "https://v23.proteinatlas.org/download/rna_tissue_consensus.tsv.zip",
             "latest": "https://www.proteinatlas.org/download/tsv/rna_tissue_consensus.tsv.zip",
@@ -73,6 +71,7 @@ REFERENCE_DATASETS: dict[str, dict] = {
         "description": "HPA IHC protein expression (normal_tissue, per tissue/cell type)",
         "filename": "normal_tissue.tsv",
         "kind": "hpa",
+        "default_version": DEFAULT_HPA_VERSION,
         "urls": {
             "v23": "https://v23.proteinatlas.org/download/normal_tissue.tsv.zip",
         },
@@ -81,6 +80,7 @@ REFERENCE_DATASETS: dict[str, dict] = {
         "description": "NCBI human gene_info (official symbols + synonyms)",
         "filename": "Homo_sapiens.gene_info.gz",
         "kind": "ncbi",
+        "default_version": ROLLING,
         "urls": {
             "latest": (
                 "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/"
@@ -91,7 +91,7 @@ REFERENCE_DATASETS: dict[str, dict] = {
 }
 
 
-class ReferenceDataError(RuntimeError):
+class ReferenceDataError(VersionedDatasetError):
     """Raised for unknown datasets/versions or download failures."""
 
 
@@ -117,51 +117,31 @@ def cache_dir() -> Path:
     return sources
 
 
-def _manifest_path() -> Path:
-    return cache_dir() / "manifest.json"
+# ── Dataset registry (machinery lives in hitlist) ────────────────────────────
+#
+# The versioned download + provenance-manifest + cache machinery is hitlist's
+# ``VersionedDatasetRegistry`` (shared with ``tsarina data fetch``'s downloader),
+# so tsarina supplies only the dataset *definitions* + its cache namespace
+# instead of re-implementing a parallel data layer.  The on-disk layout is
+# unchanged (``<cache>/<name>/<version>/<filename>`` + ``<cache>/manifest.json``),
+# so existing caches keep working.
 
-
-def _read_manifest() -> dict:
-    path = _manifest_path()
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
-def _write_manifest(manifest: dict) -> None:
-    _manifest_path().write_text(json.dumps(manifest, indent=2, sort_keys=True))
-
-
-# ── Dataset / version resolution ─────────────────────────────────────────────
-
-
-def _dataset(name: str) -> dict:
-    try:
-        return REFERENCE_DATASETS[name]
-    except KeyError:
-        known = ", ".join(sorted(REFERENCE_DATASETS))
-        raise ReferenceDataError(f"unknown dataset {name!r}; known: {known}") from None
+_REGISTRY = VersionedDatasetRegistry(
+    REFERENCE_DATASETS, cache_dir=cache_dir, error_cls=ReferenceDataError
+)
 
 
 def resolve_version(name: str, version: str | None = None) -> str:
-    """Return the concrete version for *name*, applying per-kind defaults."""
-    spec = _dataset(name)
-    if version is None:
-        version = DEFAULT_HPA_VERSION if spec["kind"] == "hpa" else ROLLING
-    if version not in spec["urls"]:
-        avail = ", ".join(sorted(spec["urls"]))
-        raise ReferenceDataError(f"{name!r} has no version {version!r}; available: {avail}")
-    return version
+    """Return the concrete version for *name*, applying its default."""
+    return _REGISTRY.resolve_version(name, version)
 
 
 def is_hpa_dataset(name: str) -> bool:
     """True if *name* is version-pinned to an HPA release (honors ``--hpa-version``).
 
     Non-HPA datasets (e.g. the rolling NCBI gene_info) ignore an HPA version, so
-    callers should not forward ``--hpa-version`` to them.
+    callers should not forward ``--hpa-version`` to them. This stays tsarina-side
+    because ``--hpa-version`` forwarding is a tsarina CLI concern.
     """
     spec = REFERENCE_DATASETS.get(name)
     return bool(spec and spec["kind"] == "hpa")
@@ -169,16 +149,11 @@ def is_hpa_dataset(name: str) -> bool:
 
 def local_path(name: str, version: str | None = None) -> Path:
     """Return the expected cache path for *name*/*version* (may not exist yet)."""
-    version = resolve_version(name, version)
-    spec = _dataset(name)
-    return cache_dir() / name / version / spec["filename"]
+    return _REGISTRY.local_path(name, version)
 
 
 def is_cached(name: str, version: str | None = None) -> bool:
-    return local_path(name, version).exists()
-
-
-# ── Download ─────────────────────────────────────────────────────────────────
+    return _REGISTRY.is_cached(name, version)
 
 
 def download(
@@ -186,72 +161,17 @@ def download(
 ) -> Path:
     """Download *name*/*version* into the cache and record it in the manifest.
 
-    Returns the local path.  A cached copy is reused unless ``force=True``.  The
-    transfer + ``.zip``/``.gz`` decompression is delegated to hitlist's
-    ``download_to_file`` -- a streaming, progress-reporting downloader shared
-    with ``tsarina data fetch`` -- so reference fetches show download progress
-    and cache status.  This layer adds the dataset registry, version pinning,
-    and the provenance manifest that the downloader does not provide.
+    A cached copy is reused unless ``force=True``. Delegates to hitlist's
+    ``VersionedDatasetRegistry`` (streaming + progress + decompress + manifest).
     """
-    version = resolve_version(name, version)
-    spec = _dataset(name)
-    dest = local_path(name, version)
-    url = spec["urls"][version]
-
-    was_cached = dest.exists() and not force
-    try:
-        # decompress=True expands the HPA .zip archives; the gene_info .gz keeps
-        # its suffix, so download_to_file leaves it compressed (verbatim).
-        download_to_file(url, dest, label=name, verbose=verbose, force=force, decompress=True)
-    except Exception as e:  # surface any network/HTTP/decompress failure uniformly
-        raise ReferenceDataError(f"failed to download {name} ({url}): {e}") from e
-
-    # A cache hit needs no manifest churn (and no fresh sha256 over a large
-    # file); download_to_file already printed the cache-status line.
-    if was_cached:
-        return dest
-
-    manifest = _read_manifest()
-    manifest[name] = {
-        "version": version,
-        "url": url,
-        "path": str(dest),
-        "bytes": dest.stat().st_size,
-        "sha256": hashlib.sha256(dest.read_bytes()).hexdigest(),
-        "downloaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    _write_manifest(manifest)
-    return dest
+    return _REGISTRY.download(name, version, force=force, verbose=verbose)
 
 
 def ensure(name: str, version: str | None = None) -> Path:
     """Return a local path to *name*/*version*, downloading if absent."""
-    path = local_path(name, version)
-    return path if path.exists() else download(name, version)
-
-
-# ── Status (for the CLI) ─────────────────────────────────────────────────────
+    return _REGISTRY.ensure(name, version)
 
 
 def status() -> list[dict]:
     """Return one status row per dataset for ``tsarina reference list``."""
-    manifest = _read_manifest()
-    rows = []
-    for name, spec in sorted(REFERENCE_DATASETS.items()):
-        default_v = DEFAULT_HPA_VERSION if spec["kind"] == "hpa" else ROLLING
-        path = cache_dir() / name / default_v / spec["filename"]
-        record = manifest.get(name, {})
-        rows.append(
-            {
-                "name": name,
-                "description": spec["description"],
-                "default_version": default_v,
-                "available_versions": sorted(spec["urls"]),
-                "cached": path.exists(),
-                "cached_version": record.get("version") if record else None,
-                "bytes": record.get("bytes") if path.exists() else None,
-                "downloaded_at": record.get("downloaded_at") if path.exists() else None,
-                "path": str(path),
-            }
-        )
-    return rows
+    return _REGISTRY.status()
