@@ -37,14 +37,18 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from .downloads import (
     available_datasets,
     data_dir,
     fetch,
+    fetch_all_data_assets,
     get_path,
+    info,
     list_datasets,
+    refresh,
     register,
     remove,
 )
@@ -54,19 +58,25 @@ from .downloads import (
 
 def _data_list(args: argparse.Namespace) -> None:
     if getattr(args, "all", False):
-        _data_list_all(args)
+        # `--all` is deprecated in favor of the `available` subcommand, matching
+        # hitlist's `data list` / `data available` split.
+        print(
+            "Note: `tsarina data list --all` is deprecated; use `tsarina data available`.",
+            file=sys.stderr,
+        )
+        _data_available(args)
         return
     datasets = list_datasets()
     if not datasets:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
-        print("Run 'tsarina data list --all' to see known datasets.")
+        print("Run 'tsarina data available' to see known datasets.")
         print("(HPA/NCBI curation reference data is separate: `tsarina reference list`.)")
         return
     print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
     print("-" * 72)
-    for name, info in sorted(datasets.items()):
-        size = info.get("size_bytes", 0)
+    for name, meta in sorted(datasets.items()):
+        size = meta.get("size_bytes", 0)
         if size > 1_000_000_000:
             size_str = f"{size / 1e9:.1f} GB"
         elif size > 1_000_000:
@@ -75,16 +85,16 @@ def _data_list(args: argparse.Namespace) -> None:
             size_str = f"{size / 1e3:.1f} KB"
         else:
             size_str = f"{size} B"
-        source = info.get("source", "")
+        source = meta.get("source", "")
         source_label = "registered" if source == "registered" else "fetched"
-        desc = info.get("description", "")
+        desc = meta.get("description", "")
         print(f"{name:<12} {size_str:>12}  {source_label:<14} {desc}")
     print(f"\nData directory: {data_dir()}")
-    print("(`tsarina data list --all` shows the full catalog; HPA/NCBI curation")
+    print("(`tsarina data available` shows the full catalog; HPA/NCBI curation")
     print(" reference data is separate: `tsarina reference list`.)")
 
 
-def _data_list_all(args: argparse.Namespace) -> None:
+def _data_available(args: argparse.Namespace) -> None:
     datasets = available_datasets()
     registered = set(list_datasets().keys())
     print(f"{'Name':<12} {'Status':<12} Description")
@@ -126,11 +136,42 @@ def _data_remove(args: argparse.Namespace) -> None:
     print(f"Unregistered '{args.name}' (file not deleted).")
 
 
-def _data_build(args: argparse.Namespace) -> None:
+def _data_refresh(args: argparse.Namespace) -> None:
+    try:
+        p = refresh(args.name)
+        print(f"Refreshed: {p}")
+    except (ValueError, KeyError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _data_info(args: argparse.Namespace) -> None:
+    try:
+        print(json.dumps(info(args.name), indent=2, default=str))
+    except (KeyError, ValueError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _data_fetch_all(args: argparse.Namespace) -> None:
+    paths = fetch_all_data_assets(force=args.force)
+    print(f"Fetched {len(paths)} data-asset file(s) into {data_dir()}.")
+
+
+def _build_observations(args: argparse.Namespace) -> None:
     from .indexing import ensure_index_built
 
     path = ensure_index_built(force=args.force, verbose=True)
     print(f"Observations index: {path}")
+
+
+def _data_build(args: argparse.Namespace) -> None:
+    # Deprecated: mirror hitlist's `data build` -> `build observations` move.
+    print(
+        "Note: `tsarina data build` is deprecated; use `tsarina build observations`.",
+        file=sys.stderr,
+    )
+    _build_observations(args)
 
 
 def _fmt_bytes(size: int | None) -> str:
@@ -228,10 +269,12 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     )
     data_sub = data_parser.add_subparsers(dest="data_command")
 
-    p_list = data_sub.add_parser("list", help="Show installed datasets (--all for full catalog)")
+    p_list = data_sub.add_parser("list", help="Show installed datasets")
     p_list.add_argument(
-        "--all", action="store_true", help="Show the full catalog, not just installed datasets."
+        "--all", action="store_true", help="Deprecated: use `tsarina data available`."
     )
+
+    data_sub.add_parser("available", help="Show all known datasets (installed or not)")
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar)")
@@ -239,8 +282,17 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--description", "-d", help="Optional description")
 
     p_fetch = data_sub.add_parser("fetch", help="Download a fetchable dataset")
-    p_fetch.add_argument("name", help="Dataset name (e.g. hpv16, ebv)")
+    p_fetch.add_argument("name", help="Dataset name (e.g. iedb, hpv16, ebv)")
     p_fetch.add_argument("--force", "-f", action="store_true", help="Re-download")
+
+    p_refresh = data_sub.add_parser("refresh", help="Re-download a fetchable dataset")
+    p_refresh.add_argument("name", help="Dataset name")
+
+    p_fetch_all = data_sub.add_parser("fetch-all", help="Fetch all mirrored data-asset files")
+    p_fetch_all.add_argument("--force", "-f", action="store_true", help="Re-download")
+
+    p_info = data_sub.add_parser("info", help="Detailed metadata for a dataset (JSON)")
+    p_info.add_argument("name", help="Dataset name")
 
     p_path = data_sub.add_parser("path", help="Print path to a dataset")
     p_path.add_argument("name", help="Dataset name")
@@ -250,7 +302,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
 
     p_build = data_sub.add_parser(
         "build",
-        help="Build the hitlist observations index (IEDB + CEDAR; cached after first run)",
+        help="DEPRECATED — use `tsarina build observations`",
     )
     p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
 
@@ -258,14 +310,39 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
 def _handle_data(args: argparse.Namespace) -> None:
     handlers = {
         "list": _data_list,
+        "available": _data_available,
         "register": _data_register,
         "fetch": _data_fetch,
+        "refresh": _data_refresh,
+        "fetch-all": _data_fetch_all,
+        "info": _data_info,
         "path": _data_path,
         "remove": _data_remove,
         "build": _data_build,
     }
     # Bare `tsarina data` defaults to listing, mirroring `tsarina reference`.
     handlers[getattr(args, "data_command", None) or "list"](args)
+
+
+def _build_build_parser(sub: argparse._SubParsersAction) -> None:
+    build_parser = sub.add_parser(
+        "build", help="Build cached artifacts (observations index from IEDB/CEDAR)"
+    )
+    build_sub = build_parser.add_subparsers(dest="build_command")
+    p_obs = build_sub.add_parser(
+        "observations",
+        help="Build the hitlist observations index (IEDB + CEDAR; cached after first run)",
+    )
+    p_obs.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
+
+
+def _handle_build(args: argparse.Namespace) -> None:
+    handlers = {"observations": _build_observations}
+    cmd = getattr(args, "build_command", None)
+    if cmd is None:
+        print("Usage: tsarina build observations [--force]", file=sys.stderr)
+        sys.exit(2)
+    handlers[cmd](args)
 
 
 # ── Main entry point ────────────────────────────────────────────────────────
@@ -281,6 +358,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command")
 
     _build_data_parser(sub)
+    _build_build_parser(sub)
     _build_reference_parser(sub)
     cli_personalize.build_parser(sub)
     cli_hits.build_parser(sub)
@@ -301,6 +379,8 @@ def main() -> None:
 
     if args.command == "data":
         _handle_data(args)
+    elif args.command == "build":
+        _handle_build(args)
     elif args.command == "reference":
         _handle_reference(args)
     elif args.command == "personalize":

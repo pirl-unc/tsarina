@@ -30,6 +30,10 @@ def test_viral_proteomes_in_fetchable():
     assert viruses.issubset(FETCHABLE_DATASETS.keys())
 
 
-def test_iedb_cedar_in_manual():
-    assert "iedb" in MANUAL_DATASETS
-    assert "cedar" in MANUAL_DATASETS
+def test_iedb_cedar_now_fetchable():
+    # IEDB/CEDAR moved MANUAL -> FETCHABLE in hitlist 1.43.0: the downloader.php
+    # endpoints serve the zip directly, so `tsarina data fetch iedb` works.
+    assert "iedb" in FETCHABLE_DATASETS
+    assert "cedar" in FETCHABLE_DATASETS
+    assert "iedb" not in MANUAL_DATASETS
+    assert "cedar" not in MANUAL_DATASETS

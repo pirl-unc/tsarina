@@ -27,14 +27,13 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    # 1.42.0: reusable download_to_file (progress + cache status + .zip/.gz
-    # decompress) that reference_data.download() delegates to.  1.30.57:
-    # cell_name split into cell_line_name + cell_type (handled via the
-    # cell-column fallbacks in spanning.py / ms_evidence.py).
-    "hitlist>=1.42.0",
+    # 1.43.0: VersionedDatasetRegistry — reference_data delegates its versioned
+    # download/manifest/cache machinery to it; also the reusable download_to_file
+    # (progress + cache status + .zip/.gz decompress).
+    "hitlist>=1.43.0",
     "mhcgnomes>=3.20.0",
     # Cache-dir resolution for `tsarina reference` (same openvax layer pyensembl
-    # uses); the download/decompress itself now goes through hitlist.
+    # uses); the download/decompress itself goes through hitlist.
     "datacache",
     "pandas",
     "numpy",

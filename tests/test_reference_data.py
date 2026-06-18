@@ -37,7 +37,9 @@ def _stub_downloader(monkeypatch, content: bytes, counter: dict | None = None):
         dest.write_bytes(content)
         return dest
 
-    monkeypatch.setattr(reference_data, "download_to_file", _impl)
+    # The registry lives in hitlist and calls download_to_file in *its* module
+    # namespace, so patch there (not on reference_data).
+    monkeypatch.setattr(hl_downloads, "download_to_file", _impl)
 
 
 def test_resolve_version_defaults_and_errors():
@@ -94,9 +96,16 @@ def test_download_failure_raises_reference_error(isolated_cache, monkeypatch):
     def _boom(url, dest, *, label="", verbose=True, force=False, decompress=False):
         raise OSError("network down")
 
-    monkeypatch.setattr(reference_data, "download_to_file", _boom)
+    monkeypatch.setattr(hl_downloads, "download_to_file", _boom)
     with pytest.raises(reference_data.ReferenceDataError):
         reference_data.download("ncbi_gene_info")
+
+
+def test_reference_data_delegates_to_hitlist_registry():
+    # The versioned-download machinery lives in hitlist; reference_data only
+    # supplies the dataset defs + cache namespace.
+    assert isinstance(reference_data._REGISTRY, hl_downloads.VersionedDatasetRegistry)
+    assert issubclass(reference_data.ReferenceDataError, hl_downloads.VersionedDatasetError)
 
 
 def test_download_through_real_helper_decompresses_zip(isolated_cache, monkeypatch):
