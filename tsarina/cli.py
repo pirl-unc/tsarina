@@ -41,6 +41,8 @@ import argparse
 import json
 import sys
 
+from hitlist.cli_help import ColorArgumentParser
+
 from .downloads import (
     available_datasets,
     data_dir,
@@ -378,7 +380,7 @@ def main() -> None:
     from . import cli_hits, cli_personalize, cli_spanning
     from .version import __version__
 
-    parser = argparse.ArgumentParser(
+    parser = ColorArgumentParser(
         prog="tsarina",
         description="tsarina: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
     )

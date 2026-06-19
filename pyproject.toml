@@ -27,10 +27,10 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
+    # 1.45.0: shared cli_help (ColorArgumentParser) for subtle --help coloring.
     # 1.43.0: VersionedDatasetRegistry — reference_data delegates its versioned
-    # download/manifest/cache machinery to it; also the reusable download_to_file
-    # (progress + cache status + .zip/.gz decompress).
-    "hitlist>=1.43.1",
+    # download/manifest/cache machinery to it; also the reusable download_to_file.
+    "hitlist>=1.45.0",
     "mhcgnomes>=3.20.0",
     # Cache-dir resolution for `tsarina reference` (same openvax layer pyensembl
     # uses); the download/decompress itself goes through hitlist.
