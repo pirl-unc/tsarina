@@ -1091,6 +1091,46 @@ def test_unrestricted_ms_tier_uses_processing_evidence(monkeypatch):
     assert row["ms_samples"] == "tumor"
 
 
+def test_nan_percentile_not_admitted_as_predicted_only(monkeypatch):
+    """C8: an unscored peptide (NaN presentation_percentile) must NOT slip
+    through as predicted_only. `nan > cutoff` is False, so without the explicit
+    guard it would be admitted despite having no presentation evidence."""
+    import numpy as np
+
+    empty_hits = pd.DataFrame(
+        columns=[
+            "peptide",
+            "mhc_restriction",
+            "mhc_allele_provenance",
+            "mhc_allele_set",
+            "is_monoallelic",
+        ]
+    )
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: empty_hits
+    )
+
+    def fake_score(peptides, alleles, predictor):
+        return pd.DataFrame(
+            [
+                {"peptide": p, "allele": a, "presentation_percentile": np.nan}
+                for p in peptides
+                for a in alleles
+            ]
+        )
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", fake_score)
+
+    out = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        include_predicted_only=True,
+        predicted_only_max_percentile=0.2,
+        output_format="long",
+    )
+    assert out.empty  # NaN-percentile peptides rejected, not admitted
+
+
 def test_predicted_only_is_optional_and_last_priority(monkeypatch):
     empty_hits = pd.DataFrame(
         columns=[

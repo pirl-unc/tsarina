@@ -2050,7 +2050,15 @@ def _candidate_rows(
 
         if chosen_tier is None:
             # Inclusive maximum: reject only when strictly above the cutoff.
-            if not include_predicted_only or percentile > cutoffs["predicted_only"]:
+            # An unscored peptide (NaN percentile) is not a predicted binder and
+            # must be rejected explicitly — `nan > cutoff` is False, so without
+            # this guard it would slip through as `predicted_only` (matches the
+            # pd.notna filter in _score_lookup).
+            if (
+                not include_predicted_only
+                or pd.isna(percentile)
+                or percentile > cutoffs["predicted_only"]
+            ):
                 continue
             chosen_tier = "predicted_only"
             evidence = {
