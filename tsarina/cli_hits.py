@@ -85,7 +85,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "resolution / MHC class.  Output includes semicolon-joined "
             "gene_names / gene_ids / protein_ids so paralogous attribution "
             "is preserved (e.g. MAGE family peptides).  Build the index once "
-            "with `tsarina data build` — it auto-builds on first use otherwise."
+            "with `tsarina build observations` — it auto-builds on first use otherwise."
         ),
     )
     target = p.add_mutually_exclusive_group(required=True)
@@ -536,6 +536,13 @@ def handle(args: argparse.Namespace) -> None:
         hits = hits[hits["is_monoallelic"]].copy()
 
     if hits.empty:
+        # An empty result is otherwise indistinguishable from "unknown gene" or
+        # "command didn't run" — say so on stderr (output stays pipe-clean).
+        print(
+            f"No public MS hits for gene '{gene}' with the current filters "
+            f"(check the spelling; try --include-binding-assays or --skip-ms-evidence).",
+            file=sys.stderr,
+        )
         _write(args.output, pd.DataFrame({"peptide": pd.Series(dtype=str)}))
         return
 

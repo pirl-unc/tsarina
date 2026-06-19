@@ -1079,7 +1079,7 @@ def _select_cta_batch(
         raise RuntimeError(
             "tsarina panel requires the hitlist observations index for public-MS "
             "evidence. Register IEDB/CEDAR data if needed, then run "
-            "`tsarina data build --force`."
+            "`tsarina build observations --force`."
         ) from e
     _report_progress(on_progress, f"Loaded {len(hits)} public MS evidence rows.")
 

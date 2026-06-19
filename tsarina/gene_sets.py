@@ -330,7 +330,7 @@ def CTA_by_axes(
         Column to return (``"Symbol"`` or ``"Ensembl_Gene_ID"``).
     filtered_only
         If True (default), restrict to genes passing the HPA filter.
-        Set to False to query the full 358-gene CTA universe.
+        Set to False to query the full CTA universe (the entire bundled table).
     """
     df = cta_dataframe()
     mask = True

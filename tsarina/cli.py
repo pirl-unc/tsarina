@@ -15,12 +15,13 @@
 Usage::
 
     # MS evidence datasets (IEDB / CEDAR / viral proteomes + the index)
-    tsarina data list [--all]                 # installed datasets (--all = full catalog)
+    tsarina data list                         # installed datasets
+    tsarina data available                    # full catalog (installed or not)
     tsarina data fetch hpv16                  # auto-download a viral proteome
     tsarina data register iedb /path/to/file  # register a manual download
     tsarina data path iedb                    # print path to a dataset
     tsarina data remove iedb                  # unregister (keeps the file)
-    tsarina data build [--force]              # build the observations index
+    tsarina build observations [--force]      # build the observations index
 
     # Curation reference data (HPA RNA/IHC + NCBI gene_info), version-pinned
     tsarina reference list                    # versions + cache status
@@ -122,18 +123,40 @@ def _data_fetch(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _unknown_dataset(name: str) -> None:
+    """Print a friendly 'unknown dataset' error (lists the catalog) and exit 1.
+
+    Matches the `tsarina reference` error style instead of leaking a KeyError repr.
+    """
+    known = ", ".join(sorted(available_datasets())) or "(none)"
+    print(
+        f"Error: unknown dataset '{name}'. Known: {known}.\n"
+        f"  See `tsarina data available`; fetch with `tsarina data fetch {name}` "
+        f"or register a local file with `tsarina data register {name} <path>`.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
 def _data_path(args: argparse.Namespace) -> None:
     try:
         p = get_path(args.name)
         print(str(p))
-    except (KeyError, FileNotFoundError) as e:
+    except KeyError:
+        _unknown_dataset(args.name)
+    except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
 def _data_remove(args: argparse.Namespace) -> None:
-    remove(args.name)
-    print(f"Unregistered '{args.name}' (file not deleted).")
+    if not remove(args.name, delete_file=getattr(args, "delete", False)):
+        print(f"No dataset '{args.name}' was registered (nothing to do).", file=sys.stderr)
+        sys.exit(1)
+    if getattr(args, "delete", False):
+        print(f"Unregistered and deleted '{args.name}'.")
+    else:
+        print(f"Unregistered '{args.name}' (file kept on disk).")
 
 
 def _data_refresh(args: argparse.Namespace) -> None:
@@ -148,7 +171,9 @@ def _data_refresh(args: argparse.Namespace) -> None:
 def _data_info(args: argparse.Namespace) -> None:
     try:
         print(json.dumps(info(args.name), indent=2, default=str))
-    except (KeyError, ValueError) as e:
+    except KeyError:
+        _unknown_dataset(args.name)
+    except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
@@ -297,8 +322,9 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_path = data_sub.add_parser("path", help="Print path to a dataset")
     p_path.add_argument("name", help="Dataset name")
 
-    p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file)")
+    p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file by default)")
     p_rm.add_argument("name", help="Dataset name")
+    p_rm.add_argument("--delete", action="store_true", help="Also delete the cached file")
 
     p_build = data_sub.add_parser(
         "build",
@@ -350,11 +376,13 @@ def _handle_build(args: argparse.Namespace) -> None:
 
 def main() -> None:
     from . import cli_hits, cli_personalize, cli_spanning
+    from .version import __version__
 
     parser = argparse.ArgumentParser(
         prog="tsarina",
         description="tsarina: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
     )
+    parser.add_argument("--version", action="version", version=f"tsarina {__version__}")
     sub = parser.add_subparsers(dest="command")
 
     _build_data_parser(sub)
