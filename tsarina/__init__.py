@@ -45,6 +45,13 @@ from .gene_sets import (
     cta_symbol_for_alias,
 )
 from .ms_evidence import cta_healthy_tissue_ms_hits
+from .mutations import HOTSPOT_MUTATIONS, mutant_peptides
+
+# NB: `personalize` (the function) is intentionally NOT re-exported here — that
+# would shadow the `tsarina.personalize` submodule. Import it from its module:
+# ``from tsarina.personalize import personalize``.
+from .scoring import score_affinity, score_presentation
+from .targets import target_peptides
 from .tiers import (
     CONFIDENCE_VALUES,
     MS_RESTRICTION_VALUES,
@@ -60,11 +67,13 @@ from .tissues import (
     PERMISSIVE_REPRODUCTIVE_TISSUES,
 )
 from .version import __version__
+from .viral import viral_peptides
 
 __all__ = [
     "CONFIDENCE_VALUES",
     "CORE_REPRODUCTIVE_TISSUES",
     "EXTENDED_REPRODUCTIVE_TISSUES",
+    "HOTSPOT_MUTATIONS",
     "HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS",
     "IEDB27_AB",
     "MS_RESTRICTION_VALUES",
@@ -100,5 +109,10 @@ __all__ = [
     "get_panel",
     "hpa_cancer_ihc_prevalence",
     "hpa_cancer_rna_prevalence",
+    "mutant_peptides",
     "panel_names",
+    "score_affinity",
+    "score_presentation",
+    "target_peptides",
+    "viral_peptides",
 ]

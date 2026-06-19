@@ -12,7 +12,7 @@
 
 """CTA evidence table access with HPA tissue-restriction columns.
 
-The evidence table contains one row per CTA gene (358 genes from multiple
+The evidence table contains one row per CTA gene (curated from multiple
 source databases), annotated with Human Protein Atlas v23 protein and RNA
 tissue expression data and the three-axis tier results.
 """
@@ -139,7 +139,7 @@ def CTA_detailed_evidence(
         from hitlist data registry.
     genes
         Gene symbols to compute MS restriction for.  If None, uses all
-        CTA genes (slower — enumerates peptides for all 358 genes).
+        CTA genes (slower — enumerates peptides for every CTA gene).
 
     TCGA tumor RNA prevalence columns (always added):
     ``tcga_sample_count``, ``tcga_cancer_type_count``, ``tcga_max_ptpm``,
