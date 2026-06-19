@@ -158,8 +158,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--mono-allelic-only",
         action="store_true",
         help=(
-            "Keep only hits with direct mono-allelic evidence (observed on a "
-            "cell line expressing a single HLA allele).  Excludes multi-allelic "
+            "Keep only hits with direct mono-allelic evidence, i.e. observed on a "
+            "cell line expressing a single HLA allele.  Excludes multi-allelic "
             "studies where the allele was assigned by a predictor (NetMHCpan / "
             "MHCflurry) rather than observed directly."
         ),
@@ -198,8 +198,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help=(
             "Mode switch: output this gene's per-peptide healthy-SOMATIC-tissue "
             "MS hits (tissue, allele, allele_set, provenance, pmid, vital_organ "
-            "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits "
-            "(expected for CTAs) are excluded. Only --gene/--uniprot, --mhc-class, "
+            "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits, "
+            "expected for CTAs, are excluded. Only --gene/--uniprot, --mhc-class, "
             "--species, --output apply; other flags are ignored. See "
             "cta_healthy_tissue_ms_hits()."
         ),

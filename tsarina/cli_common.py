@@ -58,7 +58,7 @@ def add_predictor_arg(parser: argparse.ArgumentParser, *, context: str) -> None:
         "--predictor",
         choices=SUPPORTED_PREDICTORS,
         default="mhcflurry",
-        help=f"mhctools predictor for {context} (default mhcflurry).",
+        help=f"mhctools predictor for {context}. Defaults to mhcflurry.",
     )
 
 

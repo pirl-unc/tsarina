@@ -100,8 +100,8 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=_split_csv,
         default=["HIGH", "MODERATE"],
         help=(
-            "Allowed restriction_confidence bins, comma-separated (default "
-            "'HIGH,MODERATE'; pass 'ANY' to disable)."
+            "Allowed restriction_confidence bins, comma-separated. "
+            "Defaults to 'HIGH,MODERATE'; pass 'ANY' to disable."
         ),
     )
     p.add_argument(
@@ -188,7 +188,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         "--monoallelic-ms-max-percentile",
         type=float,
         default=2.0,
-        help="Max percentile for mono-allelic MS-supported pMHCs (default 2.0).",
+        help="Max percentile for mono-allelic MS-supported pMHCs. Defaults to 2.0.",
     )
     p.add_argument(
         "--sample-allele-ms-max-percentile",
@@ -196,7 +196,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         default=1.0,
         help=(
             "Max percentile for multi-allelic MS support where the panel allele is "
-            "best among the exact or donor-set candidate alleles (default 1.0)."
+            "best among the exact or donor-set candidate alleles. Defaults to 1.0."
         ),
     )
     p.add_argument(
@@ -278,7 +278,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help=(
             "Show automatically selected CTAs that have no selected pMHCs after "
             "peptide, exclusivity, public-MS, and prediction gates. Note: passing "
-            "--ctas forces this on (explicit requests are always preserved)."
+            "--ctas forces this on; explicit requests are always preserved."
         ),
     )
     p.add_argument(
