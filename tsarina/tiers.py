@@ -46,10 +46,26 @@ import pandas as pd
 
 from .tissues import HPA_EXPRESSION_FLOOR_NTPM, PERMISSIVE_REPRODUCTIVE_TISSUES
 
+
+def _int0(value) -> int:
+    """``int(value)`` that treats NaN/None as 0 -- a *missing* count, not a crash.
+
+    ``row.get(col, 0)`` only guards a *missing* key; a present-but-NaN cell
+    (common on a left-merge miss against the HPA RNA consensus) would otherwise
+    reach ``int(nan)`` and raise ``ValueError``, aborting the whole ``df.apply``
+    tiering pass on a single bad row.
+    """
+    return 0 if pd.isna(value) else int(value)
+
+
 # ── Constants ──────────────────────────────────────────────────────────────
 
 #: Tissue restriction categories (shared across protein, RNA, synthesis).
 RESTRICTION_VALUES: list[str] = ["TESTIS", "PLACENTAL", "REPRODUCTIVE", "SOMATIC"]
+
+#: The reproductive-tissue restriction categories. RNA's coarse "REPRODUCTIVE"
+#: call only *agrees* with a protein call that is itself reproductive.
+_REPRODUCTIVE_RESTRICTIONS: frozenset[str] = frozenset({"TESTIS", "PLACENTAL", "REPRODUCTIVE"})
 
 #: RNA restriction quality levels, ordered strictest → loosest.
 RNA_RESTRICTION_LEVELS: list[str] = ["STRICT", "MODERATE", "PERMISSIVE", "LEAKY"]
@@ -226,7 +242,7 @@ def assign_rna_restriction(row: pd.Series) -> str:
     testis = float(row.get("rna_testis_ntpm", 0) or 0)
     ovary = float(row.get("rna_ovary_ntpm", 0) or 0)
     placenta = float(row.get("rna_placenta_ntpm", 0) or 0)
-    somatic_count = int(row.get("rna_somatic_detected_count", 0) or 0)
+    somatic_count = _int0(row.get("rna_somatic_detected_count", 0))
 
     has_testis = testis >= 1.0
     has_ovary = ovary >= 1.0
@@ -262,7 +278,7 @@ def assign_rna_restriction_level(row: pd.Series) -> str:
     if frac < 0:
         return "NO_DATA"
 
-    somatic_count = int(row.get("rna_somatic_detected_count", 0) or 0)
+    somatic_count = _int0(row.get("rna_somatic_detected_count", 0))
     rna_is_reproductive = somatic_count == 0
 
     if rna_is_reproductive and frac >= 0.99:
@@ -312,7 +328,16 @@ def synthesize_restriction(row: pd.Series) -> tuple[str, str]:
 
     if rna_has_data:
         sources += 1
-        rna_agrees = rna_r == tissue or (rna_r == "REPRODUCTIVE" and protein_has_data)
+        # Credit RNA's coarse "REPRODUCTIVE" as agreeing with a finer protein
+        # call only when that call is itself reproductive (TESTIS/PLACENTAL).
+        # A SOMATIC protein call genuinely *disagrees* with reproductive RNA, so
+        # it must not earn the agreement bonus (which would otherwise inflate a
+        # least-safe SOMATIC call to HIGH confidence and pass the selection
+        # filter). Latent today — 0 bundled CTAs hit the SOMATIC case — but a
+        # defensive gate against a future regeneration producing one.
+        rna_agrees = rna_r == tissue or (
+            rna_r == "REPRODUCTIVE" and tissue in _REPRODUCTIVE_RESTRICTIONS
+        )
         if rna_agrees:
             score += 1.0
             if rna_level == "STRICT":

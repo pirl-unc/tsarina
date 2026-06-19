@@ -8,6 +8,8 @@ from tsarina.tiers import (
     RNA_RESTRICTION_LEVELS,
     aggregate_gene_ms_safety,
     assign_all_axes,
+    assign_rna_restriction,
+    assign_rna_restriction_level,
     confidence_rank,
     ms_restriction_rank,
     restriction_rank,
@@ -292,6 +294,64 @@ def test_assign_all_axes_matches_csv():
     assert (
         recomputed["restriction_confidence"].fillna("") == df["restriction_confidence"].fillna("")
     ).all()
+
+
+def test_rna_restriction_handles_nan_somatic_count():
+    """Regression: a present-but-NaN rna_somatic_detected_count (left-merge miss)
+    must not crash int() — it aborts the whole df.apply tiering pass otherwise."""
+    import numpy as np
+
+    row = pd.Series(
+        {
+            "rna_testis_ntpm": 5.0,
+            "rna_ovary_ntpm": 0.0,
+            "rna_placenta_ntpm": 0.0,
+            "rna_somatic_detected_count": np.nan,  # the crash trigger
+        }
+    )
+    assert assign_rna_restriction(row) == "TESTIS"  # NaN somatic -> 0 -> not somatic
+
+    lvl_row = pd.Series(
+        {"rna_deflated_reproductive_frac": 0.99, "rna_somatic_detected_count": np.nan}
+    )
+    assert assign_rna_restriction_level(lvl_row) in RNA_RESTRICTION_LEVELS
+
+
+def test_somatic_protein_not_boosted_by_disagreeing_reproductive_rna():
+    """C7: protein=SOMATIC genuinely disagrees with rna=REPRODUCTIVE, so the
+    agreement bonus must NOT fire (which would inflate the unsafe SOMATIC call to
+    HIGH and pass the selection filter)."""
+    row = pd.Series(
+        {
+            "protein_restriction": "SOMATIC",
+            "protein_reliability": "",
+            "rna_restriction": "REPRODUCTIVE",
+            "rna_restriction_level": "STRICT",
+            "ms_restriction": "NO_MS_DATA",
+        }
+    )
+    tissue, conf = synthesize_restriction(row)
+    assert tissue == "SOMATIC"
+    assert conf != "HIGH"
+
+
+def test_testis_protein_still_credited_by_coarse_reproductive_rna():
+    """The legitimate case the clause exists for: protein=TESTIS (a finer call)
+    agrees with rna=REPRODUCTIVE (coarser) — testis IS reproductive — so the
+    bonus still applies."""
+    row = pd.Series(
+        {
+            "protein_restriction": "TESTIS",
+            "protein_reliability": "",
+            "rna_restriction": "REPRODUCTIVE",
+            "rna_restriction_level": "STRICT",
+            "ms_restriction": "NO_MS_DATA",
+            "rna_max_ntpm": 5.0,
+        }
+    )
+    tissue, conf = synthesize_restriction(row)
+    assert tissue == "TESTIS"
+    assert conf == "HIGH"
 
 
 def test_confidence_capped_for_subfloor_rna_only():
