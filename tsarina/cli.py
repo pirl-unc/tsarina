@@ -72,7 +72,7 @@ def _data_list(args: argparse.Namespace) -> None:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
         print("Run 'tsarina data available' to see known datasets.")
-        print("(HPA/NCBI curation reference data is separate: `tsarina reference list`.)")
+        print("HPA/NCBI curation reference data is separate — see `tsarina reference list`.")
         return
     print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
     print("-" * 72)
@@ -91,8 +91,8 @@ def _data_list(args: argparse.Namespace) -> None:
         desc = meta.get("description", "")
         print(f"{name:<12} {size_str:>12}  {source_label:<14} {desc}")
     print(f"\nData directory: {data_dir()}")
-    print("(`tsarina data available` shows the full catalog; HPA/NCBI curation")
-    print(" reference data is separate: `tsarina reference list`.)")
+    print("`tsarina data available` shows the full catalog. HPA/NCBI curation")
+    print("reference data is separate — see `tsarina reference list`.")
 
 
 def _data_available(args: argparse.Namespace) -> None:

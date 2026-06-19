@@ -12,8 +12,10 @@
 
 """The headline analysis verbs are importable from the top level.
 
-(`personalize` is the exception — it stays at `tsarina.personalize.personalize`
-to avoid shadowing the same-named submodule.)"""
+The personalize workflow is exported as `personalized_targets` (a distinct name
+that doesn't shadow the `tsarina.personalize` submodule); `personalize` remains a
+back-compat alias inside that module.
+"""
 
 import tsarina
 
@@ -22,17 +24,20 @@ def test_headline_verbs_importable():
     from tsarina import (  # noqa: F401
         HOTSPOT_MUTATIONS,
         mutant_peptides,
+        personalized_targets,
         score_presentation,
         target_peptides,
         viral_peptides,
     )
 
+    assert callable(personalized_targets)
     assert callable(target_peptides)
     assert callable(mutant_peptides)
 
 
 def test_headline_verbs_in_all():
     for name in (
+        "personalized_targets",
         "target_peptides",
         "mutant_peptides",
         "score_presentation",
@@ -41,7 +46,9 @@ def test_headline_verbs_in_all():
         assert name in tsarina.__all__
 
 
-def test_personalize_importable_from_submodule():
+def test_personalize_alias_still_works():
+    # Back-compat: the old submodule import resolves to the renamed function.
+    from tsarina import personalized_targets
     from tsarina.personalize import personalize
 
-    assert callable(personalize)
+    assert personalize is personalized_targets

@@ -110,7 +110,7 @@ peps = viral_peptides("hpv16")                    # all viral peptides
 human_exclusive = human_exclusive_viral_peptides("hpv16")  # default clinical helper
 ```
 
-`personalize()` and `target_peptides()` use the human-exclusive viral helper by
+`personalized_targets()` and `target_peptides()` use the human-exclusive viral helper by
 default, dropping viral k-mers that also occur anywhere in the human proteome.
 `cancer_specific_viral_peptides()` is available for exploratory workflows that
 allow overlaps with CTA proteins while excluding non-CTA overlaps.
@@ -173,9 +173,9 @@ Every IEDB/CEDAR mass spec observation is classified by biological context:
 The main entry point for clinical use:
 
 ```python
-from tsarina.personalize import personalize
+from tsarina import personalized_targets
 
-targets = personalize(
+targets = personalized_targets(
     # Patient HLA type
     hla_alleles=["HLA-A*02:01", "HLA-A*24:02", "HLA-B*07:02", "HLA-B*44:02",
                  "HLA-C*07:02", "HLA-C*05:01"],

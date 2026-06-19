@@ -47,9 +47,10 @@ from .gene_sets import (
 from .ms_evidence import cta_healthy_tissue_ms_hits
 from .mutations import HOTSPOT_MUTATIONS, mutant_peptides
 
-# NB: `personalize` (the function) is intentionally NOT re-exported here — that
-# would shadow the `tsarina.personalize` submodule. Import it from its module:
-# ``from tsarina.personalize import personalize``.
+# `personalized_targets` is the canonical name for the headline workflow; the
+# module keeps a `personalize` alias. We export the distinctly-named function
+# (not `personalize`, which would shadow the `tsarina.personalize` submodule).
+from .personalize import personalized_targets
 from .scoring import score_affinity, score_presentation
 from .targets import target_peptides
 from .tiers import (
@@ -111,6 +112,7 @@ __all__ = [
     "hpa_cancer_rna_prevalence",
     "mutant_peptides",
     "panel_names",
+    "personalized_targets",
     "score_affinity",
     "score_presentation",
     "target_peptides",

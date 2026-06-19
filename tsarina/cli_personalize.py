@@ -12,7 +12,7 @@
 
 """`tsarina personalize` CLI — patient-level target prioritization.
 
-Wraps :func:`tsarina.personalize.personalize` with argparse.  IEDB/CEDAR paths
+Wraps :func:`tsarina.personalize.personalized_targets` with argparse.  IEDB/CEDAR paths
 default to whatever the user registered with ``tsarina data register …``.
 """
 
@@ -161,7 +161,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
 
 def handle(args: argparse.Namespace) -> None:
     from .datasources import DatasetNotRegisteredError
-    from .personalize import personalize
+    from .personalize import personalized_targets
 
     min_restriction_confidence: tuple[str, ...] | None
     if any(v.upper() == "ANY" for v in args.min_restriction_confidence):
@@ -170,7 +170,7 @@ def handle(args: argparse.Namespace) -> None:
         min_restriction_confidence = tuple(v.upper() for v in args.min_restriction_confidence)
 
     try:
-        df = personalize(
+        df = personalized_targets(
             hla_alleles=args.hla,
             cta_expression=args.cta or None,
             mutations=args.mutations or None,
