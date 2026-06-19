@@ -97,15 +97,15 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--min-cta-tpm",
         type=float,
         default=2.0,
-        help="Minimum CTA expression in TPM to include (default 2.0).",
+        help="Minimum CTA expression in TPM to include. Defaults to 2.0.",
     )
     p.add_argument(
         "--min-restriction-confidence",
         type=_split_csv,
         default=["HIGH", "MODERATE"],
         help=(
-            "Allowed CTA restriction_confidence bins, comma-separated "
-            "(default 'HIGH,MODERATE'; pass 'ANY' to disable)."
+            "Allowed CTA restriction_confidence bins, comma-separated. "
+            "Defaults to 'HIGH,MODERATE'; pass 'ANY' to disable."
         ),
     )
     p.add_argument(
@@ -118,7 +118,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--mtec-max-tpm",
         type=float,
         default=1.0,
-        help="Maximum mean mTEC TPM when --mtec-matrix-path is given (default 1.0).",
+        help="Maximum mean mTEC TPM when --mtec-matrix-path is given. Defaults to 1.0.",
     )
     p.add_argument(
         "--no-require-human-exclusive-viral",
