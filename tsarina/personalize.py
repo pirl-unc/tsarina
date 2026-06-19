@@ -43,9 +43,9 @@ Optional extra filters:
 
 Typical usage::
 
-    from tsarina.personalize import personalize
+    from tsarina import personalized_targets
 
-    targets = personalize(
+    targets = personalized_targets(
         hla_alleles=["HLA-A*02:01", "HLA-B*07:02"],
         cta_expression={"MAGEA4": 142.5, "PRAME": 87.3},
         mutations=["KRAS G12D"],
@@ -93,7 +93,7 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
 )
 
 
-def personalize(
+def personalized_targets(
     hla_alleles: list[str],
     cta_expression: dict[str, float] | None = None,
     mutations: list[str] | None = None,
@@ -350,6 +350,13 @@ def personalize(
         if col not in combined.columns:
             combined[col] = pd.NA
     return combined[list(_OUTPUT_COLUMNS)]
+
+
+# Backward-compatible alias. ``personalized_targets`` is the canonical name (it's
+# also exported from the top level, ``from tsarina import personalized_targets``);
+# ``personalize`` is retained so existing ``from tsarina.personalize import
+# personalize`` callers keep working.
+personalize = personalized_targets
 
 
 def _attach_ms_evidence(
