@@ -35,6 +35,8 @@ neither should be returned by the default CTA panel helpers.
 - [x] Update tests for oncoref count parity, CSH1/H1-6 exclusion, and retained
       mass-spec evidence.
 - [x] Update docs/readme wording for oncoref-backed CTA curation and counts.
+- [x] Rename the proteoform registry sync/test authority to oncoref so the
+      mirror parity test runs in this PR.
 - [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
 
 ## Review
@@ -51,7 +53,8 @@ neither should be returned by the default CTA panel helpers.
 - Automatic panel selection and CTA partitioning use the canonical default mask
   rather than raw `passes_filters`.
 - Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
-  (473 passed, 1 skipped).
+  (474 passed). The proteoform registry parity test now uses oncoref, so it
+  runs under the PR dependency set instead of being skipped.
 
 ---
 
