@@ -11,17 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Sync the proteoform-group registry from ``cancerdata`` into tsarina.
+"""Sync the proteoform-group registry from ``oncoref`` into tsarina.
 
 The identical-protein CGA grouping (CTAG1A/CTAG1B, the CT47A family, …) used by
-the pMHC-collapse logic in ``spanning.py`` is *owned* by ``cancerdata``
-(``cancerdata.proteoform_groups()``, derived from Ensembl protein sequences).
-tsarina ships a materialized mirror so the grouping is deterministic and needs no
-runtime dependency on cancerdata; this script regenerates that mirror, and
-``tests/test_spanning.py`` asserts the two stay in sync when cancerdata is
+the pMHC-collapse logic in ``spanning.py`` is *owned* by ``oncoref``
+(``oncoref.proteoform_groups()``, derived from Ensembl protein sequences).
+tsarina ships a materialized mirror so grouping is deterministic without loading
+the oncoref proteoform table at runtime; this script regenerates that mirror,
+and ``tests/test_spanning.py`` asserts the two stay in sync when oncoref is
 importable.
 
-Run (with cancerdata installed/importable):
+Run (with oncoref installed/importable):
     python scripts/sync_proteoform_groups.py
 """
 
@@ -34,7 +34,7 @@ _COLUMNS = ["proteoform_id", "member_symbol", "member_gene_id", "protein_length"
 
 
 def main() -> None:
-    from cancerdata import proteoform_groups
+    from oncoref import proteoform_groups
 
     df = proteoform_groups()[_COLUMNS].sort_values(["proteoform_id", "member_symbol"])
     _OUTPUT.parent.mkdir(parents=True, exist_ok=True)

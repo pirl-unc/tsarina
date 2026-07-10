@@ -1,3 +1,63 @@
+# PR - Adopt Oncoref CTA Defaults (2026-07-10)
+
+## Goal
+
+Make tsarina's default CTA gene set agree with `oncoref.cta_gene_ids()` while
+retaining tsarina's mass-spec safety evidence. CSH1 and H1-6 must remain
+inspectable as non-default candidates with their supporting safety evidence, but
+neither should be returned by the default CTA panel helpers.
+
+## Spec
+
+- Treat oncoref's CTA evidence and specificity decisions as canonical for
+  default CTA inclusion.
+- Preserve tsarina's `ms_*` evidence columns by joining the local bundled
+  evidence onto the oncoref CTA frame.
+- Preserve H1-6 as a tsarina-only excluded evidence row so its
+  `RECURRENT_HEALTHY` mass-spec signal is not lost even though oncoref excludes
+  histones from the canonical CTA universe.
+- Ensure CSH1 follows oncoref's exclusion (`passes_filters=False`,
+  `specificity_status=excluded_normal_expression`) while keeping its lung and
+  smooth-muscle RNA safety evidence visible.
+- Update public accessors, automatic panel filtering, docs, and tests so the
+  default set is 293 genes and matches oncoref exactly.
+
+## Plan
+
+- [x] Add oncoref as a runtime dependency and load oncoref CTA evidence as the
+      base CTA frame.
+- [x] Join tsarina-local `ms_restriction`, `ms_healthy_somatic_tissues`, and
+      `ms_pmids` columns onto the oncoref frame.
+- [x] Append H1-6 from tsarina's local bundled evidence as an excluded
+      tsarina-only candidate with specificity metadata.
+- [x] Add canonical CTA mask helpers and use them for default/filtered CTA
+      accessors and automatic panel candidate filtering.
+- [x] Update tests for oncoref count parity, CSH1/H1-6 exclusion, and retained
+      mass-spec evidence.
+- [x] Update docs/readme wording for oncoref-backed CTA curation and counts.
+- [x] Rename the proteoform registry sync/test authority to oncoref so the
+      mirror parity test runs in this PR.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`.
+
+## Review
+
+- `CTA_gene_names()` and `CTA_gene_ids()` now exactly match oncoref's canonical
+  default sets (293 genes).
+- `CTA_filtered_gene_names()` / IDs now match oncoref's canonical filtered tier
+  (302 genes), while `CTA_evidence()` keeps a 391-row evidence universe with
+  tsarina's MS safety columns.
+- CSH1 is excluded through oncoref's `excluded_normal_expression` decision and
+  keeps its lung/smooth-muscle RNA safety evidence visible.
+- H1-6 is appended as a tsarina-only excluded evidence candidate with
+  `ms_restriction=RECURRENT_HEALTHY`, 15 healthy somatic tissues, and 48 PMIDs.
+- Automatic panel selection and CTA partitioning use the canonical default mask
+  rather than raw `passes_filters`.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (474 passed). The proteoform registry parity test now uses oncoref, so it
+  runs under the PR dependency set instead of being skipped.
+
+---
+
 # PR - Deconvolve Multi-Allelic MS Evidence (2026-05-07)
 
 ## Goal

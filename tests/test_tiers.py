@@ -245,37 +245,28 @@ def test_csv_has_no_runtime_ms_count_columns():
 
 
 def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 275
+    assert len(CTA_gene_names()) == 293
 
 
 def test_filtered_count():
-    # 300 = 286 + 11 reproductive-restriction-filter passers from the tsarina#111
-    # batch (placental-antigen families plus the corrected MAGEA2B/SSX4B
-    # identical-protein paralogs, which previously carried their siblings' gene
-    # IDs and were silently dropped) + 3 from the tsarina#124 cell-type-scan batch
-    # (LGALS16 PLACENTAL, NLRP9 REPRODUCTIVE, ZFP42 TESTIS; the SOMATIC KISS1R /
-    # CALHM4 land as excluded candidates). NLRP9 was held out of #125 pending an
-    # IHC review and re-added in tsarina#128: its broad somatic HPA IHC is a
-    # single low-tier polyclonal (HPA042623) that HPA flags for low specificity,
-    # contradicted by oocyte/germline-restricted RNA/single-cell/DVP-protein data.
-    # Somatically-leaky members (most CGB, PSG4/7, GH2, and the distinct-protein
-    # CT45A5) are not counted here.
-    assert len(CTA_filtered_gene_names()) == 300
+    # oncoref owns the canonical filtered tier: default CTAs plus
+    # canonical_low_expression candidates, excluding audited demotions such as
+    # CSH1 and tsarina-only excluded evidence rows such as H1-6.
+    assert len(CTA_filtered_gene_names()) == 302
 
 
 def test_gage10_added_gage12b_excluded():
     """Pin the two GAGE-audit decisions by identity (not just count; tsarina#108).
 
-    GAGE10 is a full-length GAGE paralog added to the universe; it passes the
-    reproductive-restriction filter but is never_expressed (1.6 < 2.0 floor), so
-    it is in the filtered set but not the expressed set. GAGE12B is deliberately
-    excluded -- its Ensembl ID is a degenerate 117-bp fragment, not a GAGE
-    protein -- so it must be in neither.
+    GAGE10 is a full-length GAGE paralog added to the universe and oncoref now
+    keeps it in the canonical default set. GAGE12B is deliberately excluded --
+    its Ensembl ID is a degenerate 117-bp fragment, not a GAGE protein -- so it
+    must be in neither.
     """
     filtered = CTA_filtered_gene_names()
     expressed = CTA_gene_names()
     assert "GAGE10" in filtered
-    assert "GAGE10" not in expressed
+    assert "GAGE10" in expressed
     assert "GAGE12B" not in filtered
     assert "GAGE12B" not in expressed
 
