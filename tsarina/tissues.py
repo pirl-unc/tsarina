@@ -98,9 +98,10 @@ MANUALLY_EXPRESSED_CTA: frozenset[str] = frozenset(
 #: alpha-tubulins) and placental chorionic gonadotropin.  These can pass the
 #: reproductive-restriction filter on a testis-enriched copy, yet they make poor
 #: targets (ubiquitous/essential proteins) and pollute any CTA-keyed sequence or
-#: expression analysis.  Dropped from the universe at load time.  Keyed by
-#: (unversioned) Ensembl gene ID.  See tsarina#92.  Note: testis-specific
-#: histone variants (e.g. H1-6 / HIST1H1T) are deliberately NOT excluded.
+#: expression analysis.  Dropped from the local evidence join at load time.
+#: Keyed by (unversioned) Ensembl gene ID.  See tsarina#92. H1-6 / HIST1H1T is
+#: retained separately as a tsarina-only excluded evidence row so its
+#: RECURRENT_HEALTHY MS evidence remains inspectable (tsarina#141).
 NON_CTA_EXCLUDED_GENE_IDS: frozenset[str] = frozenset(
     {
         "ENSG00000274618",  # H4C6   -- core histone H4 (conserved/multicopy)

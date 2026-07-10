@@ -131,10 +131,11 @@ GENE_SPECS = [
     # left to the reproductive-restriction filter (no manual exclusion): the
     # somatically-broad members (GH2, PSG4/7, CGB1/3/5/7, ERVW-1/FRD-1/V-1) land
     # in the universe as *excluded* candidates; the placenta-dominant ones (PSG2,
-    # PSG6, LGALS13/14, ERVV-2, ERVH48-1, CSH1, CGB8) pass the reproductive filter
-    # into the expressed set, where any residual somatic/vital leakage (e.g. CSH1
-    # lung ~10 nTPM) is caught downstream by the vital-tissue panel filter rather
-    # than by hand here.  CGB8 also dropped from NON_CTA_EXCLUDED.  Tagged
+    # PSG6, LGALS13/14, ERVV-2, ERVH48-1, CGB8) pass the reproductive filter
+    # into the expressed set, where residual somatic/vital leakage is surfaced
+    # for downstream review. oncoref now demotes CSH1 from the canonical default
+    # set because of lung/smooth-muscle normal expression (tsarina#141). CGB8
+    # also dropped from NON_CTA_EXCLUDED.  Tagged
     # ``placental_antigen``.  All are full-length protein-coding (139-538 aa; no
     # fragment models -- cf. GAGE12B, tsarina#108).
     *(

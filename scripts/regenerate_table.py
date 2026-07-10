@@ -188,7 +188,11 @@ def _recompute_rna_columns(df: pd.DataFrame, consensus: pd.DataFrame, consensus_
 
 
 def _expressed_set(df: pd.DataFrame) -> set[str]:
-    """CTA_gene_names()-equivalent: passes_filters and not never_expressed."""
+    """Legacy local expressed set: raw passes_filters and not never_expressed.
+
+    Public ``CTA_gene_names()`` now follows oncoref specificity decisions; this
+    report remains useful for auditing raw HPA regeneration deltas.
+    """
     pf = df["passes_filters"].astype(bool)
     ne = df["never_expressed"].astype(str).str.lower() == "true"
     return set(df.loc[pf & ~ne, "Symbol"])

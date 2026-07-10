@@ -1,3 +1,5 @@
+import oncoref
+
 from tsarina import (
     CTA_by_axes,
     CTA_evidence,
@@ -19,11 +21,21 @@ from tsarina import (
 
 
 def test_gene_names_nonempty():
-    assert len(CTA_gene_names()) == 275
+    assert len(CTA_gene_names()) == 293
 
 
 def test_gene_ids_nonempty():
-    assert len(CTA_gene_ids()) == 275
+    assert len(CTA_gene_ids()) == 293
+
+
+def test_default_cta_set_matches_oncoref():
+    assert CTA_gene_names() == oncoref.cta_gene_names()
+    assert CTA_gene_ids() == oncoref.cta_gene_ids()
+
+
+def test_canonical_filtered_cta_set_matches_oncoref():
+    assert CTA_filtered_gene_names() == oncoref.cta_filtered_gene_names()
+    assert CTA_filtered_gene_ids() == oncoref.cta_filtered_gene_ids()
 
 
 def test_expressed_is_strict_subset_of_filtered():
@@ -114,6 +126,8 @@ def test_evidence_has_expected_columns():
         "restriction",
         "restriction_confidence",
         "ms_restriction",
+        "specificity_status",
+        "specificity_action",
     ]
     for col in expected:
         assert col in df.columns, f"Missing column: {col}"
@@ -127,6 +141,42 @@ def test_evidence_uses_passes_filters_column_name():
     assert "passes_filters" in df.columns
     assert "filtered" in df.columns
     assert df["filtered"].equals(df["passes_filters"])
+
+
+def test_csh1_and_h1_6_are_excluded_candidates_with_supporting_evidence():
+    df = CTA_evidence().set_index("Symbol")
+    default = CTA_gene_names()
+    filtered = CTA_filtered_gene_names()
+    excluded = CTA_excluded_gene_names()
+
+    assert {"CSH1", "H1-6"}.isdisjoint(default)
+    assert {"CSH1", "H1-6"}.isdisjoint(filtered)
+    assert {"CSH1", "H1-6"} <= excluded
+
+    csh1 = df.loc["CSH1"]
+    assert csh1["Ensembl_Gene_ID"] == "ENSG00000136488"
+    assert not bool(csh1["passes_filters"])
+    assert not bool(csh1["rna_99_pct_filter"])
+    assert csh1["rna_deflated_reproductive_frac"] == 0.9898
+    assert csh1["rna_max_somatic_tissue"] == "smooth muscle"
+    assert csh1["rna_max_somatic_ntpm"] == 38.3
+    assert csh1["rna_lung_max_ntpm"] == 10.4
+    assert csh1["restriction"] == "SOMATIC"
+    assert "lung" in str(csh1["safety_flags"])
+    assert csh1["specificity_status"] == "excluded_normal_expression"
+    assert csh1["specificity_action"] == "exclude_default"
+
+    h1_6 = df.loc["H1-6"]
+    assert h1_6["Ensembl_Gene_ID"] == "ENSG00000187475"
+    assert bool(h1_6["passes_filters"])  # raw HPA row retained for audit.
+    assert h1_6["specificity_status"] == "excluded_structural_gene"
+    assert h1_6["specificity_action"] == "exclude_default"
+    assert h1_6["ms_restriction"] == "RECURRENT_HEALTHY"
+    tissues = {t.strip() for t in str(h1_6["ms_healthy_somatic_tissues"]).split(";") if t}
+    assert len(tissues) == 15
+    assert {"lung", "liver", "blood", "bone marrow"} <= tissues
+    pmids = {p for p in str(h1_6["ms_pmids"]).split(";") if p}
+    assert len(pmids) == 48
 
 
 def test_xage1b_passes_relaxed_no_protein_threshold():
@@ -275,16 +325,16 @@ def test_no_protein_threshold_is_0_97():
     assert HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS["Uncertain"] == 0.97
 
 
-def test_never_expressed_column_matches_parameterized_floor():
-    """The bundled ``never_expressed`` column equals the documented rule:
-    no protein IHC data AND max RNA nTPM < HPA_EXPRESSION_FLOOR_NTPM."""
-    from tsarina.tissues import HPA_EXPRESSION_FLOOR_NTPM
-
-    df = CTA_evidence()
-    no_protein = df["protein_reliability"].astype(str).str.lower().isin(["no data", "nan", ""])
-    rule = no_protein & (df["rna_max_ntpm"] < HPA_EXPRESSION_FLOOR_NTPM)
-    shipped = df["never_expressed"].astype(str).str.lower() == "true"
-    assert (rule == shipped).all()
+def test_never_expressed_column_matches_oncoref_evidence():
+    """oncoref owns raw HPA CTA evidence, including ``never_expressed``."""
+    df = CTA_evidence().copy()
+    df["_gid"] = df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+    ref = oncoref.cta_evidence().copy()
+    ref["_gid"] = ref["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+    merged = df.merge(ref[["_gid", "never_expressed"]], on="_gid", suffixes=("", "_oncoref"))
+    left = merged["never_expressed"].astype(str).str.lower()
+    right = merged["never_expressed_oncoref"].astype(str).str.lower()
+    assert left.equals(right)
 
 
 def test_cta_symbol_for_alias_resolves_common_names():
@@ -316,10 +366,11 @@ def test_aliases_backfilled_for_most_genes():
 
 def test_non_cta_conserved_genes_excluded_from_universe():
     """Conserved/multicopy non-CTAs (core histones, alpha-tubulins) are dropped
-    from the CTA universe (tsarina#92); testis-specific histone variants are
-    kept. hCG-beta (CGB8) is no longer excluded by hand — it now enters the
-    candidate universe with the rest of the placental-antigen families and is
-    judged by the reproductive-restriction filter (tsarina#111)."""
+    from the CTA universe (tsarina#92). H1-6 is kept only as a tsarina evidence
+    candidate and is excluded from canonical oncoref CTA defaults
+    (tsarina#141). hCG-beta (CGB8) is no longer excluded by hand — it now enters
+    the candidate universe with the rest of the placental-antigen families and
+    is judged by the reproductive-restriction filter (tsarina#111)."""
     from tsarina import CTA_evidence, CTA_unfiltered_gene_names
 
     universe = CTA_unfiltered_gene_names()
@@ -327,8 +378,11 @@ def test_non_cta_conserved_genes_excluded_from_universe():
     for gene in ("H4C6", "H2BC1", "H2BC3", "H1-1", "TUBA3C", "TUBA3E"):
         assert gene not in universe, f"{gene} should be excluded from the universe"
         assert gene not in evidence_symbols, f"{gene} should not be a CTA_evidence row"
-    # The testis-specific linker histone H1t (H1-6) is a legit CTA — kept.
+    # The testis-specific linker histone H1t (H1-6) is retained only for
+    # evidence auditability, not canonical CTA membership.
     assert "H1-6" in universe
+    assert "H1-6" not in CTA_filtered_gene_names()
+    assert "H1-6" not in CTA_gene_names()
     # hCG-beta now enters the universe as a placental candidate (tsarina#111).
     assert "CGB8" in universe
 

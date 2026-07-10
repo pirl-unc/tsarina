@@ -18,7 +18,12 @@ from functools import lru_cache
 
 import pandas as pd
 
-from .loader import cta_dataframe, passes_filters_mask
+from .loader import (
+    canonical_default_mask,
+    canonical_filtered_mask,
+    cta_dataframe,
+    passes_filters_mask,
+)
 from .tissues import MANUALLY_EXPRESSED_CTA
 
 #: ``protein_reliability`` spellings that mean "no HPA IHC data for this gene".
@@ -97,9 +102,11 @@ def _cta_by_column(
     """Internal: retrieve gene values from the CTA CSV with optional masks."""
     df = cta_dataframe()
     mask = True
-    if filtered_only:
-        mask = passes_filters_mask(df)
-    if exclude_never_expressed and "never_expressed" in df.columns:
+    if filtered_only and exclude_never_expressed:
+        mask = canonical_default_mask(df)
+    elif filtered_only:
+        mask = canonical_filtered_mask(df)
+    elif exclude_never_expressed and "never_expressed" in df.columns:
         never_expressed = df["never_expressed"].astype(str).str.lower() == "true"
         # Keep manually rescued borderline-but-real CTAs (e.g. XAGE5) in the
         # expressed set even though HPA flags them never_expressed.  See
@@ -160,12 +167,12 @@ def CTA_gene_ids() -> set[str]:
 
 
 def CTA_filtered_gene_names() -> set[str]:
-    """All CTA gene symbols that pass the HPA filter (including never-expressed)."""
+    """Canonical filtered CTA symbols, including low-expression CTAs."""
     return _cta_by_column("Symbol", filtered_only=True)
 
 
 def CTA_filtered_gene_ids() -> set[str]:
-    """All CTA Ensembl gene IDs that pass the HPA filter (including never-expressed)."""
+    """Canonical filtered CTA Ensembl IDs, including low-expression CTAs."""
     return _cta_by_column("Ensembl_Gene_ID", filtered_only=True)
 
 
@@ -199,12 +206,10 @@ def CTA_unfiltered_gene_ids() -> set[str]:
 
 
 def CTA_excluded_gene_names() -> set[str]:
-    """CTA genes that FAIL the reproductive-tissue filter.
+    """Candidate CTA genes outside the canonical specificity tier.
 
-    These are candidate CTAs with evidence of somatic tissue expression.
-    Use this set to exclude from a non-CTA comparison set: they should
-    not be in the clean CTA set (they leak into healthy tissue) but also
-    should not be in a non-CTA set (they are still CTA candidates).
+    These rows remain inspectable in ``CTA_evidence()`` but are not members of
+    the recommended default CTA panel.
     """
     return CTA_unfiltered_gene_names() - CTA_filtered_gene_names()
 
@@ -268,7 +273,7 @@ def _axis_filter(
         values = {values}
     mask = df[axis_col].isin(values)
     if filtered_only:
-        mask = mask & passes_filters_mask(df)
+        mask = mask & canonical_filtered_mask(df)
     return _extract_values(df[mask], column)
 
 
@@ -329,14 +334,14 @@ def CTA_by_axes(
     column
         Column to return (``"Symbol"`` or ``"Ensembl_Gene_ID"``).
     filtered_only
-        If True (default), restrict to genes passing the HPA filter.
-        Set to False to query the full CTA universe (the entire bundled table).
+        If True (default), restrict to genes in the canonical filtered CTA tier.
+        Set to False to query the full CTA candidate universe.
     """
     df = cta_dataframe()
     mask = True
 
     if filtered_only:
-        mask = passes_filters_mask(df)
+        mask = canonical_filtered_mask(df)
 
     for axis_col, values in [
         ("restriction", restriction),

@@ -22,8 +22,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .evidence import CTA_evidence
-from .loader import passes_filters_mask
-from .tissues import MANUALLY_EXPRESSED_CTA
+from .loader import canonical_default_mask, canonical_filtered_mask
 
 
 @dataclass(frozen=True)
@@ -78,22 +77,9 @@ def _build_partition(ensembl_release: int = 112):
     }
     all_pc_ids = set(all_pc_genes.keys())
 
-    filtered_mask = passes_filters_mask(evidence_df)
-    never_expr_mask = evidence_df["never_expressed"].astype(str).str.lower() == "true"
-    # Treat manually rescued borderline-but-real CTAs (e.g. XAGE5) as expressed
-    # CTAs rather than never-expressed.  See tsarina#78 and
-    # tsarina.tissues.MANUALLY_EXPRESSED_CTA.
-    rescued_mask = (
-        evidence_df["Ensembl_Gene_ID"]
-        .astype(str)
-        .str.split(".")
-        .str[0]
-        .isin(MANUALLY_EXPRESSED_CTA)
-    )
-    never_expr_mask = never_expr_mask & ~rescued_mask
-
-    cta_mask = filtered_mask & ~never_expr_mask
-    never_expressed_mask = filtered_mask & never_expr_mask
+    filtered_mask = canonical_filtered_mask(evidence_df)
+    cta_mask = canonical_default_mask(evidence_df)
+    never_expressed_mask = filtered_mask & ~cta_mask
 
     cta_ids = set(evidence_df.loc[cta_mask, "Ensembl_Gene_ID"])
     never_expressed_ids = set(evidence_df.loc[never_expressed_mask, "Ensembl_Gene_ID"])

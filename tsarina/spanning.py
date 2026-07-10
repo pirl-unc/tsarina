@@ -1306,7 +1306,7 @@ def _resolve_ctas(
     wins; else filter the bundled CTA CSV and take top-N by rank. If
     ``cta_count`` is ``None``, return all ranked automatic candidates."""
     from .gene_sets import CTA_gene_names
-    from .loader import passes_filters_mask
+    from .loader import canonical_default_mask
 
     valid = CTA_gene_names()
     allowlist = _normalize_cta_labels(selection_allowlist, valid)
@@ -1323,9 +1323,7 @@ def _resolve_ctas(
         return []
     df["_cta_display"] = df["Symbol"].map(_cta_display_name)
     df["_is_selection_allowlisted"] = df["_cta_display"].isin(allowlist)
-    df = df[passes_filters_mask(df)]
-    if "never_expressed" in df.columns:
-        df = df[~(df["never_expressed"].astype(str).str.lower() == "true")]
+    df = df[canonical_default_mask(df)]
 
     if restriction_levels is not None and "restriction" in df.columns:
         wanted_levels = set(restriction_levels)

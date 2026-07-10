@@ -14,7 +14,7 @@ The core insight is that many cancer-targetable peptides are **shared across pat
 tsarina combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
 
 **Shared targets** (curated once, reused across patients):
-- **CTA genes** — a 382-gene curated universe (5 source databases plus tsarina-added paralog copies and placental antigens), 272 expressed after HPA tissue-restriction filtering
+- **CTA genes** — 293 oncoref-canonical default CTAs, enriched with tsarina MS safety evidence
 - **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
 - **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
 
@@ -50,7 +50,7 @@ pip install tsarina[all]
 
 Proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction means immune responses against them should not damage normal somatic tissues. Thymus expression is expected (AIRE-mediated central tolerance) and excluded from restriction checks.
 
-A **382-gene curated universe** — the union of 5 source databases plus tsarina-added paralog copies and placental onco-germline antigens — systematically filtered using Human Protein Atlas v23 tissue expression data to **272 expressed CTAs** with predominantly reproductive-restricted expression.
+The canonical CTA gene set is delegated to **oncoref**. `CTA_gene_names()` currently returns **293 default CTAs**; `CTA_filtered_gene_names()` returns **302 canonical filtered CTAs**, and `CTA_evidence()` exposes the oncoref evidence frame plus tsarina's `ms_*` safety columns and retained excluded-candidate audit rows.
 
 ```python
 from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence
@@ -69,7 +69,7 @@ df = CTA_evidence()          # full evidence table with HPA columns
 
 #### CTA curation pipeline
 
-**Step 1: Collect.** Take the union of protein-coding CT genes across all 5 source databases, then add tsarina's paralog copies and placental onco-germline antigens → a **382-gene universe**. Duplicates are merged; non-protein-coding genes (e.g., lncRNAs) are excluded.
+**Step 1: Collect.** Use oncoref's CTA evidence as the canonical source table, which combines published CT antigen sources with audited paralog and placental onco-germline candidates. tsarina joins its local mass-spec safety evidence onto that frame.
 
 **Step 2: Annotate for tissue restriction.** The goal is to answer: "is this gene's expression restricted to reproductive tissues?" We use two independent data modalities from Human Protein Atlas v23:
 
@@ -91,8 +91,10 @@ Thymus is excluded from all restriction checks because AIRE drives ectopic expre
    | Approved + reproductive only | >= 95% |
    | Uncertain or no protein data | >= 97% |
 
-Result: **272 expressed CTAs** pass the filter; **297** genes pass filters in
-total when the never-expressed low-evidence candidates are included.
+Result: **293 genes** are in the recommended oncoref default CTA set; **302**
+genes are in the canonical filtered tier when low-expression candidates are
+included. tsarina keeps excluded evidence rows such as CSH1 and H1-6 available
+for audit, but they are not default panel members.
 
 See [full curation documentation](curation.md) for the deflated fraction formula, never-expressed flag, and figures.
 

@@ -12,9 +12,9 @@
 
 """CTA evidence table access with HPA tissue-restriction columns.
 
-The evidence table contains one row per CTA gene (curated from multiple
-source databases), annotated with Human Protein Atlas v23 protein and RNA
-tissue expression data and the three-axis tier results.
+The evidence table uses oncoref's CTA evidence and specificity decisions as the
+canonical source, then enriches that frame with tsarina's mass-spec safety
+columns and MS-aware tier results.
 """
 
 from __future__ import annotations
@@ -66,8 +66,8 @@ def CTA_evidence() -> pd.DataFrame:
     rna_98_pct_filter, rna_99_pct_filter : bool
         Whether deflated reproductive fraction >= 80/90/95/98/99%.
     passes_filters : bool
-        Final inclusion flag with tiered RNA thresholds based on protein
-        antibody reliability.
+        Raw HPA reproductive-restriction filter flag with tiered RNA thresholds
+        based on protein antibody reliability.
     filtered : bool
         Backward-compatible alias of ``passes_filters``; identical values.
         Retained for downstream consumers that still schema-check for the
@@ -108,6 +108,9 @@ def CTA_evidence() -> pd.DataFrame:
         ``TESTIS`` / ``PLACENTAL`` / ``REPRODUCTIVE`` / ``SOMATIC`` / ``NO_DATA``.
     restriction_confidence : str
         Cross-modality confidence: ``HIGH`` / ``MODERATE`` / ``LOW`` / empty.
+    specificity_status, specificity_action : str
+        oncoref specificity decision used by the default and filtered CTA set
+        helpers.
     """
     return cta_dataframe()
 
