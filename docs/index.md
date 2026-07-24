@@ -1,407 +1,120 @@
-# tsarina
+# Tsarina documentation
 
-[![Tests](https://github.com/pirl-unc/tsarina/actions/workflows/tests.yml/badge.svg)](https://github.com/pirl-unc/tsarina/actions/workflows/tests.yml)
-[![PyPI](https://img.shields.io/pypi/v/tsarina.svg)](https://pypi.org/project/tsarina/)
+Tsarina turns shared cancer targets into ranked peptide-MHC candidates. Use it
+to prioritize CTA, viral, and recurrent-mutation targets for one patient, or to
+design an off-the-shelf CTA panel across a population HLA set.
 
-Personalized cancer immunotherapy target selection from curated shared antigen data.
+## Start with your outcome
 
-tsarina weaves patient-specific tumor characteristics (mutations, CTA expression, viral infections, HLA type) together with curated public mass spectrometry evidence to produce prioritized lists of targetable peptide-MHC complexes. The core idea is to personalize cancer immunotherapy from shared, public knowledge rather than per-patient whole-exome discovery.
+### Prioritize targets for one patient
 
-## Concept
+Use patient HLA type plus any available CTA expression, hotspot mutations, and
+viral status. Tsarina returns ranked pMHCs with source abundance, public MS
+support, healthy-tissue safety flags, and predicted presentation.
 
-The core insight is that many cancer-targetable peptides are **shared across patients**: cancer-testis antigens are recurrently activated in tumors, oncogenic viruses produce the same foreign proteins in every infected cell, and hotspot driver mutations generate identical mutant peptides across thousands of patients. Unlike private passenger-mutation neoantigens that require individual whole-exome sequencing, these shared targets can be curated once and reused.
+Continue to [Personalized target selection](personalized-targets.md).
 
-tsarina combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
+### Design a reusable CTA panel
 
-**Shared targets** (curated once, reused across patients):
-- **CTA genes** — the current oncoref canonical set, enriched with tsarina MS safety evidence
-- **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
-- **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
+Use Tsarina's automatic CTA safety filters and cancer-prevalence ranking, or
+provide an explicit CTA list. Tsarina returns a CTA × HLA matrix, evidence
+tiers, and population-coverage estimates.
 
-**Public annotation data** (used to score and filter targets):
-- **Mass spec evidence** — IEDB/CEDAR immunopeptidomics observations
-- **Tissue expression** — HPA RNA (50 tissues) + IHC protein (63 tissues)
-- **HLA allele panels** — population-representative panels (27–53 alleles per region)
+Continue to [CTA panel design](panel-design.md).
 
-**Patient data** (per-individual):
-- HLA type (Class I alleles)
-- Tumor RNA-seq (CTA expression in TPM)
-- Detected mutations (cross-referenced against hotspot list)
-- Viral status (HPV, EBV, etc.)
+### Inspect peptide evidence
 
-tsarina filters shared targets through the patient's HLA type and tumor profile, then ranks the results into a **prioritized target list** annotated with:
-- **Public MS evidence** — number of independent IEDB/CEDAR references, source context (cancer vs. healthy tissue)
-- **Source protein abundance** — RNA expression in TPM, estimated protein abundance where HPA data permits
-- **Predicted presentation** — MHCflurry presentation percentile, NetMHCpan binding affinity
-- **Target category** — CTA, viral, or mutant, with full provenance
+Use the data registry to install or register IEDB and CEDAR exports, then query
+the observation index for specified peptides.
 
-## Install
+Continue to [Data and evidence](data-and-evidence.md).
 
-```bash
-pip install tsarina
+## The shared pipeline
 
-# With full functionality (pyensembl for peptide generation + gene partition):
-pip install tsarina[all]
-```
+All target-selection workflows follow the same conceptual stages:
 
-## Three target categories
+1. **Define candidates.** CTA definitions come from oncoref; viral proteins and
+   recurrent mutation hotspots come from Tsarina's target modules.
+2. **Apply biological context.** Patient workflows retain expressed CTAs and
+   detected mutations or viruses. Panel workflows rank CTAs by population-level
+   cancer prevalence.
+3. **Enforce specificity and safety.** Candidate peptides must be exclusive to
+   their intended source rules. Healthy-tissue MS observations are kept
+   separate from expected reproductive-tissue and thymus observations.
+4. **Add presentation evidence.** Public immunopeptidomics observations and HLA
+   presentation predictions establish evidence tiers.
+5. **Rank with provenance.** Results retain target identity, observation
+   evidence, prediction scores, and the reason for their rank.
 
-### CTA (cancer-testis antigens)
+These stages keep target definition distinct from downstream evidence. In
+particular, [oncoref](https://github.com/pirl-unc/oncoref) alone owns CTA
+membership, aliases, HPA restriction calls, and proteoform groups. See
+[CTA ownership and downstream evidence](curation.md) for the integration
+boundary.
 
-Proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction means immune responses against them should not damage normal somatic tissues. Thymus expression is expected (AIRE-mediated central tolerance) and excluded from restriction checks.
+## Install and prepare data
 
-**[oncoref](https://github.com/pirl-unc/oncoref) is the sole owner of CTA
-definitions.** It supplies the candidate universe, membership tiers, aliases,
-HPA restriction calls, and proteoform groups. Tsarina's foundational CTA
-helpers directly alias `oncoref.cta`; Tsarina does not ship a second CTA table.
-
-`CTA_evidence()` preserves oncoref's exact row universe and adds only a generic
-gene-level `ms_*` safety overlay with no CTA membership or HPA columns.
-
-```python
-from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence
-
-genes = CTA_gene_names()  # direct oncoref default set
-df = CTA_evidence()       # oncoref evidence plus tsarina's ms_* columns
-```
-
-The HPA-derived restriction columns remain oncoref-owned. Tsarina keeps static
-MS safety evidence separate and combines it explicitly only in live
-IEDB/CEDAR target-selection workflows.
-
-See [CTA ownership and downstream evidence](curation.md) for the complete
-boundary. Curation corrections belong in
-[oncoref issues](https://github.com/pirl-unc/oncoref/issues).
-
-### Viral (oncogenic virus proteins)
-
-Foreign proteins from oncogenic viruses -- entirely absent from normal human tissue, making them ideal immunotherapy targets when the virus is present in the tumor.
-
-```python
-from tsarina.viral import (
-    human_exclusive_viral_peptides,
-    viral_peptides,
-)
-
-peps = viral_peptides("hpv16")                    # all viral peptides
-human_exclusive = human_exclusive_viral_peptides("hpv16")  # default clinical helper
-```
-
-`personalized_targets()` and `target_peptides()` use the human-exclusive viral helper by
-default, dropping viral k-mers that also occur anywhere in the human proteome.
-`cancer_specific_viral_peptides()` is available for exploratory workflows that
-allow overlaps with CTA proteins while excluding non-CTA overlaps.
-
-| Virus | Cancers | Key oncoproteins |
-|---|---|---|
-| HPV-16, HPV-18 | Cervical, oropharyngeal, anal | E6, E7 |
-| EBV/HHV-4 | Burkitt lymphoma, NPC, Hodgkin lymphoma | LMP1, EBNA1, LMP2A |
-| HTLV-1 | Adult T-cell leukemia/lymphoma | Tax, HBZ |
-| HBV | Hepatocellular carcinoma | HBx |
-| HCV | HCC, B-cell lymphoma | Core, NS3, NS5A |
-| KSHV/HHV-8 | Kaposi sarcoma, primary effusion lymphoma | vFLIP, vCyclin, LANA |
-| MCPyV | Merkel cell carcinoma | Large T, small T |
-| HIV-1 | Kaposi sarcoma, non-Hodgkin lymphoma | Tat, Nef |
-
-### Mutant (recurrent somatic hotspot mutations)
-
-Shared neoantigens from driver mutations that recur across thousands of patients. Unlike private passenger mutations, these produce the same mutant peptide in every patient carrying the same hotspot mutation.
-
-```python
-from tsarina.mutations import HOTSPOT_MUTATIONS, mutant_peptides
-
-df = mutant_peptides()  # all mutation-spanning 8-11mer peptides
-```
-
-| Gene | Mutations | Cancer types |
-|---|---|---|
-| KRAS | G12C, G12D, G12V, G12R, G13D | Pancreatic, colorectal, NSCLC |
-| BRAF | V600E, V600K | Melanoma, colorectal, thyroid |
-| TP53 | R175H, R248W, R273H, G245S, R249S | Pan-cancer |
-| PIK3CA | H1047R, E545K | Breast, endometrial |
-| IDH1 | R132H | Glioma, AML (peptidomics-validated vaccine target) |
-| NRAS | Q61R, Q61K | Melanoma |
-| EGFR | L858R, T790M | NSCLC |
-
-## Positive and negative peptide sets
-
-tsarina constructs both **positive sets** (cancer-specific peptides from the three target categories) and **negative sets** (peptides observed on normal non-reproductive, non-thymic tissues) using the same IEDB/CEDAR scanning infrastructure with consistent tissue classification.
-
-### Tissue source classification
-
-Every IEDB/CEDAR mass spec observation is classified by biological context:
-
-| Category | IEDB criteria | Meaning |
-|---|---|---|
-| `src_cancer` | Process Type = "Occurrence of cancer" | Peptide detected on tumor MHC |
-| `src_healthy` | Process Type = "No immunization", Disease = "healthy" or empty | Peptide detected on normal tissue |
-| `src_reproductive` | Source Tissue in {testis, ovary, placenta, ...} | Expected for CTAs |
-| `src_thymus` | Source Tissue = thymus | Expected for CTAs (AIRE-mediated) |
-| `src_cell_line` | Culture Condition = "Cell Line / Clone" | In vitro, not direct tissue |
-| `src_ebv_lcl` | Culture Condition contains "EBV transformed, B-LCL" | EBV-immortalized B cells (special case) |
-| `src_ex_vivo` | Culture Condition = "Direct Ex Vivo" | Highest confidence tissue evidence |
-
-**Positive set criteria**: peptide has `src_cancer` evidence AND is exclusive to CTA/viral/mutant source proteins (not found in non-target human proteins).
-
-**Negative set criteria**: peptide has `src_healthy` + `src_ex_vivo` evidence from non-reproductive, non-thymic tissues. These are peptides confirmed to be presented on normal somatic tissue -- targeting them would cause on-target, off-tumor toxicity.
-
-## Patient personalization
-
-The main entry point for clinical use:
-
-```python
-from tsarina import personalized_targets
-
-targets = personalized_targets(
-    # Patient HLA type
-    hla_alleles=["HLA-A*02:01", "HLA-A*24:02", "HLA-B*07:02", "HLA-B*44:02",
-                 "HLA-C*07:02", "HLA-C*05:01"],
-
-    # CTA expression (gene symbol -> TPM from RNA-seq)
-    cta_expression={"MAGEA4": 142.5, "PRAME": 87.3, "CTAG1B": 215.0},
-
-    # Detected mutations (match against hotspot list)
-    mutations=["KRAS G12D", "TP53 R175H"],
-
-    # Viral status
-    viruses=["hpv16"],
-
-    # Data sources
-    iedb_path="mhc_ligand_full.csv",
-)
-```
-
-Returns a DataFrame with columns:
-
-| Column | Description |
-|---|---|
-| `peptide` | Peptide sequence |
-| `category` | `cta`, `viral`, or `mutant` |
-| `source` | Gene name, virus, or mutation label |
-| `source_abundance_tpm` | RNA expression in tumor (CTAs only) |
-| `ms_hit_count` | Number of IEDB/CEDAR MS observations |
-| `ms_alleles` | MHC restrictions observed in public data |
-| `ms_in_cancer` | Detected in cancer samples |
-| `ms_in_healthy_somatic` | Detected in normal non-reproductive, non-thymic tissue (safety flag) |
-| `presentation_percentile` | MHCflurry presentation percentile for best patient allele |
-| `best_allele` | Patient HLA allele with best predicted presentation |
-| `binding_affinity_nm` | Predicted binding affinity (nM) |
-
-Prioritization is by: (1) public MS evidence strength, (2) source protein abundance, (3) predicted presentation quality, (4) absence of healthy-tissue MS evidence.
-
-## CTA x HLA panel matrices
-
-Build a CTA x HLA pMHC matrix for off-the-shelf panel design:
+Install the package:
 
 ```bash
-tsarina panel
+pip install "tsarina[all]"
 ```
 
-Defaults:
-
-- up to 25 downstream non-empty CTAs ranked by bundled HPA tumor RNA prevalence
-  breadth/sample prevalence, with lower-ranked candidates scanned as needed to
-  backfill empty downstream targets and clinical allowlist anchors pinned ahead
-  of lower-ranked candidates
-- automatic safety gates remove CTAs with vital-tissue RNA / unique healthy-MS
-  evidence, while allowlisting `PRAME`, `CTAG1A/CTAG1B`, and `MAGEA4`
-- automatic selection excludes MAGE-family CTAs other than `MAGEA4` unless they
-  are explicitly requested or allowlisted
-- `CTAG1A/CTAG1B` is treated as one grouped CTA target, with `NY-ESO-1`
-  accepted as an input alias
-- CTAs with identical enumerated peptide sets or final selected pMHC panels are
-  grouped so paralogous targets do not consume multiple automatic panel slots
-- `global53_abc` HLA-A/B/C panel
-- 8-11mer CTA-exclusive peptides
-- MHCflurry presentation scoring
-- MS-evidence-first cell selection
-- up to 3 peptides per CTA x HLA cell, ranked by MS source count, then prediction
-- readable terminal table plus coverage summary
-
-Use CSV formats for scripts:
+See which external datasets Tsarina can use:
 
 ```bash
-tsarina panel --format long -o panel-long.csv
-tsarina panel --format wide -o panel-wide.csv
+tsarina data available
 ```
 
-The CLI prints progress for peptide enumeration, public-MS evidence loading,
-scoring, evidence-tier construction, and final selection. Interactive terminals
-also get a `tqdm` scoring progress bar; MHCflurry still scores all alleles in
-one batch by default because chunking repeats its allele-independent processing
-model work. Use `--score-chunk-size` only when you explicitly want chunking, or
-`--progress off` to suppress progress output.
-
-Use `--selection-allowlist`, `--no-vital-tissue-filter`,
-`--vital-tissue-max-ntpm`, and `--allow-non-magea4-mage-family` to tune
-automatic CTA safety filtering. The default vital RNA cutoff is 2.0 nTPM;
-public healthy-MS observations in vital tissues remain exclusionary only when
-the peptide evidence maps uniquely to that CTA, unless allowlisted. Explicit
-`--ctas` accepts aliases such as `NY-ESO-1` and `MAGE-A4` and bypasses automatic
-CTA-family safety gates.
-
-Default automatic ranking uses `tumor_prevalence_panel_score`, computed from
-bundled HPA cancer RNA prevalence at pTPM >= 2.0 and cancer-type breadth at a
-5% sample-prevalence floor, with HPA cancer IHC as a weak tie-breaker. Public
-MS support and safety gates are recomputed from the current hitlist observations
-index for each candidate batch before pMHC scoring; packaged CTA evidence does
-not carry MS count columns. Use `--cancer-rna-threshold`,
-`--cancer-type-prevalence-floor`, or `--cta-rank-by <column>` to change the
-initial non-MS candidate ranking.
-
-Automatic panel output scans lower-ranked CTA candidates to backfill CTAs with
-zero selected pMHCs after peptide enumeration, CTA-exclusivity, public-MS, and
-presentation-score gates; pass `--show-empty-ctas` to audit the top ranked
-candidates including those failures. Explicit `--ctas` requests are preserved
-even if a requested CTA has zero selected pMHCs. The "Expected Population
-Coverage Per CTA" rows are sorted by selected peptide count, then HLA-hit count,
-then estimated population coverage, and split monoallelic MS pMHC support from
-sample-genotype/deconvolved MS support.
-
-Peptide enumeration may expand one target label to multiple Ensembl genes
-(`CTAG1A/CTAG1B` and the `NY-ESO-1` alias expand to `CTAG1A` and `CTAG1B`),
-but output target names stay grouped. Pass `--no-group-identical-cta-peptide-sets`
-to keep peptide-identical paralog targets separate, or `--no-group-identical-cta-pmhcs`
-to keep duplicate pMHC panels separate.
-Pass `--netmhcpan-affinity` to annotate every selected pMHC row with NetMHCpan
-BA affinity nM and affinity percentile rank. This is opt-in because it requires
-the external NetMHCpan backend and adds a second scoring pass when the main
-selector is using MHCflurry.
-
-Evidence tiers use configurable presentation percentile cutoffs:
-
-| Evidence tier | Default cutoff | Meaning |
-|---|---:|---|
-| `monoallelic_ms` | < 2.0 | Peptide observed in mono-allelic MS for that HLA |
-| `sample_allele_ms` | < 1.0 | Peptide observed in multi-allelic MS with a usable exact restriction set or donor allele set; the selected HLA must be the best predicted allele in that set, including when the row's reported restriction is only `HLA class I` |
-| `unrestricted_ms` | < 0.5 | Peptide observed by class-I MS with no usable exact or donor-set allele assignment; the selected panel HLA is assigned by prediction under this stricter cutoff |
-| `predicted_only` | < 0.1 | No MS support; excluded unless `--include-predicted-only` is passed |
-
-Available HLA panels:
-
-| Panel | Alleles | Coverage |
-|---|---|---|
-| `iedb27_ab` | 27 | Global baseline (HLA-A/B) |
-| `iedb36_abc` | 36 | + HLA-C |
-| `global44_abc` | 44 | + East Asia, South Asia, Sub-Saharan Africa |
-| `global48_abc` | 48 | + Latin America, MENA |
-| `global51_abc_ssa` | 51 | Legacy Global-48 + additional Sub-Saharan Africa |
-| `global51_abc` | 51 | Global reference panel: IEDB A/B backbone, frequent HLA-C allotypes, and IEDB/Paul common-A/B complements |
-| `global53_abc` | 53 | Default global panel: Global-51 plus CTA-MS supported `A*29:02`, `B*15:02`, and `B*27:05`, keeping only `C*14:02` from the MHCflurry-identical C*14 pair |
-
-Regional allele frequency data from 7 geographic regions supports population-weighted coverage
-calculations. The frequency audit keeps those sub-population proxy rows separate
-from published global average allele frequencies on the same 0-1 allele-frequency
-scale. Panel coverage uses the regional weighted value when a numeric regional
-proxy exists and falls back to the published global average only when no regional
-proxy is available. For each CTA, covered allele frequencies are summed within
-each HLA locus, converted to locus carrier probability as
-`1 - (1 - locus_frequency)^2`, and then combined across loci. All default
-`global53_abc` alleles have a published global average,
-source/proxy/resolution provenance, and a nonzero coverage frequency,
-preventing known-frequency HLA hits from reporting artificial `0.0%` CTA
-coverage.
-The reference `global51_abc` panel keeps all 27 IEDB/TepiTool class-I A/B reference alleles,
-adds all 21 frequent HLA-C allotypes from the Sarkizova HLA-C peptidome coverage set,
-and fills the remaining 51-panel slots with the highest-frequency calibrated alleles
-missing from the IEDB/Paul 38 common HLA-A/B threshold set
-(`B*18:01`, `B*40:02`, `B*46:01`). The default `global53_abc` panel adds
-`A*29:02`, `B*15:02`, and `B*27:05` because these were the top missing
-alleles in a public CTA-MS evidence audit while retaining MHCflurry percentile
-rank support. It keeps `C*14:02` but excludes `C*14:03` because MHCflurry uses
-the same pseudosequence and percentile-rank calibration for both, and `C*14:02`
-had the CTA-MS support in the local audit. References: IEDB reference set
-<https://help.iedb.org/hc/en-us/articles/114094151851-HLA-allele-frequencies-and-reference-sets-with-maximal-population-coverage>,
-TepiTool allele-selection description <https://pmc.ncbi.nlm.nih.gov/articles/PMC4981331/>,
-IEDB/Paul 38 common A/B thresholds
-<https://help.iedb.org/hc/en-us/articles/114094151811-Selecting-thresholds-cut-offs-for-MHC-class-I-and-II-binding-predictions>,
-and Sarkizova et al. <https://doi.org/10.1038/s41587-019-0322-9>.
-Audit notes: all 53 default alleles resolve through MHCflurry's
-`percent_rank_calibrated_allele` lookup and produce numeric affinity percentile
-ranks. `HLA-C*15:05` remains excluded because MHCflurry supports raw affinity and
-presentation predictions for it but does not have an affinity percentile-rank
-calibration.
-
-## Data management
-
-Tsarina uses the shared hitlist data registry for external datasets:
+Viral proteomes can be fetched automatically. IEDB and CEDAR ligand exports
+must be downloaded under their source terms and registered locally:
 
 ```bash
-# See what data is available
-tsarina data list --all
-
-# Auto-download viral proteomes from UniProt
 tsarina data fetch hpv16
-tsarina data fetch ebv
-
-# Register manually downloaded IEDB/CEDAR exports
 tsarina data register iedb /data/mhc_ligand_full.csv
 tsarina data register cedar /data/cedar-mhc-ligand-full.csv
-
-# Inspect what's installed
 tsarina data list
-
-# Resolve paths for use in scripts
-tsarina data path iedb
 ```
 
-### Data sources
+The [Data and evidence](data-and-evidence.md) guide explains storage,
+observation classification, and the evidence model.
 
-| Dataset | Source | Size | How to get |
-|---|---|---|---|
-| IEDB MHC ligand | [iedb.org](https://www.iedb.org/) | ~2 GB | Manual download (terms of use) |
-| CEDAR MHC ligand | [cedar.iedb.org](https://cedar.iedb.org/) | ~1 GB | Manual download |
-| HPV-16 proteome | [UniProt UP000006729](https://www.uniprot.org/proteomes/UP000006729) | ~3 KB | `tsarina data fetch hpv16` |
-| EBV proteome | [UniProt UP000153037](https://www.uniprot.org/proteomes/UP000153037) | ~50 KB | `tsarina data fetch ebv` |
-| *(9 viral proteomes total)* | UniProt | varies | `tsarina data fetch <name>` |
+## Core target concepts
 
-Storage location: `~/.hitlist/` (override with `HITLIST_DATA_DIR` env var).
-`tsarina data` delegates registry and cache management to hitlist.
+### Cancer-testis antigens
 
-IEDB column indices are resolved dynamically from CSV headers, with fallback to known defaults -- robust to IEDB schema changes.
+CTAs are normally restricted to reproductive tissues but can be reactivated in
+tumors. Oncoref supplies the candidate universe and HPA-derived restriction
+axes. Tsarina adds tumor prevalence, public-MS safety evidence, peptide
+enumeration, and HLA scoring after membership is known.
 
-## Tissue definitions
+### Oncogenic viruses
 
-Three oncoref-defined tiers of reproductive tissue sets are re-exported for
-downstream restriction analysis:
+Viral proteins are foreign to the human proteome. Clinical helpers default to
+human-exclusive viral peptides, removing viral k-mers that also occur in human
+proteins.
 
-```python
-from tsarina.tissues import (
-    CORE_REPRODUCTIVE_TISSUES,       # {testis, ovary, placenta}
-    EXTENDED_REPRODUCTIVE_TISSUES,   # + cervix, endometrium, prostate, ...
-    PERMISSIVE_REPRODUCTIVE_TISSUES, # + breast
-    is_tissue_restricted,
-    adaptive_rna_threshold,
-)
-```
+### Recurrent mutations
 
-## MHCflurry scoring
+Hotspot driver mutations produce shared mutant peptides in patients carrying
+the same alteration. Tsarina enumerates mutation-spanning peptides rather than
+discovering private passenger mutations from whole-exome sequencing.
 
-```python
-from tsarina.scoring import score_presentation
-from tsarina.alleles import get_panel
+## Guide map
 
-scores = score_presentation(
-    peptides=["SLYNTVATL", "GILGFVFTL"],
-    alleles=get_panel("iedb27_ab"),
-)
-```
+| Guide | Use it for |
+|---|---|
+| [Personalized target selection](personalized-targets.md) | Patient inputs, CLI and Python use, output columns, and ranking |
+| [CTA panel design](panel-design.md) | Automatic CTA selection, safety gates, evidence tiers, HLA panels, and coverage |
+| [Data and evidence](data-and-evidence.md) | Dataset setup, source classification, positive/negative evidence, scoring, and naming |
+| [CTA ownership and downstream evidence](curation.md) | The oncoref/Tsarina boundary, API behavior, and definition updates |
 
-## Target naming convention
-
-tsarina uses a unified naming scheme across all target categories:
-
-| Category | `source` column | `source_detail` column | Example |
-|---|---|---|---|
-| CTA | Gene symbol | Ensembl gene ID | `MAGEA4` / `ENSG00000147381` |
-| Viral | Virus short name | UniProt protein accession | `HPV-16` / `P03126` |
-| Mutant | Mutation label | Mutation string | `KRAS G12D` / `G12D` |
-
-## Development
+For the current command-line surface, use:
 
 ```bash
-./develop.sh    # install in dev mode
-./format.sh     # ruff format
-./lint.sh       # ruff check + format check
-./test.sh       # pytest with coverage
+tsarina --help
+tsarina personalize --help
+tsarina panel --help
+tsarina hits --help
+tsarina data --help
 ```

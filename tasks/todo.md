@@ -1,3 +1,67 @@
+# PR — Reorganize Documentation from Overview to Reference (2026-07-24)
+
+## Goal
+
+Make the documentation readable in progressive layers: first explain what
+Tsarina does and which workflow a reader should choose, then present operational
+guidance, and only then expose schemas, flags, formulas, and edge cases.
+
+## Audit findings
+
+- Tracking issue:
+  [tsarina #144](https://github.com/pirl-unc/tsarina/issues/144).
+- `README.md` and `docs/index.md` duplicate nearly the same 400-line manual and
+  have already drifted in product naming and CLI examples.
+- The largest block, CTA × HLA panel internals, is embedded in both entry
+  documents instead of a focused workflow guide.
+- Workflow choice is implicit; users encounter target taxonomy before learning
+  whether they need personalized target selection or cohort panel design.
+- Data/evidence concepts, scoring, naming, and development reference are
+  separate top-level fragments rather than one coherent reference layer.
+- `docs/curation.md` is accurate but moves directly into implementation
+  ownership without an at-a-glance boundary and reader-oriented purpose.
+
+## Plan
+
+- [x] Make `README.md` a concise product overview with a workflow map, quick
+      start, target-category summary, documentation map, and development entry.
+- [x] Make `docs/index.md` a reader-oriented documentation hub: choose a
+      workflow first, understand the shared pipeline second, then navigate to
+      focused guides.
+- [x] Create a personalized-target guide organized as outcome → required
+      inputs → basic workflow → output/prioritization → advanced considerations.
+- [x] Create a panel-design guide organized as outcome → default pipeline →
+      selection stages → output controls → evidence tiers → HLA/coverage
+      reference → advanced options.
+- [x] Create a data-and-evidence reference organized as evidence model → source
+      classification → data setup → tissue/scoring helpers → output naming.
+- [x] Reorganize CTA ownership guidance as summary → ownership boundary →
+      evidence flow → API behavior → maintenance.
+- [x] Verify documented commands and flags against current CLI help, validate
+      Markdown links/headings, and remove stale duplicated wording.
+- [x] Bump the package version and run `./format.sh`, `./lint.sh`, and
+      `./test.sh`.
+- [ ] Open, merge, and deploy the PR.
+
+## Review
+
+- Replaced the duplicated 400-line README/index manuals with a 107-line
+  product overview and a 120-line workflow-oriented documentation hub.
+- Moved operational detail into focused personalized-target, panel-design, and
+  data/evidence guides, each ordered from purpose and defaults to advanced
+  reference material.
+- Reordered CTA curation guidance around an at-a-glance ownership boundary
+  before its schema, API, and maintenance details.
+- Corrected stale product naming, personalized output columns, panel progress
+  flags, the data discovery command, inclusive panel cutoffs, and the hotspot
+  registry's gene count.
+- Verified all local Markdown links and every documented CLI option against the
+  current parsers.
+- Released code version is prepared as 1.24.1.
+- Verification passed: `./format.sh`, `./lint.sh`, and `./test.sh` (423 tests).
+
+---
+
 # PR — Make oncoref the Sole CTA Definition Authority (2026-07-24)
 
 ## Goal
