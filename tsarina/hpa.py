@@ -17,10 +17,9 @@ rna_tissue_consensus.tsv) and computes tissue restriction columns per
 gene: per-tissue nTPM maps/sets, protein support rankings, and
 core-restriction flags.
 
-The bundled CTA table's filter-driving columns (``rna_deflated_reproductive_frac``,
-``passes_filters``) are produced by the regeneration scripts in ``scripts/``
-(see ``add_cta_gene.py``), not here -- this module only enriches ad-hoc
-evidence frames via :func:`tsarina.evidence.CTA_detailed_evidence`.
+Canonical CTA HPA columns and membership decisions belong to oncoref. This
+module only enriches ad-hoc downstream evidence frames via
+:func:`tsarina.evidence.CTA_detailed_evidence`; it never changes CTA membership.
 
 Typical usage::
 
@@ -106,9 +105,8 @@ def enrich_hpa_evidence(
     """Enrich a gene DataFrame with HPA tissue restriction columns.
 
     Computes per-tissue RNA nTPM maps/sets, protein support rankings, and
-    core-restriction flags from Human Protein Atlas data.  The deflated
-    reproductive-fraction filter that drives the bundled CTA table lives in
-    ``scripts/`` (see module docstring), not here.
+    core-restriction flags from Human Protein Atlas data for downstream
+    annotation. Canonical restriction and membership remain oncoref-owned.
 
     Parameters
     ----------

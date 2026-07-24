@@ -14,7 +14,7 @@ The core insight is that many cancer-targetable peptides are **shared across pat
 tsarina combines curated shared targets with per-patient tumor data to produce a prioritized list of peptide-MHC complexes.
 
 **Shared targets** (curated once, reused across patients):
-- **CTA genes** — 293 oncoref-canonical default CTAs, enriched with tsarina MS safety evidence
+- **CTA genes** — the current oncoref canonical set, enriched with tsarina MS safety evidence
 - **Viral proteomes** — 9 oncogenic viruses (HPV, EBV, HBV, HCV, HTLV-1, HIV, HHV-8, MCPyV, MCV)
 - **Hotspot mutations** — 19 recurrent mutations across 8 driver genes
 
@@ -50,53 +50,28 @@ pip install tsarina[all]
 
 Proteins normally restricted to reproductive tissues (testis, ovary, placenta) that become aberrantly expressed in tumors. Their tissue restriction means immune responses against them should not damage normal somatic tissues. Thymus expression is expected (AIRE-mediated central tolerance) and excluded from restriction checks.
 
-The canonical CTA gene set is delegated to **oncoref**. `CTA_gene_names()` currently returns **293 default CTAs**; `CTA_filtered_gene_names()` returns **302 canonical filtered CTAs**, and `CTA_evidence()` exposes the oncoref evidence frame plus tsarina's `ms_*` safety columns and retained excluded-candidate audit rows.
+**[oncoref](https://github.com/pirl-unc/oncoref) is the sole owner of CTA
+definitions.** It supplies the candidate universe, membership tiers, aliases,
+HPA restriction calls, and proteoform groups. Tsarina's foundational CTA
+helpers directly alias `oncoref.cta`; Tsarina does not ship a second CTA table.
+
+`CTA_evidence()` preserves oncoref's exact row universe and adds only a generic
+gene-level `ms_*` safety overlay with no CTA membership or HPA columns.
 
 ```python
 from tsarina import CTA_gene_names, CTA_gene_ids, CTA_evidence
 
-genes = CTA_gene_names()    # recommended default set
-df = CTA_evidence()          # full evidence table with HPA columns
+genes = CTA_gene_names()  # direct oncoref default set
+df = CTA_evidence()       # oncoref evidence plus tsarina's ms_* columns
 ```
 
-| Source | Genes | Reference |
-|---|---|---|
-| [CTpedia](http://www.cta.lncc.br/) | 167 | [Almeida et al. 2009](https://doi.org/10.1093/nar/gkn673), *NAR* |
-| [CTexploreR/CTdata](https://www.bioconductor.org/packages/release/bioc/html/CTexploreR.html) | 62 new | [Loriot et al. 2025](https://doi.org/10.1371/journal.pgen.1011734), *PLOS Genetics* |
-| Protein-level CT genes | 89 new | [da Silva et al. 2017](https://doi.org/10.18632/oncotarget.21715), *Oncotarget* |
-| EWSR1-FLI1 CT gene binding sites | 12 | [Gallegos et al. 2019](https://doi.org/10.1128/MCB.00138-19), *Mol Cell Biol* |
-| Meiosis, piRNA, spermatogenesis genes | 28 | Multiple sources (see [curation docs](curation.md)) |
+The HPA-derived restriction columns remain oncoref-owned. Tsarina keeps static
+MS safety evidence separate and combines it explicitly only in live
+IEDB/CEDAR target-selection workflows.
 
-#### CTA curation pipeline
-
-**Step 1: Collect.** Use oncoref's CTA evidence as the canonical source table, which combines published CT antigen sources with audited paralog and placental onco-germline candidates. tsarina joins its local mass-spec safety evidence onto that frame.
-
-**Step 2: Annotate for tissue restriction.** The goal is to answer: "is this gene's expression restricted to reproductive tissues?" We use two independent data modalities from Human Protein Atlas v23:
-
-- *RNA expression* (50 tissues): What fraction of total expression comes from reproductive tissues (testis, ovary, placenta)? Raw fractions are misleading because many genes have low-level basal transcription (< 1 nTPM) across dozens of tissues, which inflates the denominator. The **deflated reproductive fraction** fixes this by zeroing out sub-1 nTPM values before computing the ratio, so only tissues with meaningful expression count. Example: CTCFL has testis nTPM = 10.8 but ~40 other tissues at 0.1–0.9 nTPM each. Raw reproductive fraction: 54%. Deflated fraction: 100%, because only testis exceeds 1 nTPM.
-
-- *Protein expression* (63 tissues): Does IHC staining detect protein outside reproductive tissues? Each antibody carries a reliability tier — Enhanced (orthogonal validation), Supported, Approved, or Uncertain — which indicates how much to trust the staining result.
-
-Thymus is excluded from all restriction checks because AIRE drives ectopic expression of tissue-restricted antigens in medullary thymic epithelial cells (mTECs) as part of central tolerance. CTA expression in thymus is expected and does not indicate somatic tissue leakage.
-
-**Step 3: Filter.** Two rules determine whether a gene passes:
-
-1. **Protein exclusion (hard):** If protein is detected in any non-reproductive somatic tissue (excluding thymus), the gene fails — regardless of RNA data.
-2. **RNA threshold (tiered):** The required deflated reproductive fraction scales with protein data confidence. When high-quality protein data confirms reproductive restriction, we can tolerate more RNA noise in other tissues. When protein data is absent or unreliable, we demand near-perfect RNA restriction:
-
-   | Protein evidence | Min. deflated RNA reproductive fraction |
-   |---|---|
-   | Enhanced + reproductive only | >= 80% |
-   | Supported + reproductive only | >= 90% |
-   | Approved + reproductive only | >= 95% |
-   | Uncertain or no protein data | >= 97% |
-
-Result: **293 genes** are in the recommended oncoref default CTA set; **302**
-genes are in the canonical filtered tier when low-expression candidates are
-included. tsarina keeps excluded evidence rows such as CSH1 and H1-6 available
-for audit, but they are not default panel members.
-
-See [full curation documentation](curation.md) for the deflated fraction formula, never-expressed flag, and figures.
+See [CTA ownership and downstream evidence](curation.md) for the complete
+boundary. Curation corrections belong in
+[oncoref issues](https://github.com/pirl-unc/oncoref/issues).
 
 ### Viral (oncogenic virus proteins)
 
@@ -383,15 +358,12 @@ tsarina data path iedb
 Storage location: `~/.hitlist/` (override with `HITLIST_DATA_DIR` env var).
 `tsarina data` delegates registry and cache management to hitlist.
 
-The separate **`tsarina reference`** command manages the version-pinned HPA/NCBI
-curation reference data (RNA consensus, IHC `normal_tissue`, NCBI `gene_info`)
-used to regenerate the bundled CTA table — `tsarina reference {list,fetch,path}`.
-
 IEDB column indices are resolved dynamically from CSV headers, with fallback to known defaults -- robust to IEDB schema changes.
 
 ## Tissue definitions
 
-Three tiers of reproductive tissue sets for CTA restriction analysis:
+Three oncoref-defined tiers of reproductive tissue sets are re-exported for
+downstream restriction analysis:
 
 ```python
 from tsarina.tissues import (

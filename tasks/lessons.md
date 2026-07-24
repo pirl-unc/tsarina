@@ -28,3 +28,7 @@
 - Search sibling-repo issues before designing a curation change. tsarina#78 (filed the same day) had already analyzed lowering the `never_expressed` floor and recommended against a blanket drop (paralog noise) in favor of a parameterized constant + per-gene rescue flag. Honor the existing issue's guidance instead of the first instinct.
 - A code-layer curation rescue in `tsarina.gene_sets` does NOT propagate to `pirlygenes`, which reimplements the filter against the raw evidence CSV. Either make the rescue data-borne or have pirlygenes delegate to tsarina. Verify the user-visible end state in the *consumer*, not just tsarina.
 - After adopting a new canonical upstream package, search for optional test skips and registry sync scripts that still import the previous owner. A stale `pytest.importorskip()` can hide exactly the integration drift the PR is meant to prevent.
+- When auditing an upstream adoption, compatibility parity is not enough. Check
+  whether the consumer still bundles the upstream dataset or reimplements its
+  membership rules; one library must own the definition, while downstream
+  packages retain only genuinely downstream evidence.

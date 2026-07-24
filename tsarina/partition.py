@@ -20,9 +20,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
+from oncoref.cta import cta_filtered_gene_ids, cta_gene_ids
 
 from .evidence import CTA_evidence
-from .loader import canonical_default_mask, canonical_filtered_mask
 
 
 @dataclass(frozen=True)
@@ -77,8 +77,9 @@ def _build_partition(ensembl_release: int = 112):
     }
     all_pc_ids = set(all_pc_genes.keys())
 
-    filtered_mask = canonical_filtered_mask(evidence_df)
-    cta_mask = canonical_default_mask(evidence_df)
+    evidence_ids = evidence_df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+    filtered_mask = evidence_ids.isin(cta_filtered_gene_ids())
+    cta_mask = evidence_ids.isin(cta_gene_ids())
     never_expressed_mask = filtered_mask & ~cta_mask
 
     cta_ids = set(evidence_df.loc[cta_mask, "Ensembl_Gene_ID"])

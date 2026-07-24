@@ -28,14 +28,10 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     # 1.45.0: shared cli_help (ColorArgumentParser) for subtle --help coloring.
-    # 1.43.0: VersionedDatasetRegistry — reference_data delegates its versioned
-    # download/manifest/cache machinery to it; also the reusable download_to_file.
     "hitlist>=1.45.0",
     "mhcgnomes>=3.20.0",
-    "oncoref>=1.8.115",
-    # Cache-dir resolution for `tsarina reference` (same openvax layer pyensembl
-    # uses); the download/decompress itself goes through hitlist.
-    "datacache",
+    # 1.8.150 is the audited single-authority CTA/proteoform API.
+    "oncoref>=1.8.150",
     "pandas",
     "numpy",
     "tqdm",
@@ -72,13 +68,10 @@ version = {attr = "tsarina.version.__version__"}
 [tool.setuptools.packages.find]
 include = ["tsarina*"]
 
-# Explicit globs, not a blanket data/*.csv: the latter also matches the
-# regeneration dry-run sidecar (data/*.regen.csv, written by
-# scripts/regenerate_table.py, gitignored, not loaded at runtime), which then
-# leaks into the build. setuptools globs can't negate, so list the shipped
-# files instead.
+# Explicit globs keep package ownership visible: a narrow gene-level MS overlay
+# and downstream HPA cancer-prevalence features, never a CTA definition table.
 [tool.setuptools.package-data]
-tsarina = ["data/cancer-testis-antigens.csv", "data/hpa-*.csv", "data/proteoform-groups.csv"]
+tsarina = ["data/gene-ms-safety-evidence.csv", "data/hpa-*.csv"]
 
 [tool.ruff]
 target-version = "py39"

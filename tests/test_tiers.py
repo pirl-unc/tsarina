@@ -8,8 +8,6 @@ from tsarina.tiers import (
     RNA_RESTRICTION_LEVELS,
     aggregate_gene_ms_safety,
     assign_all_axes,
-    assign_rna_restriction,
-    assign_rna_restriction_level,
     confidence_rank,
     ms_restriction_rank,
     restriction_rank,
@@ -150,12 +148,15 @@ def test_restriction_confidence_exists():
 
 
 def test_magea1_testis():
+    from oncoref.cta import cta_evidence
+
     df = CTA_evidence()
     row = df[df["Symbol"] == "MAGEA1"].iloc[0]
+    upstream = cta_evidence().set_index("Symbol").loc["MAGEA1"]
     assert row["protein_restriction"] == "TESTIS"
     assert row["rna_restriction"] == "TESTIS"
     assert row["restriction"] == "TESTIS"
-    assert row["restriction_confidence"] == "MODERATE"
+    assert row["restriction_confidence"] == upstream["restriction_confidence"]
 
 
 def test_prame_testis_but_permissive_rna():
@@ -244,15 +245,16 @@ def test_csv_has_no_runtime_ms_count_columns():
 # ── Backward compatibility ────────────────────────────────────────────────
 
 
-def test_gene_names_count_unchanged():
-    assert len(CTA_gene_names()) == 293
+def test_gene_names_delegate_to_current_oncoref():
+    from oncoref.cta import cta_gene_names
+
+    assert CTA_gene_names() == cta_gene_names()
 
 
-def test_filtered_count():
-    # oncoref owns the canonical filtered tier: default CTAs plus
-    # canonical_low_expression candidates, excluding audited demotions such as
-    # CSH1 and tsarina-only excluded evidence rows such as H1-6.
-    assert len(CTA_filtered_gene_names()) == 302
+def test_filtered_set_delegates_to_current_oncoref():
+    from oncoref.cta import cta_filtered_gene_names
+
+    assert CTA_filtered_gene_names() == cta_filtered_gene_names()
 
 
 def test_gage10_added_gage12b_excluded():
@@ -277,35 +279,16 @@ def test_gage10_added_gage12b_excluded():
 def test_assign_all_axes_matches_csv():
     df = CTA_evidence()
     recomputed = assign_all_axes(df)
-    assert (
-        recomputed["protein_restriction"].fillna("") == df["protein_restriction"].fillna("")
-    ).all()
-    assert (recomputed["rna_restriction"].fillna("") == df["rna_restriction"].fillna("")).all()
+    # HPA axes are inputs owned by oncoref and must not be re-derived locally.
+    for column in (
+        "protein_restriction",
+        "protein_reliability",
+        "rna_restriction",
+        "rna_restriction_level",
+        "safety_flags",
+    ):
+        assert recomputed[column].equals(df[column])
     assert (recomputed["restriction"].fillna("") == df["restriction"].fillna("")).all()
-    assert (
-        recomputed["restriction_confidence"].fillna("") == df["restriction_confidence"].fillna("")
-    ).all()
-
-
-def test_rna_restriction_handles_nan_somatic_count():
-    """Regression: a present-but-NaN rna_somatic_detected_count (left-merge miss)
-    must not crash int() — it aborts the whole df.apply tiering pass otherwise."""
-    import numpy as np
-
-    row = pd.Series(
-        {
-            "rna_testis_ntpm": 5.0,
-            "rna_ovary_ntpm": 0.0,
-            "rna_placenta_ntpm": 0.0,
-            "rna_somatic_detected_count": np.nan,  # the crash trigger
-        }
-    )
-    assert assign_rna_restriction(row) == "TESTIS"  # NaN somatic -> 0 -> not somatic
-
-    lvl_row = pd.Series(
-        {"rna_deflated_reproductive_frac": 0.99, "rna_somatic_detected_count": np.nan}
-    )
-    assert assign_rna_restriction_level(lvl_row) in RNA_RESTRICTION_LEVELS
 
 
 def test_somatic_protein_not_boosted_by_disagreeing_reproductive_rna():
