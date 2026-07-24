@@ -5,12 +5,12 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 
-"""Regenerate bundled HPA cancer-expression prevalence tables for CTA candidates.
+"""Regenerate HPA cancer-expression prevalence for oncoref CTA candidates.
 
 The HPA RNA cancer sample table is large (~1.36 GB gzipped as of HPA v24/v25).
-This script streams it and keeps only rows for the genes listed in the supplied
-CTA evidence CSV, so future larger CTA candidate sets only require rerunning the
-script with the updated CSV.
+This script streams it and keeps only rows for the oncoref-owned CTA universe.
+The outputs contain cancer-expression measurements only; CTA membership and
+specificity metadata remain in oncoref.
 """
 
 from __future__ import annotations
@@ -27,11 +27,11 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 import pandas as pd
+from oncoref.cta import cta_evidence
 
 DEFAULT_RNA_URL = "https://www.proteinatlas.org/download/tsv/rna_cancer_sample.tsv.gz"
 DEFAULT_IHC_URL = "https://www.proteinatlas.org/download/tsv/cancer_data.tsv.zip"
 DEFAULT_THRESHOLDS = (0.1, 1.0, 2.0, 5.0)
-DEFAULT_CTA_CSV = Path("tsarina/data/cancer-testis-antigens.csv")
 DEFAULT_OUTPUT_DIR = Path("tsarina/data")
 
 _COHORT_RE = re.compile(r"^(?P<cancer>.+?) \((?P<cohort>TCGA|validation)\)$")
@@ -72,31 +72,15 @@ def _split_cancer_label(value: str) -> tuple[str, str]:
     return match.group("cancer"), match.group("cohort")
 
 
-def _load_cta_metadata(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path)
-    required = {"Symbol", "Ensembl_Gene_ID"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"{path} is missing required column(s): {sorted(missing)}")
-
-    out = df.copy()
+def _load_cta_metadata() -> pd.DataFrame:
+    out = cta_evidence()[["Symbol", "Ensembl_Gene_ID"]].copy()
     out["gene_id"] = out["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
     out["symbol"] = out["Symbol"].astype(str)
-    return out.drop_duplicates(subset=["gene_id"])
+    return out[["gene_id", "symbol"]].drop_duplicates(subset=["gene_id"])
 
 
 def _metadata_columns(cta: pd.DataFrame) -> list[str]:
-    wanted = [
-        "gene_id",
-        "symbol",
-        "source_databases",
-        "passes_filters",
-        "filtered",
-        "never_expressed",
-        "restriction",
-        "restriction_confidence",
-    ]
-    return [column for column in wanted if column in cta.columns]
+    return [column for column in ("gene_id", "symbol") if column in cta.columns]
 
 
 def regenerate_rna_prevalence(
@@ -275,7 +259,6 @@ def _parse_thresholds(value: str) -> tuple[float, ...]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cta-csv", type=Path, default=DEFAULT_CTA_CSV)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--rna-source", default=DEFAULT_RNA_URL)
     parser.add_argument("--ihc-source", default=DEFAULT_IHC_URL)
@@ -306,7 +289,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    cta = _load_cta_metadata(args.cta_csv)
+    cta = _load_cta_metadata()
     rna_output = args.rna_output or args.output_dir / "hpa-cancer-rna-prevalence.csv"
     ihc_output = args.ihc_output or args.output_dir / "hpa-cancer-ihc-prevalence.csv"
 

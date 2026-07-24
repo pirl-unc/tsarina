@@ -1,3 +1,60 @@
+# PR — Make oncoref the Sole CTA Definition Authority (2026-07-24)
+
+## Goal
+
+Tsarina must consume cancer-testis antigen definitions from current `oncoref`
+instead of maintaining a second CTA curation implementation or bundled copy.
+Tsarina may retain only target-selection evidence that belongs to its own layer,
+such as healthy-tissue immunopeptidomics annotations keyed by Ensembl gene ID.
+
+## Design
+
+- Raise the runtime floor to the current released `oncoref` API and import CTA
+  and proteoform functions from their semantic submodules.
+- Delegate canonical/default/filtered/unfiltered/excluded/low-expression CTA
+  membership and alias resolution directly to `oncoref.cta`.
+- Keep Tsarina-specific axis queries and MS-aware evidence enrichment, but
+  restrict canonical membership with IDs returned by `oncoref` rather than
+  reconstructing oncoref's specificity decisions.
+- Replace the bundled full CTA/HPA curation table with a narrow MS-evidence
+  overlay containing only `Ensembl_Gene_ID` and `ms_*` columns.
+- Remove obsolete local CTA curation/regeneration scripts and constants whose
+  authority has moved to `oncoref`.
+- Remove the Tsarina-only H1-6 CTA evidence row. If its exclusion evidence is
+  absent upstream, file an `oncoref` issue instead of preserving a competing
+  local CTA universe.
+- Update tests and documentation so ownership, counts, and downstream
+  enrichment boundaries are explicit.
+
+## Verification
+
+- [x] Search open `oncoref` issues for any discovered upstream gaps; filed
+      [oncoref #435](https://github.com/pirl-unc/oncoref/issues/435) for the
+      reproducible restriction-confidence synthesis error.
+- [x] Assert every foundational Tsarina CTA helper exactly delegates to
+      `oncoref` and that Tsarina evidence has the same CTA row universe.
+- [x] Assert the MS overlay has a narrow schema and unique unversioned gene IDs.
+- [x] Assert the packaged wheel contains no duplicate full CTA curation table.
+- [x] Run focused integration tests against oncoref 1.8.150 (131 passed).
+- [x] Run `./format.sh`.
+- [x] Run `./lint.sh`.
+- [x] Run `./test.sh` (423 passed).
+
+## Review
+
+- `oncoref>=1.8.150` now owns the CTA row universe, all membership tiers,
+  aliases, HPA axes, tissue definitions, and proteoform groups.
+- Tsarina ships only a four-column generic MS overlay and HPA cancer-prevalence
+  feature tables with no membership or specificity fields.
+- The wheel contains no CTA-definition or proteoform fallback table.
+- H1-6 retains generic MS evidence but cannot re-enter the CTA universe.
+- The audit found no missing upstream CTA row: the seven local-only rows were
+  intentional oncoref histone/tubulin-family exclusions.
+- oncoref #435 tracks the discovered error where reproductive RNA could
+  incorrectly boost a SOMATIC protein restriction call.
+
+---
+
 # PR - Adopt Oncoref CTA Defaults (2026-07-10)
 
 ## Goal

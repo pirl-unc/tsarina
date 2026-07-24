@@ -14,7 +14,7 @@
 the start of a line reads awkwardly.
 
 Exercises the runnable output surface (every command's --help, which renders all
-argparse help/description/epilog, plus the list/reference/error paths) and
+argparse help/description/epilog, plus the list/error paths) and
 asserts no emitted line starts with an open paren after indentation. Pinned to
 COLUMNS=80 because argparse wraps help to the terminal width, and a parenthetical
 can land at the start of a *wrapped* continuation line at narrow widths.
@@ -37,9 +37,6 @@ _COMMANDS = [
     ["data", "available"],
     ["build", "--help"],
     ["build", "observations", "--help"],
-    ["reference", "--help"],
-    ["reference", "list"],
-    ["reference", "path", "hpa_rna_consensus"],
     ["hits", "--help"],
     ["personalize", "--help"],
     ["panel", "--help"],

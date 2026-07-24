@@ -10,11 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Per-modality restriction assessment with cross-source synthesis.
+"""Mass-spec restriction assessment over oncoref's HPA restriction axes.
 
-Each data modality (protein IHC, RNA, MS) provides its own restriction
-assessment and metadata.  A synthesis layer integrates them into a
-unified ``restriction`` with ``restriction_confidence``.
+oncoref owns the protein-IHC and RNA restriction calls. Tsarina classifies
+public immunopeptidomics evidence and can synthesize an explicitly MS-aware
+confidence value for target selection.
 
 **Protein** (IHC):
 
@@ -43,20 +43,9 @@ unified ``restriction`` with ``restriction_confidence``.
 from __future__ import annotations
 
 import pandas as pd
+from oncoref.cta_tissues import SAFETY_TISSUE_GROUPS as SAFETY_TISSUE_GROUPS
 
-from .tissues import HPA_EXPRESSION_FLOOR_NTPM, PERMISSIVE_REPRODUCTIVE_TISSUES
-
-
-def _int0(value) -> int:
-    """``int(value)`` that treats NaN/None as 0 -- a *missing* count, not a crash.
-
-    ``row.get(col, 0)`` only guards a *missing* key; a present-but-NaN cell
-    (common on a left-merge miss against the HPA RNA consensus) would otherwise
-    reach ``int(nan)`` and raise ``ValueError``, aborting the whole ``df.apply``
-    tiering pass on a single bad row.
-    """
-    return 0 if pd.isna(value) else int(value)
-
+from .tissues import HPA_EXPRESSION_FLOOR_NTPM
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -84,48 +73,6 @@ MS_RESTRICTION_VALUES: list[str] = [
 
 #: Restriction confidence levels.
 CONFIDENCE_VALUES: list[str] = ["HIGH", "MODERATE", "LOW"]
-
-#: Tissues excluded from "somatic" calculations.
-_NON_SOMATIC: frozenset[str] = PERMISSIVE_REPRODUCTIVE_TISSUES | frozenset({"thymus"})
-
-#: Safety-critical tissue groups with nTPM threshold.
-#: Genes with max nTPM >= threshold in any tissue in the group get flagged.
-#:
-#: The ``brain`` group spans two HPA vocabularies on purpose.  Ten names are
-#: present in the bulk ``rna_tissue_consensus`` and so drive the RNA safety flag
-#: (``rna_brain_max_ntpm``): amygdala, basal ganglia, cerebellum, cerebral
-#: cortex, choroid plexus, hippocampal formation, hypothalamus, midbrain,
-#: retina, spinal cord.  Four names (medulla oblongata, pons, thalamus, white
-#: matter) come from HPA's finer brain-specific dataset; they are absent from
-#: the consensus -- inert for the RNA flag (``.get(t, 0.0)``) -- but are kept
-#: because the MS vital-organ screen
-#: (:data:`tsarina.ms_evidence._VITAL_ORGAN_EXACT_NAMES`) derives its vocabulary
-#: from this group and immunopeptidome ``source_tissue`` fields do use them.
-SAFETY_TISSUE_GROUPS: dict[str, set[str]] = {
-    "brain": {
-        "amygdala",
-        "basal ganglia",
-        "cerebellum",
-        "cerebral cortex",
-        "choroid plexus",
-        "hippocampal formation",
-        "hypothalamus",
-        "medulla oblongata",
-        "midbrain",
-        "pons",
-        "retina",
-        "spinal cord",
-        "thalamus",
-        "white matter",
-    },
-    "heart": {"heart muscle"},
-    "lung": {"lung"},
-    "liver": {"liver"},
-    "pancreas": {"pancreas"},
-}
-
-#: Default nTPM threshold for safety flags.
-SAFETY_NTPM_THRESHOLD: float = 5.0
 
 #: Vital-organ tissue names as they appear in MS (immunopeptidome) source-tissue
 #: fields — the MS-side counterpart of :data:`SAFETY_TISSUE_GROUPS` (which uses
@@ -173,123 +120,6 @@ def confidence_rank(value: str | None) -> int:
     return _CONFIDENCE_RANK.get(value, len(CONFIDENCE_VALUES))
 
 
-# ── Protein restriction ───────────────────────────────────────────────────
-
-
-def _parse_protein_tissues(protein_strict_expression: str) -> set[str]:
-    val = str(protein_strict_expression).strip().lower()
-    if val in ("no data", "not detected", "", "nan"):
-        return set()
-    return {t.strip() for t in val.split(";") if t.strip()}
-
-
-#: All tissues considered reproductive (core + extended + breast).
-#: HPA uses "endometrium 1"/"endometrium 2" so include those.
-_ALL_REPRODUCTIVE: frozenset[str] = _NON_SOMATIC | frozenset({"endometrium 1", "endometrium 2"})
-
-
-def assign_protein_restriction(row: pd.Series) -> str:
-    """Assign tissue restriction from IHC protein data.
-
-    Returns one of: TESTIS, PLACENTAL, REPRODUCTIVE, SOMATIC, or NO_DATA.
-    Each single-tissue value means *only* that core tissue detected.
-    REPRODUCTIVE means multiple reproductive tissues.
-    SOMATIC means non-reproductive tissue detected.
-    NO_DATA means no protein expression data (after dropping thymus).
-    """
-    tissues = _parse_protein_tissues(str(row.get("protein_strict_expression", "")))
-    if not tissues:
-        return "NO_DATA"
-    # Remove thymus (expected for CTAs)
-    tissues = tissues - {"thymus"}
-    if not tissues:
-        return "NO_DATA"
-    # Check for somatic (non-reproductive) tissues
-    non_repro = tissues - _ALL_REPRODUCTIVE
-    if non_repro:
-        return "SOMATIC"
-    # Which core reproductive tissues are present?
-    core = tissues & {"testis", "ovary", "placenta"}
-    if core == {"testis"}:
-        return "TESTIS"
-    if core == {"placenta"}:
-        return "PLACENTAL"
-    if core:
-        return "REPRODUCTIVE"
-    # Only extended reproductive tissues (epididymis, etc.), no core
-    return "REPRODUCTIVE"
-
-
-def _protein_tissue_flag(protein_strict_expression: str, tissue: str) -> str:
-    val = str(protein_strict_expression).strip().lower()
-    if val in ("no data", "not detected", "", "nan"):
-        return ""
-    tissues = {t.strip() for t in val.split(";") if t.strip()}
-    return str(tissue in tissues)
-
-
-# ── RNA restriction ───────────────────────────────────────────────────────
-
-
-def assign_rna_restriction(row: pd.Series) -> str:
-    """Assign tissue restriction from RNA per-tissue nTPM data.
-
-    Requires ``rna_testis_ntpm``, ``rna_ovary_ntpm``, ``rna_placenta_ntpm``,
-    ``rna_somatic_detected_count`` columns (from HPA rna_tissue_consensus).
-
-    Always assigns based on RNA data, regardless of filter status.
-    """
-    testis = float(row.get("rna_testis_ntpm", 0) or 0)
-    ovary = float(row.get("rna_ovary_ntpm", 0) or 0)
-    placenta = float(row.get("rna_placenta_ntpm", 0) or 0)
-    somatic_count = _int0(row.get("rna_somatic_detected_count", 0))
-
-    has_testis = testis >= 1.0
-    has_ovary = ovary >= 1.0
-    has_placenta = placenta >= 1.0
-    has_somatic = somatic_count > 0
-
-    if has_somatic:
-        return "SOMATIC"
-
-    if not (has_testis or has_ovary or has_placenta) and not has_somatic:
-        # Nothing detected anywhere at >= 1 nTPM
-        return "NO_DATA"
-
-    if has_testis and not has_ovary and not has_placenta:
-        return "TESTIS"
-    if has_placenta and not has_ovary and not has_testis:
-        return "PLACENTAL"
-    return "REPRODUCTIVE"
-
-
-def assign_rna_restriction_level(row: pd.Series) -> str:
-    """Assign RNA restriction quality level from deflated fraction.
-
-    Uses ``rna_somatic_detected_count`` (from HPA per-tissue data) rather
-    than the CSV's ``rna_reproductive`` to ensure consistency with
-    ``rna_restriction``.
-    """
-    try:
-        frac = float(row.get("rna_deflated_reproductive_frac", -1))
-    except (ValueError, TypeError):
-        frac = -1.0
-
-    if frac < 0:
-        return "NO_DATA"
-
-    somatic_count = _int0(row.get("rna_somatic_detected_count", 0))
-    rna_is_reproductive = somatic_count == 0
-
-    if rna_is_reproductive and frac >= 0.99:
-        return "STRICT"
-    if frac >= 0.95:
-        return "MODERATE"
-    if frac >= 0.80:
-        return "PERMISSIVE"
-    return "LEAKY"
-
-
 # ── Synthesized restriction ───────────────────────────────────────────────
 
 
@@ -333,8 +163,8 @@ def synthesize_restriction(row: pd.Series) -> tuple[str, str]:
         # A SOMATIC protein call genuinely *disagrees* with reproductive RNA, so
         # it must not earn the agreement bonus (which would otherwise inflate a
         # least-safe SOMATIC call to HIGH confidence and pass the selection
-        # filter). Latent today — 0 bundled CTAs hit the SOMATIC case — but a
-        # defensive gate against a future regeneration producing one.
+        # filter). This is a defensive gate against a future upstream
+        # evidence refresh producing one.
         rna_agrees = rna_r == tissue or (
             rna_r == "REPRODUCTIVE" and tissue in _REPRODUCTIVE_RESTRICTIONS
         )
@@ -379,158 +209,43 @@ def synthesize_restriction(row: pd.Series) -> tuple[str, str]:
 
 
 def assign_all_axes(df: pd.DataFrame) -> pd.DataFrame:
-    """Add all per-modality and synthesized restriction columns.
+    """Re-synthesize restriction/confidence from oncoref HPA axes plus MS.
+
+    Kept as a compatibility helper for callers that explicitly want an MS-aware
+    synthesis. It no longer derives protein or RNA restriction columns; those
+    definitions belong exclusively to oncoref.
 
     Parameters
     ----------
     df
-        CTA evidence DataFrame. Must include per-tissue RNA nTPM columns
-        (``rna_testis_ntpm``, ``rna_ovary_ntpm``, ``rna_placenta_ntpm``)
-        for RNA restriction assignment.
+        An oncoref CTA evidence frame carrying ``protein_restriction``,
+        ``protein_reliability``, ``rna_restriction``, and
+        ``rna_restriction_level``. ``ms_restriction`` is optional.
 
     Returns
     -------
     pd.DataFrame
-        Input DataFrame with protein_restriction, rna_restriction,
-        rna_restriction_level, ms_restriction, restriction,
-        restriction_confidence, protein_testis/ovary/placenta columns.
+        Copy with an MS-aware ``restriction`` and ``restriction_confidence``.
     """
     out = df.copy()
+    required = {
+        "protein_restriction",
+        "protein_reliability",
+        "rna_restriction",
+        "rna_restriction_level",
+    }
+    missing = required - set(out.columns)
+    if missing:
+        raise ValueError(
+            f"assign_all_axes requires oncoref HPA restriction column(s): {sorted(missing)}"
+        )
 
-    # Protein
-    out["protein_restriction"] = out.apply(assign_protein_restriction, axis=1)
-    pse = out.get("protein_strict_expression", pd.Series([""] * len(out)))
-    out["protein_testis"] = pse.map(lambda v: _protein_tissue_flag(v, "testis"))
-    out["protein_ovary"] = pse.map(lambda v: _protein_tissue_flag(v, "ovary"))
-    out["protein_placenta"] = pse.map(lambda v: _protein_tissue_flag(v, "placenta"))
-
-    # RNA
-    out["rna_restriction"] = out.apply(assign_rna_restriction, axis=1)
-    out["rna_restriction_level"] = out.apply(assign_rna_restriction_level, axis=1)
-
-    # MS (defaults; populated at runtime when IEDB data available)
     if "ms_restriction" not in out.columns:
         out["ms_restriction"] = "NO_MS_DATA"
 
-    # Synthesis
     synth = out.apply(synthesize_restriction, axis=1, result_type="expand")
     out["restriction"] = synth[0]
     out["restriction_confidence"] = synth[1]
-
-    # Safety flags: semicolon-separated list of tissue groups with nTPM >= threshold
-    out["safety_flags"] = _assign_safety_flags(out)
-
-    return out
-
-
-def _assign_safety_flags(
-    df: pd.DataFrame,
-    threshold: float = SAFETY_NTPM_THRESHOLD,
-) -> pd.Series:
-    """Assign safety flags based on per-safety-tissue RNA nTPM.
-
-    Returns a Series of semicolon-separated tissue group names where
-    max nTPM >= threshold, or empty string if none.
-    """
-    flags = []
-    for _, row in df.iterrows():
-        flagged = []
-        for grp in SAFETY_TISSUE_GROUPS:
-            col = f"rna_{grp}_max_ntpm"
-            if col in df.columns:
-                val = float(row.get(col, 0) or 0)
-                if val >= threshold:
-                    flagged.append(grp)
-        flags.append(";".join(flagged))
-    return pd.Series(flags, index=df.index)
-
-
-# ── RNA per-tissue enrichment from HPA ────────────────────────────────────
-
-
-def enrich_rna_per_tissue(
-    df: pd.DataFrame,
-    rna_tissue_path: str,
-) -> pd.DataFrame:
-    """Add per-tissue RNA nTPM columns from HPA rna_tissue_consensus.tsv.
-
-    Parameters
-    ----------
-    df
-        CTA evidence DataFrame with ``Ensembl_Gene_ID`` column.
-    rna_tissue_path
-        Path to HPA ``rna_tissue_consensus.tsv``.
-
-    Returns
-    -------
-    pd.DataFrame
-        Input DataFrame with rna_testis_ntpm, rna_ovary_ntpm,
-        rna_placenta_ntpm, rna_max_somatic_tissue, rna_max_somatic_ntpm,
-        rna_somatic_detected_count columns added.
-    """
-    rna = pd.read_csv(rna_tissue_path, sep="\t")
-    rna["tissue_lower"] = rna["Tissue"].str.strip().str.lower()
-
-    non_somatic = {t.lower() for t in _NON_SOMATIC} | {"thymus"}
-
-    out = df.copy()
-    testis_vals = []
-    ovary_vals = []
-    placenta_vals = []
-    max_somatic_tissues = []
-    max_somatic_ntpms = []
-    somatic_detected_counts = []
-
-    # Per-safety-tissue max nTPM
-    safety_maxes: dict[str, list[float]] = {grp: [] for grp in SAFETY_TISSUE_GROUPS}
-
-    for _, row in out.iterrows():
-        gene_id = row.get("Ensembl_Gene_ID", "")
-        gene_rna = rna[rna["Gene"] == gene_id]
-
-        if gene_rna.empty:
-            testis_vals.append(0.0)
-            ovary_vals.append(0.0)
-            placenta_vals.append(0.0)
-            max_somatic_tissues.append("")
-            max_somatic_ntpms.append(0.0)
-            somatic_detected_counts.append(0)
-            for grp in SAFETY_TISSUE_GROUPS:
-                safety_maxes[grp].append(0.0)
-            continue
-
-        tissue_ntpm = dict(zip(gene_rna["tissue_lower"], gene_rna["nTPM"]))
-        testis_vals.append(tissue_ntpm.get("testis", 0.0))
-        ovary_vals.append(tissue_ntpm.get("ovary", 0.0))
-        placenta_vals.append(tissue_ntpm.get("placenta", 0.0))
-
-        somatic = {t: v for t, v in tissue_ntpm.items() if t not in non_somatic}
-        somatic_detected = {t: v for t, v in somatic.items() if v >= 1.0}
-
-        if somatic:
-            max_t = max(somatic, key=somatic.get)  # type: ignore[arg-type]
-            max_somatic_tissues.append(max_t)
-            max_somatic_ntpms.append(somatic[max_t])
-        else:
-            max_somatic_tissues.append("")
-            max_somatic_ntpms.append(0.0)
-
-        somatic_detected_counts.append(len(somatic_detected))
-
-        for grp, tissues in SAFETY_TISSUE_GROUPS.items():
-            grp_vals = [tissue_ntpm.get(t, 0.0) for t in tissues]
-            safety_maxes[grp].append(max(grp_vals) if grp_vals else 0.0)
-
-    out["rna_testis_ntpm"] = testis_vals
-    out["rna_ovary_ntpm"] = ovary_vals
-    out["rna_placenta_ntpm"] = placenta_vals
-    out["rna_max_somatic_tissue"] = max_somatic_tissues
-    out["rna_max_somatic_ntpm"] = max_somatic_ntpms
-    out["rna_somatic_detected_count"] = somatic_detected_counts
-
-    for grp in SAFETY_TISSUE_GROUPS:
-        out[f"rna_{grp}_max_ntpm"] = safety_maxes[grp]
-
     return out
 
 

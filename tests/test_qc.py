@@ -125,8 +125,8 @@ def test_real_pyensembl_lengths_for_known_genes():
     assert gene_max_protein_length("ENSG00000215274", ensembl=ensembl) == 116
 
 
-def test_shipped_table_has_no_fragment_models():
+def test_oncoref_universe_has_no_fragment_models():
     _ensembl_or_skip()
-    # The bundled CTA universe must contain no fragment / no-protein gene models.
+    # The oncoref CTA universe must contain no fragment / no-protein gene models.
     flagged = find_fragment_gene_models()
-    assert flagged == [], f"fragment gene models in shipped table: {flagged}"
+    assert flagged == [], f"fragment gene models in oncoref CTA universe: {flagged}"

@@ -13,8 +13,8 @@
 """CTA evidence table access with HPA tissue-restriction columns.
 
 The evidence table uses oncoref's CTA evidence and specificity decisions as the
-canonical source, then enriches that frame with tsarina's mass-spec safety
-columns and MS-aware tier results.
+canonical source, then enriches that exact row universe with Tsarina's generic
+gene-level mass-spec safety columns.
 """
 
 from __future__ import annotations
@@ -97,17 +97,17 @@ def CTA_evidence() -> pd.DataFrame:
     rna_somatic_detected_count : int
         Number of non-reproductive tissues with nTPM >= 1.
     ms_restriction : str
-        MS-based restriction. Default ``NO_MS_DATA``; computed at
-        runtime by :func:`CTA_detailed_evidence` when public MS data are
-        available.
+        Tsarina's gene-level MS safety classification. Missing overlay rows
+        default to ``NO_MS_DATA``; live public MS data can replace it in
+        :func:`CTA_detailed_evidence`.
     ms_cta_exclusive_*_peptide_count : int
         Runtime-only columns added by :func:`CTA_detailed_evidence`; the
         packaged CTA evidence table does not bundle MS count snapshots.
     restriction : str
-        Synthesized restriction integrating protein + RNA + MS:
+        oncoref's HPA-derived synthesis of protein and RNA:
         ``TESTIS`` / ``PLACENTAL`` / ``REPRODUCTIVE`` / ``SOMATIC`` / ``NO_DATA``.
     restriction_confidence : str
-        Cross-modality confidence: ``HIGH`` / ``MODERATE`` / ``LOW`` / empty.
+        oncoref's HPA confidence: ``HIGH`` / ``MODERATE`` / ``LOW`` / empty.
     specificity_status, specificity_action : str
         oncoref specificity decision used by the default and filtered CTA set
         helpers.
@@ -123,9 +123,9 @@ def CTA_detailed_evidence(
 ) -> pd.DataFrame:
     """Return CTA evidence with full per-tissue breakdown and MS safety.
 
-    Augments the bundled CTA evidence table with optional detail columns
-    computed from raw data files.  IEDB/CEDAR paths auto-resolve from
-    the hitlist data registry when not provided.
+    Augments oncoref's CTA evidence frame with optional detail columns computed
+    from raw data files. IEDB/CEDAR paths auto-resolve from the hitlist data
+    registry when not provided.
 
     Parameters
     ----------
