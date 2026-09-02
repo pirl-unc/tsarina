@@ -1574,3 +1574,57 @@ This is exactly the value tsarina's HPA filter adds over raw DB membership.
 - `CTA_gene_names()` 262 -> 263 (+MAGEB6, clean TESTIS).
 - Documented why the other 8 candidates fail on #79 rather than bulk-adding.
 - Verification: `./format.sh`, `./lint.sh`, `./test.sh` (323 passed).
+
+---
+
+# PR - Require hitlist 1.55.2 and migrate stale peptide mappings (2026-09-02)
+
+## Goal
+
+Make tsarina's supported class-II gene queries use hitlist's corrected
+length-independent peptide mappings, including for users whose existing
+`peptide_mappings.parquet` predates hitlist 1.55.2.
+
+## Plan
+
+- [x] Raise the runtime dependency floor from `hitlist>=1.45.0` to
+      `hitlist>=1.55.2`.
+- [x] Add a cheap, persistent compatibility check for existing mapping
+      sidecars. Since hitlist 1.55.2 does not stamp its package/builder version
+      into `peptide_mappings_meta.json`, verify the behavior using small,
+      deterministic class-II and length-7 observation samples, then cache the
+      result against the sidecar's size and nanosecond mtime.
+- [x] If observations exist but mappings are missing or fail the compatibility
+      probe, rebuild only `peptide_mappings.parquet` with
+      `build_peptide_mappings(force=True)` instead of rescanning all evidence.
+      Preserve `build_observations(force=True)` for an explicit full rebuild.
+- [x] Add regression tests for current, stale, missing, force-built, and
+      already-verified caches, including a guard that mapping multi-rows do not
+      multiply observation rows.
+- [x] Document the automatic one-time migration and its progress message.
+- [x] Bump tsarina's patch version for the PR.
+- [x] File the missing mapping-builder-version/cache-invalidation contract on
+      hitlist and link it from the tsarina PR.
+- [x] Run targeted tests, `./format.sh`, `./lint.sh`, and `./test.sh`; review the
+      diff for minimality and record results below.
+- [ ] Open the PR, merge it after checks pass, then deploy the merged release to
+      PyPI from a clean `main` using `./deploy.sh`.
+
+## Review
+
+- Raised the dependency floor to hitlist 1.55.2 and the tsarina patch version
+  to 1.24.2.
+- Existing current artifacts are behavior-probed once using bounded class-II
+  and length-7 samples, then recorded against the mapping parquet's size and
+  nanosecond mtime. Replacing the parquet invalidates the marker. The real
+  5,862,627-row artifact verified in 2.066 seconds; the fingerprinted repeat
+  check took less than 1 millisecond.
+- Missing or legacy mappings now call `build_peptide_mappings(force=True)`;
+  fresh or explicitly forced observation builds retain the full builder path.
+  Gene-filtered `load_ms_evidence` calls always pass through this validation.
+- Added regression coverage for all migration branches and confirmed that
+  multi-mapping annotation preserves observation-row counts. Targeted suite:
+  32 passed. Required gates: `./format.sh`, `./lint.sh`, and `./test.sh`
+  (429 passed, 6 existing pandas warnings).
+- Filed the upstream root-cause contract as
+  https://github.com/pirl-unc/hitlist/issues/404.

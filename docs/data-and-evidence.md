@@ -117,6 +117,12 @@ replacing an input export:
 tsarina build observations --force
 ```
 
+Tsarina requires hitlist 1.55.2 or newer so gene-filtered queries include
+class-II and length-7 peptide mappings. On the first use after upgrading,
+Tsarina checks the existing `peptide_mappings.parquet` and rebuilds only that
+sidecar when it predates the length-independent mapping format. A verified
+sidecar is fingerprinted, so later commands skip both the check and rebuild.
+
 ### Data sources
 
 | Dataset | Upstream source | Acquisition |

@@ -27,8 +27,8 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    # 1.45.0: shared cli_help (ColorArgumentParser) for subtle --help coloring.
-    "hitlist>=1.45.0",
+    # 1.55.2: length-independent peptide mappings + authoritative 15-aa flanks.
+    "hitlist>=1.55.2",
     "mhcgnomes>=3.20.0",
     # 1.8.150 is the audited single-authority CTA/proteoform API.
     "oncoref>=1.8.150",

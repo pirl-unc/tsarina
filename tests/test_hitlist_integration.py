@@ -38,6 +38,7 @@ PR time instead of at runtime.
 from __future__ import annotations
 
 import io
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -76,9 +77,16 @@ def _run_tsarina_hits(env_data_dir: Path) -> subprocess.CompletedProcess:
     not (_FIXTURE_DIR / "observations.parquet").exists(),
     reason="hitlist_mini fixture index missing",
 )
-def test_tsarina_hits_against_real_hitlist_fixture():
+def test_tsarina_hits_against_real_hitlist_fixture(tmp_path: Path):
     """The real `tsarina hits` path consumes the real hitlist index schema."""
-    result = _run_tsarina_hits(_FIXTURE_DIR)
+    # The cache verifier writes a tiny fingerprint marker next to the mappings
+    # parquet. Exercise that behavior in an isolated copy, never in the
+    # committed fixture directory.
+    for fixture in _FIXTURE_DIR.iterdir():
+        if fixture.is_file():
+            shutil.copy2(fixture, tmp_path / fixture.name)
+
+    result = _run_tsarina_hits(tmp_path)
     assert result.returncode == 0, (
         f"tsarina hits failed against real hitlist:\nSTDERR:\n{result.stderr}"
     )

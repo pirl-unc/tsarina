@@ -21,10 +21,100 @@ is actually triggered.
 
 from __future__ import annotations
 
+import json
 import sys
+from contextlib import suppress
 from pathlib import Path
 
 import pandas as pd
+
+_MAPPING_COMPATIBILITY_CONTRACT = "hitlist-1.55.2-length-independent-mappings"
+_MAPPING_COMPATIBILITY_FILENAME = ".tsarina-peptide-mappings.json"
+_MAPPING_PROBE_SIZE = 128
+
+
+def _mapping_fingerprint(path: Path) -> dict[str, int]:
+    stat = path.stat()
+    return {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+
+
+def _mapping_compatibility_path(mapping_path: Path) -> Path:
+    return mapping_path.with_name(_MAPPING_COMPATIBILITY_FILENAME)
+
+
+def _mapping_compatibility_is_recorded(mapping_path: Path) -> bool:
+    marker_path = _mapping_compatibility_path(mapping_path)
+    try:
+        marker = json.loads(marker_path.read_text())
+        return marker.get("contract") == _MAPPING_COMPATIBILITY_CONTRACT and marker.get(
+            "mapping"
+        ) == _mapping_fingerprint(mapping_path)
+    except (FileNotFoundError, OSError, TypeError, json.JSONDecodeError):
+        return False
+
+
+def _record_mapping_compatibility(mapping_path: Path) -> None:
+    """Remember that this exact sidecar was built or verified under hitlist 1.55.2+."""
+    if not mapping_path.exists():
+        return
+    marker_path = _mapping_compatibility_path(mapping_path)
+    temporary = marker_path.with_suffix(marker_path.suffix + ".tmp")
+    marker = {
+        "contract": _MAPPING_COMPATIBILITY_CONTRACT,
+        "mapping": _mapping_fingerprint(mapping_path),
+    }
+    try:
+        temporary.write_text(json.dumps(marker, indent=2) + "\n")
+        temporary.replace(marker_path)
+    except OSError:
+        # A read-only shared cache is still usable. It will simply be probed
+        # again in the next process because tsarina cannot persist the result.
+        with suppress(OSError):
+            temporary.unlink()
+
+
+def _probe_mapping_compatibility(mapping_path: Path) -> bool:
+    """Detect the pre-1.55 sidecar using behavior rather than package metadata.
+
+    hitlist 1.55.2 does not stamp its builder version into mapping metadata.
+    Old artifacts map none of the class-II or length-7 observation peptides;
+    current artifacts map almost all of both groups. A small observation-backed
+    sample therefore distinguishes the artifacts without reading the full
+    175 MB mappings table.
+    """
+    from hitlist.mappings import load_peptide_mappings
+    from hitlist.observations import load_observations
+
+    probes = (
+        {"mhc_class": "II", "length_min": 12, "length_max": 45},
+        {"mhc_class": None, "length_min": 7, "length_max": 7},
+    )
+    for filters in probes:
+        observations = load_observations(columns=["peptide"], **filters)
+        peptides = (
+            observations["peptide"].dropna().astype(str).drop_duplicates().head(_MAPPING_PROBE_SIZE)
+        )
+        if peptides.empty:
+            continue
+        mappings = load_peptide_mappings(
+            peptide=peptides.tolist(),
+            columns=["peptide"],
+        )
+        mapped = set(mappings["peptide"].dropna().astype(str)) if not mappings.empty else set()
+        if mapped.isdisjoint(set(peptides)):
+            return False
+
+    _record_mapping_compatibility(mapping_path)
+    return True
+
+
+def _mapping_cache_is_compatible() -> bool:
+    from hitlist.mappings import mappings_path
+
+    path = mappings_path()
+    if _mapping_compatibility_is_recorded(path):
+        return True
+    return _probe_mapping_compatibility(path)
 
 
 def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
@@ -33,11 +123,10 @@ def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
 
     tsarina depends on the sidecar for gene-identifier resolution
     (``annotate_observations_with_genes`` in the cached fast path,
-    ``gene_name=`` filter pushdown in ``load_ms_evidence``). hitlist's
-    default ``build_observations`` produces both in one pass, so a
-    missing sidecar means either a partial manual build
-    (``build_mappings=False``) or sidecar deletion — either way, rebuild
-    so callers downstream don't trip a ``FileNotFoundError`` mid-query.
+    ``gene_name=`` filter pushdown in ``load_ms_evidence``). A missing or
+    pre-hitlist-1.55 sidecar is rebuilt directly from the current observations,
+    avoiding a full evidence rescan. Current sidecars are behavior-probed once
+    and fingerprinted so later calls only need a metadata check.
 
     Parameters
     ----------
@@ -53,16 +142,29 @@ def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
         Path to ``observations.parquet``.
     """
     from hitlist.builder import build_observations
-    from hitlist.mappings import is_mappings_built
+    from hitlist.mappings import build_peptide_mappings, is_mappings_built, mappings_path
     from hitlist.observations import is_built, observations_path
 
-    if force or not is_built() or not is_mappings_built():
+    observations_built = is_built()
+    mappings_built = is_mappings_built()
+
+    if force or not observations_built:
         if verbose:
             print(
                 "Building hitlist observations index (one-time ~2-5 min; cached afterwards)...",
                 file=sys.stderr,
             )
         build_observations(force=force)
+        _record_mapping_compatibility(mappings_path())
+    elif not mappings_built or not _mapping_cache_is_compatible():
+        if verbose:
+            reason = "missing" if not mappings_built else "predates hitlist 1.55.2"
+            print(
+                f"Building hitlist peptide mappings ({reason}; one-time migration)...",
+                file=sys.stderr,
+            )
+        build_peptide_mappings(force=True)
+        _record_mapping_compatibility(mappings_path())
     return observations_path()
 
 
@@ -108,7 +210,9 @@ def load_ms_evidence(
     """
     from hitlist.observations import is_built, load_observations
 
-    if auto_build and not is_built():
+    # Peptide-only reads do not depend on the mappings sidecar. Gene-filtered
+    # reads do, so validate/migrate it even when observations already exist.
+    if auto_build and (gene_name is not None or not is_built()):
         ensure_index_built()
 
     load_kwargs: dict = {
