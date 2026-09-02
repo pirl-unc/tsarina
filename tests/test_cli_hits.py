@@ -396,6 +396,7 @@ def test_cached_path_reattaches_gene_columns_on_post_1_30_46_parquets(tmp_path):
 
     mappings_loader.assert_called_once()
     out = captured["df"]
+    assert len(out) == len(hits), "multi-mapping annotation must not multiply observations"
     assert "gene_names" in out.columns
     by_peptide = out.set_index("peptide")["gene_names"].to_dict()
     assert by_peptide["AAAAAAAAA"] == "PRAME"
