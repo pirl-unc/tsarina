@@ -79,9 +79,8 @@ def _run_tsarina_hits(env_data_dir: Path) -> subprocess.CompletedProcess:
 )
 def test_tsarina_hits_against_real_hitlist_fixture(tmp_path: Path):
     """The real `tsarina hits` path consumes the real hitlist index schema."""
-    # The cache verifier writes a tiny fingerprint marker next to the mappings
-    # parquet. Exercise that behavior in an isolated copy, never in the
-    # committed fixture directory.
+    # Run against an isolated copy so nothing a build path writes alongside the
+    # artifacts can land in the committed fixture directory.
     for fixture in _FIXTURE_DIR.iterdir():
         if fixture.is_file():
             shutil.copy2(fixture, tmp_path / fixture.name)
@@ -109,3 +108,62 @@ def test_tsarina_hits_against_real_hitlist_fixture(tmp_path: Path):
     gvy = df[df["peptide"] == "GVYDGREHTV"]
     assert len(gvy) > 0, "expected the GVYDGREHTV MAGEA4 peptide in the fixture"
     assert gvy["ms_pmhc_pmids"].astype(str).str.len().gt(0).any()
+
+
+@pytest.mark.skipif(
+    not (_FIXTURE_DIR / "observations.parquet").exists(),
+    reason="hitlist_mini fixture index missing",
+)
+def test_fixture_carries_the_columns_a_current_hitlist_build_writes():
+    """The fixture is the schema tripwire, so it must not lag the builder.
+
+    Regenerate with ``python scripts/regenerate_hitlist_mini_fixture.py``; the
+    same script's ``--check`` mode reports drift against a locally built index.
+    """
+    observations = pd.read_parquet(_FIXTURE_DIR / "observations.parquet")
+    for col in (
+        "mhc_restriction",
+        "allele_resolution",
+        "serotype",
+        "serotypes",
+        "mhc_allele_set",
+        "mhc_allele_provenance",
+        # hitlist#415: how a row establishes its named restriction.
+        "restriction_evidence",
+        "is_monoallelic",
+        "is_binding_assay",
+    ):
+        assert col in observations.columns, (
+            f"fixture predates the {col!r} column; regenerate it with "
+            "scripts/regenerate_hitlist_mini_fixture.py"
+        )
+
+    mappings = pd.read_parquet(_FIXTURE_DIR / "peptide_mappings.parquet")
+    for col in ("peptide", "gene_name", "gene_id", "protein_id", "gene_biotype"):
+        assert col in mappings.columns, (
+            f"fixture predates the {col!r} mapping column; regenerate it with "
+            "scripts/regenerate_hitlist_mini_fixture.py"
+        )
+
+
+@pytest.mark.skipif(
+    not (_FIXTURE_DIR / "observations.parquet").exists(),
+    reason="hitlist_mini fixture index missing",
+)
+def test_fixture_annotations_agree_with_the_installed_hitlist():
+    """Stored MHC identity must match what the installed hitlist would write.
+
+    The fixture is real data annotated by a real build; if hitlist changes how
+    it resolves a restriction, the committed slice has to be regenerated rather
+    than quietly asserting a retired annotation.
+    """
+    from hitlist.curation import resolve_mhc_annotation
+
+    observations = pd.read_parquet(_FIXTURE_DIR / "observations.parquet")
+    for _, row in observations.iterrows():
+        expected = resolve_mhc_annotation(str(row["mhc_restriction"])).as_record_fields()
+        for col in ("allele_resolution", "serotype", "serotypes", "mhc_species"):
+            assert row[col] == expected[col], (
+                f"{row['mhc_restriction']!r}: stored {col}={row[col]!r} but the "
+                f"installed hitlist resolves {expected[col]!r}"
+            )

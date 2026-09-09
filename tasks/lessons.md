@@ -32,3 +32,11 @@
   whether the consumer still bundles the upstream dataset or reimplements its
   membership rules; one library must own the definition, while downstream
   packages retain only genuinely downstream evidence.
+- Verifying a CLI change by running the `tsarina` console script can silently
+  exercise an older *installed* copy: the script's `sys.path[0]` is `bin/`, so
+  site-packages wins, while `python -c "from tsarina.cli import main; main()"`
+  from the repo puts the working tree first. A stale non-editable install in a
+  shared venv makes the two disagree with no error. Compare
+  `tsarina --version` against `python -c "import tsarina; print(tsarina.__version__)"`
+  before trusting an end-to-end CLI check.
+

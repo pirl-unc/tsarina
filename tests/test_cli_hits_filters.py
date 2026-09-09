@@ -1,6 +1,7 @@
 """Unit tests for tsarina.cli_hits filter helpers."""
 
 import pandas as pd
+import pytest
 
 from tsarina.cli_hits import (
     _apply_min_resolution,
@@ -10,7 +11,20 @@ from tsarina.cli_hits import (
 
 
 def _hits(mhcs: list[str]) -> pd.DataFrame:
-    return pd.DataFrame({"peptide": ["P"] * len(mhcs), "mhc_restriction": mhcs})
+    """Frames annotated exactly as hitlist annotates an observations row.
+
+    ``--serotype`` and ``--min-resolution`` read the ``serotypes`` and
+    ``allele_resolution`` columns that hitlist writes alongside
+    ``mhc_restriction``, so the fixture derives all three from hitlist's own
+    resolver rather than restating them.  A change in how hitlist annotates
+    these restrictions therefore shows up here.
+    """
+    from hitlist.curation import resolve_mhc_annotation
+
+    rows = [resolve_mhc_annotation(mhc).as_record_fields() for mhc in mhcs]
+    frame = pd.DataFrame(rows)
+    frame.insert(0, "peptide", ["P"] * len(mhcs))
+    return frame
 
 
 def test_filter_by_allele_exact_match():
@@ -37,8 +51,11 @@ def test_filter_by_allele_empty_passthrough():
 
 
 def test_filter_by_serotype_accepts_A24_for_A_star_24_02():
-    """hitlist#44: canonical serotype for A*24:02 is mis-reported as Bw4.
-    Our filter must still find A*24:02 when the user types A24."""
+    """A*24:02 carries both HLA-A24 and the public epitope HLA-Bw4.
+
+    hitlist#44 (canonical serotype mis-reported as Bw4) is fixed upstream and
+    ``serotypes`` lists every membership, so the locus query still selects it.
+    """
     df = _hits(["HLA-A*24:02", "HLA-A*02:01", "HLA-B*07:02"])
     out = _filter_by_serotype(df, ["A24"])
     assert out["mhc_restriction"].tolist() == ["HLA-A*24:02"]
@@ -62,12 +79,74 @@ def test_filter_by_serotype_a2_via_canonical_mapping():
     assert out["mhc_restriction"].tolist() == ["HLA-A*02:01"]
 
 
+def test_filter_by_serotype_matches_public_epitope_across_loci():
+    """A public epitope is an orthogonal serotype axis, not a locus label."""
+    df = _hits(["HLA-A*23:01", "HLA-A*24:02", "HLA-A*02:01", "HLA-B*07:02"])
+    out = _filter_by_serotype(df, ["Bw4"])
+    assert out["mhc_restriction"].tolist() == ["HLA-A*23:01", "HLA-A*24:02"]
+
+
+def test_filter_by_serotype_matches_a_donor_set_through_its_members():
+    """A donor set carries the serotypes of every allele the donor was typed for.
+
+    The restriction is unresolved for that row, but the sample genuinely
+    carried an A2 molecule, which is the same reading tsarina's
+    ``sample_allele_ms`` evidence tier takes of a donor set.
+    """
+    df = _hits(["HLA-A*01:01;HLA-A*02:01;HLA-B*44:03", "HLA-B*07:02"])
+    out = _filter_by_serotype(df, ["A2"])
+    assert out["mhc_restriction"].tolist() == ["HLA-A*01:01;HLA-A*02:01;HLA-B*44:03"]
+
+
+def test_filter_by_serotype_accepts_multiple_queries():
+    df = _hits(["HLA-A*24:02", "HLA-A*02:01", "HLA-B*07:02"])
+    out = _filter_by_serotype(df, ["A24", "A2"])
+    assert out["mhc_restriction"].tolist() == ["HLA-A*24:02", "HLA-A*02:01"]
+
+
+def test_filter_by_serotype_empty_passthrough():
+    df = _hits(["HLA-A*02:01"])
+    assert _filter_by_serotype(df, []).equals(df)
+    assert _filter_by_serotype(df, ["  "]).equals(df)
+
+
+def test_filter_by_serotype_requires_annotated_index():
+    legacy = pd.DataFrame({"peptide": ["P"], "mhc_restriction": ["HLA-A*24:02"]})
+    with pytest.raises(ValueError, match="serotypes"):
+        _filter_by_serotype(legacy, ["A24"])
+
+
 def test_apply_min_resolution_drops_coarser_alleles():
     df = _hits(["HLA-A*02:01", "HLA-A2", "HLA class I"])
     out = _apply_min_resolution(df, "four_digit")
     assert out["mhc_restriction"].tolist() == ["HLA-A*02:01"]
 
 
+def test_apply_min_resolution_keeps_donor_sets_above_two_digit():
+    """A promoted donor set is more specific than a two-digit allele.
+
+    hitlist stores ``donor_set`` for these rows; reclassifying the joined
+    restriction string is what used to decide this, and disagreed with the
+    stored annotation on pre-1.55.7 indexes.
+    """
+    df = _hits(["HLA-A*02:01", "HLA-A*01:01;HLA-A*23:01", "HLA-A*02", "HLA class I"])
+    out = _apply_min_resolution(df, "donor_set")
+    assert out["mhc_restriction"].tolist() == ["HLA-A*02:01", "HLA-A*01:01;HLA-A*23:01"]
+
+
+def test_apply_min_resolution_reads_the_stored_annotation():
+    """The stored label decides, not a re-derivation from the restriction."""
+    df = _hits(["HLA-A*02:01"])
+    df.loc[0, "allele_resolution"] = "class_only"
+    assert _apply_min_resolution(df, "four_digit").empty
+
+
 def test_apply_min_resolution_passthrough_when_none():
     df = _hits(["HLA-A*02:01", "HLA-A2"])
     assert _apply_min_resolution(df, None).equals(df)
+
+
+def test_apply_min_resolution_requires_annotated_index():
+    legacy = pd.DataFrame({"peptide": ["P"], "mhc_restriction": ["HLA-A*02:01"]})
+    with pytest.raises(ValueError, match="allele_resolution"):
+        _apply_min_resolution(legacy, "four_digit")

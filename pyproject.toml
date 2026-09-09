@@ -27,8 +27,10 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    # 1.55.2: length-independent peptide mappings + authoritative 15-aa flanks.
-    "hitlist>=1.55.2",
+    # 1.58.1: hitlist owns artifact freshness (curation-YAML fingerprints in
+    # observations_meta.json, mapping-artifact contract) and publishes
+    # MHC_ALLELE_PROVENANCE_VALUES as the provenance vocabulary.
+    "hitlist>=1.58.1",
     "mhcgnomes>=3.20.0",
     # 1.8.150 is the audited single-authority CTA/proteoform API.
     "oncoref>=1.8.150",

@@ -1628,3 +1628,112 @@ length-independent peptide mappings, including for users whose existing
   (429 passed, 6 existing pandas warnings).
 - Filed the upstream root-cause contract as
   https://github.com/pirl-unc/hitlist/issues/404.
+
+## Task: Retire hitlist workarounds superseded by hitlist 1.59.1
+
+hitlist moved 1.55.2 -> 1.59.1 (23 releases). Four pieces of tsarina now
+duplicate or fight upstream behavior that hitlist owns, and one dependency
+floor no longer describes what tsarina needs.
+
+Verified upstream facts driving this:
+
+- hitlist#44 (`allele_to_serotype` preferred Bw4/Bw6 over the locus serotype)
+  closed 2026-04-18. `allele_to_serotype("HLA-A*23:01")` now returns
+  `HLA-A23`, `allele_to_all_serotypes` returns `("HLA-A23", "HLA-Bw4")`, the
+  observations parquet stores both `serotype` and `serotypes`, and
+  `load_observations(serotype=...)` filters on set membership in `serotypes`.
+- `allele_resolution` is a stored column. hitlist 1.55.7 made the scanner
+  recompute the whole MHC annotation when a class-only row is promoted to a
+  donor set, so a promoted row now stores `donor_set` where tsarina's
+  per-row recompute of the joined restriction string disagrees with the
+  pre-1.55.7 stored value.
+- hitlist#404 (the missing mapping-artifact contract that tsarina#147 worked
+  around with a behavior probe) is fixed: `_MAPPING_ARTIFACT_VERSION = 2`
+  plus a full `contract` block in `peptide_mappings_meta.json`. hitlist#429
+  additionally fingerprints the curation YAMLs into
+  `observations_meta.json`, and `build_observations(force=False)` /
+  `build_peptide_mappings(force=False)` short-circuit when both artifacts
+  are valid.
+- `restriction_evidence` (hitlist#415) is a study-level claim about how a
+  named restriction was established (`experimental` / `monoallelic` /
+  `predicted` / `unknown`). It is NOT the same axis as tsarina's
+  panel-relative evidence tiers, so `_build_evidence_stats` stays.
+  `MHC_ALLELE_PROVENANCE_VALUES` is the new authoritative provenance
+  vocabulary that tsarina's hardcoded subset should be checked against.
+
+### Plan
+
+- [x] Replace `_filter_by_serotype`'s mhcgnomes expansion with hitlist's
+      `serotypes` column membership, keeping the accepted query spellings
+      (`A2`, `HLA-A2`, `Bw4`) and the current match results.
+- [x] Make `_apply_min_resolution` read the stored `allele_resolution`
+      column instead of reclassifying `mhc_restriction` per row, and let
+      `--min-resolution` reach `donor_set`.
+- [x] Delete the `.tsarina-peptide-mappings.json` marker and the
+      behavior probe; delegate both artifacts' staleness to
+      `build_observations(force=...)`, keeping hitlist's stdout off
+      tsarina's stdout and tolerating an unregistered IEDB/CEDAR source.
+- [x] Drop the stale provenance narrative in `spanning.py` and add drift
+      guards that fail if hitlist's provenance / resolution vocabularies
+      stop containing the values tsarina keys on.
+- [x] Raise the `hitlist` floor to the version that actually provides the
+      above and refresh the comment.
+- [x] Extend `tests/fixtures/hitlist_mini/*.parquet` with the columns the
+      current builder emits (`restriction_evidence`, `gene_biotype`) so the
+      one non-mocked integration test can catch schema drift.
+- [x] Bump the tsarina version.
+- [x] File the upstream gaps this PR has to work around (public serotype
+      query normalizer, public cache-validity accessor) on hitlist and link
+      them from the PR.
+- [x] Run `./format.sh`, `./lint.sh`, `./test.sh`; record results below.
+- [ ] Open the PR, merge after checks pass, then `./deploy.sh` from clean
+      `main`.
+
+### Review
+
+- `--serotype` now reads hitlist's `serotypes` column instead of expanding the
+  query through mhcgnomes, deleting the hitlist#44 workaround. Two behavior
+  changes fall out, both matching hitlist's own `serotype=` filter: public
+  epitopes are queryable (`--serotype Bw4` selects A*23:01 and A*24:02), and a
+  donor set matches through the alleles its donor was typed for. On the
+  committed fixture, `--serotype A2` goes from 3 to 8 pMHC rows; the 5 added
+  rows are donor sets carrying an A2 molecule, which tsarina's own
+  `sample_allele_ms` tier already treats as A2-candidate evidence.
+- `--min-resolution` reads the stored `allele_resolution` instead of
+  reclassifying the restriction string, and `donor_set` became reachable (it
+  ranks between `four_digit` and `two_digit` and was previously unofferable).
+  Both filters now fail with an actionable message on an index too old to carry
+  the column, rather than answering from a re-derivation.
+- `ensure_index_built` hands freshness to `build_observations(force=...)`,
+  which fingerprints the curation YAMLs and both artifact contracts. That
+  retires the `.tsarina-peptide-mappings.json` marker and the two-probe
+  behavior test added in #147 as a workaround for hitlist#404, now fixed
+  upstream. Existence-only gating was letting a pre-#412 artifact answer every
+  query: on this machine that artifact still carried 942 purified-MHC /
+  half-life rows as MS evidence that hitlist#423 reclassifies as binding
+  assays, plus retired sample attributions for four corrected studies.
+- hitlist prints its build report to stdout, which is `tsarina hits`' data
+  stream. A known build now streams to stderr; a validation run captures the
+  report and replays it only if an artifact actually changed, so a current
+  cache stays silent. Filed pirl-unc/hitlist#448 for the public, quiet
+  validity predicate that would let tsarina announce a stale rebuild before
+  spending ten minutes on it, and pirl-unc/hitlist#449 for the serotype query
+  normalizer that `_serotype_query` currently copies.
+- An index copied in without its IEDB/CEDAR exports cannot be fingerprinted, so
+  it is used as found. `tests/test_hitlist_integration.py` exercises exactly
+  that path against the committed fixture.
+- `_SAMPLE_NARROWED_PROVENANCES` keeps its two values — `restriction_evidence`
+  (hitlist#415) is a study-level claim about how a restriction was established,
+  not the panel-relative axis `_build_evidence_stats` computes, so the tier
+  derivation stays. `tests/test_hitlist_vocabularies.py` now fails if hitlist's
+  provenance or resolution vocabulary moves under either literal.
+- `scripts/regenerate_hitlist_mini_fixture.py` makes the fixture reproducible
+  for the first time (its slice was previously recoverable only by
+  reverse-engineering the peptide list) and `--check` reports drift. The
+  refreshed slice gains `restriction_evidence`, `gene_biotype`, `cell_type` and
+  the scanner's MHC identity block, and drops two columns hitlist derives at
+  load time rather than storing. Two new tests assert the fixture carries what
+  a current build writes and that its stored annotations still match the
+  installed hitlist.
+- Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 442 passed (was 429),
+  6 pre-existing pandas warnings.

@@ -71,10 +71,13 @@ _DEFAULT_PEPTIDES_PER_CELL = 3
 #:   e.g. Sarkizova 2020 patient tumor cohort).  Strictly more specific
 #:   than ``sample_allele_match`` — same shape, narrower set.
 #:
-#: Pre-hitlist v1.30.39 only ``sample_allele_match`` existed; the
-#: ``peptide_attribution`` path was added when Sarkizova's 36 K
-#: patient-tumor MS rows shifted from class-only to attribution-narrowed
-#: sets.  See pirl-unc/tsarina#62.
+#: hitlist's ``MHC_ALLELE_PROVENANCE_VALUES`` is the authoritative vocabulary
+#: (hitlist#419); the values it carries that are absent here are deliberately
+#: not sample-narrowed — ``exact`` needs no candidate bag, and
+#: ``pmid_class_pool`` / ``unmatched`` are study-wide pools naming no donor.
+#: ``tests/test_hitlist_vocabularies.py`` fails if that partition drifts, so a
+#: new upstream provenance cannot be silently misclassified here.
+#: See pirl-unc/tsarina#62.
 _SAMPLE_NARROWED_PROVENANCES: frozenset[str] = frozenset(
     {"sample_allele_match", "peptide_attribution"}
 )

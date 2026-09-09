@@ -117,11 +117,17 @@ replacing an input export:
 tsarina build observations --force
 ```
 
-Tsarina requires hitlist 1.55.2 or newer so gene-filtered queries include
-class-II and length-7 peptide mappings. On the first use after upgrading,
-Tsarina checks the existing `peptide_mappings.parquet` and rebuilds only that
-sidecar when it predates the length-independent mapping format. A verified
-sidecar is fingerprinted, so later commands skip both the check and rebuild.
+Freshness is hitlist's call, not Tsarina's. Every query routes through hitlist,
+which compares the stored artifact version and the fingerprints of its curation
+files against `observations.parquet`, and the builder contract against
+`peptide_mappings.parquet`. Either artifact that no longer matches is rebuilt
+automatically, so a curation fix upstream reaches your results on the next
+command instead of waiting for a manual `--force`. Validation costs
+milliseconds when both artifacts are current, and Tsarina reports on stderr
+when a rebuild actually happened.
+
+An index copied in without its IEDB/CEDAR exports cannot be validated — hitlist
+needs the sources to fingerprint — so it is used as found.
 
 ### Data sources
 

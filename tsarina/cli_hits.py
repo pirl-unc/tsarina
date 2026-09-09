@@ -46,7 +46,11 @@ from .cli_common import (
 )
 
 _SUPPORTED_FORMATS = ("peptides", "pmhc", "refs", "raw")
-_SUPPORTED_RESOLUTIONS = ("four_digit", "two_digit", "serological", "class_only")
+# Allele-resolution levels, most specific first.  Mirrors the leading prefix of
+# hitlist's ``ALLELE_RESOLUTION_ORDER`` (``unresolved`` is omitted: asking for it
+# keeps everything).  Kept as a literal so ``--help`` does not pay for importing
+# hitlist.curation; a test guards it against upstream drift.
+_SUPPORTED_RESOLUTIONS = ("four_digit", "donor_set", "two_digit", "serological", "class_only")
 
 
 # Class-default peptide length windows used when --lengths is omitted.
@@ -110,13 +114,20 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--serotype",
         type=_split_csv,
         default=[],
-        help="Comma-separated serotype labels to keep (e.g. A2,A24).",
+        help=(
+            "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4). Matches "
+            "any serotype a restriction belongs to, including public epitopes "
+            "and the members of a donor allele set."
+        ),
     )
     p.add_argument(
         "--min-resolution",
         choices=_SUPPORTED_RESOLUTIONS,
         default=None,
-        help="Minimum allele resolution to keep.",
+        help=(
+            "Minimum allele resolution to keep, read from hitlist's stored "
+            "annotation. Choices are ordered most specific first."
+        ),
     )
     p.add_argument(
         "--mhc-class",
@@ -279,6 +290,21 @@ def _resolve_uniprot_to_gene(uniprot: str) -> str:
     raise ValueError(f"No gene name found for UniProt '{uniprot}'.")
 
 
+def _require_annotation_column(hits: pd.DataFrame, column: str, flag: str) -> None:
+    """Fail loudly when a filter needs an annotation column the index lacks.
+
+    These columns are written by hitlist alongside ``mhc_restriction``, so a
+    frame without them is a legacy artifact and the fix is a rebuild rather
+    than a different query.
+    """
+    if column not in hits.columns:
+        raise ValueError(
+            f"{flag} needs hitlist's `{column}` column, which this observations "
+            "index does not carry. Rebuild it with "
+            "`tsarina build observations --force`."
+        )
+
+
 def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
     if not alleles:
         return hits
@@ -290,69 +316,55 @@ def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
     ].copy()
 
 
+def _serotype_query(raw: str) -> str:
+    """Canonicalize a serotype token to the ``HLA-`` spelling hitlist stores.
+
+    Accepts ``A2``, ``HLA-A2``, ``hla-a2``, ``Bw4``.  hitlist normalizes
+    ``load_observations(serotype=...)`` the same way but does not expose the
+    helper, so the raw-CSV scan path needs this copy (pirl-unc/hitlist#449).
+    """
+    token = raw.strip()
+    if not token:
+        return ""
+    return token if token.upper().startswith("HLA-") else f"HLA-{token}"
+
+
 def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFrame:
     """Filter observations to the given serotypes.
 
-    Uses mhcgnomes to expand each requested serotype into its full allele
-    list, then checks membership.  Handles three cases:
-
-    1. Molecular restriction (``HLA-A*02:01``) — matches if the parsed allele
-       is in the requested serotype's ``alleles`` list.
-    2. Serological restriction (``HLA-A2``) — matches if the parsed serotype
-       name equals the requested name.
-    3. Unparseable / class-only — skipped.
-
-    Workaround for hitlist#44 (``allele_to_serotype`` mis-reports A-locus
-    Bw4-carrying alleles): we don't depend on the canonical-serotype label,
-    we go straight to mhcgnomes membership.
+    hitlist records every serotype a restriction belongs to in the
+    semicolon-joined ``serotypes`` column — the locus serotype (``HLA-A23``)
+    plus any public epitope it carries (``HLA-Bw4``) — written in the same
+    annotation pass that produced ``mhc_restriction``.  Membership in that
+    column answers the query for molecular (``HLA-A*23:01``) and serological
+    (``HLA-A2``) restrictions alike, which is why no separate mhcgnomes
+    expansion is needed here anymore (hitlist#44, fixed upstream).
     """
-    if not serotypes:
+    wanted = {query for query in map(_serotype_query, serotypes) if query}
+    if not wanted or hits.empty:
         return hits
-    from mhcgnomes import parse as mhc_parse
-    from mhcgnomes.allele import Allele
-    from mhcgnomes.serotype import Serotype
-
-    wanted_allele_keys: set[tuple[str, tuple[str, ...]]] = set()
-    wanted_serotype_names: set[str] = set()
-    for raw in serotypes:
-        s = raw.strip()
-        if not s:
-            continue
-        wanted_serotype_names.add(s.removeprefix("HLA-"))
-        try:
-            parsed = mhc_parse(s if s.startswith("HLA-") else f"HLA-{s}")
-        except Exception:
-            continue
-        if isinstance(parsed, Serotype):
-            for a in parsed.alleles:
-                wanted_allele_keys.add((a.gene.name, a.allele_fields))
-
-    def _matches(mhc: str) -> bool:
-        if not isinstance(mhc, str) or not mhc:
-            return False
-        try:
-            parsed = mhc_parse(mhc)
-        except Exception:
-            return False
-        if isinstance(parsed, Allele):
-            return (parsed.gene.name, parsed.allele_fields) in wanted_allele_keys
-        if isinstance(parsed, Serotype):
-            return parsed.name in wanted_serotype_names
-        return False
-
-    return hits[hits["mhc_restriction"].map(_matches)].copy()
+    _require_annotation_column(hits, "serotypes", "--serotype")
+    labels = hits["serotypes"].astype("string").fillna("")
+    return hits[labels.map(lambda value: bool(wanted & set(value.split(";"))))].copy()
 
 
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:
+    """Keep restrictions at least as specific as ``min_resolution``.
+
+    Reads hitlist's stored ``allele_resolution`` instead of reclassifying
+    ``mhc_restriction``.  The stored label comes from the annotation pass that
+    produced the restriction, so it accounts for the study's MHC species
+    context and for class-only rows promoted to a donor set; reclassifying the
+    final restriction string alone sees neither.
+    """
     if min_resolution is None or hits.empty:
         return hits
-    from hitlist.curation import allele_resolution_rank, classify_allele_resolution
+    _require_annotation_column(hits, "allele_resolution", "--min-resolution")
+    from hitlist.curation import allele_resolution_rank
 
     min_rank = allele_resolution_rank(min_resolution)
-    mask = hits["mhc_restriction"].map(
-        lambda r: allele_resolution_rank(classify_allele_resolution(r)) <= min_rank
-    )
-    return hits[mask].copy()
+    ranks = hits["allele_resolution"].astype("string").fillna("").map(allele_resolution_rank)
+    return hits[ranks <= min_rank].copy()
 
 
 def handle(args: argparse.Namespace) -> None:
