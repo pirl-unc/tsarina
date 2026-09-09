@@ -115,9 +115,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         type=_split_csv,
         default=[],
         help=(
-            "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4). Matches "
-            "any serotype a restriction belongs to, including public epitopes "
-            "and the members of a donor allele set."
+            "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4); case and "
+            "the HLA- prefix are optional. Matches restrictions naming that "
+            "serotype, public epitopes included. Donor allele sets are "
+            "excluded: see --min-resolution donor_set."
         ),
     )
     p.add_argument(
@@ -316,36 +317,46 @@ def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
     ].copy()
 
 
-def _serotype_query(raw: str) -> str:
-    """Canonicalize a serotype token to the ``HLA-`` spelling hitlist stores.
-
-    Accepts ``A2``, ``HLA-A2``, ``hla-a2``, ``Bw4``.  hitlist normalizes
-    ``load_observations(serotype=...)`` the same way but does not expose the
-    helper, so the raw-CSV scan path needs this copy (pirl-unc/hitlist#449).
-    """
-    token = raw.strip()
-    if not token:
-        return ""
-    return token if token.upper().startswith("HLA-") else f"HLA-{token}"
-
-
 def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFrame:
-    """Filter observations to the given serotypes.
+    """Filter observations to restrictions that name one of ``serotypes``.
 
     hitlist records every serotype a restriction belongs to in the
     semicolon-joined ``serotypes`` column — the locus serotype (``HLA-A23``)
     plus any public epitope it carries (``HLA-Bw4``) — written in the same
-    annotation pass that produced ``mhc_restriction``.  Membership in that
-    column answers the query for molecular (``HLA-A*23:01``) and serological
-    (``HLA-A2``) restrictions alike, which is why no separate mhcgnomes
-    expansion is needed here anymore (hitlist#44, fixed upstream).
+    annotation pass that produced ``mhc_restriction``.  Both the query and the
+    stored tokens are reduced to a :func:`~tsarina.mhc.serotype_key`, so
+    mhcgnomes decides what each designation means and the two sides agree
+    across case, the ``HLA-`` prefix, and split serotypes.
+
+    Donor sets are excluded.  Their ``serotypes`` is the union over every
+    allele the donor was typed for, which makes the serotype a candidate rather
+    than the restriction's identity; tsarina only credits a donor bag to one
+    allele after deconvolution (see ``spanning._build_evidence_stats``).  Use
+    ``--min-resolution donor_set`` to inspect those rows.
     """
-    wanted = {query for query in map(_serotype_query, serotypes) if query}
-    if not wanted or hits.empty:
+    if not serotypes:
+        return hits
+    from .mhc import serotype_key, serotype_keys
+
+    requested = {token: serotype_key(token) for token in serotypes if token.strip()}
+    if not requested:
+        return hits
+    unresolved = sorted(token for token, key in requested.items() if key is None)
+    if unresolved:
+        raise ValueError(
+            f"--serotype could not read {', '.join(repr(t) for t in unresolved)} as a "
+            "serotype. Use a serological designation such as A2, A24 or Bw4; pass "
+            "molecular alleles to --allele instead."
+        )
+    wanted = set(requested.values())
+    if hits.empty:
         return hits
     _require_annotation_column(hits, "serotypes", "--serotype")
-    labels = hits["serotypes"].astype("string").fillna("")
-    return hits[labels.map(lambda value: bool(wanted & set(value.split(";"))))].copy()
+    _require_annotation_column(hits, "allele_resolution", "--serotype")
+    names = hits["serotypes"].astype("string").fillna("")
+    named = hits["allele_resolution"].astype("string").fillna("") != "donor_set"
+    matched = names.map(lambda cell: bool(wanted & serotype_keys(cell)))
+    return hits[named & matched].copy()
 
 
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:

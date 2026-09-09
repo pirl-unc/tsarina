@@ -39,6 +39,16 @@
   shared venv makes the two disagree with no error. Compare
   `tsarina --version` against `python -c "import tsarina; print(tsarina.__version__)"`
   before trusting an end-to-end CLI check.
+- Do not describe a filter's behavior change from reading the new
+  implementation. Run the old and new code side by side over the real value
+  vocabulary and diff the result sets. Replacing tsarina's mhcgnomes serotype
+  expansion with hitlist's stored `serotypes` column looked like it added
+  public-epitope queries; it did not (those already worked), and what it
+  actually added was donor-set matching, a scientific change nobody asked for.
+- When swapping a hand-written parser for a library's, let the library
+  normalize both sides of the comparison, cached. A local prefix rule silently
+  reintroduces the case sensitivity the library does not have, and drifts from
+  the upstream rule it was copied from.
 
 - A test that compares committed fixture data against the *installed* library
   must tolerate the library being ahead. `develop.sh` installs sibling

@@ -80,22 +80,54 @@ def test_filter_by_serotype_a2_via_canonical_mapping():
 
 
 def test_filter_by_serotype_matches_public_epitope_across_loci():
-    """A public epitope is an orthogonal serotype axis, not a locus label."""
+    """A public epitope is an orthogonal serotype axis, not a locus label.
+
+    Bw4 is carried by subsets of both A- and B-locus alleles, so it selects
+    rows whose locus serotype is A23 or A24.
+    """
     df = _hits(["HLA-A*23:01", "HLA-A*24:02", "HLA-A*02:01", "HLA-B*07:02"])
     out = _filter_by_serotype(df, ["Bw4"])
     assert out["mhc_restriction"].tolist() == ["HLA-A*23:01", "HLA-A*24:02"]
 
 
-def test_filter_by_serotype_matches_a_donor_set_through_its_members():
-    """A donor set carries the serotypes of every allele the donor was typed for.
+def test_filter_by_serotype_excludes_donor_sets():
+    """A donor bag makes the serotype a candidate, not the restriction.
 
-    The restriction is unresolved for that row, but the sample genuinely
-    carried an A2 molecule, which is the same reading tsarina's
-    ``sample_allele_ms`` evidence tier takes of a donor set.
+    The sample carried an A2 molecule, but which of its alleles presented the
+    peptide is unknown, so this is not an A2-restricted observation. tsarina
+    only credits a donor bag to one allele after deconvolution, and
+    ``--min-resolution donor_set`` is how you look at these rows.
     """
-    df = _hits(["HLA-A*01:01;HLA-A*02:01;HLA-B*44:03", "HLA-B*07:02"])
+    df = _hits(["HLA-A*01:01;HLA-A*02:01;HLA-B*44:03", "HLA-A*02:01"])
     out = _filter_by_serotype(df, ["A2"])
-    assert out["mhc_restriction"].tolist() == ["HLA-A*01:01;HLA-A*02:01;HLA-B*44:03"]
+    assert out["mhc_restriction"].tolist() == ["HLA-A*02:01"]
+
+
+def test_filter_by_serotype_ignores_query_case():
+    df = _hits(["HLA-A*24:02", "HLA-A24", "HLA-B*07:02"])
+    for query in ("A24", "a24", "HLA-A24", "hla-a24"):
+        out = _filter_by_serotype(df, [query])
+        assert out["mhc_restriction"].tolist() == ["HLA-A*24:02", "HLA-A24"], query
+
+
+def test_filter_by_serotype_finds_split_serotype_members_of_a_broad_query():
+    """A*24:03 is listed under the split A2403, and a split implies its parent.
+
+    mhcgnomes' own ``A24`` member list omits it, so expanding the query instead
+    of reading the allele's serotypes used to miss this row.
+    """
+    df = _hits(["HLA-A*24:03", "HLA-A*02:01"])
+    assert _filter_by_serotype(df, ["A24"])["mhc_restriction"].tolist() == ["HLA-A*24:03"]
+    assert _filter_by_serotype(df, ["A2403"])["mhc_restriction"].tolist() == ["HLA-A*24:03"]
+
+
+def test_filter_by_serotype_rejects_a_query_it_cannot_read():
+    """Silently returning every row, or none, would both be wrong answers."""
+    df = _hits(["HLA-A*02:01"])
+    with pytest.raises(ValueError, match="could not read"):
+        _filter_by_serotype(df, ["HLA-A*02:01"])
+    with pytest.raises(ValueError, match="could not read"):
+        _filter_by_serotype(df, ["nonsense"])
 
 
 def test_filter_by_serotype_accepts_multiple_queries():

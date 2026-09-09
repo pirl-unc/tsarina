@@ -1692,13 +1692,10 @@ Verified upstream facts driving this:
 ### Review
 
 - `--serotype` now reads hitlist's `serotypes` column instead of expanding the
-  query through mhcgnomes, deleting the hitlist#44 workaround. Two behavior
-  changes fall out, both matching hitlist's own `serotype=` filter: public
-  epitopes are queryable (`--serotype Bw4` selects A*23:01 and A*24:02), and a
-  donor set matches through the alleles its donor was typed for. On the
-  committed fixture, `--serotype A2` goes from 3 to 8 pMHC rows; the 5 added
-  rows are donor sets carrying an A2 molecule, which tsarina's own
-  `sample_allele_ms` tier already treats as A2-candidate evidence.
+  query through mhcgnomes, deleting the hitlist#44 workaround. NOTE: the two
+  behavior changes claimed here were wrong and are corrected in the follow-up
+  task below — public epitopes already worked before this PR, and matching
+  donor sets was a mistake, reverted.
 - `--min-resolution` reads the stored `allele_resolution` instead of
   reclassifying the restriction string, and `donor_set` became reachable (it
   ranks between `four_digit` and `two_digit` and was previously unofferable).
@@ -1811,4 +1808,61 @@ fail specificity rather than pass it.
 - CTA protein-length QC is untouched: only IG/TR genes have IG/TR transcripts,
   and no CTA is one.
 - Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 445 passed (was 443).
+
+## Task: Correct the serotype filter (follow-up to #148)
+
+#148 replaced the mhcgnomes serotype expansion with membership in hitlist's
+`serotypes` column. Two things were wrong with it, found by diffing the old
+and new filters over all 980 distinct human restrictions in the index rather
+than reasoning about them.
+
+1. **The delta was not what the PR claimed.** Public epitopes were already
+   queryable before #148 — the old code expanded `Bw4` into its member alleles,
+   so `--serotype Bw4` matched A*23:01 and A*24:02 all along. What actually
+   changed was that donor sets started matching, taking `--serotype A2` from 14
+   to 272 distinct restrictions. That contradicts tsarina's own model, where a
+   donor bag is a candidate set credited to one allele only after
+   deconvolution, and it silently reweighted what `--serotype` asserts.
+2. **Lowercase regressed.** mhcgnomes parses case-insensitively, so the old
+   filter matched molecular rows for `--serotype bw4` and `hla-a24`. The
+   hand-rolled `HLA-` prefix rule that replaced it did not, and its docstring
+   claimed otherwise.
+
+### Plan
+
+- [x] Put one cached mhcgnomes parse in `tsarina/mhc.py` that a caller can
+      pin to an expected reading (`serotype` vs `allele`), and derive the
+      serotype comparison key from it so query and stored token agree by
+      construction.
+- [x] Exclude donor sets from `--serotype`, restoring what the flag has always
+      meant, and point at `--min-resolution donor_set` for those rows.
+- [x] Fail loudly on a serotype query that cannot be read, instead of
+      returning every row.
+- [x] Re-diff old vs new over the full restriction vocabulary and require the
+      only differences to be improvements.
+- [x] Correct the overstated claims in the #148 review notes below.
+- [x] Bump the version, run the three gates.
+
+### Review
+
+- `tsarina/mhc.py` now owns one `parse_mhc(value, expect=...)`, LRU-cached on
+  `(value, expect)`, using mhcgnomes' `required_result_types` so a stated
+  expectation — a CLI flag, or a curated paper record that reports a
+  serological typing rather than a molecule — decides how an ambiguous token is
+  read. `serotype_key` reduces both sides of the comparison through it, so case,
+  the `HLA-` prefix, and split serotypes stop being tsarina's problem.
+- Three curated serotype names hitlist writes but mhcgnomes will not read back
+  (`DR1B`, `DR3A`, `DR7A`) fall back to the token as given, guarded by a
+  serotype-shape check so an allele or class-only string is rejected instead of
+  becoming an unknown serotype.
+- Diffed old vs new across all 980 distinct human restrictions for 16 queries.
+  Nothing is lost on any query. The only additions: `A*24:03` for `A24` and
+  `A*02:03` for `A2` (both are split-serotype members whose broad parent
+  mhcgnomes' own member list omits — hitlist's reverse map adds it, and the
+  allele genuinely belongs to the parent), `A*24:03` for the split query
+  `A2403` itself, and serological rows for lowercase queries, which the old
+  filter matched for molecular rows only.
+- `--serotype A2` on the committed fixture is back to 3 pMHC rows, matching
+  pre-#148 behavior.
+- Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 452 passed.
 
