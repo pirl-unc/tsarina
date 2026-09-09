@@ -23,6 +23,7 @@ import pandas as pd
 from oncoref.cta import cta_filtered_gene_ids, cta_gene_ids
 
 from .evidence import CTA_evidence
+from .gene_sets import is_coding_gene
 
 
 @dataclass(frozen=True)
@@ -72,9 +73,7 @@ def _build_partition(ensembl_release: int = 112):
     ensembl = EnsemblRelease(ensembl_release)
     evidence_df = CTA_evidence()
 
-    all_pc_genes = {
-        g.gene_id: g.gene_name for g in ensembl.genes() if g.biotype == "protein_coding"
-    }
+    all_pc_genes = {g.gene_id: g.gene_name for g in ensembl.genes() if is_coding_gene(g)}
     all_pc_ids = set(all_pc_genes.keys())
 
     evidence_ids = evidence_df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]

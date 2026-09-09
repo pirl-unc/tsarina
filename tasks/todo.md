@@ -1737,3 +1737,78 @@ Verified upstream facts driving this:
   installed hitlist.
 - Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 442 passed (was 429),
   6 pre-existing pandas warnings.
+
+## Task: One coding-gene universe for all of tsarina
+
+`viral.py` disagrees with itself about what "human" means, and the disagreement
+is not local to `viral.py` — it is four independent restatements of "which
+Ensembl biotypes count as coding", at two different levels.
+
+hitlist 1.55.8 widened `proteome_kmer_set`'s default from `protein_coding` to
+`ENSEMBL_CODING_GENE_BIOTYPES` (adds IG_V/D/J/C and TR_V/D/J/C germline
+segments). tsarina picked that up silently in one code path and not the others.
+
+### The four sites
+
+Gene level:
+- `partition.py:76` — `g.biotype == "protein_coding"`, builds the CTA / non-CTA
+  partition. 20,089 genes against hitlist's 20,500.
+
+Transcript level:
+- `peptides.py:185` — canonical transcript for CTA peptide enumeration
+- `peptides.py:275` — non-CTA peptide enumeration, the specificity screen
+- `qc.py:75` — longest protein length for fragment-gene-model QC
+
+The two levels must move together. Ensembl gives an IG_V gene's transcripts the
+biotype `IG_V_gene`, not `protein_coding`, so widening the gene universe alone
+would add 411 genes that contribute zero peptides — an inert change. Verified
+those transcripts carry real translations (IGKV4-1 121 aa, TRGV11 103 aa), so
+they are genuinely presentable.
+
+### Why widen rather than narrow
+
+Germline IG/TR segments are expressed self peptides, which is why hitlist
+changed its default. For a therapeutic target screen the consequences both run
+the safe way: a larger self set drops more viral peptides as human, and treating
+IG/TR as non-CTA makes a CTA peptide sharing a sequence with an IG/TR segment
+fail specificity rather than pass it.
+
+### Plan
+
+- [x] One definition, sourced from hitlist so it cannot drift again:
+      `CODING_GENE_BIOTYPES` plus `is_coding_gene` / `is_coding_transcript`
+      predicates in `gene_sets.py`, tsarina's existing gene-universe authority
+      layer.
+- [x] Route all four sites through the predicates.
+- [x] Measure: genes gained by the partition, whether any IG/TR gene lands in
+      the CTA set, and how many CTA peptides newly fail specificity.
+- [x] Drift guard: tsarina's set must equal hitlist's, and must include the
+      IG/TR biotypes by name.
+- [x] Version bump, three gates, PR.
+
+### Review
+
+- `gene_sets.CODING_GENE_BIOTYPES` aliases hitlist's
+  `ENSEMBL_CODING_GENE_BIOTYPES`, with `is_coding_gene` / `is_coding_transcript`
+  predicates. All four sites route through them, and no
+  `biotype == "protein_coding"` comparison remains anywhere in the package.
+- The transcript-level half was the load-bearing part. Ensembl gives an IG_V
+  gene's transcripts the biotype `IG_V_gene`, and those transcripts carry real
+  translations (IGKV4-1 121 aa, TRGV11 103 aa), so widening only the gene
+  universe would have added 411 genes contributing zero peptides.
+- Measured on Ensembl 112: 411 IG/TR coding genes, all 411 landing in `non_cta`
+  and **none** in `cta`, taking the partition to 293 CTA / 20,198 non-CTA. Those
+  segments contribute 92,780 distinct 8-11mers.
+- Blast radius on CTA specificity is **one peptide**: `LEGPLRLS` in CTAGE1
+  (ENST00000391403, position 510) also occurs in an IG/TR segment, so it now
+  fails CTA-exclusivity instead of passing it. It is an 8-mer -- the shortest
+  length enumerated -- which is what a chance collision looks like rather than
+  real homology. 417,868 of 417,869 CTA peptides are unaffected.
+- Nothing changes for `human_exclusive_viral_peptides`, which already used the
+  wide set; what changes is that `cancer_specific_viral_peptides` now partitions
+  the same universe, so a viral peptide matching an IG/TR segment is attributable
+  to non-CTA instead of falling into neither bucket.
+- CTA protein-length QC is untouched: only IG/TR genes have IG/TR transcripts,
+  and no CTA is one.
+- Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 445 passed (was 443).
+

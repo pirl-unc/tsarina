@@ -158,6 +158,8 @@ def cta_peptides(
     """
     from pyensembl import EnsemblRelease
 
+    from .gene_sets import is_coding_transcript
+
     ensembl = EnsemblRelease(ensembl_release)
     cta_ids = _cta_gene_ids_for_names(gene_names)
     _report_progress(
@@ -178,11 +180,11 @@ def cta_peptides(
         except ValueError:
             continue
 
-        # Pick the canonical (longest) protein-coding transcript
+        # Pick the canonical (longest) coding transcript
         best_transcript = None
         best_length = 0
         for t in gene.transcripts:
-            if t.biotype != "protein_coding":
+            if not is_coding_transcript(t):
                 continue
             try:
                 seq = t.protein_sequence
@@ -253,6 +255,8 @@ def _non_cta_overlapping_peptides(
 
     from pyensembl import EnsemblRelease
 
+    from .gene_sets import is_coding_transcript
+
     non_cta_gene_ids = sorted(_non_cta_gene_ids(ensembl_release))
     _report_progress(
         on_progress,
@@ -272,7 +276,7 @@ def _non_cta_overlapping_peptides(
         except ValueError:
             continue
         for transcript in gene.transcripts:
-            if getattr(transcript, "biotype", "") != "protein_coding":
+            if not is_coding_transcript(transcript):
                 continue
             try:
                 protein = transcript.protein_sequence

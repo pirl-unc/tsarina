@@ -59,6 +59,8 @@ def gene_max_protein_length(
     (:class:`pyensembl.EnsemblRelease`) to amortize the lookup across many
     genes.
     """
+    from .gene_sets import is_coding_transcript
+
     if ensembl is None:
         from pyensembl import EnsemblRelease
 
@@ -72,7 +74,7 @@ def gene_max_protein_length(
 
     best = 0
     for transcript in gene.transcripts:
-        if transcript.biotype != "protein_coding":
+        if not is_coding_transcript(transcript):
             continue
         try:
             protein = transcript.protein_sequence
