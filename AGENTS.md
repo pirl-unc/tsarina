@@ -24,7 +24,7 @@ Do not tell the user you are "done" or that changes are "complete" until all thr
 - `./lint.sh` - Checks linting and formatting (must pass)
 - `./test.sh` - Runs pytest with coverage (must pass)
 - `./deploy.sh` - Deploys to PyPI (gates on lint.sh and test.sh)
-- `./develop.sh` - Installs package in development mode
+- `./develop.sh` - Installs package in development mode, into the active virtualenv when there is one, plus any sibling repo tsarina's results depend on (hitlist, oncoref, mhcgnomes, pyensembl, ...). Prints the resolved path of each so a shadowing release install cannot hide.
 
 ## Code Style
 
