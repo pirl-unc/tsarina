@@ -40,3 +40,13 @@
   `tsarina --version` against `python -c "import tsarina; print(tsarina.__version__)"`
   before trusting an end-to-end CLI check.
 
+- A test that compares committed fixture data against the *installed* library
+  must tolerate the library being ahead. `develop.sh` installs sibling
+  checkouts, so "installed hitlist is newer than the version floor" is the
+  normal state, and an equality assertion turns every upstream improvement into
+  a red suite. Split by arity: scalar classifications (`allele_resolution`,
+  `mhc_species`) stay equality, because one restriction has one answer and a
+  change is real drift; set-valued projections (`serotypes`) assert only that
+  the fixture holds nothing the library has stopped assigning, because mhcgnomes
+  gaining a specificity is not fixture rot. Then prove the loosened test still
+  fails on injected rot before believing it.
