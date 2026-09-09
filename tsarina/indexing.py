@@ -61,7 +61,9 @@ def _sources_registered() -> bool:
     return iedb_path is not None or cedar_path is not None
 
 
-def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
+def ensure_index_built(
+    force: bool = False, verbose: bool = True, report_current: bool = False
+) -> Path:
     """Ensure the hitlist observations parquet and its mappings sidecar are current.
 
     Whether an artifact is stale is hitlist's judgement, not tsarina's:
@@ -84,6 +86,10 @@ def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
     verbose
         Report on stderr when a build is actually performed.  Silent when the
         cached artifacts are reused unchanged.
+    report_current
+        Also replay hitlist's summary when nothing needed rebuilding.  For
+        ``tsarina build observations``, where describing the index is the point
+        of the command.
 
     Returns
     -------
@@ -112,12 +118,14 @@ def ensure_index_built(force: bool = False, verbose: bool = True) -> Path:
     report = io.StringIO()
     with redirect_stdout(report):
         build_observations(force=False)
-    if verbose and _artifact_states() != before:
-        print(
-            "hitlist artifacts were stale (curation or artifact version changed) "
-            "and have been rebuilt:",
-            file=sys.stderr,
-        )
+    rebuilt = _artifact_states() != before
+    if verbose and (rebuilt or report_current):
+        if rebuilt:
+            print(
+                "hitlist artifacts were stale (curation or artifact version "
+                "changed) and have been rebuilt:",
+                file=sys.stderr,
+            )
         print(report.getvalue().rstrip(), file=sys.stderr)
     return observations
 

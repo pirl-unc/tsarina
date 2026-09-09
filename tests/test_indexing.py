@@ -45,6 +45,28 @@ def test_ensure_index_built_delegates_freshness_to_hitlist(tmp_path: Path, capsy
     assert captured.out == ""
 
 
+def test_ensure_index_built_can_report_a_current_index(tmp_path: Path, capsys):
+    """``tsarina build observations`` exists to describe the index."""
+    observations = tmp_path / "obs.parquet"
+    observations.write_text("dummy")
+    is_built_p, obs_path_p, map_path_p = _artifact_patches(tmp_path, observations, is_built=True)
+    with (
+        is_built_p,
+        obs_path_p,
+        map_path_p,
+        patch("tsarina.indexing._sources_registered", return_value=True),
+        patch(
+            "hitlist.builder.build_observations",
+            side_effect=lambda force=False: print("Observations already built (40 rows)"),
+        ),
+    ):
+        ensure_index_built(report_current=True)
+    captured = capsys.readouterr()
+    assert "Observations already built (40 rows)" in captured.err
+    assert "stale" not in captured.err
+    assert captured.out == ""
+
+
 def test_ensure_index_built_reports_a_stale_rebuild(tmp_path: Path, capsys):
     observations = tmp_path / "obs.parquet"
     observations.write_text("legacy")

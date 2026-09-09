@@ -180,7 +180,7 @@ def _data_fetch_all(args: argparse.Namespace) -> None:
 def _build_observations(args: argparse.Namespace) -> None:
     from .indexing import ensure_index_built
 
-    path = ensure_index_built(force=args.force, verbose=True)
+    path = ensure_index_built(force=args.force, verbose=True, report_current=True)
     print(f"Observations index: {path}")
 
 
