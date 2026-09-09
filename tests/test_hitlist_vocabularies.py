@@ -39,3 +39,54 @@ def test_sample_narrowed_provenances_partition_hitlist_vocabulary():
     assert set(MHC_ALLELE_PROVENANCE_VALUES) - _SAMPLE_NARROWED_PROVENANCES == (
         _NOT_SAMPLE_NARROWED
     )
+
+
+def test_coding_gene_biotypes_track_hitlist():
+    """tsarina's coding universe is hitlist's, not a copy of it.
+
+    Four sites used to say ``protein_coding`` independently while hitlist's
+    ``proteome_kmer_set`` had widened to include germline IG/TR segments, so
+    ``human_exclusive_viral_peptides`` subtracted a larger self set than the
+    CTA / non-CTA partition covered.
+    """
+    from hitlist.proteome import ENSEMBL_CODING_GENE_BIOTYPES
+
+    from tsarina.gene_sets import CODING_GENE_BIOTYPES
+
+    assert set(ENSEMBL_CODING_GENE_BIOTYPES) == CODING_GENE_BIOTYPES
+
+
+def test_coding_universe_includes_germline_ig_and_tr_segments():
+    """Named explicitly: these are translated and presented, so they are self.
+
+    Ensembl gives an IG_V gene's transcripts the biotype ``IG_V_gene`` rather
+    than ``protein_coding``, so a transcript filter keyed on ``protein_coding``
+    silently excludes them even when the gene is in the universe.
+    """
+    from tsarina.gene_sets import CODING_GENE_BIOTYPES, is_coding_gene, is_coding_transcript
+
+    for biotype in (
+        "IG_V_gene",
+        "IG_D_gene",
+        "IG_J_gene",
+        "IG_C_gene",
+        "TR_V_gene",
+        "TR_D_gene",
+        "TR_J_gene",
+        "TR_C_gene",
+        "protein_coding",
+    ):
+        assert biotype in CODING_GENE_BIOTYPES
+
+    class _Feature:
+        def __init__(self, biotype: str) -> None:
+            self.biotype = biotype
+
+    assert is_coding_gene(_Feature("IG_V_gene"))
+    assert is_coding_transcript(_Feature("TR_V_gene"))
+    # Non-coding transcripts of a coding gene stay out.
+    assert not is_coding_transcript(_Feature("retained_intron"))
+    assert not is_coding_transcript(_Feature("processed_transcript"))
+    assert not is_coding_gene(_Feature("lncRNA"))
+    # A feature with no biotype at all must not slip through.
+    assert not is_coding_transcript(object())
