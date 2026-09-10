@@ -39,6 +39,16 @@
   shared venv makes the two disagree with no error. Compare
   `tsarina --version` against `python -c "import tsarina; print(tsarina.__version__)"`
   before trusting an end-to-end CLI check.
+- Do not describe a filter's behavior change from reading the new
+  implementation. Run the old and new code side by side over the real value
+  vocabulary and diff the result sets. Replacing tsarina's mhcgnomes serotype
+  expansion with hitlist's stored `serotypes` column looked like it added
+  public-epitope queries; it did not (those already worked), and what it
+  actually added was donor-set matching, a scientific change nobody asked for.
+- When swapping a hand-written parser for a library's, let the library
+  normalize both sides of the comparison, cached. A local prefix rule silently
+  reintroduces the case sensitivity the library does not have, and drifts from
+  the upstream rule it was copied from.
 
 - A test that compares committed fixture data against the *installed* library
   must tolerate the library being ahead. `develop.sh` installs sibling
@@ -50,3 +60,18 @@
   the fixture holds nothing the library has stopped assigning, because mhcgnomes
   gaining a specificity is not fixture rot. Then prove the loosened test still
   fails on injected rot before believing it.
+- Before adding a rule to one filter, check what the sibling filter already does
+  with the same row. `--serotype` was given a donor-set exclusion that `--allele`
+  does not have, so the two would have disagreed about a single restriction —
+  the same split-brain that the coding-gene-universe work had just been about
+  removing. The narrowing the exclusion provided already existed as
+  `--min-resolution`, so the rule was both inconsistent and redundant.
+- When the corpus makes something the majority case, it is not an edge case to
+  special-case. Human class I splits roughly evenly between rows that name one
+  allele (1,411,961) and rows that give only a candidate set (1,431,499). A
+  design that treats "the presenter is unknown" as an exception is describing a
+  different dataset than the one tsarina has.
+- A fallback after strict type parsing must not accept arbitrary strings based
+  on their shape. Compact molecular alleles such as A0201 resemble serotypes;
+  keep legacy-name exceptions explicit and test both spellings of the same
+  invalid input, including mixed valid/invalid queries.

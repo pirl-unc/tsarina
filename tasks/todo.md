@@ -1692,13 +1692,10 @@ Verified upstream facts driving this:
 ### Review
 
 - `--serotype` now reads hitlist's `serotypes` column instead of expanding the
-  query through mhcgnomes, deleting the hitlist#44 workaround. Two behavior
-  changes fall out, both matching hitlist's own `serotype=` filter: public
-  epitopes are queryable (`--serotype Bw4` selects A*23:01 and A*24:02), and a
-  donor set matches through the alleles its donor was typed for. On the
-  committed fixture, `--serotype A2` goes from 3 to 8 pMHC rows; the 5 added
-  rows are donor sets carrying an A2 molecule, which tsarina's own
-  `sample_allele_ms` tier already treats as A2-candidate evidence.
+  query through mhcgnomes, deleting the hitlist#44 workaround. NOTE: the two
+  behavior changes claimed here were wrong and are corrected in the follow-up
+  task below — public epitopes already worked before this PR, and matching
+  donor sets was a mistake, reverted.
 - `--min-resolution` reads the stored `allele_resolution` instead of
   reclassifying the restriction string, and `donor_set` became reachable (it
   ranks between `four_digit` and `two_digit` and was previously unofferable).
@@ -1812,3 +1809,122 @@ fail specificity rather than pass it.
   and no CTA is one.
 - Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 445 passed (was 443).
 
+## Task: Correct the serotype filter (follow-up to #148)
+
+#148 replaced the mhcgnomes serotype expansion with membership in hitlist's
+`serotypes` column. Two things were wrong with it, found by diffing the old
+and new filters over all 980 distinct human restrictions in the index rather
+than reasoning about them.
+
+1. **The delta was not what the PR claimed.** Public epitopes were already
+   queryable before #148 — the old code expanded `Bw4` into its member alleles,
+   so `--serotype Bw4` matched A*23:01 and A*24:02 all along. What actually
+   changed was that donor sets started matching, taking `--serotype A2` from 14
+   to 272 distinct restrictions. This is candidate membership, consistent
+   with `--allele`; it does not credit a donor bag to one presenter before
+   deconvolution. Resolution thresholds control which candidate sets to keep.
+2. **Lowercase regressed.** mhcgnomes parses case-insensitively, so the old
+   filter matched molecular rows for `--serotype bw4` and `hla-a24`. The
+   hand-rolled `HLA-` prefix rule that replaced it did not, and its docstring
+   claimed otherwise.
+
+### Plan
+
+- [x] Put one cached mhcgnomes parse in `tsarina/mhc.py` that a caller can
+      pin to an expected reading (`serotype` vs `allele`), and derive the
+      serotype comparison key from it so query and stored token agree by
+      construction.
+- [x] ~~Exclude donor sets from `--serotype`~~ — reverted before merge. Donor
+      sets match on membership, exactly as `--allele` has always matched a
+      semicolon-joined restriction. Narrowing to single-molecule restrictions is
+      `--min-resolution`'s existing job; a second, differently-drawn line inside
+      `--serotype` would have made the two filters disagree about the same row.
+- [x] Fail loudly on a serotype query that cannot be read, instead of
+      returning every row.
+- [x] Re-diff old vs new over the full restriction vocabulary and require the
+      only differences to be improvements.
+- [x] Correct the overstated claims in the #148 review notes below.
+- [x] Bump the version, run the three gates.
+
+### Review
+
+- `tsarina/mhc.py` now owns one `parse_mhc(value, expect=...)`, LRU-cached on
+  `(value, expect)`, using mhcgnomes' `required_result_types` so a stated
+  expectation — a CLI flag, or a curated paper record that reports a
+  serological typing rather than a molecule — decides how an ambiguous token is
+  read. `serotype_key` reduces both sides of the comparison through it, so case,
+  the `HLA-` prefix, and split serotypes stop being tsarina's problem.
+- Three legacy curated serotype names (`DR1B`, `DR3A`, `DR7A`) remain
+  queryable through an explicit exception set when mhcgnomes cannot parse
+  them. Every other token must parse as a serotype, so compact molecular
+  aliases and unknown serotype-shaped labels are rejected.
+- Diffed old vs new across all 980 distinct human restrictions for 16 queries.
+  Nothing is lost on any query. The only additions: `A*24:03` for `A24` and
+  `A*02:03` for `A2` (both are split-serotype members whose broad parent
+  mhcgnomes' own member list omits — hitlist's reverse map adds it, and the
+  allele genuinely belongs to the parent), `A*24:03` for the split query
+  `A2403` itself, and serological rows for lowercase queries, which the old
+  filter matched for molecular rows only.
+- On donor sets, the first version of this branch excluded them and that was
+  wrong. `--allele` matches a donor set containing the queried allele -- by
+  design, with a committed test -- so excluding them from `--serotype` made two
+  filters answer differently about one row, which is the split-brain the
+  coding-universe task had just removed. It also treated the largest rung of the
+  corpus as an edge case: on human class I, 1,411,961 rows name one allele and
+  1,431,499 give only a candidate set, donor sets being 902,990 of them.
+  `--serotype` is therefore a plain membership test, and the existing
+  `--min-resolution` is how a caller asks for restrictions that name one
+  molecule. Verified composing on the fixture: no filter 16 pMHC rows,
+  `--serotype A2` 8, `--serotype A2 --min-resolution four_digit` 3 with no donor
+  sets -- the same 3 the exclusion produced, reached with the flag that already
+  existed.
+- Gates: `./format.sh`, `./lint.sh` clean; `./test.sh` 452 passed.
+
+
+## Task: Address PR #149 review findings (#153, #154)
+
+### Specification
+
+- Preserve the existing local donor-set membership correction and include it
+  in PR #149. `--serotype` and `--allele` must agree on candidate membership;
+  `--min-resolution donor_set` keeps donor rows, while `four_digit` removes
+  them before the serotype filter runs.
+- Replace the serotype-shape regex fallback with an explicit exception set
+  for the three previously supported curated names DR1B, DR3A, and DR7A.
+  All other tokens must parse as mhcgnomes Serotype results. Preserve case,
+  whitespace, and optional HLA-prefix handling for those exceptions.
+- Verify both molecular spellings and unknown serotype-shaped queries raise
+  even in mixed valid/invalid requests, while valid split and public-epitope
+  queries retain their result sets. Do not change allele-filter semantics.
+- Keep the PR's existing 1.25.4 patch bump if it remains unreleased. Rewrite
+  the PR description around final behavior and link both closing issues.
+- Run format, lint, full tests and corpus comparison; merge only the checked
+  commit, deploy with `./deploy.sh` from clean main, and verify PyPI artifacts.
+- Inspect related open issues after release to identify the next work block.
+
+### Plan
+
+- [x] Re-read current code, outstanding changes, issues, and deployment script.
+- [x] Create feature branch and record implementation/verification plan.
+- [x] Add regression tests and demonstrate the validation failure (6 failures).
+- [x] Narrow the fallback, retain donor-set correction, and update docs/lessons.
+- [x] Run full checks and compare the real restriction vocabulary.
+- [ ] Commit, update/push PR #149, and wait for CI.
+- [ ] Merge and deploy 1.25.4 from clean main; verify publication.
+- [ ] Record results and identify the next dependency/urgency work block.
+
+### Review before shipping
+
+- Both review findings are fixed: donor sets match by serotype membership,
+  and invalid compact molecular aliases no longer bypass serotype validation.
+- The fallback now accepts only the three legacy curated exceptions; tests
+  preserve their case/prefix behavior and reject unknown lookalike names.
+- The new validation coverage failed in six cases before the fix. All 39
+  focused tests pass after it, including donor_set/four_digit composition.
+- Corpus comparison: all 142 stored human serotype queries preserve main's
+  result sets across 980 distinct restrictions and match lowercase variants.
+  All 171 installed HLA serotype table names preserve case/prefix keys.
+- Required checks passed: `./format.sh` (unchanged), `./lint.sh`, and
+  `./test.sh` (463 passed, 6 warnings).
+- Version 1.25.4 is already bumped in this PR; PyPI currently has 1.25.3.
+- Final merge/deployment results will be recorded on PR #149 after shipping.

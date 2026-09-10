@@ -115,9 +115,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         type=_split_csv,
         default=[],
         help=(
-            "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4). Matches "
-            "any serotype a restriction belongs to, including public epitopes "
-            "and the members of a donor allele set."
+            "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4); case and "
+            "the HLA- prefix are optional. Matches any restriction carrying that "
+            "serotype, public epitopes and donor allele sets included; narrow to "
+            "single-molecule restrictions with --min-resolution."
         ),
     )
     p.add_argument(
@@ -316,36 +317,43 @@ def _filter_by_allele(hits: pd.DataFrame, alleles: list[str]) -> pd.DataFrame:
     ].copy()
 
 
-def _serotype_query(raw: str) -> str:
-    """Canonicalize a serotype token to the ``HLA-`` spelling hitlist stores.
-
-    Accepts ``A2``, ``HLA-A2``, ``hla-a2``, ``Bw4``.  hitlist normalizes
-    ``load_observations(serotype=...)`` the same way but does not expose the
-    helper, so the raw-CSV scan path needs this copy (pirl-unc/hitlist#449).
-    """
-    token = raw.strip()
-    if not token:
-        return ""
-    return token if token.upper().startswith("HLA-") else f"HLA-{token}"
-
-
 def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFrame:
-    """Filter observations to the given serotypes.
+    """Filter observations to restrictions that name one of ``serotypes``.
 
     hitlist records every serotype a restriction belongs to in the
     semicolon-joined ``serotypes`` column — the locus serotype (``HLA-A23``)
     plus any public epitope it carries (``HLA-Bw4``) — written in the same
-    annotation pass that produced ``mhc_restriction``.  Membership in that
-    column answers the query for molecular (``HLA-A*23:01``) and serological
-    (``HLA-A2``) restrictions alike, which is why no separate mhcgnomes
-    expansion is needed here anymore (hitlist#44, fixed upstream).
+    annotation pass that produced ``mhc_restriction``.  Both the query and the
+    stored tokens are reduced to a :func:`~tsarina.mhc.serotype_key`, so
+    mhcgnomes decides what each designation means and the two sides agree
+    across case, the ``HLA-`` prefix, and split serotypes.
+
+    Matching is membership, exactly as ``--allele`` treats a semicolon-joined
+    restriction: a donor set whose typed alleles carry the serotype matches,
+    because membership is all the row supports.  Narrowing to restrictions that
+    name one molecule is what ``--min-resolution four_digit`` already does, so
+    this filter does not second-guess it.
     """
-    wanted = {query for query in map(_serotype_query, serotypes) if query}
-    if not wanted or hits.empty:
+    if not serotypes:
+        return hits
+    from .mhc import serotype_key, serotype_keys
+
+    requested = {token: serotype_key(token) for token in serotypes if token.strip()}
+    if not requested:
+        return hits
+    unresolved = sorted(token for token, key in requested.items() if key is None)
+    if unresolved:
+        raise ValueError(
+            f"--serotype could not read {', '.join(repr(t) for t in unresolved)} as a "
+            "serotype. Use a serological designation such as A2, A24 or Bw4; pass "
+            "molecular alleles to --allele instead."
+        )
+    wanted = set(requested.values())
+    if hits.empty:
         return hits
     _require_annotation_column(hits, "serotypes", "--serotype")
-    labels = hits["serotypes"].astype("string").fillna("")
-    return hits[labels.map(lambda value: bool(wanted & set(value.split(";"))))].copy()
+    names = hits["serotypes"].astype("string").fillna("")
+    return hits[names.map(lambda cell: bool(wanted & serotype_keys(cell)))].copy()
 
 
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:
