@@ -60,3 +60,18 @@
   the fixture holds nothing the library has stopped assigning, because mhcgnomes
   gaining a specificity is not fixture rot. Then prove the loosened test still
   fails on injected rot before believing it.
+- Before adding a rule to one filter, check what the sibling filter already does
+  with the same row. `--serotype` was given a donor-set exclusion that `--allele`
+  does not have, so the two would have disagreed about a single restriction —
+  the same split-brain that the coding-gene-universe work had just been about
+  removing. The narrowing the exclusion provided already existed as
+  `--min-resolution`, so the rule was both inconsistent and redundant.
+- When the corpus makes something the majority case, it is not an edge case to
+  special-case. Human class I splits roughly evenly between rows that name one
+  allele (1,411,961) and rows that give only a candidate set (1,431,499). A
+  design that treats "the presenter is unknown" as an exception is describing a
+  different dataset than the one tsarina has.
+- A fallback after strict type parsing must not accept arbitrary strings based
+  on their shape. Compact molecular alleles such as A0201 resemble serotypes;
+  keep legacy-name exceptions explicit and test both spellings of the same
+  invalid input, including mixed valid/invalid queries.

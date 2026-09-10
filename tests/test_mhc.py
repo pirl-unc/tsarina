@@ -1,3 +1,5 @@
+import pytest
+
 from tsarina.mhc import (
     mhc_restriction_matches_any,
     normalize_mhc_restriction,
@@ -46,14 +48,28 @@ def test_serotype_key_ignores_case_and_prefix():
     assert serotype_key("Bw4") == serotype_key("bw4")
 
 
-def test_serotype_key_keeps_curated_names_mhcgnomes_cannot_read_back():
-    """hitlist stores DR1B / DR3A / DR7A; mhcgnomes will not re-parse them."""
-    assert parse_mhc("DR1B", expect="serotype") is None
-    assert serotype_key("HLA-DR1B") == serotype_key("dr1b") == "DR1B"
+@pytest.mark.parametrize("name", ["DR1B", "DR3A", "DR7A"])
+def test_serotype_key_keeps_legacy_curated_names(name):
+    """Existing indexed labels remain queryable across spelling variants."""
+    for token in (name, name.lower(), f"HLA-{name}", f" hla-{name.lower()} "):
+        assert serotype_key(token) == name
 
 
 def test_serotype_key_rejects_what_is_not_a_serotype():
-    for value in ("A*02:01", "HLA-A*02:01", "HLA class I", "nonsense", "", None):
+    for value in (
+        "A*02:01",
+        "HLA-A*02:01",
+        "A0201",
+        "hla-a0201",
+        "DRB10401",
+        "ABC123",
+        "A999",
+        "DR1C",
+        "HLA class I",
+        "nonsense",
+        "",
+        None,
+    ):
         assert serotype_key(value) is None
 
 

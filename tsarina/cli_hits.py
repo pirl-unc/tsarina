@@ -116,9 +116,9 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         default=[],
         help=(
             "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4); case and "
-            "the HLA- prefix are optional. Matches restrictions naming that "
-            "serotype, public epitopes included. Donor allele sets are "
-            "excluded: see --min-resolution donor_set."
+            "the HLA- prefix are optional. Matches any restriction carrying that "
+            "serotype, public epitopes and donor allele sets included; narrow to "
+            "single-molecule restrictions with --min-resolution."
         ),
     )
     p.add_argument(
@@ -328,11 +328,11 @@ def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFram
     mhcgnomes decides what each designation means and the two sides agree
     across case, the ``HLA-`` prefix, and split serotypes.
 
-    Donor sets are excluded.  Their ``serotypes`` is the union over every
-    allele the donor was typed for, which makes the serotype a candidate rather
-    than the restriction's identity; tsarina only credits a donor bag to one
-    allele after deconvolution (see ``spanning._build_evidence_stats``).  Use
-    ``--min-resolution donor_set`` to inspect those rows.
+    Matching is membership, exactly as ``--allele`` treats a semicolon-joined
+    restriction: a donor set whose typed alleles carry the serotype matches,
+    because membership is all the row supports.  Narrowing to restrictions that
+    name one molecule is what ``--min-resolution four_digit`` already does, so
+    this filter does not second-guess it.
     """
     if not serotypes:
         return hits
@@ -352,11 +352,8 @@ def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFram
     if hits.empty:
         return hits
     _require_annotation_column(hits, "serotypes", "--serotype")
-    _require_annotation_column(hits, "allele_resolution", "--serotype")
     names = hits["serotypes"].astype("string").fillna("")
-    named = hits["allele_resolution"].astype("string").fillna("") != "donor_set"
-    matched = names.map(lambda cell: bool(wanted & serotype_keys(cell)))
-    return hits[named & matched].copy()
+    return hits[names.map(lambda cell: bool(wanted & serotype_keys(cell)))].copy()
 
 
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:

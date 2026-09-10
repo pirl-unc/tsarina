@@ -12,8 +12,8 @@
 
 """Shared MHC restriction normalization and matching helpers.
 
-Every designation tsarina reads or accepts goes through :func:`parse_mhc`, so
-mhcgnomes owns what a token means and tsarina owns nothing but the caching.
+Restriction matching and serotype queries share :func:`parse_mhc`, so
+mhcgnomes owns parsing and tsarina caches the results.
 ``expect`` lets a caller state what the token is supposed to be — the kind of
 expectation a CLI flag or a curated paper record carries — which is what
 separates the serological ``HLA-A2`` from the molecular ``HLA-A*02:01`` when a
@@ -22,14 +22,12 @@ string could be read either way.
 
 from __future__ import annotations
 
-import re
 from functools import lru_cache
 
-#: Shape of a serological designation: a locus prefix, a digit, then optional
-#: split / public-epitope characters (``A2``, ``A2.1``, ``Bw4``, ``DR1B``).
-#: Guards the fallback in :func:`serotype_key` so an allele or a class-only
-#: string is rejected rather than accepted as an unknown serotype.
-_SEROTYPE_SHAPE = re.compile(r"^[A-Za-z]{1,3}[0-9][0-9A-Za-z.]*$")
+#: Legacy curated labels retained for existing hitlist indexes even when
+#: mhcgnomes cannot parse them. All other labels require a Serotype result;
+#: spelling alone cannot distinguish a serotype from an allele like A0201.
+_LEGACY_SEROTYPES = frozenset({"DR1B", "DR3A", "DR7A"})
 
 #: What a token is expected to be, mapped to the mhcgnomes result type that
 #: :func:`parse_mhc` will require.
@@ -86,19 +84,18 @@ def serotype_key(value: object) -> str | None:
     across case, the optional ``HLA-`` prefix, and split serotypes (``A2403``
     resolves alongside its broad ``A24``).
 
-    A handful of curated names mhcgnomes writes but will not read back
-    (``DR1B``, ``DR3A``, ``DR7A``) fall back to the token as given, so a stored
-    serotype stays queryable rather than silently matching nothing.  Anything
-    that is not serotype-shaped — an allele, a class-only string — yields
-    ``None``, so it can be reported instead of quietly matching nothing.
+    Three legacy curated names (``DR1B``, ``DR3A``, ``DR7A``) remain queryable
+    even when mhcgnomes cannot parse them. Every other token must parse as a
+    serotype; molecular alleles and unknown labels yield ``None`` so callers
+    can report invalid queries instead of quietly matching nothing.
     """
     if not isinstance(value, str):
         return None
     parsed = parse_mhc(value, expect="serotype")
     if parsed is not None:
         return parsed.name.upper()
-    bare = _bare_serotype_name(value)
-    return bare.upper() if _SEROTYPE_SHAPE.match(bare) else None
+    bare = _bare_serotype_name(value).upper()
+    return bare if bare in _LEGACY_SEROTYPES else None
 
 
 def _bare_serotype_name(value: str) -> str:
