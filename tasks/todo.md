@@ -1928,3 +1928,81 @@ than reasoning about them.
   `./test.sh` (463 passed, 6 warnings).
 - Version 1.25.4 is already bumped in this PR; PyPI currently has 1.25.3.
 - Final merge/deployment results will be recorded on PR #149 after shipping.
+
+---
+
+## Post-merge /code-review follow-ups on #149 (1.25.5)
+
+`/code-review` on the merged #149 diff (mhc.py, cli_hits.py) surfaced 11
+findings, filed nowhere (no issue tracker session open for this) but worked
+directly since none required a design call. All 11 fixed on
+`fix/code-review-serotype-followups`.
+
+### Plan
+
+- [x] Read the review findings against current `tsarina/mhc.py` /
+      `tsarina/cli_hits.py`, confirm each still reproduces.
+- [x] Branch off main (`fix/code-review-serotype-followups`).
+- [x] Fix all 11: 4 real bugs (uncaught ValueError, KeyError/AttributeError
+      footguns in `parse_mhc`, silent cross-species reparsing), 2 efficiency
+      (late `--serotype` validation, row-wise serotype match), 2
+      simplification (stringly-typed class lookup, dead `_parse_hla`
+      passthrough), 1 reuse (duplicated HLA-prefix stripping), 1 docs
+      (`serotype_key` docstring overclaim).
+- [x] Add/extend regression tests for each fix.
+- [x] Run `./format.sh`, `./lint.sh`, `./test.sh`.
+- [ ] Commit, push, open PR, merge, deploy, verify PyPI.
+
+### Review
+
+The two most severe findings were confirmed by the reviewer via direct
+execution, and stayed reproduced going into the fix:
+
+- **Uncaught crash.** `_filter_by_serotype`'s `ValueError` on an unreadable
+  `--serotype` token was never caught between `handle()` and `main()`.
+  Fixed two ways: `--serotype` now validates at argparse parse time via a
+  new `_parse_serotypes` type= callable (mirrors `--lengths`'
+  `_parse_lengths`), so a typo fails before gene resolution or any index
+  load runs; and `handle()` also wraps the filter calls in `try/except
+  ValueError` for any caller that builds an `argparse.Namespace` directly
+  and bypasses the parser.
+- **Silent cross-species reparsing.** `normalize_mhc_restriction` lost its
+  old hand-rolled `HLA-` force-prefix in #149 (correctly — that prefix
+  trick separately regressed lowercase queries) but nothing replaced its
+  species-scoping effect, so a non-human token like `SLA1*01:01` was
+  silently reparsed and reformatted as a different species' canonical form
+  (`SLA-1*01:01`) instead of passed through unchanged. Fixed with
+  mhcgnomes' own `species="HLA"` strict constraint on `parse_mhc`, which
+  restores the HLA-only contract without reintroducing the lowercase bug —
+  confirmed empirically for SLA/BoLA/DLA/RT1 designations and for `a2`.
+
+`parse_mhc` itself is now defensive end to end: a non-string `value`, an
+unrecognized `expect`, or any exception raised inside mhcgnomes (including
+the deferred import) all degrade to `None` per its documented contract,
+rather than raising `AttributeError`/`KeyError`/an uncaught exception. That
+also closes the one other real gap the review found: `normalize_mhc_
+restriction` no longer has (or needs) its own separate exception guard,
+because the function it calls now genuinely never raises.
+
+The remaining findings were cleanup: `_EXPECTED_RESULT_TYPES`'s
+`import_module`/`getattr` indirection (the direct cause of the `KeyError`
+footgun) is gone in favor of plain deferred class imports; `_parse_hla`'s
+dead one-line passthrough is removed and `normalize_mhc_restriction` calls
+`parse_mhc` directly; the duplicated `HLA-` prefix-stripping in
+`spanning._allele_locus` now calls the newly-public `mhc.strip_hla_prefix`
+instead of hand-rolling it a second time; `serotype_key`'s docstring no
+longer claims it resolves a split serotype to its broad parent (verified
+`serotype_key('A2403') == 'A2403'`, not `'A24'` — that resolution is
+`serotype_keys` reading both names hitlist stores in the `serotypes` cell,
+not anything `serotype_key` does alone); and `_filter_by_serotype`'s
+row-wise `.map(lambda cell: ...)` is now map-over-uniques-then-broadcast,
+matching the reviewer's benchmarked ~6x finding.
+
+24 new/extended tests across `test_mhc.py`, `test_cli_hits.py`, and
+`test_spanning.py`. Required checks: `./format.sh` (one file reformatted),
+`./lint.sh` (clean), `./test.sh` — 478 passed, 1 pre-existing failure
+(`test_global53_default_uses_mhcflurry_runtime_calibration_when_available`,
+confirmed identical on unmodified main: a shared-environment mhcflurry
+version drift unrelated to this diff, not one of the 11 findings).
+
+Version bumped 1.25.4 -> 1.25.5.

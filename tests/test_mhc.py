@@ -8,11 +8,37 @@ from tsarina.mhc import (
     serotype_key,
     serotype_keys,
     split_mhc_restrictions,
+    strip_hla_prefix,
 )
 
 
 def test_normalize_mhc_restriction_adds_hla_prefix():
     assert normalize_mhc_restriction("A*02:01") == "HLA-A*02:01"
+
+
+def test_normalize_mhc_restriction_ignores_case():
+    """A regression guard for the fix, not just the old passing case above:
+
+    mhcgnomes' own case handling covers ``a2``, so no hand-rolled prefix
+    trick is needed to accept it (the old hand-rolled ``HLA-`` force-prefix
+    this replaced had regressed lowercase queries)."""
+    assert normalize_mhc_restriction("a2") == normalize_mhc_restriction("A2")
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["SLA1*01:01", "BoLA1*001:01", "DLA88*001:01", "RT1A*01:01"],
+)
+def test_normalize_mhc_restriction_passes_through_non_human_designations(value):
+    """Non-human MHC designations are left unchanged, not silently reparsed.
+
+    mhcgnomes recognizes these directly (no forced HLA- prefix needed to
+    reject them), so without a species constraint they would otherwise
+    reformat into that species' own canonical string -- a pig SLA becoming
+    e.g. 'SLA-1*01:01' -- which breaks the documented "canonical HLA
+    restriction string" contract and any exact-match comparison against a
+    corpus value in the original format."""
+    assert normalize_mhc_restriction(value) == value
 
 
 def test_split_mhc_restrictions_normalizes_semicolon_joined_cell():
@@ -41,6 +67,43 @@ def test_parse_mhc_is_cached():
     parse_mhc("HLA-A*02:01")
     parse_mhc("HLA-A*02:01")
     assert parse_mhc.cache_info().hits == 1
+
+
+@pytest.mark.parametrize("value", [None, 123, 1.5])
+def test_parse_mhc_returns_none_for_non_string_input(value):
+    """A raw non-string value (e.g. a pandas NaN/None cell) must degrade to
+    None like any other unparseable input, not raise AttributeError from
+    calling .strip() on it."""
+    assert parse_mhc(value) is None
+
+
+def test_parse_mhc_returns_none_for_an_unrecognized_expect():
+    """An ``expect`` outside {"", "serotype", "allele"} -- a typo, or a
+    future caller passing the wrong casing -- must degrade to None like any
+    other unsatisfiable request, not raise KeyError."""
+    assert parse_mhc("A2", expect="Serotype") is None
+    assert parse_mhc("A2", expect="nonsense") is None
+
+
+def test_parse_mhc_species_constrains_to_that_species():
+    assert parse_mhc("A*02:01", species="HLA") is not None
+    assert parse_mhc("SLA1*01:01", species="HLA") is None
+    assert parse_mhc("SLA1*01:01", species=None) is not None
+
+
+def test_strip_hla_prefix_is_case_insensitive():
+    assert strip_hla_prefix("HLA-A24") == "A24"
+    assert strip_hla_prefix("hla-a24") == "a24"
+    assert strip_hla_prefix("A24") == "A24"
+
+
+def test_serotype_key_does_not_itself_resolve_a_split_to_its_broad_parent():
+    """serotype_key keys one token to itself; it is serotype_keys (plural,
+    reading a stored ``serotypes`` cell that lists both names) that makes a
+    split serotype match its broad parent -- see test_filter_by_serotype_
+    finds_split_serotype_members_of_a_broad_query for that behavior."""
+    assert serotype_key("A2403") == "A2403"
+    assert serotype_key("A2403") != serotype_key("A24")
 
 
 def test_serotype_key_ignores_case_and_prefix():

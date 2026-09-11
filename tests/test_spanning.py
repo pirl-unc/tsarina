@@ -2311,3 +2311,17 @@ def test_selection_resolves_synonyms_to_symbols():
     ]
     # Unknown names are still dropped.
     assert _normalize_cta_labels(["not-a-gene"], valid) == []
+
+
+def test_allele_locus_strips_hla_prefix_case_insensitively():
+    """_allele_locus now delegates prefix-stripping to tsarina.mhc's shared
+    strip_hla_prefix instead of a second, independently-drifting hand-rolled
+    copy; this pins the behavior stays identical across the refactor."""
+    from tsarina.spanning import _allele_locus
+
+    assert _allele_locus("HLA-A*02:01") == "A"
+    assert _allele_locus("hla-a*02:01") == "A"
+    assert _allele_locus("A*02:01") == "A"
+    assert _allele_locus("B*07:02") == "B"
+    assert _allele_locus("DRB1*04:01") == "DRB1"
+    assert _allele_locus("A2") == "A"

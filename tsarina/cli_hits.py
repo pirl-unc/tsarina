@@ -61,6 +61,29 @@ _CLASS_I_DEFAULT_LENGTHS = tuple(range(8, 16))  # 8-15
 _CLASS_II_DEFAULT_LENGTHS = tuple(range(12, 46))  # 12-45
 
 
+def _parse_serotypes(value: str) -> list[str]:
+    """argparse type for --serotype: comma-separated serotype labels.
+
+    Validates each token as a readable serotype here, at parse time, rather
+    than leaving it to fail deep inside ``_filter_by_serotype`` after gene
+    resolution and the full observations/evidence-index load have already
+    run — mirrors ``--lengths``' ``_parse_lengths``.  ``_filter_by_serotype``
+    re-derives the same keys to do the actual matching; this is a fail-fast
+    duplicate of that same cheap check.
+    """
+    from .mhc import serotype_key
+
+    tokens = _split_csv(value)
+    unresolved = sorted(token for token in tokens if serotype_key(token) is None)
+    if unresolved:
+        raise argparse.ArgumentTypeError(
+            f"--serotype could not read {', '.join(repr(t) for t in unresolved)} as a "
+            "serotype. Use a serological designation such as A2, A24 or Bw4; pass "
+            "molecular alleles to --allele instead."
+        )
+    return tokens
+
+
 def _resolve_lengths(args: argparse.Namespace) -> tuple[int, ...] | None:
     """Resolve --lengths with --mhc-class fallbacks.
 
@@ -112,7 +135,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--serotype",
-        type=_split_csv,
+        type=_parse_serotypes,
         default=[],
         help=(
             "Comma-separated serotype labels to keep (e.g. A2,A24,Bw4); case and "
@@ -353,7 +376,12 @@ def _filter_by_serotype(hits: pd.DataFrame, serotypes: list[str]) -> pd.DataFram
         return hits
     _require_annotation_column(hits, "serotypes", "--serotype")
     names = hits["serotypes"].astype("string").fillna("")
-    return hits[names.map(lambda cell: bool(wanted & serotype_keys(cell)))].copy()
+    # Map over the distinct cell values once, not once per row: the corpus
+    # has far fewer distinct ``serotypes`` strings than rows, and computing
+    # the intersection per unique value first is markedly faster than
+    # re-running it under every row via a plain ``.map(lambda ...)``.
+    match_by_cell = {cell: bool(wanted & serotype_keys(cell)) for cell in names.unique()}
+    return hits[names.map(match_by_cell)].copy()
 
 
 def _apply_min_resolution(hits: pd.DataFrame, min_resolution: str | None) -> pd.DataFrame:
@@ -549,8 +577,12 @@ def handle(args: argparse.Namespace) -> None:
             hits = hits[hits["peptide"].str.len().isin(resolved_lengths)].copy()
         hits = _apply_min_resolution(hits, args.min_resolution)
 
-    hits = _filter_by_allele(hits, args.allele)
-    hits = _filter_by_serotype(hits, args.serotype)
+    try:
+        hits = _filter_by_allele(hits, args.allele)
+        hits = _filter_by_serotype(hits, args.serotype)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if args.mono_allelic_only and not hits.empty and "is_monoallelic" in hits.columns:
         hits = hits[hits["is_monoallelic"]].copy()

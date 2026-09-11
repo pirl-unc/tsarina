@@ -2151,9 +2151,9 @@ def _carrier_probability(allele_frequency: float) -> float:
 
 
 def _allele_locus(allele: object) -> str:
-    token = str(allele).strip().upper()
-    if token.startswith("HLA-"):
-        token = token.removeprefix("HLA-")
+    from .mhc import strip_hla_prefix
+
+    token = strip_hla_prefix(str(allele).strip()).upper()
     if "*" in token:
         locus = token.split("*", 1)[0]
     elif token and token[0] in {"A", "B", "C"}:
