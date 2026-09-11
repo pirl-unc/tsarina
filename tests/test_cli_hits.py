@@ -227,7 +227,17 @@ def test_serotype_error_prints_and_exits_instead_of_crashing(tmp_path, capsys):
 
     args = _base_cached_args(tmp_path, lengths=(8, 9, 10, 11))
     args.serotype = ["notarealserotype"]
-    hits = pd.DataFrame({"peptide": ["P"], "mhc_restriction": ["HLA-A*02:01"]})
+    # Must carry gene_names -- see the "Test note" at cli_hits.py's
+    # load_observations call site: a non-empty mock lacking it makes
+    # handle() reach for the real load_peptide_mappings sidecar, which
+    # isn't built in CI.
+    hits = pd.DataFrame(
+        {
+            "peptide": ["AETSYVKV"],  # 8-mer, within args.lengths=(8,9,10,11)
+            "mhc_restriction": ["HLA-A*02:01"],
+            "gene_names": ["PRAME"],
+        }
+    )
     with (
         patch("tsarina.indexing.ensure_index_built"),
         patch("hitlist.observations.load_observations", return_value=hits),
