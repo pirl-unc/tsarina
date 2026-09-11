@@ -4,6 +4,7 @@ import sys
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 
 def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -55,6 +56,37 @@ def test_hits_format_refs_rejects_unknown_value():
     combined = r.stderr + r.stdout
     # argparse error message surfaces the valid choices on invalid input
     assert "refs" in combined and "peptides" in combined
+
+
+def test_hits_serotype_rejects_unreadable_value_at_parse_time():
+    """A typo'd --serotype must fail during argument parsing itself, like
+    --format above, not after gene resolution and the full observations/
+    evidence-index load have already run underneath it. Real gene
+    resolution never gets a chance to start here: argparse validates every
+    argument before handle() is ever called, so this is fast regardless of
+    whether hitlist's index is built."""
+    r = _run_cli("hits", "--gene", "PRAME", "--serotype", "notarealserotype", check=False)
+    assert r.returncode != 0
+    combined = r.stderr + r.stdout
+    assert "could not read" in combined
+    assert "notarealserotype" in combined
+
+
+def test_hits_serotype_accepts_readable_values_at_parse_time():
+    """A valid --serotype token list must not be rejected by the new
+    argparse-time check.
+
+    Parses in-process against the real ``hits`` subparser rather than
+    through a full ``--gene PRAME`` subprocess: the point under test is the
+    ``type=`` wiring on the flag itself, not gene resolution or hitlist's
+    index, which a bare parse must not need to touch."""
+    from tsarina import cli_hits
+
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command")
+    cli_hits.build_parser(sub)
+    args = parser.parse_args(["hits", "--gene", "PRAME", "--serotype", "A2,A24"])
+    assert args.serotype == ["A2", "A24"]
 
 
 def test_hits_requires_gene_or_uniprot():
@@ -180,6 +212,42 @@ def _base_cached_args(tmp_path, lengths, *, include_binding_assays=False, mhc_cl
         healthy_tissue=False,
         output=str(tmp_path / "out.csv"),
     )
+
+
+def test_serotype_error_prints_and_exits_instead_of_crashing(tmp_path, capsys):
+    """An unreadable --serotype used to propagate a raw ValueError out of
+    handle() with no surrounding try/except, unlike the sibling --uniprot
+    resolution path just above. The new argparse-time check (see
+    test_hits_serotype_rejects_unreadable_value_at_parse_time) catches this
+    for real command-line usage, but handle() is also called directly by
+    tests and could be by any other future caller that builds an
+    argparse.Namespace by hand -- this is the defense-in-depth path for
+    that case: a clean stderr message and exit(1), not a traceback."""
+    from tsarina import cli_hits
+
+    args = _base_cached_args(tmp_path, lengths=(8, 9, 10, 11))
+    args.serotype = ["notarealserotype"]
+    # Must carry gene_names -- see the "Test note" at cli_hits.py's
+    # load_observations call site: a non-empty mock lacking it makes
+    # handle() reach for the real load_peptide_mappings sidecar, which
+    # isn't built in CI.
+    hits = pd.DataFrame(
+        {
+            "peptide": ["AETSYVKV"],  # 8-mer, within args.lengths=(8,9,10,11)
+            "mhc_restriction": ["HLA-A*02:01"],
+            "gene_names": ["PRAME"],
+        }
+    )
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=hits),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        cli_hits.handle(args)
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "could not read" in err
 
 
 def test_cached_path_pushes_length_bounds_to_load_observations(tmp_path):
