@@ -21,6 +21,9 @@ import pandas as pd
 import pytest
 
 from tsarina.neoantigen_evidence_plots import (
+    _EVIDENCE_BAR_H_MAX,
+    _EVIDENCE_BAR_H_MIN,
+    _evidence_bar_height,
     _gene_hit_layout,
     _minimal_epitope_for_gene,
     load_vaccine_peptide_table,
@@ -217,6 +220,40 @@ def test_plot_sequence_overlay_renders():
     fig, ax = plot_sequence_overlay(layout, window_info)
     assert fig is not None
     assert len(ax.texts) > 0
+
+
+# ── evidence-weight visual (bar thickness replaces an "n=..." label) ────
+
+
+def test_evidence_bar_height_increases_with_observation_count():
+    """More public observations -> a thicker bar, not a bigger number
+    printed next to it."""
+    h_low = _evidence_bar_height(1)
+    h_mid = _evidence_bar_height(10)
+    h_high = _evidence_bar_height(100)
+    assert _EVIDENCE_BAR_H_MIN <= h_low < h_mid < h_high <= _EVIDENCE_BAR_H_MAX
+
+
+def test_evidence_bar_height_saturates_at_scale_max():
+    """Counts far beyond the reference scale clip to the max thickness
+    instead of growing unboundedly."""
+    assert _evidence_bar_height(10_000) == _EVIDENCE_BAR_H_MAX
+
+
+def test_plot_sequence_overlay_does_not_print_a_per_hit_text_label():
+    """Regression pin: hit details (window sequence, observation count,
+    tissue count/name, overlap flag) must render as bars/color/outline/
+    thickness, never as a text string glued next to the sequence -- that
+    was the exact clutter this figure was redesigned to remove."""
+    peptide = "ABCDEFGHIJK"
+    df, window_source, window_info = _synthetic_pipeline(
+        ("GENE1", peptide), epitope="CDEFG", hit_windows=["EFGHI"]
+    )
+    layout = _gene_hit_layout(df, window_source, window_info)
+    _fig, ax = plot_sequence_overlay(layout, window_info)
+    # Only the gene label and the per-residue letters should be text --
+    # one gene label + eleven residues, nothing extra per hit window.
+    assert len(ax.texts) == 1 + len(peptide)
 
 
 def test_plot_ms_hit_ranking_includes_zero_evidence_genes():
