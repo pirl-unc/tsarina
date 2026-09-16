@@ -308,6 +308,20 @@ def _gene_hit_layout(df: pd.DataFrame, window_source: dict, window_info: dict) -
 _EPITOPE_HIGHLIGHT = "#fbe6a8"
 _TESTED_REGION_HIGHLIGHT = "#d8e3f0"
 
+#: MS-evidence bars in :func:`plot_sequence_overlay` encode observation
+#: count as bar thickness rather than an "n=..." text label next to every
+#: hit. The mapping is a fixed log scale (not renormalized per figure), so
+#: bar thickness means the same thing across separately rendered figures.
+#: Counts at or above the scale max render at full (clipped) thickness.
+_EVIDENCE_SCALE_MAX = 200
+_EVIDENCE_BAR_H_MIN = 0.07
+_EVIDENCE_BAR_H_MAX = 0.26
+
+
+def _evidence_bar_height(n_obs: int) -> float:
+    frac = min(1.0, np.log1p(n_obs) / np.log1p(_EVIDENCE_SCALE_MAX))
+    return _EVIDENCE_BAR_H_MIN + (_EVIDENCE_BAR_H_MAX - _EVIDENCE_BAR_H_MIN) * frac
+
 
 def plot_sequence_overlay(
     layout: list[dict],
@@ -325,11 +339,16 @@ def plot_sequence_overlay(
     lighter blue-gray one -- conflating the two into a single color would
     overstate how tightly the mutation is localized. A colored bar beneath
     the sequence marks each public MS-evidence span, colored by dominant
-    tissue category; a span outlined in red, rather than plain, overlaps
-    the highlighted region itself instead of sitting purely in flanking
+    tissue category and outlined in red wherever it overlaps the
+    highlighted region itself rather than sitting purely in flanking
     sequence -- the distinction that actually matters for interpreting the
-    hit.
+    hit. The bar's thickness encodes how many public observations support
+    it (see the evidence-weight key), so a hit doesn't need a "(n=14, 6t)"
+    label spelled out next to it -- the exact counts and tissue names
+    remain in ``window_info`` for anyone who wants them, they just don't
+    belong printed onto a publication figure.
     """
+    import matplotlib.lines as mlines
     import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
 
@@ -368,38 +387,21 @@ def plot_sequence_overlay(
             ax.text(
                 pos, y, aa, ha="center", va="center", fontsize=8.5, family="monospace", zorder=2
             )
-        notes = []
         for window, s, e, category, overlaps in row["hit_spans"]:
-            info = window_info[window]
+            bar_h = _evidence_bar_height(window_info[window]["n"])
             ax.add_patch(
                 plt.Rectangle(
                     (s - 0.5, y - 0.62),
                     (e - s),
-                    0.16,
+                    bar_h,
                     facecolor=CATEGORY_COLOR[category],
                     edgecolor="#b3261e" if overlaps else "none",
                     linewidth=1.1 if overlaps else 0,
                     zorder=2,
                 )
             )
-            flag = " [OVERLAPS MUTATION]" if overlaps else ""
-            n_tissue = len(info["tissues"])
-            tissue_note = (
-                f"n={info['n']}, {n_tissue}t" if n_tissue > 2 else ", ".join(info["tissues"])
-            )
-            notes.append(f"{window} ({tissue_note}){flag}")
-        ax.text(
-            len(seq) + 1,
-            y,
-            "  |  ".join(notes),
-            ha="left",
-            va="center",
-            fontsize=6.8,
-            family="sans-serif",
-            color=_TEXT_COLOR,
-        )
 
-    ax.set_xlim(-9, max_len + 26)
+    ax.set_xlim(-9, max_len + 3)
     ax.set_ylim(0, (n + 1) * row_h)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -417,8 +419,27 @@ def plot_sequence_overlay(
             facecolor="white", edgecolor="#b3261e", linewidth=1.4, label="hit overlaps mutation"
         ),
     ]
+    # Evidence-weight key: three reference bar thicknesses standing in for
+    # the "n=..." counts that used to be spelled out next to every hit.
+    # Rendered as legend entries (not a separate inset) so it sits in the
+    # same one-time key as everything else, not scattered across the plot.
+    for label, n_ref in (("~1 obs.", 1), ("~10 obs.", 10), ("~100+ obs.", 100)):
+        legend_handles.append(
+            mlines.Line2D(
+                [],
+                [],
+                color=_TEXT_COLOR,
+                marker="s",
+                linestyle="none",
+                markersize=3
+                + 6
+                * (_evidence_bar_height(n_ref) - _EVIDENCE_BAR_H_MIN)
+                / (_EVIDENCE_BAR_H_MAX - _EVIDENCE_BAR_H_MIN),
+                label=label,
+            )
+        )
     ax.legend(
-        handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, 1.07), ncol=4, fontsize=7
+        handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=5, fontsize=7
     )
     fig.tight_layout()
     return fig, ax
