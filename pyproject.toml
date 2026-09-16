@@ -46,11 +46,16 @@ partition = [
 peptides = [
     "pyensembl",
 ]
+plots = [
+    "matplotlib",
+]
 all = [
     "pyensembl",
+    "matplotlib",
 ]
 dev = [
     "pyensembl",
+    "matplotlib",
     "pytest",
     "pytest-cov",
     "ruff",
