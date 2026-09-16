@@ -63,10 +63,6 @@ _CONSTRUCT_COLUMNS = {
     "CeGaT vaccine Full Peptide": "CeGaT",
 }
 
-#: Construct names treated as candidates for "the minimal epitope" when
-#: looking for the mutation-bearing core of a longer flanking sequence.
-_MINIMAL_CONSTRUCTS = frozenset({"mRNA_minimal", "JLF_elispot"})
-
 _NOT_A_SEQUENCE = frozenset({"", "NA", "NAN", "?"})
 
 
@@ -101,12 +97,28 @@ def load_vaccine_peptide_table(path: str | Path) -> pd.DataFrame:
     return df.drop_duplicates(subset=["gene", "peptide"]).reset_index(drop=True)
 
 
-def _minimal_epitope_for_gene(df: pd.DataFrame, gene: str) -> str | None:
-    """The gene's shortest minimal/elispot-construct peptide, if any."""
-    sub = df[(df["gene"] == gene) & (df["construct"].isin(_MINIMAL_CONSTRUCTS))]
-    if sub.empty:
-        return None
-    return sub.loc[sub["peptide"].str.len().idxmin(), "peptide"]
+def _minimal_epitope_for_gene(df: pd.DataFrame, gene: str) -> tuple[str, bool] | None:
+    """The gene's minimal epitope, and whether it is a genuine minimal epitope.
+
+    ``mRNA_minimal`` is a true MHC-I-sized minimal epitope (typically 9-10
+    residues) and is always preferred when present. ``JLF_elispot`` is a
+    different kind of thing: an ELISPOT immunogenicity-testing peptide,
+    which commonly spans 20+ residues to let antigen-presenting cells
+    process it -- calling that "the epitope" the way a true minimal
+    epitope is one would overstate how tightly the mutation is localized
+    (EPG5's only candidate is 20 of its 23 modeled residues, for example).
+
+    Returns
+    -------
+    (sequence, is_true_minimal) or None if the gene has neither construct.
+    """
+    minimal = df[(df["gene"] == gene) & (df["construct"] == "mRNA_minimal")]
+    if not minimal.empty:
+        return minimal.loc[minimal["peptide"].str.len().idxmin(), "peptide"], True
+    elispot = df[(df["gene"] == gene) & (df["construct"] == "JLF_elispot")]
+    if not elispot.empty:
+        return elispot.loc[elispot["peptide"].str.len().idxmin(), "peptide"], False
+    return None
 
 
 def ms_evidence_for_peptides(
@@ -239,8 +251,10 @@ def _window_summary(hits: pd.DataFrame) -> dict[str, dict]:
 def _gene_hit_layout(df: pd.DataFrame, window_source: dict, window_info: dict) -> list[dict]:
     """One entry per (gene, peptide) that carries >=1 matched window.
 
-    Each entry: gene, peptide, epitope_span (or None), hit_spans (list of
-    (window, start, end, dominant_category, overlaps_epitope)).
+    Each entry: gene, peptide, epitope_span (or None), epitope_is_minimal
+    (whether that span is a true minimal epitope or a longer ELISPOT
+    testing peptide -- see :func:`_minimal_epitope_for_gene`), hit_spans
+    (list of (window, start, end, dominant_category, overlaps_epitope)).
     """
     # window -> (gene, peptide) -> (start, length) it occurs at in that
     # specific peptide (a window can be a substring of more than one
@@ -252,15 +266,16 @@ def _gene_hit_layout(df: pd.DataFrame, window_source: dict, window_info: dict) -
 
     rows = []
     for (gene, peptide), spans in sorted(by_gene_peptide.items()):
-        epitope = _minimal_epitope_for_gene(df, gene)
+        epitope_result = _minimal_epitope_for_gene(df, gene)
         epitope_span = None
-        if epitope and epitope != peptide:
-            pos = peptide.find(epitope)
-            if pos >= 0:
-                epitope_span = (pos, pos + len(epitope))
-        elif epitope == peptide:
-            # The peptide *is* the minimal epitope -- nothing shorter to bracket.
-            epitope_span = None
+        epitope_is_minimal = True
+        if epitope_result is not None:
+            epitope, epitope_is_minimal = epitope_result
+            if epitope != peptide:
+                pos = peptide.find(epitope)
+                if pos >= 0:
+                    epitope_span = (pos, pos + len(epitope))
+            # else: the peptide *is* the epitope -- nothing shorter to highlight.
 
         hit_spans = []
         for window, s, e in spans:
@@ -277,6 +292,7 @@ def _gene_hit_layout(df: pd.DataFrame, window_source: dict, window_info: dict) -
                 "gene": gene,
                 "peptide": peptide,
                 "epitope_span": epitope_span,
+                "epitope_is_minimal": epitope_is_minimal,
                 "hit_spans": hit_spans,
             }
         )
@@ -285,8 +301,12 @@ def _gene_hit_layout(df: pd.DataFrame, window_source: dict, window_info: dict) -
 
 #: Pale, low-chroma fill for the epitope highlight -- a highlighter-style
 #: wash behind the letters, not a bordered box competing with the
-#: MS-evidence bars for visual weight.
+#: MS-evidence bars for visual weight. Two shades, not one: a true minimal
+#: epitope (~9-10 residues) is a much tighter, more confident localization
+#: of the mutation than an ELISPOT testing peptide (20+ residues), and
+#: conflating them into one color would overstate the latter's precision.
 _EPITOPE_HIGHLIGHT = "#fbe6a8"
+_TESTED_REGION_HIGHLIGHT = "#d8e3f0"
 
 
 def plot_sequence_overlay(
@@ -298,11 +318,17 @@ def plot_sequence_overlay(
     """One row per (gene, peptide) with public MS evidence.
 
     A pale highlight behind the letters marks the vaccinated (mutant)
-    minimal epitope, when known. A colored bar beneath the sequence marks
-    each public MS-evidence span, colored by dominant tissue category; a
-    span outlined in red, rather than plain, overlaps the epitope itself
-    instead of sitting purely in flanking sequence -- the distinction that
-    actually matters for interpreting the hit.
+    region, when known, in one of two shades: a true MHC-I-sized minimal
+    epitope (~9-10 residues) gets the darker yellow highlight, while a
+    longer ELISPOT immunogenicity-testing peptide (20+ residues, used only
+    when no true minimal epitope was ever defined for that gene) gets a
+    lighter blue-gray one -- conflating the two into a single color would
+    overstate how tightly the mutation is localized. A colored bar beneath
+    the sequence marks each public MS-evidence span, colored by dominant
+    tissue category; a span outlined in red, rather than plain, overlaps
+    the highlighted region itself instead of sitting purely in flanking
+    sequence -- the distinction that actually matters for interpreting the
+    hit.
     """
     import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
@@ -327,12 +353,13 @@ def plot_sequence_overlay(
         )
         if row["epitope_span"]:
             e0, e1 = row["epitope_span"]
+            color = _EPITOPE_HIGHLIGHT if row["epitope_is_minimal"] else _TESTED_REGION_HIGHLIGHT
             ax.add_patch(
                 plt.Rectangle(
                     (e0 - 0.5, y - 0.34),
                     (e1 - e0),
                     0.68,
-                    facecolor=_EPITOPE_HIGHLIGHT,
+                    facecolor=color,
                     edgecolor="none",
                     zorder=1,
                 )
@@ -380,7 +407,8 @@ def plot_sequence_overlay(
         spine.set_visible(False)
 
     legend_handles = [
-        mpatches.Patch(color=_EPITOPE_HIGHLIGHT, label="vaccinated (mutant) epitope"),
+        mpatches.Patch(color=_EPITOPE_HIGHLIGHT, label="minimal epitope (~9-10aa)"),
+        mpatches.Patch(color=_TESTED_REGION_HIGHLIGHT, label="ELISPOT-tested region (20+aa)"),
         mpatches.Patch(color=CATEGORY_COLOR["cancer"], label="cancer / tumor cell line"),
         mpatches.Patch(color=CATEGORY_COLOR["healthy"], label="healthy tissue"),
         mpatches.Patch(color=CATEGORY_COLOR["mixed"], label="both, across studies"),
@@ -390,7 +418,7 @@ def plot_sequence_overlay(
         ),
     ]
     ax.legend(
-        handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, 1.05), ncol=3, fontsize=7
+        handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, 1.07), ncol=4, fontsize=7
     )
     fig.tight_layout()
     return fig, ax

@@ -78,14 +78,19 @@ def test_load_vaccine_peptide_table_dedupes_identical_sequences_across_construct
 
 def test_minimal_epitope_for_gene_reads_the_mrna_minimal_column():
     df = load_vaccine_peptide_table(_FIXTURE)
-    assert _minimal_epitope_for_gene(df, "SMC5") == "RQKRIGNTR"
+    epitope, is_minimal = _minimal_epitope_for_gene(df, "SMC5")
+    assert epitope == "RQKRIGNTR"
+    assert is_minimal is True
 
 
 def test_minimal_epitope_for_gene_prefers_the_shorter_elispot_variant():
-    """EPG5's elispot cell has two comma-separated peptides of different
-    lengths; the shorter one is the minimal epitope."""
+    """EPG5 has no true mRNA_minimal construct, only two comma-separated
+    ELISPOT testing peptides of different lengths; the shorter one is used,
+    but it is flagged as not a true minimal epitope."""
     df = load_vaccine_peptide_table(_FIXTURE)
-    assert _minimal_epitope_for_gene(df, "EPG5") == "KELPLYLWQPSTSEIAVIRD"
+    epitope, is_minimal = _minimal_epitope_for_gene(df, "EPG5")
+    assert epitope == "KELPLYLWQPSTSEIAVIRD"
+    assert is_minimal is False
 
 
 def test_minimal_epitope_for_gene_returns_none_when_undocumented():
@@ -162,6 +167,42 @@ def test_gene_hit_layout_leaves_overlap_undetermined_without_a_known_epitope():
     layout = _gene_hit_layout(df, window_source, window_info)
     assert layout[0]["epitope_span"] is None
     assert layout[0]["hit_spans"][0][-1] is False  # no epitope known -> cannot claim overlap
+
+
+def test_gene_hit_layout_flags_true_minimal_epitope_as_minimal():
+    peptide = "ABCDEFGHIJK"
+    df, window_source, window_info = _synthetic_pipeline(
+        ("GENE1", peptide), epitope="CDEFG", hit_windows=["EFGHI"]
+    )
+    layout = _gene_hit_layout(df, window_source, window_info)
+    assert layout[0]["epitope_is_minimal"] is True
+
+
+def test_gene_hit_layout_flags_elispot_fallback_as_not_minimal():
+    """Regression pin for the EPG5 bug: a gene with no mRNA_minimal
+    construct falls back to its (much longer) JLF_elispot testing peptide,
+    and the layout must flag that region as not a true minimal epitope so
+    the plot doesn't imply the whole span is the localized mutation."""
+    peptide = "ABCDEFGHIJKLMNOPQRSTUV"
+    gene = "GENE4"
+    df = pd.DataFrame(
+        [
+            {"gene": gene, "mutation": "p.X1Y", "construct": "mRNA_full", "peptide": peptide},
+            {
+                "gene": gene,
+                "mutation": "p.X1Y",
+                "construct": "JLF_elispot",
+                "peptide": "CDEFGHIJKLMNOPQRST",
+            },
+        ]
+    )
+    window_source = {"EFGHI": [(gene, peptide, 4, 5)]}
+    window_info = {
+        "EFGHI": {"n": 1, "categories": {"cancer": 1}, "tissues": ["Blood"], "pmids": ["1"]}
+    }
+    layout = _gene_hit_layout(df, window_source, window_info)
+    assert layout[0]["epitope_is_minimal"] is False
+    assert layout[0]["epitope_span"] == (2, 20)
 
 
 # ── plotting: renders without error on synthetic data ───────────────────
