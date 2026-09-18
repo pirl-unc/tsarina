@@ -60,15 +60,21 @@ def test_personalize_hla_accepts_unquoted_space_separated_no_asterisk():
 
 
 def test_personalize_cta_accepts_unquoted_space_separated():
+    """Multi-token --cta parses correctly regardless of what happens next
+    in the pipeline -- pin this to argument parsing, not real CTA peptide
+    generation (which needs a real pyensembl reference download and
+    shouldn't gate a CLI-parsing test). A TPM below --min-cta-tpm's
+    default floor means personalized_targets() never reaches that step."""
     r = _run_cli(
         "personalize",
         "--hla",
         "HLA-A*02:01",
         "--cta",
-        "MAGEA4=142.5",
-        "PRAME=87.3",
+        "MAGEA4=0.1",
+        "PRAME=0.1",
         "--no-score",
         "--skip-ms-evidence",
+        check=False,
     )
     assert r.returncode == 0, r.stderr
 
