@@ -163,11 +163,13 @@ with a warning naming it.
 #### Identical-protein groups
 
 CTAs that translate to a byte-identical protein are reported as one group
-by default, labeled with every member symbol: NY-ESO-1 is `CTAG1A/CTAG1B`,
-and `XAGE1A/XAGE1B`, `SSX2/SSX2B`, `SSX4/SSX4B`, `MAGEA2/MAGEA2B` and the
-CT45A/CT47A/GAGE12 families group the same way. The grouping comes from
-oncoref's canonical proteoform registry, the same one the panel workflow
-uses, rather than a second tsarina-local definition.
+by default, under oncoref's preferred symbol for it: CTAG1A + CTAG1B is
+reported as `NY-ESO-1`, XAGE1A + XAGE1B as `XAGE1A/B`, SSX2 + SSX2B as
+`SSX2/B`, and the SSX4, MAGEA2, MAGEA9, CT45A, CT47A and GAGE12 families
+the same way. Both halves come from oncoref: `proteoform_symbol_map` for
+membership (the registry the panel workflow uses) and `proteoform_symbol`
+for the name, which is a curated alias where one exists and the
+prefix-contracted members otherwise. Neither is restated in tsarina.
 
 This matters in both directions. Naming one member (`--cta CTAG1B=215`)
 still reports `CTAG1A/CTAG1B`, because the peptides are not unique to the
