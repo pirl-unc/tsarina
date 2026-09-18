@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from .cli_common import add_iedb_cedar_args, add_predictor_arg
 from .cli_common import flatten_multi as _flatten_multi
@@ -47,6 +48,27 @@ def _parse_cta(raw: list[str]) -> dict[str, float]:
         except ValueError as e:
             raise argparse.ArgumentTypeError(f"--cta TPM '{tpm_s}' is not a number") from e
     return out
+
+
+#: --output extension -> output format. Anything not listed falls back to
+#: csv (the safe interchange default for a file); an explicit --format
+#: always wins over the extension.
+_FORMAT_BY_SUFFIX: dict[str, str] = {
+    ".csv": "csv",
+    ".tsv": "tsv",
+    ".tab": "tsv",
+    ".txt": "table",
+}
+
+
+def _resolve_format(explicit: str | None, output: str | None) -> str:
+    """Pick the output format: explicit --format, else the --output
+    extension, else table for a terminal / csv for an unrecognized file."""
+    if explicit:
+        return explicit
+    if not output:
+        return "table"
+    return _FORMAT_BY_SUFFIX.get(Path(output).suffix.lower(), "csv")
 
 
 def _parse_hla(raw: list[str]) -> list[str]:
@@ -194,21 +216,35 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="Suppress stage-progress messages on stderr (shown by default).",
     )
     p.add_argument(
+        "--no-proteoform-rollup",
+        dest="proteoform_rollup",
+        action="store_false",
+        help=(
+            "Report one row per gene symbol instead of collapsing CTAs "
+            "that translate to a byte-identical protein into one group "
+            "(NY-ESO-1's CTAG1A+CTAG1B, XAGE1A+XAGE1B, SSX2+SSX2B, ...). "
+            "Rollup is on by default."
+        ),
+    )
+    p.add_argument(
         "--format",
-        choices=("csv", "table"),
+        choices=("csv", "tsv", "table"),
         default=None,
         help=(
-            "Output shape. Defaults to 'table' when printing to the "
-            "terminal (no --output) and 'csv' when writing to a file "
-            "with --output, since CSV is for piping/loading elsewhere "
-            "and a table is for reading. Pass explicitly to override."
+            "Output shape. Inferred when omitted: from --output's "
+            "extension (.csv/.tsv/.txt), else 'csv' for any other "
+            "--output path, else 'table' when printing to the terminal. "
+            "Pass explicitly to override."
         ),
     )
     p.add_argument(
         "-o",
         "--output",
         default=None,
-        help="Write to this path (default: stdout).",
+        help=(
+            "Write to this path (default: stdout). The extension picks "
+            "the format unless --format says otherwise: .csv, .tsv, .txt."
+        ),
     )
     return p
 
@@ -252,17 +288,20 @@ def handle(args: argparse.Namespace) -> None:
             predictor=args.predictor,
             drop_weak_tier=args.drop_weak_tier,
             show_progress=not args.quiet,
+            proteoform_rollup=args.proteoform_rollup,
         )
     except DatasetNotRegisteredError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    fmt = args.format or ("csv" if args.output else "table")
+    fmt = _resolve_format(args.format, args.output)
 
     if fmt == "table":
         from .personalize import format_table
 
         rendered = format_table(df) + "\n"
+    elif fmt == "tsv":
+        rendered = df.to_csv(index=False, sep="\t")
     else:
         rendered = df.to_csv(index=False)
 

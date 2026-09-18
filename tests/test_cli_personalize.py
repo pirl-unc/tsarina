@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from tsarina.cli_personalize import _parse_cta, _parse_hla
+from tsarina.cli_personalize import _parse_cta, _parse_hla, _resolve_format
 
 
 def _run_cli(*args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -204,3 +204,83 @@ def test_personalize_quiet_flag_is_accepted():
         "--quiet",
     )
     assert r.returncode == 0, r.stderr
+
+
+# ── _resolve_format: --output extension sniffing ─────────────────────────
+
+
+@pytest.mark.parametrize(
+    "output, expected",
+    [
+        ("out.csv", "csv"),
+        ("OUT.CSV", "csv"),
+        ("out.tsv", "tsv"),
+        ("out.tab", "tsv"),
+        ("out.txt", "table"),
+        ("/tmp/nested/path/report.txt", "table"),
+        ("out.dat", "csv"),
+        ("out", "csv"),
+    ],
+)
+def test_resolve_format_sniffs_output_extension(output, expected):
+    assert _resolve_format(None, output) == expected
+
+
+def test_resolve_format_defaults_to_table_without_output():
+    assert _resolve_format(None, None) == "table"
+
+
+def test_resolve_format_explicit_flag_beats_extension():
+    assert _resolve_format("table", "out.csv") == "table"
+    assert _resolve_format("csv", None) == "csv"
+
+
+def test_personalize_output_txt_writes_a_table(tmp_path):
+    out = tmp_path / "targets.txt"
+    r = _run_cli(
+        "personalize",
+        "--hla",
+        "HLA-A*02:01",
+        "--viruses",
+        "",
+        "--no-score",
+        "--skip-ms-evidence",
+        "--output",
+        str(out),
+    )
+    assert r.returncode == 0, r.stderr
+    assert "(no targets)" in out.read_text()
+
+
+def test_personalize_output_csv_writes_csv(tmp_path):
+    out = tmp_path / "targets.csv"
+    r = _run_cli(
+        "personalize",
+        "--hla",
+        "HLA-A*02:01",
+        "--viruses",
+        "",
+        "--no-score",
+        "--skip-ms-evidence",
+        "--output",
+        str(out),
+    )
+    assert r.returncode == 0, r.stderr
+    assert out.read_text().startswith("peptide,length,category")
+
+
+def test_personalize_output_tsv_writes_tabs(tmp_path):
+    out = tmp_path / "targets.tsv"
+    r = _run_cli(
+        "personalize",
+        "--hla",
+        "HLA-A*02:01",
+        "--viruses",
+        "",
+        "--no-score",
+        "--skip-ms-evidence",
+        "--output",
+        str(out),
+    )
+    assert r.returncode == 0, r.stderr
+    assert out.read_text().startswith("peptide\tlength\tcategory")

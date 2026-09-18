@@ -66,6 +66,7 @@ from __future__ import annotations
 import sys
 import warnings
 from collections.abc import Iterable
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -101,6 +102,68 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "tier_label",
     "tier_reason",
 )
+
+
+@lru_cache(maxsize=1)
+def _proteoform_group_labels() -> dict[str, str]:
+    """Member gene symbol -> identical-protein group label.
+
+    Read from oncoref's canonical CTA proteoform registry -- the same one
+    :mod:`tsarina.spanning` already uses for the panel workflow, rather
+    than a second definition that could drift from it.
+    """
+    from oncoref.proteoforms import proteoform_symbol_map
+
+    return {
+        member: label
+        for label, members in proteoform_symbol_map(scope="cta").items()
+        for member in members
+    }
+
+
+def _apply_proteoform_rollup(frame: pd.DataFrame) -> pd.DataFrame:
+    """Collapse identical-protein CTA paralogs into one group-labeled row.
+
+    NY-ESO-1 is CTAG1A and CTAG1B; XAGE1 is XAGE1A and XAGE1B; SSX2 is
+    SSX2 and SSX2B. Each pair translates to a byte-identical protein, so
+    naming either member yields the same peptides -- reporting them as
+    separate sources either double-counts the same finding (when the
+    caller named both) or hides that the peptide isn't unique to the one
+    they named (when they named one). Both are relabeled to the group,
+    and a (group, peptide, length) duplicate collapses to a single row.
+
+    Only rows whose source is a known group member are touched; viral,
+    mutant, and ungrouped CTA rows pass through untouched (a same-peptide
+    duplicate there can be a genuinely distinct source and isn't ours to
+    merge).
+    """
+    labels = _proteoform_group_labels()
+    if "source" not in frame.columns:
+        return frame
+    grouped_mask = frame["source"].isin(labels)
+    if not grouped_mask.any():
+        return frame
+
+    rest = frame[~grouped_mask]
+    members = frame[grouped_mask].copy()
+    members["source"] = members["source"].map(labels)
+
+    agg: dict[str, object] = {}
+    if "source_detail" in members.columns:
+        agg["source_detail"] = lambda s: ";".join(sorted({str(v) for v in s if pd.notna(v)}))
+    if "source_tpm" in members.columns:
+        # Identical proteins, so an RNA quantifier's reads split between
+        # the loci more or less arbitrarily: take the highest any member
+        # reported rather than summing (which would inflate a single real
+        # signal that happened to be split two ways). All-NaN -- every
+        # member came in without a TPM -- stays NaN.
+        agg["source_tpm"] = "max"
+    for col in ("category", "flag_reason"):
+        if col in members.columns:
+            agg[col] = "first"
+
+    rolled = members.groupby(["source", "peptide", "length"], as_index=False, sort=False).agg(agg)
+    return pd.concat([rest, rolled], ignore_index=True)
 
 
 def format_table(df: pd.DataFrame) -> str:
@@ -282,6 +345,7 @@ def personalized_targets(
     predictor: str = "mhcflurry",
     drop_weak_tier: bool = True,
     show_progress: bool = True,
+    proteoform_rollup: bool = True,
 ) -> pd.DataFrame:
     """Build a personalized, tier-ranked target list for a single patient.
 
@@ -353,6 +417,11 @@ def personalized_targets(
         (peptide generation per source, MS evidence lookup, presentation
         scoring) so a long-running call isn't silent. Set False for a
         quiet/library-embedded run.
+    proteoform_rollup
+        If True (default), CTAs that translate to a byte-identical
+        protein are reported as one group (NY-ESO-1's CTAG1A + CTAG1B,
+        XAGE1A + XAGE1B, SSX2 + SSX2B, ...), using oncoref's canonical
+        proteoform registry.  Set False to keep one row per gene symbol.
 
     Returns
     -------
@@ -575,6 +644,15 @@ def personalized_targets(
 
     combined = pd.concat(frames, ignore_index=True)
     _report(f"Generated {len(combined)} candidate peptide rows.")
+
+    if proteoform_rollup:
+        before = len(combined)
+        combined = _apply_proteoform_rollup(combined)
+        if len(combined) != before:
+            _report(
+                f"Rolled identical-protein CTA paralogs into groups: "
+                f"{before} -> {len(combined)} rows."
+            )
 
     # ── IEDB/CEDAR evidence ─────────────────────────────────────────────
     if not skip_ms_evidence:

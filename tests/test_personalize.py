@@ -909,3 +909,164 @@ def test_format_table_marks_flagged_rows_with_footnote():
     assert "CTAG2*" in lines[3]
     assert "MAGEA4" in lines[2] and "MAGEA4*" not in lines[2]
     assert any("flagged clinical-target CTA" in line for line in lines)
+
+
+# ── Proteoform roll-up (identical-protein CTA paralogs) ─────────────────
+
+
+def test_proteoform_group_labels_come_from_oncoref():
+    """Real-data pin: the group map is oncoref's canonical CTA proteoform
+    registry, not a tsarina-local second definition."""
+    from oncoref.proteoforms import proteoform_symbol_map
+
+    labels = personalize_module._proteoform_group_labels()
+    assert labels["CTAG1A"] == "CTAG1A/CTAG1B"
+    assert labels["CTAG1B"] == "CTAG1A/CTAG1B"
+    assert labels["XAGE1B"] == "XAGE1A/XAGE1B"
+    assert labels["SSX2B"] == "SSX2/SSX2B"
+    expected = {
+        member: label
+        for label, members in proteoform_symbol_map(scope="cta").items()
+        for member in members
+    }
+    assert labels == expected
+
+
+def test_proteoform_rollup_relabels_a_single_named_member():
+    """Naming only CTAG1B still reports the group -- the peptide isn't
+    unique to the member the caller happened to name."""
+    frame = pd.DataFrame(
+        {
+            "peptide": ["SLLMWITQC"],
+            "length": [9],
+            "category": ["cta"],
+            "source": ["CTAG1B"],
+            "source_detail": ["ENSG_CTAG1B"],
+            "source_tpm": [215.0],
+        }
+    )
+    out = personalize_module._apply_proteoform_rollup(frame)
+    assert list(out["source"]) == ["CTAG1A/CTAG1B"]
+
+
+def test_proteoform_rollup_collapses_both_members_to_one_row():
+    frame = pd.DataFrame(
+        {
+            "peptide": ["SLLMWITQC", "SLLMWITQC"],
+            "length": [9, 9],
+            "category": ["cta", "cta"],
+            "source": ["CTAG1A", "CTAG1B"],
+            "source_detail": ["ENSG_CTAG1A", "ENSG_CTAG1B"],
+            "source_tpm": [100.0, 215.0],
+        }
+    )
+    out = personalize_module._apply_proteoform_rollup(frame)
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert row["source"] == "CTAG1A/CTAG1B"
+    # Identical proteins: highest member TPM, not the sum of a signal an
+    # RNA quantifier split between two loci.
+    assert row["source_tpm"] == 215.0
+    assert row["source_detail"] == "ENSG_CTAG1A;ENSG_CTAG1B"
+
+
+def test_proteoform_rollup_keeps_all_nan_tpm_as_nan():
+    frame = pd.DataFrame(
+        {
+            "peptide": ["SLLMWITQC", "SLLMWITQC"],
+            "length": [9, 9],
+            "category": ["cta", "cta"],
+            "source": ["CTAG1A", "CTAG1B"],
+            "source_detail": ["ENSG_CTAG1A", "ENSG_CTAG1B"],
+            "source_tpm": [float("nan"), float("nan")],
+        }
+    )
+    out = personalize_module._apply_proteoform_rollup(frame)
+    assert len(out) == 1
+    assert pd.isna(out.iloc[0]["source_tpm"])
+
+
+def test_proteoform_rollup_leaves_ungrouped_and_non_cta_rows_alone():
+    """A same-peptide duplicate outside a proteoform group can be a
+    genuinely distinct source (two viral proteins, say) and must not be
+    merged."""
+    frame = pd.DataFrame(
+        {
+            "peptide": ["VIRALPEP9", "VIRALPEP9", "SSX1PEP99"],
+            "length": [9, 9, 9],
+            "category": ["viral", "viral", "cta"],
+            "source": ["hpv16", "hpv16", "SSX1"],
+            "source_detail": ["E6", "E7", "ENSG_SSX1"],
+            "source_tpm": [float("nan"), float("nan"), 180.0],
+        }
+    )
+    out = personalize_module._apply_proteoform_rollup(frame)
+    assert len(out) == 3
+    assert sorted(out["source_detail"]) == ["E6", "E7", "ENSG_SSX1"]
+
+
+def test_personalize_applies_proteoform_rollup_by_default(monkeypatch):
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names", lambda: {"CTAG1A", "CTAG1B"}, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_by_axes", lambda **kw: {"CTAG1A", "CTAG1B"}, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["CTAG1A", "CTAG1B"],
+                "gene_id": ["ENSG_CTAG1A", "ENSG_CTAG1B"],
+                "peptide": ["SLLMWITQC", "SLLMWITQC"],
+                "length": [9, 9],
+            }
+        ),
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"CTAG1A": 100.0, "CTAG1B": 215.0},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    assert list(out["source"]) == ["CTAG1A/CTAG1B"]
+
+
+def test_personalize_proteoform_rollup_can_be_disabled(monkeypatch):
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_gene_names", lambda: {"CTAG1A", "CTAG1B"}, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_by_axes", lambda **kw: {"CTAG1A", "CTAG1B"}, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["CTAG1A", "CTAG1B"],
+                "gene_id": ["ENSG_CTAG1A", "ENSG_CTAG1B"],
+                "peptide": ["SLLMWITQC", "SLLMWITQC"],
+                "length": [9, 9],
+            }
+        ),
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"CTAG1A": 100.0, "CTAG1B": 215.0},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+        proteoform_rollup=False,
+    )
+    assert sorted(out["source"]) == ["CTAG1A", "CTAG1B"]
