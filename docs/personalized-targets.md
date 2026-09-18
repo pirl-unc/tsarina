@@ -160,6 +160,25 @@ not screened for overlap with other proteins the way a strict CTA's are — see
 clinical target (a typo, or a gene with no CTA evidence at all) is dropped
 with a warning naming it.
 
+#### Identical-protein groups
+
+CTAs that translate to a byte-identical protein are reported as one group
+by default, labeled with every member symbol: NY-ESO-1 is `CTAG1A/CTAG1B`,
+and `XAGE1A/XAGE1B`, `SSX2/SSX2B`, `SSX4/SSX4B`, `MAGEA2/MAGEA2B` and the
+CT45A/CT47A/GAGE12 families group the same way. The grouping comes from
+oncoref's canonical proteoform registry, the same one the panel workflow
+uses, rather than a second tsarina-local definition.
+
+This matters in both directions. Naming one member (`--cta CTAG1B=215`)
+still reports `CTAG1A/CTAG1B`, because the peptides are not unique to the
+member you named. Naming both collapses them to a single row instead of
+double-counting one finding: the group keeps the highest TPM any member
+reported (identical proteins, so an RNA quantifier splits reads between
+the loci more or less arbitrarily, and summing would inflate one real
+signal) and the union of their Ensembl gene IDs in `source_detail`.
+
+Pass `--no-proteoform-rollup` for one row per gene symbol.
+
 See [CTA ownership and downstream evidence](curation.md) for the definition
 boundary.
 
@@ -208,10 +227,12 @@ Use `HOTSPOT_MUTATIONS` for the executable list rather than parsing this table.
 - Relax viral human exclusivity only for investigation with
   `--no-require-human-exclusive-viral`.
 - Disable presentation scoring with `--no-score`.
-- Choose output shape with `--format {table,csv}`. Defaults to a compact
-  fixed-width table when printing to the terminal, and CSV when writing to
-  a file with `--output` (CSV is for piping/loading elsewhere; the table
-  is for reading). Pass either explicitly to override.
+- Choose output shape with `--format {table,csv,tsv}`. When omitted it is
+  inferred: from `--output`'s extension (`.csv`, `.tsv`/`.tab`, `.txt`),
+  else CSV for any other `--output` path, else a compact fixed-width
+  table when printing to the terminal.
+- Report one row per gene symbol instead of per identical-protein group
+  with `--no-proteoform-rollup` (see below).
 - Suppress the stage-progress messages personalize prints to stderr by
   default (peptide generation, MS evidence lookup, presentation scoring)
   with `--quiet`.
