@@ -917,15 +917,15 @@ def test_format_table_marks_flagged_rows_with_footnote():
 def test_proteoform_group_labels_come_from_oncoref():
     """Real-data pin: the group map is oncoref's canonical CTA proteoform
     registry, not a tsarina-local second definition."""
-    from oncoref.proteoforms import proteoform_symbol_map
+    from oncoref.proteoforms import proteoform_symbol, proteoform_symbol_map
 
     labels = personalize_module._proteoform_group_labels()
-    assert labels["CTAG1A"] == "CTAG1A/CTAG1B"
-    assert labels["CTAG1B"] == "CTAG1A/CTAG1B"
-    assert labels["XAGE1B"] == "XAGE1A/XAGE1B"
-    assert labels["SSX2B"] == "SSX2/SSX2B"
+    assert labels["CTAG1A"] == "NY-ESO-1"
+    assert labels["CTAG1B"] == "NY-ESO-1"
+    assert labels["XAGE1B"] == "XAGE1A/B"
+    assert labels["SSX2B"] == "SSX2/B"
     expected = {
-        member: label
+        member: proteoform_symbol(label)
         for label, members in proteoform_symbol_map(scope="cta").items()
         for member in members
     }
@@ -946,7 +946,7 @@ def test_proteoform_rollup_relabels_a_single_named_member():
         }
     )
     out = personalize_module._apply_proteoform_rollup(frame)
-    assert list(out["source"]) == ["CTAG1A/CTAG1B"]
+    assert list(out["source"]) == ["NY-ESO-1"]
 
 
 def test_proteoform_rollup_collapses_both_members_to_one_row():
@@ -963,7 +963,7 @@ def test_proteoform_rollup_collapses_both_members_to_one_row():
     out = personalize_module._apply_proteoform_rollup(frame)
     assert len(out) == 1
     row = out.iloc[0]
-    assert row["source"] == "CTAG1A/CTAG1B"
+    assert row["source"] == "NY-ESO-1"
     # Identical proteins: highest member TPM, not the sum of a signal an
     # RNA quantifier split between two loci.
     assert row["source_tpm"] == 215.0
@@ -1035,7 +1035,7 @@ def test_personalize_applies_proteoform_rollup_by_default(monkeypatch):
         skip_ms_evidence=True,
         drop_weak_tier=False,
     )
-    assert list(out["source"]) == ["CTAG1A/CTAG1B"]
+    assert list(out["source"]) == ["NY-ESO-1"]
 
 
 def test_personalize_proteoform_rollup_can_be_disabled(monkeypatch):

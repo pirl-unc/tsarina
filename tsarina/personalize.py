@@ -106,16 +106,20 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
 
 @lru_cache(maxsize=1)
 def _proteoform_group_labels() -> dict[str, str]:
-    """Member gene symbol -> identical-protein group label.
+    """Member gene symbol -> the group's preferred display symbol.
 
-    Read from oncoref's canonical CTA proteoform registry -- the same one
-    :mod:`tsarina.spanning` already uses for the panel workflow, rather
-    than a second definition that could drift from it.
+    Both halves come from oncoref: ``proteoform_symbol_map`` for group
+    membership (the same registry :mod:`tsarina.spanning` uses for the
+    panel workflow) and ``proteoform_symbol`` for the name that survives
+    the collapse -- a curated alias where one exists (``CTAG1A/CTAG1B``
+    -> ``NY-ESO-1``), else the prefix-contracted members
+    (``XAGE1A/XAGE1B`` -> ``XAGE1A/B``). Neither is restated here, so
+    tsarina can't drift from the canonical naming.
     """
-    from oncoref.proteoforms import proteoform_symbol_map
+    from oncoref.proteoforms import proteoform_symbol, proteoform_symbol_map
 
     return {
-        member: label
+        member: proteoform_symbol(label)
         for label, members in proteoform_symbol_map(scope="cta").items()
         for member in members
     }
@@ -124,13 +128,14 @@ def _proteoform_group_labels() -> dict[str, str]:
 def _apply_proteoform_rollup(frame: pd.DataFrame) -> pd.DataFrame:
     """Collapse identical-protein CTA paralogs into one group-labeled row.
 
-    NY-ESO-1 is CTAG1A and CTAG1B; XAGE1 is XAGE1A and XAGE1B; SSX2 is
-    SSX2 and SSX2B. Each pair translates to a byte-identical protein, so
-    naming either member yields the same peptides -- reporting them as
+    NY-ESO-1 is CTAG1A and CTAG1B; XAGE1A/B is XAGE1A and XAGE1B; SSX2/B
+    is SSX2 and SSX2B. Each pair translates to a byte-identical protein,
+    so naming either member yields the same peptides -- reporting them as
     separate sources either double-counts the same finding (when the
     caller named both) or hides that the peptide isn't unique to the one
-    they named (when they named one). Both are relabeled to the group,
-    and a (group, peptide, length) duplicate collapses to a single row.
+    they named (when they named one). Both are relabeled to the group's
+    preferred symbol, and a (group, peptide, length) duplicate collapses
+    to a single row.
 
     Only rows whose source is a known group member are touched; viral,
     mutant, and ungrouped CTA rows pass through untouched (a same-peptide
@@ -419,9 +424,10 @@ def personalized_targets(
         quiet/library-embedded run.
     proteoform_rollup
         If True (default), CTAs that translate to a byte-identical
-        protein are reported as one group (NY-ESO-1's CTAG1A + CTAG1B,
-        XAGE1A + XAGE1B, SSX2 + SSX2B, ...), using oncoref's canonical
-        proteoform registry.  Set False to keep one row per gene symbol.
+        protein are reported as one group under oncoref's preferred
+        symbol for it (``CTAG1A`` + ``CTAG1B`` -> ``NY-ESO-1``,
+        ``XAGE1A`` + ``XAGE1B`` -> ``XAGE1A/B``, ``SSX2`` + ``SSX2B``
+        -> ``SSX2/B``).  Set False to keep one row per gene symbol.
 
     Returns
     -------
