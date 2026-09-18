@@ -25,7 +25,15 @@ Guardrails applied by default:
    are dropped (via :func:`tsarina.viral.human_exclusive_viral_peptides`).
 3. **CTA restriction confidence** — CTAs are gated to the HIGH/MODERATE bins
    of ``restriction_confidence``; LOW-confidence CTAs never contribute
-   peptides unless the caller explicitly opts in.
+   peptides unless the caller explicitly opts in. A gene oncoref excludes
+   from the strict set entirely but still tracks as a known clinical
+   target (e.g. CTAG2/LAGE-1, excluded for a low-level HPA heart RNA
+   signal) is not simply dropped: it's included under
+   ``category="cta_flagged"`` with the exclusion reason in ``flag_reason``,
+   so a caller who named the gene explicitly sees it and its caveat rather
+   than silence. A ``--cta`` gene that is neither a recognized CTA nor a
+   known clinical target (a typo, or a gene with no CTA evidence at all)
+   is dropped with a warning naming it, rather than the same silence.
 4. **Tumor-specificity filter** — peptides observed by mass spec on healthy
    non-reproductive tissue are excluded entirely (not merely penalized).
 5. **Mandatory MHC scoring** — when ``score_presentation=True`` the scorer
@@ -78,6 +86,7 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "source",
     "source_detail",
     "source_tpm",
+    "flag_reason",
     "ms_hit_count",
     "ms_alleles",
     "ms_allele_count",
@@ -91,6 +100,99 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "tier_label",
     "tier_reason",
 )
+
+
+def _cta_flagged_gene_peptides(
+    gene_names: Iterable[str], *, ensembl_release: int, lengths: tuple[int, ...]
+) -> pd.DataFrame:
+    """Generate peptides for a clinical-target CTA that oncoref excludes
+    from the strict CTA gene universe (CTAG2/LAGE-1's heart-signal
+    exclusion, for example).
+
+    :func:`tsarina.peptides.cta_peptides` (and the ``_cta_gene_ids_for_names``
+    resolver it uses) gates gene-name resolution on the strict CTA gene-ID
+    set, so a flagged gene resolves to no genes at all through that path --
+    it needs its own resolution here, not a parameter override there.
+
+    Returns the same ``gene_name``/``gene_id``/``peptide``/``length`` shape
+    as ``cta_peptides``, minus the flank columns this caller doesn't need.
+    No exclusivity screening against non-CTA proteins is applied (see the
+    ``flag_reason`` caveat this gets merged into by the caller).
+    """
+    from pyensembl import EnsemblRelease
+
+    from .gene_sets import is_coding_transcript
+    from .loader import cta_dataframe
+    from .peptides import AA20
+
+    wanted = {str(g).strip() for g in gene_names if str(g).strip()}
+    columns = ["gene_name", "gene_id", "peptide", "length"]
+    if not wanted:
+        return pd.DataFrame(columns=columns)
+
+    df = cta_dataframe()
+    gene_ids: dict[str, str] = {}
+    if "Symbol" in df.columns and "Ensembl_Gene_ID" in df.columns:
+        for symbol_cell, id_cell in df[["Symbol", "Ensembl_Gene_ID"]].itertuples(
+            index=False, name=None
+        ):
+            hit = wanted & {s.strip() for s in str(symbol_cell).split(";") if s.strip()}
+            if not hit:
+                continue
+            ids = [i.strip() for i in str(id_cell).split(";") if i.strip()]
+            if ids:
+                for symbol in hit:
+                    gene_ids.setdefault(symbol, ids[0])
+
+    ensembl = EnsemblRelease(ensembl_release)
+    rows: list[dict] = []
+    for gene_name, gene_id in gene_ids.items():
+        try:
+            gene = ensembl.gene_by_id(gene_id)
+        except ValueError:
+            continue
+        best_transcript = None
+        best_length = 0
+        for t in gene.transcripts:
+            if not is_coding_transcript(t):
+                continue
+            try:
+                seq = t.protein_sequence
+            except (ValueError, KeyError, TypeError):
+                continue
+            if seq and len(seq) > best_length:
+                best_transcript = t
+                best_length = len(seq)
+        if best_transcript is None:
+            continue
+        protein = best_transcript.protein_sequence
+        if not protein:
+            continue
+        for k in lengths:
+            for i in range(len(protein) - k + 1):
+                pep = protein[i : i + k]
+                if set(pep).issubset(AA20):
+                    rows.append(
+                        {"gene_name": gene_name, "gene_id": gene_id, "peptide": pep, "length": k}
+                    )
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _cta_flag_rationale(genes: dict[str, float]) -> dict[str, str]:
+    """oncoref's ``specificity_rationale`` for each flagged gene, for the
+    ``flag_reason`` column -- the actual reason a caller should read before
+    trusting a "cta_flagged" row, not just that one exists."""
+    if not genes:
+        return {}
+    from oncoref import cta as _oncoref_cta
+
+    df = _oncoref_cta.cta_df()
+    rows = df[df["Symbol"].isin(genes) & df["specificity_rationale"].notna()]
+    rationale = dict(zip(rows["Symbol"], rows["specificity_rationale"]))
+    return {
+        gene: rationale.get(gene, "excluded from the strict default CTA set by oncoref")
+        for gene in genes
+    }
 
 
 def personalized_targets(
@@ -211,7 +313,7 @@ def personalized_targets(
 
     # ── CTA peptides ────────────────────────────────────────────────────
     if cta_expression:
-        from .gene_sets import CTA_by_axes, CTA_gene_names
+        from .gene_sets import CTA_by_axes, CTA_clinical_target_gene_names, CTA_gene_names
         from .peptides import cta_exclusive_peptides
 
         valid_ctas = CTA_gene_names()
@@ -225,11 +327,39 @@ def personalized_targets(
             mtec_df = load_mtec_gene_table(mtec_matrix_path)
             valid_ctas = filter_by_mtec(valid_ctas, mtec_df, threshold=mtec_max_tpm)
 
+        # Genes with real CTA-source evidence that oncoref nonetheless
+        # excludes from the strict default set (e.g. CTAG2/LAGE-1: a
+        # low-level HPA heart RNA signal) but keeps as a known clinical
+        # target. A caller who explicitly named the gene should see it and
+        # its caveat, not have it silently vanish the way a typo would.
+        clinical_target_ctas = CTA_clinical_target_gene_names() - valid_ctas
+
+        unrecognized = sorted(
+            gene
+            for gene in cta_expression
+            if gene not in valid_ctas and gene not in clinical_target_ctas
+        )
+        if unrecognized:
+            warnings.warn(
+                "--cta gene(s) not in the current CTA panel, dropped: "
+                + ", ".join(unrecognized)
+                + " (not a recognized CTA symbol, or excluded with no clinical-target "
+                "override -- see tsarina.gene_sets.CTA_excluded_gene_names for why)",
+                UserWarning,
+                stacklevel=2,
+            )
+
         expressed_ctas = {
             gene: tpm
             for gene, tpm in cta_expression.items()
             if gene in valid_ctas and tpm >= min_cta_tpm
         }
+        flagged_ctas = {
+            gene: tpm
+            for gene, tpm in cta_expression.items()
+            if gene in clinical_target_ctas and tpm >= min_cta_tpm
+        }
+
         if expressed_ctas:
             all_cta_peps = cta_exclusive_peptides(ensembl_release=ensembl_release, lengths=lengths)
             cta_peps = all_cta_peps[all_cta_peps["gene_name"].isin(expressed_ctas)].copy()
@@ -244,6 +374,41 @@ def personalized_targets(
                             "source": cta_peps["gene_name"],
                             "source_detail": cta_peps["gene_id"],
                             "source_tpm": cta_peps["source_tpm"],
+                        }
+                    )
+                )
+
+        if flagged_ctas:
+            # A flagged gene is, by construction, part of the "non-CTA"
+            # background that cta_exclusive_peptides() screens strict CTAs
+            # against (CTA_partition_gene_ids puts anything outside the
+            # strict set into non_cta, including a gene excluded only for
+            # an expression-safety reason like CTAG2's heart signal), and
+            # cta_peptides()'s own gene-name resolver gates on that same
+            # strict set -- neither can be reused as-is for a flagged gene
+            # without either zeroing out its own peptides against itself
+            # or resolving to no genes at all. Generate directly instead,
+            # and say so via flag_reason: a flagged row has not been
+            # checked for sequence overlap with other proteins the way a
+            # strict CTA has, on top of its own oncoref exclusion caveat.
+            flagged_peps = _cta_flagged_gene_peptides(
+                flagged_ctas, ensembl_release=ensembl_release, lengths=lengths
+            )
+            if not flagged_peps.empty:
+                flagged_peps["source_tpm"] = flagged_peps["gene_name"].map(flagged_ctas)
+                rationale_by_gene = _cta_flag_rationale(flagged_ctas)
+                frames.append(
+                    pd.DataFrame(
+                        {
+                            "peptide": flagged_peps["peptide"],
+                            "length": flagged_peps["length"],
+                            "category": "cta_flagged",
+                            "source": flagged_peps["gene_name"],
+                            "source_detail": flagged_peps["gene_id"],
+                            "source_tpm": flagged_peps["source_tpm"],
+                            "flag_reason": flagged_peps["gene_name"].map(rationale_by_gene)
+                            + " (not screened for peptide overlap with other proteins the "
+                            "way a strict CTA is)",
                         }
                     )
                 )

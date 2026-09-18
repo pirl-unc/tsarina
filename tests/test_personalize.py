@@ -628,3 +628,127 @@ def test_non_mhcflurry_predictor_populates_tiers(monkeypatch):
     assert row["tier_reason"] == "strong_presentation+viral"
     assert row["best_allele"] == "HLA-A*02:01"
     assert float(row["presentation_percentile"]) == 0.1
+
+
+# ── Clinical-target CTAs excluded from the strict default set ──────────
+
+
+def test_flagged_cta_included_as_separate_category(monkeypatch):
+    """A --cta gene excluded from the strict CTA set but tracked by oncoref
+    as a known clinical target (CTAG2/LAGE-1, e.g.) is not silently dropped
+    -- it shows up tagged category='cta_flagged' with the exclusion reason
+    in flag_reason, instead of vanishing the way an unrecognized gene does."""
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: set(), raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: set(), raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: {"CTAG2"}, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.personalize._cta_flag_rationale",
+        lambda genes: dict.fromkeys(genes, "heart RNA signal"),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.personalize._cta_flagged_gene_peptides",
+        lambda genes, **kw: pd.DataFrame(
+            {
+                "gene_name": ["CTAG2"],
+                "gene_id": ["ENSG_CTAG2"],
+                "peptide": ["FLAGGEDPEP"],
+                "length": [10],
+            }
+        ),
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"CTAG2": 50.0},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    assert list(out["peptide"]) == ["FLAGGEDPEP"]
+    assert list(out["category"]) == ["cta_flagged"]
+    assert list(out["source"]) == ["CTAG2"]
+    assert "heart RNA signal" in out["flag_reason"].iloc[0]
+    assert "not screened for peptide overlap" in out["flag_reason"].iloc[0]
+
+
+def test_flagged_and_strict_ctas_coexist(monkeypatch):
+    """A request naming both a strict CTA and a flagged clinical-target CTA
+    gets both categories in one output, not just one or the other."""
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: {"CTAG2"}, raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["MAGEA4"],
+                "gene_id": ["ENSG_MAGEA4"],
+                "peptide": ["STRICTPEP9"],
+                "length": [9],
+            }
+        ),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.personalize._cta_flag_rationale",
+        lambda genes: dict.fromkeys(genes, "heart RNA signal"),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.personalize._cta_flagged_gene_peptides",
+        lambda genes, **kw: pd.DataFrame(
+            {
+                "gene_name": ["CTAG2"],
+                "gene_id": ["ENSG_CTAG2"],
+                "peptide": ["FLAGGEDPEP"],
+                "length": [10],
+            }
+        ),
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"MAGEA4": 10.0, "CTAG2": 50.0},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    assert set(zip(out["peptide"], out["category"])) == {
+        ("STRICTPEP9", "cta"),
+        ("FLAGGEDPEP", "cta_flagged"),
+    }
+    # A strict-CTA row carries no flag_reason.
+    strict_row = out[out["category"] == "cta"].iloc[0]
+    assert pd.isna(strict_row["flag_reason"])
+
+
+def test_unrecognized_cta_gene_warns_and_is_dropped(monkeypatch):
+    """A --cta gene that is neither a recognized CTA nor a known clinical
+    target (a typo, or a gene with no CTA evidence at all) is dropped with
+    a warning naming it, rather than silently producing nothing."""
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(columns=["gene_name", "gene_id", "peptide", "length"]),
+        raising=True,
+    )
+
+    with pytest.warns(UserWarning, match="NOTAREALGENE"):
+        out = personalize(
+            hla_alleles=["HLA-A*02:01"],
+            cta_expression={"NOTAREALGENE": 10.0},
+            score_presentation=False,
+            skip_ms_evidence=True,
+        )
+    assert out.empty

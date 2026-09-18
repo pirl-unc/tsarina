@@ -44,10 +44,23 @@ def test_foundational_cta_helpers_are_direct_oncoref_aliases():
         "CTA_testis_restricted_gene_ids": "cta_testis_restricted_gene_ids",
         "CTA_placental_restricted_gene_names": "cta_placental_restricted_gene_names",
         "CTA_placental_restricted_gene_ids": "cta_placental_restricted_gene_ids",
+        "CTA_clinical_target_gene_names": "cta_clinical_target_gene_names",
+        "CTA_clinical_target_gene_ids": "cta_clinical_target_gene_ids",
         "cta_symbol_for_alias": "cta_symbol_for_alias",
     }
     for tsarina_name, oncoref_name in aliases.items():
         assert getattr(gene_sets, tsarina_name) is getattr(oncoref_cta, oncoref_name)
+
+
+def test_ctag2_is_a_clinical_target_excluded_from_the_strict_set():
+    """Regression pin: CTAG2/LAGE-1 is oncoref's motivating example for
+    exclude_default_keep_clinical -- excluded from the strict CTA set for
+    a low-level HPA heart RNA signal, but retained as a known clinical
+    target given its NY-ESO-1-family therapeutic history."""
+    from tsarina import CTA_clinical_target_gene_names, CTA_gene_names
+
+    assert "CTAG2" in CTA_clinical_target_gene_names()
+    assert "CTAG2" not in CTA_gene_names()
 
 
 def test_cta_set_relationships_are_oncoref_relationships():

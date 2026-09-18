@@ -22,13 +22,17 @@ import argparse
 import sys
 
 from .cli_common import add_iedb_cedar_args, add_predictor_arg
+from .cli_common import flatten_multi as _flatten_multi
 from .cli_common import parse_lengths as _parse_lengths
 from .cli_common import split_csv as _split_csv
 
 
-def _parse_cta(value: str) -> dict[str, float]:
+def _parse_cta(raw: list[str]) -> dict[str, float]:
+    """Parse ``--cta`` tokens (already collected by ``nargs="+"``) into a
+    GENE -> TPM dict. Accepts ``GENE=TPM`` entries mixed freely across
+    comma-separated, space-separated, or quoted-string tokens."""
     out: dict[str, float] = {}
-    for pair in _split_csv(value):
+    for pair in _flatten_multi(raw):
         if "=" not in pair:
             raise argparse.ArgumentTypeError(
                 f"--cta entry '{pair}' must be GENE=TPM (e.g. PRAME=87.3)"
@@ -38,6 +42,25 @@ def _parse_cta(value: str) -> dict[str, float]:
             out[gene.strip()] = float(tpm_s)
         except ValueError as e:
             raise argparse.ArgumentTypeError(f"--cta TPM '{tpm_s}' is not a number") from e
+    return out
+
+
+def _parse_hla(raw: list[str]) -> list[str]:
+    """Parse ``--hla`` tokens into canonical allele strings.
+
+    Each token is normalized through mhcgnomes (:func:`tsarina.mhc.parse_mhc`),
+    so ``HLA-A*02:01``, ``HLA-A02:01``, and ``A0201`` all resolve to the same
+    canonical ``HLA-A*02:01`` -- the ``*`` is a shell glob character, so
+    accepting a form without it means ``--hla`` never strictly requires
+    quoting."""
+    from .mhc import parse_mhc
+
+    out: list[str] = []
+    for token in _flatten_multi(raw):
+        parsed = parse_mhc(token, expect="allele")
+        if parsed is None:
+            raise argparse.ArgumentTypeError(f"--hla entry '{token}' is not a recognized allele")
+        out.append(parsed.to_string())
     return out
 
 
@@ -54,14 +77,23 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--hla",
         required=True,
-        type=_split_csv,
-        help="Comma-separated HLA alleles (e.g. HLA-A*02:01,HLA-B*07:02).",
+        nargs="+",
+        help=(
+            "HLA alleles: comma- and/or space-separated, quoted or not "
+            "(e.g. HLA-A*02:01,HLA-B*07:02 or HLA-A*02:01 HLA-B*07:02). "
+            "The '*' is optional -- HLA-A02:01 and A0201 both work, which "
+            "lets you skip quoting the whole thing (a bare '*' is a shell "
+            "glob character)."
+        ),
     )
     p.add_argument(
         "--cta",
-        type=_parse_cta,
-        default={},
-        help="Comma-separated GENE=TPM pairs (e.g. MAGEA4=142.5,PRAME=87.3).",
+        nargs="+",
+        default=[],
+        help=(
+            "GENE=TPM pairs: comma- and/or space-separated, quoted or not "
+            "(e.g. MAGEA4=142.5,PRAME=87.3 or MAGEA4=142.5 PRAME=87.3)."
+        ),
     )
     p.add_argument(
         "--mutations",
@@ -170,9 +202,16 @@ def handle(args: argparse.Namespace) -> None:
         min_restriction_confidence = tuple(v.upper() for v in args.min_restriction_confidence)
 
     try:
+        hla_alleles = _parse_hla(args.hla)
+        cta_expression = _parse_cta(args.cta)
+    except argparse.ArgumentTypeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
         df = personalized_targets(
-            hla_alleles=args.hla,
-            cta_expression=args.cta or None,
+            hla_alleles=hla_alleles,
+            cta_expression=cta_expression or None,
             mutations=args.mutations or None,
             viruses=args.viruses or None,
             lengths=args.lengths,
