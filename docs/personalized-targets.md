@@ -30,6 +30,10 @@ entries, quoted or not (`--hla HLA-A*02:01 HLA-B*07:02` works as well as
 `HLA-A0201` and `A0201` both resolve to `HLA-A*02:01` — which means `--hla`
 never strictly needs quoting (`*` is a shell glob character).
 
+A `--cta` entry's `=TPM` half is optional too: `--cta MAGEA4` (no TPM) means
+"include this gene regardless of `--min-cta-tpm`" rather than "assume zero
+expression." Mix bare and `GENE=TPM` entries freely.
+
 At least one target source—CTA expression, mutations, or viruses—must produce
 candidates for the result to be non-empty.
 
@@ -204,5 +208,12 @@ Use `HOTSPOT_MUTATIONS` for the executable list rather than parsing this table.
 - Relax viral human exclusivity only for investigation with
   `--no-require-human-exclusive-viral`.
 - Disable presentation scoring with `--no-score`.
+- Choose output shape with `--format {table,csv}`. Defaults to a compact
+  fixed-width table when printing to the terminal, and CSV when writing to
+  a file with `--output` (CSV is for piping/loading elsewhere; the table
+  is for reading). Pass either explicitly to override.
+- Suppress the stage-progress messages personalize prints to stderr by
+  default (peptide generation, MS evidence lookup, presentation scoring)
+  with `--quiet`.
 
 Run `tsarina personalize --help` for the complete current option list.

@@ -30,14 +30,18 @@ from .cli_common import split_csv as _split_csv
 def _parse_cta(raw: list[str]) -> dict[str, float]:
     """Parse ``--cta`` tokens (already collected by ``nargs="+"``) into a
     GENE -> TPM dict. Accepts ``GENE=TPM`` entries mixed freely across
-    comma-separated, space-separated, or quoted-string tokens."""
+    comma-separated, space-separated, or quoted-string tokens.
+
+    The ``=TPM`` half is optional -- a bare gene name maps to ``NaN``,
+    which :func:`tsarina.personalize.personalized_targets` treats as "no
+    measured expression given, include it regardless of --min-cta-tpm"
+    rather than as zero expression."""
     out: dict[str, float] = {}
     for pair in _flatten_multi(raw):
-        if "=" not in pair:
-            raise argparse.ArgumentTypeError(
-                f"--cta entry '{pair}' must be GENE=TPM (e.g. PRAME=87.3)"
-            )
-        gene, _, tpm_s = pair.partition("=")
+        gene, sep, tpm_s = pair.partition("=")
+        if not sep:
+            out[gene.strip()] = float("nan")
+            continue
         try:
             out[gene.strip()] = float(tpm_s)
         except ValueError as e:
@@ -91,8 +95,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         nargs="+",
         default=[],
         help=(
-            "GENE=TPM pairs: comma- and/or space-separated, quoted or not "
-            "(e.g. MAGEA4=142.5,PRAME=87.3 or MAGEA4=142.5 PRAME=87.3)."
+            "GENE or GENE=TPM entries: comma- and/or space-separated, "
+            "quoted or not (e.g. MAGEA4=142.5,PRAME=87.3 or "
+            "MAGEA4=142.5 PRAME=87.3). '=TPM' is optional -- a bare gene "
+            "name is included regardless of --min-cta-tpm."
         ),
     )
     p.add_argument(
@@ -183,10 +189,26 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="Do not look up IEDB/CEDAR evidence (useful when no data registered).",
     )
     p.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress stage-progress messages on stderr (shown by default).",
+    )
+    p.add_argument(
+        "--format",
+        choices=("csv", "table"),
+        default=None,
+        help=(
+            "Output shape. Defaults to 'table' when printing to the "
+            "terminal (no --output) and 'csv' when writing to a file "
+            "with --output, since CSV is for piping/loading elsewhere "
+            "and a table is for reading. Pass explicitly to override."
+        ),
+    )
+    p.add_argument(
         "-o",
         "--output",
         default=None,
-        help="Write CSV to this path (default: stdout).",
+        help="Write to this path (default: stdout).",
     )
     return p
 
@@ -229,13 +251,24 @@ def handle(args: argparse.Namespace) -> None:
             skip_ms_evidence=args.skip_ms_evidence,
             predictor=args.predictor,
             drop_weak_tier=args.drop_weak_tier,
+            show_progress=not args.quiet,
         )
     except DatasetNotRegisteredError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    fmt = args.format or ("csv" if args.output else "table")
+
+    if fmt == "table":
+        from .personalize import format_table
+
+        rendered = format_table(df) + "\n"
+    else:
+        rendered = df.to_csv(index=False)
+
     if args.output:
-        df.to_csv(args.output, index=False)
+        with open(args.output, "w") as f:
+            f.write(rendered)
         print(f"Wrote {len(df)} rows to {args.output}", file=sys.stderr)
     else:
-        df.to_csv(sys.stdout, index=False)
+        sys.stdout.write(rendered)

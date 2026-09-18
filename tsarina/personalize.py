@@ -63,6 +63,7 @@ Typical usage::
 
 from __future__ import annotations
 
+import sys
 import warnings
 from collections.abc import Iterable
 from pathlib import Path
@@ -100,6 +101,71 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "tier_label",
     "tier_reason",
 )
+
+
+def format_table(df: pd.DataFrame) -> str:
+    """Render a :func:`personalized_targets` result as a compact,
+    fixed-width table -- one row per peptide, sorted as given (already
+    tier-ranked by the caller), no box-drawing.
+
+    Mirrors the plain, minimal-decoration style of
+    :func:`hitlist.pmhc_query.format_table` (dashes under headers, no
+    grid lines) since the two tools' output is often read side by side,
+    but tsarina's own schema -- one row per peptide with a single
+    already-chosen best allele, rather than hitlist's per-(gene, allele)
+    rows -- doesn't map onto that function directly, so this is its own
+    implementation rather than a shared one.
+
+    A ``cta_flagged`` row's source gets a trailing ``*``, with a one-line
+    footnote explaining it -- the full ``flag_reason`` sentence is long
+    enough that inlining it into every such row would defeat the point of
+    a compact table; use ``--format csv`` for that.
+    """
+    if df.empty:
+        return "(no targets)"
+
+    columns: list[tuple[str, str]] = [
+        ("peptide", "peptide"),
+        ("category", "category"),
+        ("source", "source"),
+        ("tier", "tier_label"),
+        ("allele", "best_allele"),
+        ("affinity_nM", "affinity_nm"),
+        ("pct_rank", "presentation_percentile"),
+        ("ms_hits", "ms_hit_count"),
+    ]
+
+    def _fmt(header: str, value: object) -> str:
+        if pd.isna(value):
+            return ""
+        if header == "ms_hits":
+            return f"{int(value)}"
+        if header in ("affinity_nM", "pct_rank"):
+            return f"{float(value):.2f}"
+        return str(value)
+
+    has_flagged = (df["category"] == "cta_flagged").any() if "category" in df.columns else False
+    rows: list[list[str]] = []
+    for _, row in df.iterrows():
+        cells = [_fmt(key, row.get(src_col)) for key, src_col in columns]
+        if has_flagged and row.get("category") == "cta_flagged":
+            cells[2] += "*"  # "source" is the third column
+        rows.append(cells)
+
+    headers = [key for key, _ in columns]
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+    lines = [
+        "  ".join(h.ljust(w) for h, w in zip(headers, widths)),
+        "  ".join("-" * w for w in widths),
+    ]
+    lines.extend("  ".join(cell.ljust(w) for cell, w in zip(row, widths)) for row in rows)
+    if has_flagged:
+        lines.append("")
+        lines.append(
+            "* flagged clinical-target CTA, excluded from the strict default CTA set -- "
+            "see flag_reason in --format csv for why."
+        )
+    return "\n".join(lines)
 
 
 def _cta_flagged_gene_peptides(
@@ -197,7 +263,7 @@ def _cta_flag_rationale(genes: dict[str, float]) -> dict[str, str]:
 
 def personalized_targets(
     hla_alleles: list[str],
-    cta_expression: dict[str, float] | None = None,
+    cta_expression: dict[str, float | None] | None = None,
     mutations: list[str] | None = None,
     viruses: list[str] | None = None,
     lengths: tuple[int, ...] = (8, 9, 10, 11),
@@ -215,6 +281,7 @@ def personalized_targets(
     skip_ms_evidence: bool = False,
     predictor: str = "mhcflurry",
     drop_weak_tier: bool = True,
+    show_progress: bool = True,
 ) -> pd.DataFrame:
     """Build a personalized, tier-ranked target list for a single patient.
 
@@ -228,6 +295,9 @@ def personalized_targets(
         ``tpm >= min_cta_tpm``, ``restriction_confidence`` allowed, optional
         mTEC cutoff) contribute peptides.  Peptides are restricted to those
         exclusive to CTA proteins (not present in any non-CTA protein).
+        A ``None`` or ``NaN`` TPM means "no measured expression given" --
+        the gene is included regardless of ``min_cta_tpm`` rather than
+        excluded as if it measured zero.
     mutations
         List of hotspot labels (e.g. ``["KRAS G12D"]``).  Wildtype-identical
         k-mers are filtered in :mod:`tsarina.mutations`; they are already
@@ -278,6 +348,11 @@ def personalized_targets(
     drop_weak_tier
         If True (default), tier-4 rows are dropped from the output.  Set
         False to retain them for diagnostics.
+    show_progress
+        If True (default), write a line to stderr before each stage
+        (peptide generation per source, MS evidence lookup, presentation
+        scoring) so a long-running call isn't silent. Set False for a
+        quiet/library-embedded run.
 
     Returns
     -------
@@ -301,6 +376,10 @@ def personalized_targets(
     """
     frames: list[pd.DataFrame] = []
 
+    def _report(message: str) -> None:
+        if show_progress:
+            print(message, file=sys.stderr)
+
     if score_presentation and predictor != "mhcflurry":
         warnings.warn(
             f"Predictor {predictor!r} is not mhcflurry; tier cutoffs "
@@ -315,6 +394,15 @@ def personalized_targets(
     if cta_expression:
         from .gene_sets import CTA_by_axes, CTA_clinical_target_gene_names, CTA_gene_names
         from .peptides import cta_exclusive_peptides
+
+        # A caller who didn't supply a TPM for a gene (--cta GENE with no
+        # =TPM on the CLI, or an explicit None here) means "include it
+        # regardless of min_cta_tpm", not "measured zero expression, gate
+        # it out." Normalize to NaN once so every filter below can use a
+        # single float comparison.
+        cta_expression = {
+            gene: (float("nan") if tpm is None else tpm) for gene, tpm in cta_expression.items()
+        }
 
         valid_ctas = CTA_gene_names()
         if min_restriction_confidence is not None:
@@ -352,16 +440,25 @@ def personalized_targets(
         expressed_ctas = {
             gene: tpm
             for gene, tpm in cta_expression.items()
-            if gene in valid_ctas and tpm >= min_cta_tpm
+            if gene in valid_ctas and (pd.isna(tpm) or tpm >= min_cta_tpm)
         }
         flagged_ctas = {
             gene: tpm
             for gene, tpm in cta_expression.items()
-            if gene in clinical_target_ctas and tpm >= min_cta_tpm
+            if gene in clinical_target_ctas and (pd.isna(tpm) or tpm >= min_cta_tpm)
         }
 
         if expressed_ctas:
-            all_cta_peps = cta_exclusive_peptides(ensembl_release=ensembl_release, lengths=lengths)
+            _report(
+                f"Generating exclusivity-screened CTA peptides for "
+                f"{len(expressed_ctas)} gene(s): {', '.join(sorted(expressed_ctas))}..."
+            )
+            all_cta_peps = cta_exclusive_peptides(
+                ensembl_release=ensembl_release,
+                lengths=lengths,
+                on_progress=_report if show_progress else None,
+                progress_bar=show_progress,
+            )
             cta_peps = all_cta_peps[all_cta_peps["gene_name"].isin(expressed_ctas)].copy()
             if not cta_peps.empty:
                 cta_peps["source_tpm"] = cta_peps["gene_name"].map(expressed_ctas)
@@ -391,6 +488,10 @@ def personalized_targets(
             # and say so via flag_reason: a flagged row has not been
             # checked for sequence overlap with other proteins the way a
             # strict CTA has, on top of its own oncoref exclusion caveat.
+            _report(
+                f"Generating CTA peptides for {len(flagged_ctas)} flagged clinical-target "
+                f"gene(s): {', '.join(sorted(flagged_ctas))}..."
+            )
             flagged_peps = _cta_flagged_gene_peptides(
                 flagged_ctas, ensembl_release=ensembl_release, lengths=lengths
             )
@@ -421,6 +522,10 @@ def personalized_targets(
         mutation_labels = set(mutations)
         matched = [m for m in HOTSPOT_MUTATIONS if m["label"] in mutation_labels]
         if matched:
+            _report(
+                f"Generating mutant-spanning peptides for {len(matched)} mutation(s): "
+                f"{', '.join(m['label'] for m in matched)}..."
+            )
             mdf = _mutant_peptides(
                 mutations=matched, lengths=lengths, ensembl_release=ensembl_release
             )
@@ -446,6 +551,7 @@ def personalized_targets(
             from .viral import viral_peptides as _viral_peps
 
         for vk in viruses:
+            _report(f"Generating viral peptides for {vk}...")
             if require_human_exclusive_viral:
                 vdf = _viral_peps(virus=vk, lengths=lengths, ensembl_release=ensembl_release)
             else:
@@ -468,8 +574,14 @@ def personalized_targets(
         return pd.DataFrame(columns=list(_OUTPUT_COLUMNS))
 
     combined = pd.concat(frames, ignore_index=True)
+    _report(f"Generated {len(combined)} candidate peptide rows.")
 
     # ── IEDB/CEDAR evidence ─────────────────────────────────────────────
+    if not skip_ms_evidence:
+        _report(
+            f"Looking up public MS evidence for {combined['peptide'].nunique()} "
+            "unique peptide(s)..."
+        )
     combined = _attach_ms_evidence(
         combined,
         iedb_path=iedb_path,
@@ -490,6 +602,10 @@ def personalized_targets(
         from .scoring import score_presentation as _score
 
         unique_peps = combined["peptide"].unique().tolist()
+        _report(
+            f"Scoring {len(unique_peps)} peptide(s) against {len(hla_alleles)} "
+            f"HLA allele(s) via {predictor}..."
+        )
         scores = _score(peptides=unique_peps, alleles=hla_alleles, predictor=predictor)
         combined = _merge_best_allele(combined, scores)
     else:
@@ -514,6 +630,7 @@ def personalized_targets(
     for col in _OUTPUT_COLUMNS:
         if col not in combined.columns:
             combined[col] = pd.NA
+    _report(f"Done: {len(combined)} target row(s).")
     return combined[list(_OUTPUT_COLUMNS)]
 
 

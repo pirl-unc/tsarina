@@ -47,6 +47,38 @@ def _nonempty_strings(values) -> set[str]:
     return strings
 
 
+#: Class-only / unresolved MHC labels that carry no allele information at
+#: all, dropped entirely rather than counted as if they were a real (if
+#: coarse) allele the way a serotype like "HLA-B7" is.
+_UNINFORMATIVE_ALLELE_LABELS = frozenset(
+    {"hla class i", "hla class ii", "class i", "class ii", "unknown"}
+)
+
+
+def _individual_alleles(values) -> set[str]:
+    """Split each row's MHC restriction string into individual allele
+    tokens and deduplicate across rows.
+
+    A single row's ``mhc_restriction`` is sometimes itself a semicolon-
+    joined multi-donor context (a pooled-sample study reporting its whole
+    cohort's HLA typing) rather than one allele. Joining those raw strings
+    across many rows without splitting them first (the previous behavior)
+    pastes the same alleles together many times over -- a peptide observed
+    across ten mostly-overlapping ten-allele donor panels reported "ten
+    copies of nearly the same ten alleles" instead of the handful of truly
+    distinct ones.
+    """
+    alleles: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        for token in value.split(";"):
+            token = token.strip()
+            if token and token.lower() not in _UNINFORMATIVE_ALLELE_LABELS:
+                alleles.add(token)
+    return alleles
+
+
 def load_public_ms_hits(
     peptides: set[str] | list[str] | tuple[str, ...],
     *,
@@ -117,8 +149,8 @@ def aggregate_ms_hits_by_peptide(
 
     agg: dict[str, tuple] = {
         "ms_hit_count": ("peptide", "size"),
-        "ms_alleles": ("mhc_restriction", lambda x: ";".join(sorted(_nonempty_strings(x)))),
-        "ms_allele_count": ("mhc_restriction", lambda x: len(_nonempty_strings(x))),
+        "ms_alleles": ("mhc_restriction", lambda x: ";".join(sorted(_individual_alleles(x)))),
+        "ms_allele_count": ("mhc_restriction", lambda x: len(_individual_alleles(x))),
     }
     for source_col, output_col in source_flag_outputs.items():
         if source_col in hits.columns:
