@@ -81,6 +81,47 @@ def test_aggregate_ms_hits_by_peptide_ignores_blank_and_missing_strings():
     assert row["ms_cell_lines"] == "A375"
 
 
+def test_aggregate_ms_hits_by_peptide_splits_pooled_donor_contexts_before_deduping():
+    """Regression pin: a row's own mhc_restriction can itself be a
+    semicolon-joined multi-donor context (a pooled-sample study reporting
+    its whole cohort's typing), not a single allele. Two overlapping
+    pooled contexts must collapse to their union of distinct alleles, not
+    paste both raw strings together with duplicates."""
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MSPEPTIDE", "MSPEPTIDE"],
+            "mhc_restriction": [
+                "HLA-A*01:01;HLA-A*02:01;HLA-B*07:02",
+                "HLA-A*01:01;HLA-A*03:01;HLA-B*07:02",
+            ],
+        }
+    )
+
+    out = aggregate_ms_hits_by_peptide(hits)
+
+    row = out.iloc[0]
+    assert row["ms_allele_count"] == 4
+    assert row["ms_alleles"] == "HLA-A*01:01;HLA-A*02:01;HLA-A*03:01;HLA-B*07:02"
+
+
+def test_aggregate_ms_hits_by_peptide_drops_uninformative_class_only_labels():
+    """A bare 'HLA class I' token carries no allele information and would
+    just be noise in the alleles list -- unlike a coarse-but-real serotype
+    like 'HLA-B7', which is kept."""
+    hits = pd.DataFrame(
+        {
+            "peptide": ["MSPEPTIDE", "MSPEPTIDE"],
+            "mhc_restriction": ["HLA class I", "HLA-B7"],
+        }
+    )
+
+    out = aggregate_ms_hits_by_peptide(hits)
+
+    row = out.iloc[0]
+    assert row["ms_alleles"] == "HLA-B7"
+    assert row["ms_allele_count"] == 1
+
+
 def test_aggregate_ms_hits_for_iedb_columns_keeps_legacy_shape():
     hits = pd.DataFrame(
         {

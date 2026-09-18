@@ -92,19 +92,28 @@ def test_personalize_hla_rejects_unrecognized_allele():
     assert "not a recognized allele" in r.stderr
 
 
-def test_personalize_cta_rejects_malformed_entry():
+# A bare "--cta GENE" (no =TPM) is deliberately NOT covered by a CLI
+# subprocess test: by design it bypasses the --min-cta-tpm floor and always
+# runs real CTA peptide generation, which needs a warm pyensembl reference
+# cache and is not something a CLI-parsing test should depend on. The
+# parsing itself is covered by test_parse_cta_bare_gene_name_maps_to_nan_tpm,
+# and the inclusion behavior by test_nan_tpm_included_even_below_min_cta_tpm
+# in test_personalize.py.
+
+
+def test_personalize_cta_rejects_non_numeric_tpm_value():
     r = _run_cli(
         "personalize",
         "--hla",
         "HLA-A*02:01",
         "--cta",
-        "NOT_GENE_EQUALS_TPM",
+        "MAGEA4=not-a-number",
         "--no-score",
         "--skip-ms-evidence",
         check=False,
     )
     assert r.returncode != 0
-    assert "GENE=TPM" in r.stderr
+    assert "not a number" in r.stderr
 
 
 # ── _parse_hla / _parse_cta: flexible comma/space/quote handling ───────
@@ -139,11 +148,59 @@ def test_parse_cta_accepts_comma_and_space_mixed():
     }
 
 
-def test_parse_cta_rejects_missing_equals():
-    with pytest.raises(argparse.ArgumentTypeError, match="GENE=TPM"):
-        _parse_cta(["MAGEA4"])
+def test_parse_cta_bare_gene_name_maps_to_nan_tpm():
+    import math
+
+    out = _parse_cta(["MAGEA4"])
+    assert set(out) == {"MAGEA4"}
+    assert math.isnan(out["MAGEA4"])
 
 
 def test_parse_cta_rejects_non_numeric_tpm():
     with pytest.raises(argparse.ArgumentTypeError, match="not a number"):
         _parse_cta(["MAGEA4=abc"])
+
+
+# ── --format / --quiet ───────────────────────────────────────────────────
+
+
+def test_personalize_default_format_is_table_on_stdout():
+    r = _run_cli(
+        "personalize", "--hla", "HLA-A*02:01", "--viruses", "", "--no-score", "--skip-ms-evidence"
+    )
+    assert r.returncode == 0, r.stderr
+    assert "(no targets)" in r.stdout
+
+
+def test_personalize_format_csv_explicit_on_stdout():
+    r = _run_cli(
+        "personalize",
+        "--hla",
+        "HLA-A*02:01",
+        "--viruses",
+        "",
+        "--no-score",
+        "--skip-ms-evidence",
+        "--format",
+        "csv",
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip().startswith("peptide,length,category")
+
+
+def test_personalize_quiet_flag_is_accepted():
+    """CLI wiring smoke test -- real progress-message suppression is
+    covered at the unit level (test_show_progress_false_is_silent in
+    test_personalize.py), since this trivial no-candidates input never
+    reaches a progress-reporting stage regardless of --quiet."""
+    r = _run_cli(
+        "personalize",
+        "--hla",
+        "HLA-A*02:01",
+        "--viruses",
+        "",
+        "--no-score",
+        "--skip-ms-evidence",
+        "--quiet",
+    )
+    assert r.returncode == 0, r.stderr

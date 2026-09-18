@@ -752,3 +752,160 @@ def test_unrecognized_cta_gene_warns_and_is_dropped(monkeypatch):
             skip_ms_evidence=True,
         )
     assert out.empty
+
+
+# ── Optional TPM: NaN/None means "include regardless of min_cta_tpm" ────
+
+
+def test_nan_tpm_included_even_below_min_cta_tpm(monkeypatch):
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["MAGEA4"],
+                "gene_id": ["ENSG_MAGEA4"],
+                "peptide": ["NOTPMPEP9"],
+                "length": [9],
+            }
+        ),
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"MAGEA4": float("nan")},
+        min_cta_tpm=1000.0,
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    assert list(out["peptide"]) == ["NOTPMPEP9"]
+    assert pd.isna(out["source_tpm"].iloc[0])
+
+
+def test_none_tpm_normalized_to_nan_and_included(monkeypatch):
+    """The Python API accepts a bare None the same way the CLI's --cta
+    (no =TPM) does."""
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["MAGEA4"],
+                "gene_id": ["ENSG_MAGEA4"],
+                "peptide": ["NONEPEP9"],
+                "length": [9],
+            }
+        ),
+        raising=True,
+    )
+
+    out = personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"MAGEA4": None},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+    )
+    assert list(out["peptide"]) == ["NONEPEP9"]
+
+
+# ── show_progress ────────────────────────────────────────────────────────
+
+
+def test_show_progress_writes_stage_messages_to_stderr(monkeypatch, capsys):
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["MAGEA4"],
+                "gene_id": ["ENSG_MAGEA4"],
+                "peptide": ["PROGRESSPEP"],
+                "length": [9],
+            }
+        ),
+        raising=True,
+    )
+
+    personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"MAGEA4": 10.0},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        show_progress=True,
+    )
+    err = capsys.readouterr().err
+    assert "Generating exclusivity-screened CTA peptides" in err
+    assert "Done:" in err
+
+
+def test_show_progress_false_is_silent(monkeypatch, capsys):
+    monkeypatch.setattr("tsarina.gene_sets.CTA_gene_names", lambda: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"MAGEA4"}, raising=True)
+    monkeypatch.setattr(
+        "tsarina.gene_sets.CTA_clinical_target_gene_names", lambda: set(), raising=True
+    )
+    monkeypatch.setattr(
+        "tsarina.peptides.cta_exclusive_peptides",
+        lambda **kw: pd.DataFrame(
+            {
+                "gene_name": ["MAGEA4"],
+                "gene_id": ["ENSG_MAGEA4"],
+                "peptide": ["QUIETPEP9"],
+                "length": [9],
+            }
+        ),
+        raising=True,
+    )
+
+    personalize(
+        hla_alleles=["HLA-A*02:01"],
+        cta_expression={"MAGEA4": 10.0},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        show_progress=False,
+    )
+    assert capsys.readouterr().err == ""
+
+
+# ── format_table ─────────────────────────────────────────────────────────
+
+
+def test_format_table_on_empty_result():
+    assert personalize_module.format_table(
+        pd.DataFrame(columns=personalize_module._OUTPUT_COLUMNS)
+    ) == ("(no targets)")
+
+
+def test_format_table_marks_flagged_rows_with_footnote():
+    df = pd.DataFrame(
+        {
+            "peptide": ["AAA", "BBB"],
+            "category": ["cta", "cta_flagged"],
+            "source": ["MAGEA4", "CTAG2"],
+            "tier_label": ["STRONG", "STRONG"],
+            "best_allele": ["HLA-A*02:01", "HLA-B*14:02"],
+            "affinity_nm": [10.0, 20.0],
+            "presentation_percentile": [0.1, 0.2],
+            "ms_hit_count": [3, 1],
+        }
+    )
+    table = personalize_module.format_table(df)
+    lines = table.splitlines()
+    assert "CTAG2*" in lines[3]
+    assert "MAGEA4" in lines[2] and "MAGEA4*" not in lines[2]
+    assert any("flagged clinical-target CTA" in line for line in lines)
