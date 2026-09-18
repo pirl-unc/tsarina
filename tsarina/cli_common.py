@@ -17,6 +17,7 @@ three drifting copies)."""
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 
 #: mhctools predictors accepted by every scoring-capable subcommand.
@@ -26,6 +27,23 @@ SUPPORTED_PREDICTORS = ("mhcflurry", "netmhcpan", "netmhcpan_el")
 def split_csv(value: str) -> list[str]:
     """Parse a comma-separated argument into a trimmed, non-empty list."""
     return [s.strip() for s in value.split(",") if s.strip()]
+
+
+def flatten_multi(values: list[str]) -> list[str]:
+    """Flatten ``nargs="+"``-collected tokens into one clean list.
+
+    Each collected token may itself be comma- and/or whitespace-separated
+    (a single quoted ``"A,B,C"`` or ``"A B C"``), so a caller can mix
+    unquoted space-separated tokens (``--flag A B C``), one quoted
+    comma-separated string (``--flag "A,B,C"``), or both, and get the same
+    flat list either way.
+    """
+    out: list[str] = []
+    for v in values:
+        for piece in re.split(r"[,\s]+", v.strip()):
+            if piece:
+                out.append(piece)
+    return out
 
 
 def parse_lengths(value: str) -> tuple[int, ...]:

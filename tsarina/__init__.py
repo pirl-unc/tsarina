@@ -26,6 +26,8 @@ from .cancer_expression import (
 from .evidence import CTA_detailed_evidence, CTA_evidence
 from .gene_sets import (
     CTA_by_axes,
+    CTA_clinical_target_gene_ids,
+    CTA_clinical_target_gene_names,
     CTA_excluded_gene_ids,
     CTA_excluded_gene_names,
     CTA_filtered_gene_ids,
@@ -85,6 +87,8 @@ __all__ = [
     "SAFETY_TISSUE_GROUPS",
     "VITAL_TISSUE_MS_NAMES",
     "CTA_by_axes",
+    "CTA_clinical_target_gene_ids",
+    "CTA_clinical_target_gene_names",
     "CTA_detailed_evidence",
     "CTA_evidence",
     "CTA_excluded_gene_ids",

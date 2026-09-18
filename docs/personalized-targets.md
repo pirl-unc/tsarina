@@ -24,6 +24,12 @@ whole-exome discovery of private neoantigens.
 | Viruses | No | Keys such as `hpv16` or `ebv` | Adds peptides from the corresponding viral proteome |
 | IEDB/CEDAR data | Recommended | Registered dataset or explicit path | Adds public cancer and healthy-tissue MS evidence |
 
+On the command line, `--hla` and `--cta` accept comma- and/or space-separated
+entries, quoted or not (`--hla HLA-A*02:01 HLA-B*07:02` works as well as
+`--hla 'HLA-A*02:01,HLA-B*07:02'`). An allele's `*` is optional —
+`HLA-A0201` and `A0201` both resolve to `HLA-A*02:01` — which means `--hla`
+never strictly needs quoting (`*` is a shell glob character).
+
 At least one target source—CTA expression, mutations, or viruses—must produce
 candidates for the result to be non-empty.
 
@@ -113,10 +119,11 @@ allele.
 | Column | Meaning |
 |---|---|
 | `peptide`, `length` | Peptide sequence and length |
-| `category` | `cta`, `viral`, or `mutant` |
+| `category` | `cta`, `cta_flagged`, `viral`, or `mutant` |
 | `source` | CTA symbol, virus name, or mutation label |
 | `source_detail` | Ensembl gene ID, viral protein accession, or mutation string |
 | `source_tpm` | Patient tumor RNA expression for CTA rows |
+| `flag_reason` | Why oncoref excludes this gene from the strict CTA set, for `cta_flagged` rows only |
 | `ms_hit_count` | Number of aggregated public MS observations |
 | `ms_alleles`, `ms_allele_count` | Observed HLA restrictions and their count |
 | `ms_in_cancer` | Whether public cancer MS evidence exists |
@@ -136,6 +143,18 @@ CTA definitions come directly from
 second CTA list. The patient workflow starts from the canonical oncoref set,
 then applies expression, restriction-confidence, peptide-exclusivity, and
 downstream evidence gates.
+
+A `--cta` gene oncoref excludes from that strict set but still tracks as a
+known clinical target (CTAG2/LAGE-1 is the motivating example: excluded for a
+low-level HPA heart RNA signal, kept because it shares the NY-ESO-1 157-165
+epitope targeted by the approved TCR-T afami-cel) is not silently dropped. It
+appears with `category="cta_flagged"` and the exclusion reason in
+`flag_reason`, so a caller who named the gene explicitly sees it and its
+caveat. Its peptides are generated directly from the protein sequence and are
+not screened for overlap with other proteins the way a strict CTA's are — see
+`flag_reason`. A `--cta` gene that is neither a recognized CTA nor a known
+clinical target (a typo, or a gene with no CTA evidence at all) is dropped
+with a warning naming it.
 
 See [CTA ownership and downstream evidence](curation.md) for the definition
 boundary.

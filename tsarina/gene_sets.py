@@ -80,6 +80,14 @@ CTA_testis_restricted_gene_names = _oncoref_cta.cta_testis_restricted_gene_names
 CTA_testis_restricted_gene_ids = _oncoref_cta.cta_testis_restricted_gene_ids
 CTA_placental_restricted_gene_names = _oncoref_cta.cta_placental_restricted_gene_names
 CTA_placental_restricted_gene_ids = _oncoref_cta.cta_placental_restricted_gene_ids
+#: Genes oncoref excludes from the strict default CTA set (e.g. a low-level
+#: HPA normal-tissue RNA signal) but keeps as known clinical targets --
+#: CTAG2/LAGE-1 (excluded for a heart RNA signal, kept for its NY-ESO-1-
+#: family therapeutic history) is the motivating example. Disjoint from
+#: ``CTA_gene_names`` by construction upstream, but callers combining the
+#: two sets should still subtract rather than assume that.
+CTA_clinical_target_gene_names = _oncoref_cta.cta_clinical_target_gene_names
+CTA_clinical_target_gene_ids = _oncoref_cta.cta_clinical_target_gene_ids
 cta_symbol_for_alias = _oncoref_cta.cta_symbol_for_alias
 
 
