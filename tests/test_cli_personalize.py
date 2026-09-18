@@ -92,20 +92,13 @@ def test_personalize_hla_rejects_unrecognized_allele():
     assert "not a recognized allele" in r.stderr
 
 
-def test_personalize_cta_accepts_bare_gene_name_without_tpm():
-    """--cta's '=TPM' half is optional -- a bare gene name is included
-    regardless of --min-cta-tpm rather than rejected."""
-    r = _run_cli(
-        "personalize",
-        "--hla",
-        "HLA-A*02:01",
-        "--cta",
-        "MAGEA4",
-        "--no-score",
-        "--skip-ms-evidence",
-        check=False,
-    )
-    assert r.returncode == 0, r.stderr
+# A bare "--cta GENE" (no =TPM) is deliberately NOT covered by a CLI
+# subprocess test: by design it bypasses the --min-cta-tpm floor and always
+# runs real CTA peptide generation, which needs a warm pyensembl reference
+# cache and is not something a CLI-parsing test should depend on. The
+# parsing itself is covered by test_parse_cta_bare_gene_name_maps_to_nan_tpm,
+# and the inclusion behavior by test_nan_tpm_included_even_below_min_cta_tpm
+# in test_personalize.py.
 
 
 def test_personalize_cta_rejects_non_numeric_tpm_value():
