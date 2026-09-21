@@ -43,6 +43,7 @@ import sys
 import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from functools import lru_cache
 from pathlib import Path
 from typing import TextIO
 
@@ -173,16 +174,41 @@ def _load_proteoform_groups() -> dict[str, tuple[str, ...]]:
     return {label: tuple(symbols) for label, symbols in proteoform_symbol_map(scope="cta").items()}
 
 
+@lru_cache(maxsize=1)
+def _proteoform_display_symbols() -> dict[str, str]:
+    """``{members label -> preferred display symbol}`` from oncoref.
+
+    ``proteoform_symbol`` returns the curated alias where one exists
+    (``CTAG1A/CTAG1B`` -> ``NY-ESO-1``) and the prefix-contracted members
+    otherwise (``XAGE1A/XAGE1B`` -> ``XAGE1A/B``).  Only groups oncoref
+    actually registers are in here: an ad-hoc runtime grouping must not
+    be contracted (see :func:`_cta_group_label`).
+    """
+    from oncoref.proteoforms import proteoform_symbol
+
+    return {label: proteoform_symbol(label) for label in _CTA_GROUPS}
+
+
 def _build_group_alias_map(groups: dict[str, tuple[str, ...]]) -> dict[str, str]:
-    """Compact alias -> group label. Auto-generates each group's label and member
-    symbols, then overlays the curated anchor aliases so NY-ESO-1 / GAGED2 / etc.
-    still resolve. Members are disjoint across identical-protein groups, so the
-    auto-generated keys don't collide."""
+    """Compact alias -> group label. Auto-generates each group's label, its
+    oncoref display symbol, and its member symbols, then overlays the curated
+    anchor aliases so NY-ESO-1 / GAGED2 / etc. still resolve. Members are
+    disjoint across identical-protein groups, so the auto-generated keys don't
+    collide.
+
+    Registering the display symbol is what lets panel's own output round-trip
+    back in as ``--ctas``: 9 of the 17 groups print a symbol whose compact form
+    (``CGB3/5/8`` -> ``CGB358``, ``GAGE12C/D/E`` -> ``GAGE12CDE``) matches
+    neither the members label nor any member, and the 8 that do work only
+    coincide with a curated anchor alias.
+    """
     out: dict[str, str] = {}
     for label, members in groups.items():
         out[_compact_cta_name(label)] = label
         for member in members:
             out[_compact_cta_name(member)] = label
+    for label, symbol in _proteoform_display_symbols().items():
+        out.setdefault(_compact_cta_name(symbol), label)
     out.update(_ANCHOR_ALIASES)
     return out
 
@@ -305,6 +331,7 @@ def spanning_pmhc_set(
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     output_format: str = "wide",
+    proteoform_labels: str = "symbol",
     include_empty_ctas: bool | None = None,
     on_progress: Callable[[str], None] | None = None,
     progress_bar: bool = False,
@@ -432,6 +459,17 @@ def spanning_pmhc_set(
         the chosen peptide as the cell value.
         ``"long"`` — one row per filled cell with peptide, length,
         percentile, score, and affinity columns.
+    proteoform_labels
+        How to label identical-protein CTA groups in the output.
+        ``"symbol"`` (default) uses oncoref's preferred symbol -- a curated
+        alias where one exists (``NY-ESO-1``), else the prefix-contracted
+        members (``XAGE1A/B``) -- matching what
+        :func:`tsarina.personalize.personalized_targets` reports.
+        ``"members"`` keeps the full sorted members label
+        (``CTAG1A/CTAG1B``) for callers with scripts keyed on it.
+        Selection, filtering and grouping are unaffected either way, and
+        both spellings remain valid ``ctas`` / ``selection_allowlist``
+        input.
     include_empty_ctas
         Whether to keep CTA rows with no selected pMHCs after peptide,
         exclusivity, public-MS, and prediction gates. ``None`` (default)
@@ -472,6 +510,10 @@ def spanning_pmhc_set(
     """
     if output_format not in ("wide", "long"):
         raise ValueError(f"output_format must be 'wide' or 'long', got {output_format!r}")
+    if proteoform_labels not in ("symbol", "members"):
+        raise ValueError(
+            f"proteoform_labels must be 'symbol' or 'members', got {proteoform_labels!r}"
+        )
     if cta_count < 1:
         raise ValueError(f"cta_count must be >= 1, got {cta_count!r}")
     if peptides_per_cell < 1:
@@ -647,6 +689,22 @@ def spanning_pmhc_set(
         )
     selected = _apply_cta_groups(selected, cta_groups)
     cta_rank_values = _cta_rank_values_with_groups(cta_rank_values, cta_groups)
+    if proteoform_labels == "symbol":
+        (
+            selected,
+            output_cta_list,
+            cta_groups,
+            cta_rank_values,
+            empty_ctas,
+            processed_cta_list,
+        ) = _apply_display_labels(
+            selected,
+            output_cta_list,
+            cta_groups,
+            cta_rank_values,
+            empty_ctas,
+            processed_cta_list,
+        )
     if annotate_netmhcpan_affinity:
         selected = _annotate_netmhcpan_affinity(
             selected=selected,
@@ -786,6 +844,68 @@ def _cta_group_label(members: tuple[str, ...]) -> str:
     if len(members) == 1:
         return members[0]
     return "/".join(members)
+
+
+def _display_label(label: str) -> str:
+    """The name a group is *reported* under: oncoref's preferred symbol for
+    a registered identical-protein group, else the label unchanged.
+
+    Deliberately not ``proteoform_symbol(label)`` for everything. That call
+    is safe on arbitrary strings, but panel also builds ad-hoc groups at
+    runtime out of CTAs with identical selected pMHCs or peptide sets, and
+    contracting one of those would invent a name like ``MAGEA1/4`` for two
+    genes that merely share selected peptides -- claiming an identical
+    protein sequence they don't have.
+    """
+    return _proteoform_display_symbols().get(label, label)
+
+
+def _apply_display_labels(
+    selected: pd.DataFrame,
+    cta_list: list[str],
+    cta_groups: list[dict[str, object]],
+    cta_rank_values: dict[str, float | str],
+    empty_ctas: list[str],
+    input_cta_list: list[str],
+) -> tuple[
+    pd.DataFrame,
+    list[str],
+    list[dict[str, object]],
+    dict[str, float | str],
+    list[str],
+    list[str],
+]:
+    """Rewrite every outward-facing CTA label to its display symbol, in one pass.
+
+    Runs after selection, filtering, grouping and ranking have all finished on
+    the members label (which stays the internal key: ``_cta_member_symbols``
+    resolves a label back through ``_CTA_GROUPS`` and would quietly return
+    ``("NY-ESO-1",)`` for a renamed one).  Nothing downstream of here --
+    ``panel_summary``, ``_to_wide``, ``_to_long``, ``_attach_panel_attrs`` --
+    reads a label as anything but an opaque value.
+
+    All five carriers are rewritten together because they have to agree: the
+    wide pivot reindexes ``selected["cta"]`` against ``cta_list``, so relabeling
+    one and not the other silently yields an all-NaN matrix.
+    """
+    symbols = _proteoform_display_symbols()
+    candidates = {*cta_list, *empty_ctas, *input_cta_list}
+    candidates.update(str(group["cta"]) for group in cta_groups)
+    mapping = {label: symbols[label] for label in candidates if label in symbols}
+    if not mapping:
+        return selected, cta_list, cta_groups, cta_rank_values, empty_ctas, input_cta_list
+
+    if not selected.empty and "cta" in selected.columns:
+        selected = selected.copy()
+        selected["cta"] = selected["cta"].map(lambda v: mapping.get(str(v), v))
+    cta_list = [mapping.get(label, label) for label in cta_list]
+    empty_ctas = [mapping.get(label, label) for label in empty_ctas]
+    input_cta_list = [mapping.get(label, label) for label in input_cta_list]
+    cta_groups = [
+        {**group, "cta": mapping.get(str(group["cta"]), str(group["cta"]))} for group in cta_groups
+    ]
+    cta_rank_values = {mapping.get(label, label): value for label, value in cta_rank_values.items()}
+    return selected, cta_list, cta_groups, cta_rank_values, empty_ctas, input_cta_list
 
 
 def _cta_group_order(

@@ -267,6 +267,18 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--proteoform-labels",
+        choices=("symbol", "members"),
+        default="symbol",
+        help=(
+            "How to label identical-protein CTA groups (default 'symbol'). "
+            "'symbol' uses oncoref's preferred name -- NY-ESO-1, XAGE1A/B, "
+            "SSX2/B -- matching `tsarina personalize`. 'members' keeps the "
+            "full members label, CTAG1A/CTAG1B. Both spellings stay valid "
+            "--ctas / --selection-allowlist input either way."
+        ),
+    )
+    p.add_argument(
         "--no-summary",
         dest="summary",
         action="store_false",
@@ -383,6 +395,7 @@ def handle(args: argparse.Namespace) -> None:
         iedb_path=args.iedb_path,
         cedar_path=args.cedar_path,
         output_format=output_format,
+        proteoform_labels=args.proteoform_labels,
         include_empty_ctas=True if args.ctas is not None else args.show_empty_ctas,
         on_progress=_on_progress if show_progress else None,
         progress_bar=progress_bar,
