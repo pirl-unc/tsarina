@@ -82,8 +82,20 @@ gates. Aliases such as `NY-ESO-1` and `MAGE-A4` are normalized.
 
 The workflow enumerates 8–11mer CTA peptides and removes peptides that also
 occur in non-CTA human proteins. A single displayed target can expand to more
-than one Ensembl gene; for example, `CTAG1A/CTAG1B` and its `NY-ESO-1` alias
-expand to both genes while retaining one output label.
+than one Ensembl gene: CTAG1A and CTAG1B both resolve to one target, reported
+as `NY-ESO-1`.
+
+Identical-protein groups are reported under oncoref's preferred symbol — a
+curated alias where one exists (`NY-ESO-1`), else the prefix-contracted
+members (`XAGE1A/B`, `SSX2/B`, `GAGE12C/D/E`) — which is the same naming
+[`tsarina personalize`](personalized-targets.md) uses. Long format keeps the
+full membership in `cta_members`, and `panel_summary()["cta_groups"]` lists
+it for either format. Every one of these symbols is also accepted as `--ctas`
+input, as are the member symbols and the full members label.
+
+Pass `--proteoform-labels members` to report the full members label
+(`CTAG1A/CTAG1B`) instead. Selection, filtering, ranking and grouping are
+identical either way; only the reported label changes.
 
 Two forms of redundancy are grouped by default:
 
@@ -259,6 +271,9 @@ clinical-grade population-genetics analysis.
   separate.
 - `--no-group-identical-cta-pmhcs` keeps sources with duplicate final panels
   separate.
+- `--proteoform-labels {symbol,members}` chooses how identical-protein groups
+  are labeled in the output (default `symbol`; see
+  [Enumerate and group peptides](#3-enumerate-and-group-peptides)).
 
 ### Prediction
 

@@ -424,11 +424,11 @@ def test_automatic_selection_hides_empty_ctas_by_default():
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
     )
-    assert list(df["cta"]) == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B"]
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1"]
     assert df.attrs["input_cta_order"] == [
         "MAGEA4",
         "PRAME",
-        "CTAG1A/CTAG1B",
+        "NY-ESO-1",
         "VITALRNA",
     ]
     assert df.attrs["empty_ctas"] == ["VITALRNA"]
@@ -486,11 +486,11 @@ def test_automatic_selection_backfills_empty_ctas_by_default(monkeypatch):
         max_percentile=10.0,
     )
 
-    assert list(df["cta"]) == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B", "BACKFILL"]
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1", "BACKFILL"]
     assert df.attrs["input_cta_order"] == [
         "MAGEA4",
         "PRAME",
-        "CTAG1A/CTAG1B",
+        "NY-ESO-1",
         "VITALRNA",
         "BACKFILL",
     ]
@@ -504,7 +504,7 @@ def test_include_empty_ctas_preserves_automatic_failures():
         max_percentile=10.0,
         include_empty_ctas=True,
     )
-    assert list(df["cta"]) == ["MAGEA4", "PRAME", "CTAG1A/CTAG1B", "VITALRNA"]
+    assert list(df["cta"]) == ["MAGEA4", "PRAME", "NY-ESO-1", "VITALRNA"]
 
 
 def test_explicit_ctas_overrides_ranking():
@@ -515,7 +515,7 @@ def test_explicit_ctas_overrides_ranking():
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
     )
-    assert list(df["cta"]) == ["CTAG1A/CTAG1B", "PRAME"]
+    assert list(df["cta"]) == ["NY-ESO-1", "PRAME"]
 
 
 def test_explicit_ctas_accepts_clinical_aliases():
@@ -525,8 +525,8 @@ def test_explicit_ctas_accepts_clinical_aliases():
         max_percentile=10.0,
         peptides_per_cell=1,
     )
-    assert list(df["cta"]) == ["MAGEA4", "CTAG1A/CTAG1B"]
-    assert df.set_index("cta").loc["CTAG1A/CTAG1B", "HLA-A*02:01"] == "NYESPEPT1"
+    assert list(df["cta"]) == ["MAGEA4", "NY-ESO-1"]
+    assert df.set_index("cta").loc["NY-ESO-1", "HLA-A*02:01"] == "NYESPEPT1"
 
 
 def test_explicit_ctas_bypass_mage_family_gate():
@@ -554,7 +554,7 @@ def test_ctag1_group_expands_ctag1a_and_ctag1b_for_peptide_resolution(monkeypatc
     )
 
     assert calls == [["CTAG1A", "CTAG1B"]]
-    assert list(df["cta"]) == ["CTAG1A/CTAG1B"]
+    assert list(df["cta"]) == ["NY-ESO-1"]
 
 
 def test_min_restriction_confidence_filters_low():
@@ -581,7 +581,7 @@ def test_min_restriction_confidence_none_admits_low():
     assert "BAGE" not in df["cta"].tolist()
     assert "MAGEA1" not in df["cta"].tolist()
     assert "MAGEB2" not in df["cta"].tolist()
-    assert set(df["cta"]) == {"MAGEA4", "PRAME", "VITALRNA", "CTAG1A/CTAG1B"}
+    assert set(df["cta"]) == {"MAGEA4", "PRAME", "VITALRNA", "NY-ESO-1"}
 
 
 def test_restriction_levels_filter():
@@ -592,7 +592,7 @@ def test_restriction_levels_filter():
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
     )
-    assert "CTAG1A/CTAG1B" in df["cta"].tolist()
+    assert "NY-ESO-1" in df["cta"].tolist()
 
 
 def test_vital_tissue_gate_can_be_disabled():
@@ -1456,10 +1456,10 @@ def test_xage1_explicit_group_panel_preserves_member_genes(monkeypatch):
         output_format="long",
     )
 
-    assert "XAGE1A/XAGE1B" in long.attrs["cta_order"]
-    group = next(g for g in long.attrs["cta_groups"] if g["cta"] == "XAGE1A/XAGE1B")
+    assert "XAGE1A/B" in long.attrs["cta_order"]
+    group = next(g for g in long.attrs["cta_groups"] if g["cta"] == "XAGE1A/B")
     assert group["members"] == ["XAGE1A", "XAGE1B"]
-    grouped = long[long["cta"] == "XAGE1A/XAGE1B"].iloc[0]
+    grouped = long[long["cta"] == "XAGE1A/B"].iloc[0]
     assert grouped["cta_members"] == "XAGE1A;XAGE1B"
 
 
@@ -1504,10 +1504,10 @@ def test_ssx4_explicit_group_panel_preserves_member_genes(monkeypatch):
         output_format="long",
     )
 
-    assert "SSX4/SSX4B" in long.attrs["cta_order"]
-    group = next(g for g in long.attrs["cta_groups"] if g["cta"] == "SSX4/SSX4B")
+    assert "SSX4/B" in long.attrs["cta_order"]
+    group = next(g for g in long.attrs["cta_groups"] if g["cta"] == "SSX4/B")
     assert group["members"] == ["SSX4", "SSX4B"]
-    grouped = long[long["cta"] == "SSX4/SSX4B"].iloc[0]
+    grouped = long[long["cta"] == "SSX4/B"].iloc[0]
     assert grouped["cta_members"] == "SSX4;SSX4B"
 
 
@@ -1880,6 +1880,7 @@ def test_cli_handler_wires_on_progress_to_stderr(monkeypatch, capsys):
     monkeypatch.setattr("tsarina.spanning.spanning_pmhc_set", _fake_spanning)
 
     args = argparse.Namespace(
+        proteoform_labels="symbol",
         cta_count=25,
         cta_rank_by="ms_cancer_peptide_count",
         ctas=None,
@@ -2034,6 +2035,7 @@ def test_cli_handler_default_table_report(monkeypatch, capsys):
         iedb_path=None,
         cedar_path=None,
         format="table",
+        proteoform_labels="symbol",
         output=None,
         summary=True,
         progress=True,
@@ -2325,3 +2327,87 @@ def test_allele_locus_strips_hla_prefix_case_insensitively():
     assert _allele_locus("B*07:02") == "B"
     assert _allele_locus("DRB1*04:01") == "DRB1"
     assert _allele_locus("A2") == "A"
+
+
+# ── Proteoform display labels (#165) ────────────────────────────────────
+
+
+def test_display_label_uses_oncoref_preferred_symbol_for_registered_groups():
+    from oncoref.proteoforms import proteoform_symbol
+
+    from tsarina.spanning import _CTA_GROUPS, _display_label
+
+    assert _display_label("CTAG1A/CTAG1B") == "NY-ESO-1"
+    assert _display_label("XAGE1A/XAGE1B") == "XAGE1A/B"
+    assert _display_label("SSX2/SSX2B") == "SSX2/B"
+    for label in _CTA_GROUPS:
+        assert _display_label(label) == proteoform_symbol(label)
+
+
+def test_display_label_leaves_ad_hoc_runtime_groups_alone():
+    """Panel also groups CTAs that merely share selected pMHCs / peptide
+    sets. Contracting one of those would invent a name (MAGEA1/4) claiming
+    an identical protein sequence they don't have."""
+    from tsarina.spanning import _display_label
+
+    assert _display_label("MAGEA1/MAGEA4") == "MAGEA1/MAGEA4"
+    assert _display_label("PRAME") == "PRAME"
+
+
+def test_every_preferred_symbol_round_trips_as_cta_input():
+    """Panel prints these, so `--ctas <printed label>` has to resolve. 9 of
+    the 17 don't match the members label or any member symbol."""
+    from tsarina.spanning import (
+        _CTA_GROUPS,
+        _GROUP_ALIAS_TO_LABEL,
+        _compact_cta_name,
+        _display_label,
+    )
+
+    for label in _CTA_GROUPS:
+        symbol = _display_label(label)
+        assert _GROUP_ALIAS_TO_LABEL[_compact_cta_name(symbol)] == label, symbol
+
+
+def test_apply_display_labels_relabels_every_carrier_together():
+    """The wide pivot reindexes selected['cta'] against cta_list, so any
+    carrier left on the old label silently yields an all-NaN matrix."""
+    from tsarina.spanning import _apply_display_labels
+
+    selected = pd.DataFrame({"cta": ["CTAG1A/CTAG1B", "PRAME"], "allele": ["A", "A"]})
+    out, cta_list, groups, ranks, empty, input_list = _apply_display_labels(
+        selected,
+        ["CTAG1A/CTAG1B", "PRAME"],
+        [{"cta": "CTAG1A/CTAG1B", "members": ["CTAG1A", "CTAG1B"]}],
+        {"CTAG1A/CTAG1B": 3.0, "PRAME": 1.0},
+        ["XAGE1A/XAGE1B"],
+        ["CTAG1A/CTAG1B", "PRAME"],
+    )
+    assert list(out["cta"]) == ["NY-ESO-1", "PRAME"]
+    assert cta_list == ["NY-ESO-1", "PRAME"]
+    assert groups[0]["cta"] == "NY-ESO-1"
+    assert groups[0]["members"] == ["CTAG1A", "CTAG1B"]
+    assert ranks == {"NY-ESO-1": 3.0, "PRAME": 1.0}
+    assert empty == ["XAGE1A/B"]
+    assert input_list == ["NY-ESO-1", "PRAME"]
+
+
+def test_proteoform_labels_members_keeps_the_old_strings():
+    """Escape hatch for anyone with a script keyed on the members label."""
+    df = spanning_pmhc_set(
+        ctas=["CTAG1B", "PRAME"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=10.0,
+        proteoform_labels="members",
+    )
+    assert list(df["cta"]) == ["CTAG1A/CTAG1B", "PRAME"]
+
+
+def test_proteoform_labels_rejects_unknown_value():
+    with pytest.raises(ValueError, match="proteoform_labels"):
+        spanning_pmhc_set(
+            ctas=["CTAG1B"],
+            alleles=["HLA-A*02:01"],
+            max_percentile=10.0,
+            proteoform_labels="nope",
+        )
