@@ -19,7 +19,7 @@ preserve evidence provenance and distinguish candidates from approved sets.
 ## Plan
 
 - [x] Audit and update local dependency environment; establish full-suite baseline.
-- [ ] #132: verify oncoref ownership, dependency minimum, required integration
+- [x] #132: verify oncoref ownership, dependency minimum, required integration
       coverage, and migration guidance; PR, review, merge, deploy.
 - [ ] #146: update Actions to supported runtimes across workflows; verify
       the Python 3.9–3.12 CI matrix; PR, review, merge, deploy.
@@ -36,6 +36,17 @@ preserve evidence provenance and distinguish candidates from approved sets.
 - [ ] Audit all six issue/PR/release states and identify next dependent work.
 
 ## Review log
+
+### #146 implementation and verification plan
+
+- [x] Upgrade checkout/setup-python in all three workflows to their current
+      Node.js 24 releases (v7); upgrade Pages upload/deploy actions to v5 so
+      documentation publishing also avoids deprecated nested runtimes.
+- [x] Preserve triggers, permissions, commands, and Python 3.9–3.12 coverage.
+- [x] Validate YAML and each action's published runtime/compatibility contract.
+- [x] Bump 1.31.1 → 1.31.2; run format, lint, and the full development suite.
+- [ ] Review the complete diff, open a separate PR, verify all CI jobs, merge,
+      deploy from clean main, and verify both PyPI artifacts.
 
 - Initial state: clean main at 3c3a5d8, version 1.31.0; all six issues open.
 - GitHub CLI works with network/keychain access outside the sandbox.
@@ -2066,3 +2077,20 @@ confirmed identical on unmodified main: a shared-environment mhcflurry
 version drift unrelated to this diff, not one of the 11 findings).
 
 Version bumped 1.25.4 -> 1.25.5.
+
+## #146 pre-merge review
+
+Only action references and the version changed outside this log. Published
+metadata confirms Node.js 24 for checkout v7, setup-python v7, deploy-pages
+v5, and upload-pages-artifact v5's nested upload-artifact v7. All workflows
+parse, and a semantic before/after comparison proves their non-version
+configuration unchanged. Format/lint passed; full suite: 561 passed,
+7 warnings. The new workflow will be exercised by the PR CI matrix.
+
+## Release verification: #132
+
+PR #167 merged at 0b28a31; issue #132 is closed. `./deploy.sh` passed
+lint and all 561 tests from clean main and published 1.31.1. PyPI reports
+both wheel and sdist, with SHA-256 digests matching the local build files.
+#168 has passed its full Python 3.9–3.12 CI matrix with no Node deprecation
+annotation (only the unrelated upcoming Ubuntu runner-image notice).
