@@ -127,6 +127,35 @@ classifications.
 
 ## Updating definitions
 
+### Migrating older installations
+
+The reference package was renamed from `cancerdata` to `oncodata` and then
+to `oncoref`. Use `oncoref` for new code and environments; installing the
+intermediate name does not update Tsarina's current reference data.
+
+| Older workflow | Current workflow |
+|---|---|
+| Import `cancerdata` or `oncodata` for CTA definitions | Import `oncoref.cta` |
+| Run `scripts/sync_proteoform_groups.py` to refresh a local mirror | Read `oncoref.proteoforms.proteoform_symbol_map(scope="cta")` directly |
+| Skip registry integration checks when the source package is absent | Install the required `oncoref` dependency and run the integration tests |
+
+The sync script and mirrored registry have been removed. No manual sync is
+needed after upgrading oncoref. The required integration check in
+`tests/test_spanning.py` compares Tsarina's groups with the live oncoref API;
+it does not use `pytest.importorskip`.
+
+For development, run `./develop.sh` with the intended virtualenv active. It
+installs an adjacent oncoref checkout in editable mode and reports its resolved
+path. Verify that both imports point to the intended checkouts before comparing
+curation results:
+
+```bash
+python -c 'import oncoref, tsarina; print(oncoref.__file__); print(tsarina.__file__)'
+pytest tests/test_oncoref_authority.py tests/test_gene_sets.py tests/test_spanning.py
+```
+
+### Changing the canonical definitions
+
 For changes to CTA membership, aliases, HPA classifications, evidence
 provenance, or proteoform groups:
 

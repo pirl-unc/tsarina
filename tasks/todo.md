@@ -1,3 +1,63 @@
+# Issue release series (2026-09-22)
+
+## Specification
+
+Create, review, merge, and publish one PR for each open issue: #132, #146,
+#160, #130, #131, and #120. Audit current behavior before implementing an old
+proposal: oncoref now owns CTA definitions/proteoforms, and #161 already added
+flagged clinical targets. Each PR must contain a version bump and pass
+`./format.sh`, `./lint.sh`, and `./test.sh`; deploy with `./deploy.sh` from
+clean main after merge and verify both PyPI distributions.
+
+Use current development checkouts for every locally developed dependency,
+including optional predictors when installed. Compare local branches with
+their remote heads, preserve unrelated work, and record resolved imports.
+File newly discovered defects in their owning repositories and link them in
+the relevant PR. Read primary literature for biological interpretation;
+preserve evidence provenance and distinguish candidates from approved sets.
+
+## Plan
+
+- [x] Audit and update local dependency environment; establish full-suite baseline.
+- [ ] #132: verify oncoref ownership, dependency minimum, required integration
+      coverage, and migration guidance; PR, review, merge, deploy.
+- [ ] #146: update Actions to supported runtimes across workflows; verify
+      the Python 3.9–3.12 CI matrix; PR, review, merge, deploy.
+- [ ] #160: audit all CTA drop paths and flagged-target caveat propagation;
+      reproduce remaining gaps, fix and test; PR, review, merge, deploy.
+- [ ] #130: audit affected genes against current oncoref protein evidence;
+      correct stale upstream inputs if present, verify downstream parity;
+      PR, review, merge, deploy.
+- [ ] #131: check SUN5/SUN3/SPAG4 evidence and literature, correct candidate
+      coverage at its owner while retaining somatic caveats; PR, review,
+      merge, deploy.
+- [ ] #120: document HERV-K locus/family coverage limits and appropriate
+      evidence sources from primary literature; PR, review, merge, deploy.
+- [ ] Audit all six issue/PR/release states and identify next dependent work.
+
+## Review log
+
+- Initial state: clean main at 3c3a5d8, version 1.31.0; all six issues open.
+- GitHub CLI works with network/keychain access outside the sandbox.
+- Current `deploy.sh` builds/uploads the existing version; it does not bump
+  or commit despite AGENTS.md's older description. Bumps belong in each PR.
+- #132 review: migration code already landed in #142/#143. Added explicit
+  migration guidance, obsolete-sync replacement, and executable integration
+  checks; bumped 1.31.0 → 1.31.1. No runtime duplication is needed.
+- Verified remote/current branches and imports for hitlist, oncoref, mhcgnomes,
+  pyensembl, datacache, gtfparse, serializable, sercol, mhcflurry, mhctools,
+  topiary, varcode, and osteosarc. All resolve to local development checkouts.
+- Dependency metadata problems are tracked in openvax/sercol#4 (existing
+  serializable/simplejson constraints) and openvax/topiary#374 (new report:
+  exact osteosarc pin replaces its current development checkout). Editable
+  sources remain installed; these unresolved metadata constraints are not
+  represented as a clean dependency-resolution check.
+- #132 gates passed: format, lint, full suite (561 passed, 7 warnings),
+  including the optional live mhcflurry calibration test. Reviewed the diff
+  against #132 and the current ownership implementation; no remaining code gap.
+
+---
+
 # PR — Reorganize Documentation from Overview to Reference (2026-07-24)
 
 ## Goal
