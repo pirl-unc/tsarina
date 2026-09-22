@@ -125,6 +125,31 @@ Live workflows can explicitly call `synthesize_restriction()` or
 HPA axes. These helpers do not derive or modify the upstream protein and RNA
 classifications.
 
+## Reviewed SUN-domain candidates
+
+SUN-domain membership alone does not establish a testis-restricted CTA. The
+[#131](https://github.com/pirl-unc/tsarina/issues/131) audit confirms that
+oncoref already supplies both SUN5 and SUN3 to Tsarina's evidence table:
+
+| Gene | HPA v23 RNA/protein evidence | Current handling |
+|---|---|---|
+| SUN5 / SPAG4L | Testis-restricted RNA and enhanced testis IHC | In the default CTA set |
+| SUN3 / SUNC1 | Testis-restricted RNA, but IHC in bronchus, kidney, skin, and testis | Retained in evidence; excluded from default selection |
+| SPAG4 / SUN4 / CT127 | Pancreas 87.3 nTPM versus testis 31.1 nTPM; additional somatic RNA | Outside default selection; candidate-reference omission tracked in [oncoref #548](https://github.com/pirl-unc/oncoref/issues/548) |
+| SUN1 / SUN2 | Broad somatic expression | Outside default selection |
+
+The original human [SPAG4 study](https://pubmed.ncbi.nlm.nih.gov/14614621/)
+reports pancreas as well as testis expression. Its
+[renal-cell carcinoma evidence](https://pubmed.ncbi.nlm.nih.gov/23602831/)
+does not remove that normal-tissue caveat. Mouse spermatid-specific SUN4
+findings should not override the human tissue data.
+
+[SUN5 colorectal-cancer experiments](https://pmc.ncbi.nlm.nih.gov/articles/PMC9654567/)
+support tumor-associated expression and a role in proliferation/migration;
+they do not establish peptide presentation or clinical safety. SUN3's
+discordant IHC remains visible rather than being presumed cross-reactivity.
+Candidate additions or evidence reinterpretation belong in oncoref.
+
 ## Updating definitions
 
 ### Migrating older installations
