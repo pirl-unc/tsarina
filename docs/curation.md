@@ -156,6 +156,21 @@ pytest tests/test_oncoref_authority.py tests/test_gene_sets.py tests/test_spanni
 
 ### Changing the canonical definitions
 
+Protein evidence must be refreshed along with RNA when adding or reviewing a
+candidate. The historical RNA-only additions in
+[#130](https://github.com/pirl-unc/tsarina/issues/130) are now corrected in the
+oncoref data consumed by Tsarina: CGB2/3/5/7, PSG4/6/7, CT45A5, CSH1, and
+GAGE10 all retain their HPA v23 IHC evidence. Recomputing their protein columns
+from the pinned `normal_tissue` table reproduces the current values; regression
+tests cover all ten genes, including CGB2's expressed status. The corrected
+data is also present in Tsarina's minimum supported oncoref 1.8.150.
+
+A protein restriction call is evidence, not an admission decision. For
+example, CGB3 has reproductive-tissue IHC, while oncoref still excludes it
+from the default CTA set after considering the full evidence. Do not restore
+old membership predictions from an issue's snapshot or regenerate a separate
+Tsarina table to change that decision.
+
 For changes to CTA membership, aliases, HPA classifications, evidence
 provenance, or proteoform groups:
 

@@ -37,6 +37,19 @@ preserve evidence provenance and distinguish candidates from approved sets.
 
 ## Review log
 
+### #130 implementation and verification plan
+
+- [x] Recompute the two historical stale protein columns for all ten genes
+      from oncoref's pinned HPA v23 normal-tissue IHC. Every current value
+      matches: no upstream data repair is required.
+- [x] Add downstream regression coverage for real IHC availability and
+      canonical evidence propagation on each affected gene. Keep membership
+      decisions separate from protein evidence; do not promote excluded genes.
+- [x] Document the current owner, audit result, and protein/membership
+      distinction. Verify the supported oncoref floor carries the corrected data.
+- [ ] Bump 1.31.4, run format/lint/full tests, review the diff, open a separate
+      PR, merge/deploy and verify publication.
+
 ### #160 implementation and verification plan
 
 - [x] Reproduce #169: a strict CTA present in the clinical registry returns
@@ -2120,3 +2133,12 @@ categories. Diagnostics distinguish unknown symbols from curated exclusions.
 The full suite passed: 571 tests, 7 warnings; format and lint passed.
 Clinical documentation correction is tracked in #170; FDA confirms afami-cel
 is MAGE-A4-directed, and NY-ESO-1 trial evidence is cited separately.
+
+## #130 pre-merge review
+
+All ten HPA v23 protein-expression/reliability values were recomputed from
+source and matched the current oncoref table. The published 1.8.150 minimum
+wheel also has those corrected values, so no dependency bump or local
+regeneration is appropriate. Ten regression cases now guard these measured
+IHC calls and expressed status without changing canonical admission decisions.
+Format/lint passed; the full suite passed 581 tests (17 warnings).
