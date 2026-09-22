@@ -37,6 +37,20 @@ preserve evidence provenance and distinguish candidates from approved sets.
 
 ## Review log
 
+### #131 implementation and verification plan
+
+- [x] Audit current SUN-domain coverage: SUN5 is strict TESTIS, SUN3 is
+      retained but excluded with somatic IHC; neither requires another seed.
+- [x] Review human SPAG4 evidence (PMIDs 14614621, 23602831), SUN5 colorectal
+      evidence (PMID 36358787), and HPA v23. Human SPAG4 pancreas expression
+      rules out strict testis selection; do not extrapolate mouse specificity.
+- [x] File oncoref#548 for SPAG4 candidate-reference discoverability, retaining
+      its normal-pancreas caveat without promoting it into a default set.
+- [x] Add regression coverage for SUN5/SUN3 presence, canonical membership,
+      Ensembl identity, and distinct RNA/protein evidence; document decisions.
+- [ ] Bump to 1.31.5, run format/lint/full tests, review, open the separate PR,
+      then merge/deploy and verify artifacts.
+
 ### #130 implementation and verification plan
 
 - [x] Recompute the two historical stale protein columns for all ten genes
@@ -2142,3 +2156,13 @@ wheel also has those corrected values, so no dependency bump or local
 regeneration is appropriate. Ten regression cases now guard these measured
 IHC calls and expressed status without changing canonical admission decisions.
 Format/lint passed; the full suite passed 581 tests (17 warnings).
+
+## #131 pre-merge review
+
+Current canonical data already satisfy SUN5/SUN3 seed inclusion. Five tests
+now guard their identities, RNA/protein distinction, and selection boundary,
+including keeping SUN1/SUN2/SPAG4 outside default selection. Re-read the
+SUN5 primary paper and human SPAG4 reports; HPA v23 directly verifies SPAG4
+pancreas 87.3 and testis 31.1 nTPM. Candidate-reference discoverability is
+tracked upstream in oncoref#548. No tissue-safety inference is weakened.
+Format/lint passed; full suite: 586 passed, 19 warnings.

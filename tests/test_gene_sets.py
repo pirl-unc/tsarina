@@ -167,6 +167,32 @@ def test_historical_rna_only_additions_retain_hpa_v23_ihc(symbol, tissues, relia
     assert not row["never_expressed"]
 
 
+@pytest.mark.parametrize(
+    "symbol, gene_id, protein_restriction, selected",
+    [
+        ("SUN5", "ENSG00000167098", "TESTIS", True),
+        ("SUN3", "ENSG00000164744", "SOMATIC", False),
+    ],
+)
+def test_sun_candidates_preserve_discordant_rna_and_protein_evidence(
+    symbol, gene_id, protein_restriction, selected
+):
+    row = CTA_evidence().set_index("Symbol").loc[symbol]
+    assert row["Ensembl_Gene_ID"] == gene_id
+    assert row["rna_restriction"] == "TESTIS"
+    assert row["protein_restriction"] == protein_restriction
+    assert symbol in CTA_unfiltered_gene_names()
+    assert (symbol in CTA_gene_names()) == selected
+    assert (symbol in CTA_excluded_gene_names()) != selected
+
+
+@pytest.mark.parametrize("symbol", ["SUN1", "SUN2", "SPAG4"])
+def test_somatic_sun_members_are_not_default_ctas(symbol):
+    # A SUN-family name or CT registry designation does not establish
+    # reproductive restriction (SPAG4/SUN4 has substantial human pancreas RNA).
+    assert symbol not in CTA_gene_names()
+
+
 def test_csh1_exclusion_is_oncoref_owned():
     row = CTA_evidence().set_index("Symbol").loc["CSH1"]
     upstream = oncoref_cta.cta_evidence().set_index("Symbol").loc["CSH1"]
