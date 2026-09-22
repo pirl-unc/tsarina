@@ -23,6 +23,11 @@ universe.
 | Viral | Tsarina's supported oncogenic-virus proteomes | Tumor viral status |
 | Mutant | Tsarina's recurrent hotspot registry | Matching tumor mutation |
 
+HERV-K (HML-2) locus/family antigens are outside the gene-based CTA panel's
+comprehensive coverage. Tsarina has no locus-expression adapter; absence from
+the CTA results does not rule out an ERV antigen. See the
+[coverage limits and separate evidence-source requirements](curation.md#coverage-limits-endogenous-retrovirus-antigens).
+
 ### Public observations
 
 IEDB and CEDAR ligand exports contribute observed peptides, sample context,

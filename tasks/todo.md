@@ -37,6 +37,19 @@ preserve evidence provenance and distinguish candidates from approved sets.
 
 ## Review log
 
+### #120 implementation and verification plan
+
+- [x] Inspect CTA and viral generation: no locus/family HERV-K quantifier or
+      adapter exists; single gene identifiers do not cover the HML-2 family.
+- [x] Read Telescope and ERVmap methods, and HERV-K experimental antigen
+      evidence. Keep RNA abundance, translated ORF, and presentation distinct.
+- [x] Document the explicit current coverage limit at curation and workflow
+      entry points, the appropriate separate evidence-source boundary, and
+      the provenance needed by a future integration. Do not imply an adapter
+      is implemented or that gene-panel absence is negative ERV evidence.
+- [ ] Bump to 1.31.6; build the docs, run format/lint/full tests, review the
+      claims against sources, open a separate PR, then merge/deploy.
+
 ### #131 implementation and verification plan
 
 - [x] Audit current SUN-domain coverage: SUN5 is strict TESTIS, SUN3 is
@@ -2166,3 +2179,45 @@ SUN5 primary paper and human SPAG4 reports; HPA v23 directly verifies SPAG4
 pancreas 87.3 and testis 31.1 nTPM. Candidate-reference discoverability is
 tracked upstream in oncoref#548. No tissue-safety inference is weakened.
 Format/lint passed; full suite: 586 passed, 19 warnings.
+
+## #120 pre-merge review
+
+Documented the current HERV-K/HML-2 coverage limitation at all relevant
+entry points. Read Telescope and ERVmap primary methods and HERV-K Env CAR
+experimental evidence; the text distinguishes gene/family/locus expression,
+translation, presentation, and safety. No nonexistent adapter is advertised.
+Strict MkDocs build passed, including the new anchors. Format/lint passed;
+full suite after restoring the current reference: 586 passed, 19 warnings,
+no skips. Version is 1.31.6.
+
+## Final release-series handoff (2026-09-22)
+
+| Issue | Reviewed PR | Version | Verified state |
+|---|---|---|---|
+| #132 | #167 | 1.31.1 | Merged; wheel/sdist published and hashes verified |
+| #146 | #168 | 1.31.2 | Merged; publication awaiting direct approval |
+| #160 | #171 | 1.31.3 | Reviewed; full local checks and CI pass |
+| #130 | #172 | 1.31.4 | Reviewed; full local checks and CI pass |
+| #131 | #173 | 1.31.5 | Reviewed; full local checks and CI pass |
+| #120 | #174 | 1.31.6 | Reviewed; full local checks, docs build, and CI pass |
+
+During the session, another development update advanced pyensembl to 2.10.17
+and selected the full patch/haplotype annotation. Indexed that selected GTF
+without deleting the old cache, then reran the complete final suite: 586
+passed with no skips. The real gene-length and fragment-model tests passed.
+Revalidated local import paths for all 14 relevant packages; changes from
+other current development sessions (including hitlist 1.62.21 and varcode
+9.4.0) are exercised directly rather than replaced with release wheels.
+
+Upstream issues: openvax/sercol#4 (existing metadata conflict),
+openvax/topiary#374 (new osteosarc pin report), pirl-unc/oncoref#548
+(SPAG4 candidate-reference omission). Local review findings #169 and #170
+are fixed by #171. Existing oncoref#544 remains the separate CTAG2
+normal-tissue investigation; no safety conclusion was invented here.
+
+Release authorization: the automatic reviewer accepted the direct approval
+for #167/1.31.1, but rejected publishing 1.31.2 because that confirmation
+named only the first release. Direct approval has been requested once for
+all five remaining concrete PR/version pairs. Do not publish until it arrives.
+Then deploy each version from clean main before merging the next PR, verify
+downloaded wheel/sdist hashes, and record final results on the PRs.
