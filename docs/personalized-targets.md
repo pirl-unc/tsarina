@@ -148,6 +148,11 @@ second CTA list. The patient workflow starts from the canonical oncoref set,
 then applies expression, restriction-confidence, peptide-exclusivity, and
 downstream evidence gates.
 
+This gene-based workflow does not comprehensively cover HERV-K (HML-2)
+Env/Rec/Np9 antigens. Neither `--cta` nor the supported `--virus` inputs ingest
+HERV locus-expression results; see the
+[endogenous-retrovirus coverage limits](curation.md#coverage-limits-endogenous-retrovirus-antigens).
+
 A `--cta` gene oncoref excludes from that strict set but still tracks as a
 known clinical target (CTAG2/LAGE-1 is the motivating example: excluded for a
 low-level HPA heart RNA signal, retained in oncoref's clinical-target tier)

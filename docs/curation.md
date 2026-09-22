@@ -125,6 +125,46 @@ Live workflows can explicitly call `synthesize_restriction()` or
 HPA axes. These helpers do not derive or modify the upstream protein and RNA
 classifications.
 
+## Coverage limits: endogenous retrovirus antigens
+
+**The gene-based CTA panel does not comprehensively cover HERV-K (HML-2)
+Env, Rec, or Np9 antigens.** Their expression can arise from multiple proviral
+loci and transcript isoforms. Searching HGNC symbols for `ERVK` or evaluating
+one gene such as `ERVK3-1` cannot establish family-wide expression or safety.
+Gene-level ERV-derived entries, when present in oncoref, describe those genes
+only. An absent gene-panel hit is not evidence that the tumor lacks HERV-K
+antigens. This is the scope limitation tracked in
+[#120](https://github.com/pirl-unc/tsarina/issues/120).
+
+Locus/family expression belongs in a separate antigen-evidence source.
+[Telescope](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1006453)
+addresses ambiguous read assignments to estimate expression at individual
+transposable-element loci.
+[ERVmap](https://pmc.ncbi.nlm.nih.gov/articles/PMC6294949/)
+uses a curated proviral-locus reference and stringent mapping filters. Their
+annotations and read-assignment policies differ; resulting counts are not
+interchangeable with gene TPM or with each other. Neither method by itself
+establishes a translated antigen or HLA presentation.
+
+Tsarina currently has no HERV locus-expression input or adapter for these
+outputs. Its `--cta` input selects gene symbols, and its supported `--virus`
+proteomes do not provide a HERV-K route. A future integration needs:
+
+- genome assembly, annotation/quantifier versions, locus coordinates or
+  explicitly marked family-level identifiers, and read-assignment uncertainty;
+- matched tumor and normal-tissue expression with sample provenance;
+- locus/transcript/ORF-to-peptide mapping, retaining ambiguous peptide sources;
+- separate protein, immunopeptidomic, and HLA-assignment evidence before
+  interpretation as a presented target.
+
+HERV-K is a meaningful experimental target class: for example,
+[HERV-K Env-directed CAR T-cell work in melanoma](https://pmc.ncbi.nlm.nih.gov/articles/PMC4506228/)
+studied recognition of the envelope protein. Such evidence does not validate
+every HML-2 locus, demonstrate presentation of a particular peptide-HLA
+complex, or establish normal-tissue safety. Endogenous human sequences also
+need an explicit specificity assessment; the existing exogenous-virus
+human-exclusivity filter is not a substitute for ERV-specific curation.
+
 ## Reviewed SUN-domain candidates
 
 SUN-domain membership alone does not establish a testis-restricted CTA. The

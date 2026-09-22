@@ -21,21 +21,37 @@ preserve evidence provenance and distinguish candidates from approved sets.
 - [x] Audit and update local dependency environment; establish full-suite baseline.
 - [x] #132: verify oncoref ownership, dependency minimum, required integration
       coverage, and migration guidance; PR, review, merge, deploy.
-- [ ] #146: update Actions to supported runtimes across workflows; verify
+- [x] #146: update Actions to supported runtimes across workflows; verify
       the Python 3.9–3.12 CI matrix; PR, review, merge, deploy.
-- [ ] #160: audit all CTA drop paths and flagged-target caveat propagation;
+- [x] #160: audit all CTA drop paths and flagged-target caveat propagation;
       reproduce remaining gaps, fix and test; PR, review, merge, deploy.
-- [ ] #130: audit affected genes against current oncoref protein evidence;
+- [x] #130: audit affected genes against current oncoref protein evidence;
       correct stale upstream inputs if present, verify downstream parity;
       PR, review, merge, deploy.
-- [ ] #131: check SUN5/SUN3/SPAG4 evidence and literature, correct candidate
+- [x] #131: check SUN5/SUN3/SPAG4 evidence and literature, correct candidate
       coverage at its owner while retaining somatic caveats; PR, review,
       merge, deploy.
-- [ ] #120: document HERV-K locus/family coverage limits and appropriate
-      evidence sources from primary literature; PR, review, merge, deploy.
+- [x] #120: document HERV-K locus/family coverage limits and appropriate
+      evidence sources from primary literature; open and review PR #174.
+- [ ] Merge #174, deploy 1.31.6, and record the post-merge publication audit
+      in [PR #174](https://github.com/pirl-unc/tsarina/pull/174).
 - [ ] Audit all six issue/PR/release states and identify next dependent work.
 
 ## Review log
+
+### #120 implementation and verification plan
+
+- [x] Inspect CTA and viral generation: no locus/family HERV-K quantifier or
+      adapter exists; single gene identifiers do not cover the HML-2 family.
+- [x] Read Telescope and ERVmap methods, and HERV-K experimental antigen
+      evidence. Keep RNA abundance, translated ORF, and presentation distinct.
+- [x] Document the explicit current coverage limit at curation and workflow
+      entry points, the appropriate separate evidence-source boundary, and
+      the provenance needed by a future integration. Do not imply an adapter
+      is implemented or that gene-panel absence is negative ERV evidence.
+- [x] Bump to 1.31.6; build the docs, run format/lint/full tests, review the
+      claims against sources, and open separate PR #174.
+- [ ] Merge/deploy and attach the final release verification to PR #174.
 
 ### #131 implementation and verification plan
 
@@ -48,7 +64,7 @@ preserve evidence provenance and distinguish candidates from approved sets.
       its normal-pancreas caveat without promoting it into a default set.
 - [x] Add regression coverage for SUN5/SUN3 presence, canonical membership,
       Ensembl identity, and distinct RNA/protein evidence; document decisions.
-- [ ] Bump to 1.31.5, run format/lint/full tests, review, open the separate PR,
+- [x] Bump to 1.31.5, run format/lint/full tests, review, open the separate PR,
       then merge/deploy and verify artifacts.
 
 ### #130 implementation and verification plan
@@ -61,7 +77,7 @@ preserve evidence provenance and distinguish candidates from approved sets.
       decisions separate from protein evidence; do not promote excluded genes.
 - [x] Document the current owner, audit result, and protein/membership
       distinction. Verify the supported oncoref floor carries the corrected data.
-- [ ] Bump 1.31.4, run format/lint/full tests, review the diff, open a separate
+- [x] Bump 1.31.4, run format/lint/full tests, review the diff, open a separate
       PR, merge/deploy and verify publication.
 
 ### #160 implementation and verification plan
@@ -76,7 +92,7 @@ preserve evidence provenance and distinguish candidates from approved sets.
 - [x] Verify mixed inputs, missing TPM, genuine flagged targets, and no
       peptide generation for dropped genes. Correct the documentation's
       afami-cel target claim against primary clinical sources.
-- [ ] Bump to 1.31.3; run format/lint/full tests; review and open a separate
+- [x] Bump to 1.31.3; run format/lint/full tests; review and open a separate
       PR closing #160 and #169; merge/deploy after release authorization.
 
 ### #146 implementation and verification plan
@@ -87,7 +103,7 @@ preserve evidence provenance and distinguish candidates from approved sets.
 - [x] Preserve triggers, permissions, commands, and Python 3.9–3.12 coverage.
 - [x] Validate YAML and each action's published runtime/compatibility contract.
 - [x] Bump 1.31.1 → 1.31.2; run format, lint, and the full development suite.
-- [ ] Review the complete diff, open a separate PR, verify all CI jobs, merge,
+- [x] Review the complete diff, open a separate PR, verify all CI jobs, merge,
       deploy from clean main, and verify both PyPI artifacts.
 
 - Initial state: clean main at 3c3a5d8, version 1.31.0; all six issues open.
@@ -2166,3 +2182,71 @@ SUN5 primary paper and human SPAG4 reports; HPA v23 directly verifies SPAG4
 pancreas 87.3 and testis 31.1 nTPM. Candidate-reference discoverability is
 tracked upstream in oncoref#548. No tissue-safety inference is weakened.
 Format/lint passed; full suite: 586 passed, 19 warnings.
+
+## #120 pre-merge review
+
+Documented the current HERV-K/HML-2 coverage limitation at all relevant
+entry points. Read Telescope and ERVmap primary methods and HERV-K Env CAR
+experimental evidence; the text distinguishes gene/family/locus expression,
+translation, presentation, and safety. No nonexistent adapter is advertised.
+Strict MkDocs build passed, including the new anchors. Format/lint passed;
+full suite after restoring the current reference: 586 passed, 19 warnings,
+no skips. Version is 1.31.6.
+
+## Release checkpoint before the final merge (2026-09-22)
+
+| Issue | Reviewed PR | Version | Verified state |
+|---|---|---|---|
+| #132 | #167 | 1.31.1 | Merged; wheel/sdist published and hashes verified |
+| #146 | #168 | 1.31.2 | Merged; wheel/sdist published and hashes verified |
+| #160 | #171 | 1.31.3 | Merged; wheel/sdist published and hashes verified |
+| #130 | #172 | 1.31.4 | Merged; wheel/sdist published and hashes verified |
+| #131 | #173 | 1.31.5 | Merged; wheel/sdist published and hashes verified |
+| #120 | #174 | 1.31.6 | Reviewed and authorized; final log update awaits CI/merge/deploy |
+
+During the session, another development update advanced pyensembl to 2.10.17
+and selected the full patch/haplotype annotation. Indexed that selected GTF
+without deleting the old cache, then reran the complete final suite: 586
+passed with no skips. The real gene-length and fragment-model tests passed.
+Revalidated local import paths for all 14 relevant packages; changes from
+other current development sessions (including hitlist 1.62.21 and varcode
+9.4.0) are exercised directly rather than replaced with release wheels.
+
+Upstream issues: openvax/sercol#4 (existing metadata conflict),
+openvax/topiary#374 (new osteosarc pin report), pirl-unc/oncoref#548
+(SPAG4 candidate-reference omission). Local review findings #169 and #170
+are fixed by #171. Existing oncoref#544 remains the separate CTAG2
+normal-tissue investigation; no safety conclusion was invented here.
+
+The user directly approved all remaining merges and PyPI deployments. Each
+of 1.31.2–1.31.5 was published with `./deploy.sh` from clean main before the
+next PR merged. Their deployment suites passed 561, 571, 581, and 586 tests,
+respectively. Downloaded wheels and sdists match the corresponding local
+builds byte-for-byte and match PyPI's SHA-256 metadata. Each merged PR now
+contains its merge commit, test result, release link, and artifact digests.
+The final post-merge 1.31.6 audit will be recorded on PR #174 to avoid claiming
+publication before it occurs.
+
+Rechecked all 14 local development import paths during the release sequence;
+this also exercised current topiary 5.68.2 and varcode 9.4.1. A clean archive
+build of the 1.31.6 source passed the version/source/package-data audit for
+both wheel and sdist. No duplicate CTA definition/proteoform tables or
+regeneration sidecars are packaged.
+
+### Next work, ordered by dependency and urgency
+
+1. Resolve development-environment metadata conflicts in
+   [sercol#4](https://github.com/openvax/sercol/issues/4) and
+   [topiary#374](https://github.com/openvax/topiary/issues/374); also audit
+   [hitlist#504](https://github.com/pirl-unc/hitlist/issues/504)'s required
+   import behind an optional dependency declaration. These unblock reliable
+   installation and integration across multiple consumers.
+2. Settle the full-transcriptome versus gene-subset clean-TPM contract in
+   [oncoref#541](https://github.com/pirl-unc/oncoref/issues/541). Its updated
+   investigation identifies the pan-cancer subset input as the problem;
+   do not change valid full-transcriptome normalization based on its old title.
+3. Continue evidence interpretation in
+   [oncoref#544](https://github.com/pirl-unc/oncoref/issues/544) (CTAG2 cardiac
+   expression) and [hitlist#490](https://github.com/pirl-unc/hitlist/issues/490)
+   (queried versus observed allele scope); retain SPAG4 candidate-reference
+   follow-up in [oncoref#548](https://github.com/pirl-unc/oncoref/issues/548).
