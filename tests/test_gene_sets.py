@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 from oncoref import cta as oncoref_cta
 
 import tsarina.gene_sets as gene_sets
@@ -139,6 +140,31 @@ def test_missing_ms_overlay_rows_receive_explicit_defaults():
     assert df.loc["SUN5", "ms_restriction"] == "NO_MS_DATA"
     assert df.loc["SUN5", "ms_healthy_somatic_tissues"] == ""
     assert df.loc["SUN5", "ms_pmids"] == ""
+
+
+@pytest.mark.parametrize(
+    "symbol, tissues, reliability",
+    [
+        ("CGB2", "placenta; testis", "Supported"),
+        ("CGB3", "placenta; testis", "Enhanced"),
+        ("CGB5", "placenta; testis", "Supported"),
+        ("CGB7", "placenta; testis", "Supported"),
+        ("PSG4", "placenta; testis", "Supported"),
+        ("PSG6", "placenta; testis", "Supported"),
+        ("PSG7", "placenta; testis", "Supported"),
+        ("CT45A5", "testis", "Supported"),
+        ("CSH1", "pituitary gland; placenta", "Enhanced"),
+        ("GAGE10", "testis", "Supported"),
+    ],
+)
+def test_historical_rna_only_additions_retain_hpa_v23_ihc(symbol, tissues, reliability):
+    # #130: RNA-only additions once replaced these real HPA v23 IHC calls
+    # with "no data". Verified against normal_tissue, independently of the
+    # oncoref evidence frame. This is evidence availability, not CTA admission.
+    row = CTA_evidence().set_index("Symbol").loc[symbol]
+    assert row["protein_strict_expression"] == tissues
+    assert row["protein_reliability"] == reliability
+    assert not row["never_expressed"]
 
 
 def test_csh1_exclusion_is_oncoref_owned():
