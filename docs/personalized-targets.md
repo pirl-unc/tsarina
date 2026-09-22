@@ -150,15 +150,31 @@ downstream evidence gates.
 
 A `--cta` gene oncoref excludes from that strict set but still tracks as a
 known clinical target (CTAG2/LAGE-1 is the motivating example: excluded for a
-low-level HPA heart RNA signal, kept because it shares the NY-ESO-1 157-165
-epitope targeted by the approved TCR-T afami-cel) is not silently dropped. It
+low-level HPA heart RNA signal, retained in oncoref's clinical-target tier)
+is not silently dropped. It
 appears with `category="cta_flagged"` and the exclusion reason in
 `flag_reason`, so a caller who named the gene explicitly sees it and its
 caveat. Its peptides are generated directly from the protein sequence and are
 not screened for overlap with other proteins the way a strict CTA's are — see
-`flag_reason`. A `--cta` gene that is neither a recognized CTA nor a known
-clinical target (a typo, or a gene with no CTA evidence at all) is dropped
-with a warning naming it.
+`flag_reason`. Explicitly naming a clinical-only target enables this flagged
+path; it does not make the gene a strict CTA or establish normal-tissue safety.
+
+Restriction-confidence filtering applies to strict CTAs. A strict CTA rejected
+by that filter stays excluded even if it also has clinical references. The
+optional mTEC filter and minimum measured tumor TPM apply to both strict and
+flagged targets. Missing tumor TPM still means the user did not supply a
+measurement; missing mTEC evidence does not pass a requested mTEC filter.
+
+Every gene dropped at these selection gates produces a warning naming the
+gene and the reason: an unrecognized symbol, upstream exclusion (with its
+curated rationale), the default normal-tissue expression floor, confidence,
+mTEC, or tumor TPM. These messages concern source selection; a selected gene
+can still produce no final rows after peptide or evidence filtering.
+
+Clinical evidence must remain target-specific: NY-ESO-1-directed TCR trials
+are described by [Robbins et al.](https://pubmed.ncbi.nlm.nih.gov/21282551/).
+[Afamitresgene autoleucel (Tecelra)](https://www.fda.gov/vaccines-blood-biologics/cellular-gene-therapy-products/tecelra)
+targets MAGE-A4. Its approval is not evidence for CTAG2 safety.
 
 #### Identical-protein groups
 

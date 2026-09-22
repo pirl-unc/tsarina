@@ -324,7 +324,8 @@ def _cta_flag_rationale(genes: dict[str, float]) -> dict[str, str]:
     rows = df[df["Symbol"].isin(genes) & df["specificity_rationale"].notna()]
     rationale = dict(zip(rows["Symbol"], rows["specificity_rationale"]))
     return {
-        gene: rationale.get(gene, "excluded from the strict default CTA set by oncoref")
+        gene: rationale.get(gene)
+        or "not in oncoref's strict default CTA set; no curated specificity rationale available"
         for gene in genes
     }
 
@@ -364,6 +365,11 @@ def personalized_targets(
         ``tpm >= min_cta_tpm``, ``restriction_confidence`` allowed, optional
         mTEC cutoff) contribute peptides.  Peptides are restricted to those
         exclusive to CTA proteins (not present in any non-CTA protein).
+        Explicitly requested clinical targets outside the strict set use the
+        separate ``cta_flagged`` path with visible specificity/overlap caveats;
+        they bypass the HPA confidence gate but still obey tumor TPM and mTEC
+        gates. A strict CTA rejected by a gate cannot switch to that path.
+        Dropped source genes warn with the reason for exclusion.
         A ``None`` or ``NaN`` TPM means "no measured expression given" --
         the gene is included regardless of ``min_cta_tpm`` rather than
         excluded as if it measured zero.
@@ -434,7 +440,7 @@ def personalized_targets(
     pd.DataFrame
         Tier-ranked target list.  Columns:
 
-        - ``peptide``, ``length``, ``category``, ``source``,
+        - ``peptide``, ``length``, ``category``, ``source``, ``flag_reason``,
           ``source_detail``, ``source_tpm``
         - ``ms_hit_count``, ``ms_alleles``, ``ms_allele_count``,
           ``ms_in_cancer``, ``ms_in_healthy_tissue``
@@ -467,7 +473,14 @@ def personalized_targets(
 
     # ── CTA peptides ────────────────────────────────────────────────────
     if cta_expression:
-        from .gene_sets import CTA_by_axes, CTA_clinical_target_gene_names, CTA_gene_names
+        from .gene_sets import (
+            CTA_by_axes,
+            CTA_clinical_target_gene_names,
+            CTA_excluded_gene_names,
+            CTA_gene_names,
+            CTA_never_expressed_gene_names,
+            CTA_unfiltered_gene_names,
+        )
         from .peptides import cta_exclusive_peptides
 
         # A caller who didn't supply a TPM for a gene (--cta GENE with no
@@ -479,35 +492,63 @@ def personalized_targets(
             gene: (float("nan") if tpm is None else tpm) for gene, tpm in cta_expression.items()
         }
 
-        valid_ctas = CTA_gene_names()
+        # Membership determines the generation path before optional filters.
+        # A strict CTA rejected below must never return as an unscreened
+        # clinical target merely because it also has a clinical reference.
+        strict_ctas = CTA_gene_names()
+        clinical_target_ctas = CTA_clinical_target_gene_names() - strict_ctas
+        valid_ctas = strict_ctas.copy()
+        drop_reasons = {}
+        outside_panel = set(cta_expression) - strict_ctas - clinical_target_ctas
+        if outside_panel:
+            excluded = CTA_excluded_gene_names()
+            never_expressed = CTA_never_expressed_gene_names()
+            known = CTA_unfiltered_gene_names()
+            rationale = _cta_flag_rationale(
+                {gene: cta_expression[gene] for gene in outside_panel & excluded}
+            )
+            for gene in outside_panel:
+                if gene in excluded:
+                    drop_reasons[gene] = (
+                        "excluded from oncoref's strict CTA set with no clinical-target "
+                        f"override: {rationale[gene]}"
+                    )
+                elif gene in never_expressed:
+                    drop_reasons[gene] = "below oncoref's default normal-tissue expression floor"
+                elif gene in known:
+                    drop_reasons[gene] = "not in oncoref's default expressed CTA set"
+                else:
+                    drop_reasons[gene] = "not a recognized CTA symbol"
+
         if min_restriction_confidence is not None:
             confidence_set = {c.upper() for c in min_restriction_confidence}
             confident_ctas = CTA_by_axes(restriction_confidence=confidence_set)
-            valid_ctas = valid_ctas & confident_ctas
+            for gene in set(cta_expression) & (valid_ctas - confident_ctas):
+                drop_reasons[gene] = (
+                    f"restriction-confidence filter (allowed: {', '.join(sorted(confidence_set))})"
+                )
+            valid_ctas &= confident_ctas
         if mtec_matrix_path is not None:
             from .mtec import filter_by_mtec, load_mtec_gene_table
 
             mtec_df = load_mtec_gene_table(mtec_matrix_path)
-            valid_ctas = filter_by_mtec(valid_ctas, mtec_df, threshold=mtec_max_tpm)
+            candidates = valid_ctas | clinical_target_ctas
+            low_mtec = filter_by_mtec(candidates, mtec_df, threshold=mtec_max_tpm)
+            for gene in set(cta_expression) & (candidates - low_mtec):
+                drop_reasons[gene] = (
+                    f"mTEC filter (requires measured mean TPM <= {mtec_max_tpm:g}; "
+                    "above threshold or missing measurement)"
+                )
+            valid_ctas &= low_mtec
+            clinical_target_ctas &= low_mtec
 
-        # Genes with real CTA-source evidence that oncoref nonetheless
-        # excludes from the strict default set (e.g. CTAG2/LAGE-1: a
-        # low-level HPA heart RNA signal) but keeps as a known clinical
-        # target. A caller who explicitly named the gene should see it and
-        # its caveat, not have it silently vanish the way a typo would.
-        clinical_target_ctas = CTA_clinical_target_gene_names() - valid_ctas
-
-        unrecognized = sorted(
-            gene
-            for gene in cta_expression
-            if gene not in valid_ctas and gene not in clinical_target_ctas
-        )
-        if unrecognized:
+        for gene in set(cta_expression) & (valid_ctas | clinical_target_ctas):
+            tpm = cta_expression[gene]
+            if not pd.isna(tpm) and tpm < min_cta_tpm:
+                drop_reasons[gene] = f"tumor TPM {tpm:g} below minimum {min_cta_tpm:g}"
+        for gene, reason in sorted(drop_reasons.items()):
             warnings.warn(
-                "--cta gene(s) not in the current CTA panel, dropped: "
-                + ", ".join(unrecognized)
-                + " (not a recognized CTA symbol, or excluded with no clinical-target "
-                "override -- see tsarina.gene_sets.CTA_excluded_gene_names for why)",
+                f"--cta {gene} dropped: {reason}",
                 UserWarning,
                 stacklevel=2,
             )

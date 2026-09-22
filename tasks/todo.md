@@ -37,6 +37,21 @@ preserve evidence provenance and distinguish candidates from approved sets.
 
 ## Review log
 
+### #160 implementation and verification plan
+
+- [x] Reproduce #169: a strict CTA present in the clinical registry returns
+      through the flagged path after failing confidence or mTEC selection.
+- [x] Classify strict versus clinical-only genes before selection. Preserve
+      explicit clinical-only requests with visible oncoref/overlap caveats;
+      apply the optional mTEC gate and tumor TPM gate to both categories.
+- [x] Emit specific warnings for unknown symbols, upstream exclusions,
+      absent default expression, restriction confidence, mTEC, and low TPM.
+- [x] Verify mixed inputs, missing TPM, genuine flagged targets, and no
+      peptide generation for dropped genes. Correct the documentation's
+      afami-cel target claim against primary clinical sources.
+- [ ] Bump to 1.31.3; run format/lint/full tests; review and open a separate
+      PR closing #160 and #169; merge/deploy after release authorization.
+
 ### #146 implementation and verification plan
 
 - [x] Upgrade checkout/setup-python in all three workflows to their current
@@ -2094,3 +2109,14 @@ lint and all 561 tests from clean main and published 1.31.1. PyPI reports
 both wheel and sdist, with SHA-256 digests matching the local build files.
 #168 has passed its full Python 3.9–3.12 CI matrix with no Node deprecation
 annotation (only the unrelated upcoming Ubuntu runner-image notice).
+
+## #160 pre-merge review
+
+Eight new tests failed on the original implementation; all ten regression
+cases now pass. Existing flagged-target behavior and its rationale/overlap
+warning remain intact, while a strict gene cannot evade confidence or mTEC
+selection by changing category. mTEC and measured tumor TPM apply to both
+categories. Diagnostics distinguish unknown symbols from curated exclusions.
+The full suite passed: 571 tests, 7 warnings; format and lint passed.
+Clinical documentation correction is tracked in #170; FDA confirms afami-cel
+is MAGE-A4-directed, and NY-ESO-1 trial evidence is cited separately.
