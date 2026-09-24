@@ -1,5 +1,11 @@
 # Lessons
 
+- When reporting a test failure, name the failing test, exception, and resolved
+  dependency version. Exercise the library's supported public operation before
+  treating an absent convenience helper as an upstream defect or raising the
+  required version. Never infer that an API was removed just because its import
+  fails; check the history and published export contract.
+
 - Package-rename issues can lag multiple migrations. Verify the current import
   owner and public API before following an old issue's proposed replacement;
   cancerdata/oncodata functionality now belongs to oncoref.

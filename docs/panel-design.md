@@ -278,8 +278,19 @@ clinical-grade population-genetics analysis.
 ### Prediction
 
 - `--predictor` selects a supported presentation backend.
+- `netmhcpan` and `netmhcpan_el` both use mhctools' version-detecting
+  NetMHCpan adapter. Presentation columns contain EL scores/ranks; affinity
+  columns contain BA nM values/ranks. The EL selector remains an alias for
+  compatibility and does not require a separate `NetMHCpanEL` Python class.
 - `--netmhcpan-affinity` adds NetMHCpan BA affinity nM and percentile
   annotations in a second scoring pass. It requires the external NetMHCpan
   backend.
 
 Run `tsarina panel --help` for the complete current option list.
+
+The separate Python API `build_panel_matrix(metric="peptide_count")` counts
+unique peptides with a presentation percentile of at most 1.0 per source
+and allele. Set `max_presentation_percentile` to change this inclusive cutoff
+(0–100). Missing or invalid ranks never count. This parameter does not change
+the definitions of `best_percentile`, `ms_peptide_count`, or `has_peptide`,
+or the evidence-tier cutoffs used by `tsarina panel`.

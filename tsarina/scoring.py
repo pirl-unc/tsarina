@@ -173,14 +173,13 @@ def _resolve_predictor_class(predictor: str):
             from mhctools import MHCflurry
 
             return MHCflurry
-        if key in {"netmhcpan", "netmhcpan_ba"}:
+        if key in {"netmhcpan", "netmhcpan_ba", "netmhcpan_el"}:
+            # The version-detecting factory emits both presentation (EL) and
+            # affinity predictions. There is no generic NetMHCpanEL export;
+            # retain that user-facing selector as an alias of this backend.
             from mhctools import NetMHCpan
 
             return NetMHCpan
-        if key == "netmhcpan_el":
-            from mhctools import NetMHCpanEL
-
-            return NetMHCpanEL
     except ImportError as e:
         raise ImportError(
             f"Predictor '{predictor}' requires mhctools + the underlying tool. "
@@ -237,7 +236,9 @@ def score_presentation(
         formatting; topiary passes through to mhctools for normalization.
     predictor
         Which mhctools backend to use.  One of ``"mhcflurry"`` (default),
-        ``"netmhcpan"``, ``"netmhcpan_el"``.
+        ``"netmhcpan"``, ``"netmhcpan_el"``. Both NetMHCpan selectors use
+        the version-detecting adapter and return EL presentation scores and
+        BA affinities in their respective columns.
     peptide_lengths
         Lengths to request when the backend needs them (defaults to the
         distinct lengths present in ``peptides``).

@@ -28,7 +28,7 @@ Typical usage::
         mutant_iedb_overlap,
     )
 
-    # Generate all mutant-spanning peptides
+    # Generate mutant-spanning peptides absent from reference-human proteins
     df = mutant_peptides()
 
     # Check IEDB overlap
@@ -281,13 +281,16 @@ def mutant_peptides(
     lengths: tuple[int, ...] = (8, 9, 10, 11),
     ensembl_release: int = 112,
     flank_length: int = 15,
+    require_human_exclusive: bool = True,
 ) -> pd.DataFrame:
     """Generate mutant-spanning peptides from recurrent cancer hotspot mutations.
 
     For each mutation, retrieves the wildtype protein sequence from Ensembl,
     introduces the point mutation, and generates all k-mer peptides that
     span the mutated position.  Only peptides that differ from the wildtype
-    (i.e., contain the mutant residue) are returned.
+    (i.e., contain the mutant residue) are returned. By default, peptides
+    appearing in any reference-human coding protein are also removed: a
+    sequence changed in one gene can still be wild type in another gene.
 
     Requires ``pyensembl`` (install with ``pip install tsarina[peptides]``).
 
@@ -302,6 +305,12 @@ def mutant_peptides(
         Ensembl release for protein sequences (default 112).
     flank_length
         Flanking residues to include (default 15).
+    require_human_exclusive
+        Exclude peptides found in any coding human reference transcript,
+        including germline IG/TR segments (default True). Set False only for
+        raw mutation-spanning enumeration; those rows are not screened for
+        reference-human overlap. Personalized and unified target selection
+        always use the screened default.
 
     Returns
     -------
@@ -376,7 +385,17 @@ def mutant_peptides(
                     }
                 )
 
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    if require_human_exclusive and not out.empty:
+        from .peptides import _reference_overlapping_peptides
+
+        human_peptides = _reference_overlapping_peptides(
+            set(out["peptide"]),
+            ensembl_release=ensembl_release,
+            lengths=lengths,
+        )
+        out = out[~out["peptide"].isin(human_peptides)].reset_index(drop=True)
+    return out
 
 
 def mutant_iedb_overlap(

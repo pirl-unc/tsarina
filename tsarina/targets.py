@@ -64,7 +64,8 @@ def target_peptides(
         or a list of virus keys (e.g. ``["hpv16", "ebv"]``).
         Pass False to skip.
     mutations
-        Include recurrent mutant-spanning peptides (default True).
+        Include recurrent mutant-spanning peptides absent from all
+        reference-human coding proteins (default True).
     lengths
         Peptide lengths (default 8-11).
     ensembl_release

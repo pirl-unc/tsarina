@@ -253,28 +253,68 @@ def _non_cta_overlapping_peptides(
     if not candidate_peptides:
         return set()
 
-    from pyensembl import EnsemblRelease
-
-    from .gene_sets import is_coding_transcript
-
     non_cta_gene_ids = sorted(_non_cta_gene_ids(ensembl_release))
     _report_progress(
         on_progress,
         f"Scanning {len(non_cta_gene_ids)} non-CTA genes for overlapping "
         f"{','.join(str(length) for length in lengths)}-mers...",
     )
+    seen = _reference_overlapping_peptides(
+        candidate_peptides,
+        ensembl_release=ensembl_release,
+        lengths=lengths,
+        gene_ids=non_cta_gene_ids,
+        progress_bar=progress_bar,
+        progress_file=progress_file,
+    )
+    _report_progress(
+        on_progress,
+        f"Found {len(seen)} CTA candidate peptides that also occur in non-CTA proteins.",
+    )
+    return seen
+
+
+def _reference_overlapping_peptides(
+    candidate_peptides: set[str],
+    *,
+    ensembl_release: int,
+    lengths: tuple[int, ...],
+    gene_ids: Iterable[str] | None = None,
+    progress_bar: bool = False,
+    progress_file: TextIO | None = None,
+) -> set[str]:
+    """Stream coding translations and retain only overlaps with the candidates.
+
+    With no gene subset, screen every coding gene, including CTA genes and
+    germline IG/TR segments. Memory scales with the candidate set rather than
+    the full human k-mer universe. Every coding isoform is checked.
+    """
+    if not candidate_peptides:
+        return set()
+
+    from pyensembl import EnsemblRelease
+
+    from .gene_sets import is_coding_gene, is_coding_transcript
+
     ensembl = EnsemblRelease(ensembl_release)
+
+    def reference_genes():
+        if gene_ids is None:
+            yield from (gene for gene in ensembl.genes() if is_coding_gene(gene))
+        else:
+            for gene_id in gene_ids:
+                try:
+                    yield ensembl.gene_by_id(gene_id)
+                except ValueError:
+                    continue
+
     seen: set[str] = set()
-    for gene_id in _progress_iter(
-        non_cta_gene_ids,
-        desc="Non-CTA genes",
+    for gene in _progress_iter(
+        reference_genes(),
+        desc="Human genes" if gene_ids is None else "Non-CTA genes",
         progress_bar=progress_bar,
         progress_file=progress_file,
     ):
-        try:
-            gene = ensembl.gene_by_id(gene_id)
-        except ValueError:
-            continue
         for transcript in gene.transcripts:
             if not is_coding_transcript(transcript):
                 continue
@@ -283,8 +323,8 @@ def _non_cta_overlapping_peptides(
             except (ValueError, KeyError, TypeError):
                 # pyensembl raises these for transcripts lacking a usable
                 # translation. Narrowed deliberately: silently swallowing every
-                # error here could skip a non-CTA protein and let a peptide pass
-                # as CTA-exclusive when it is not.
+                # error here could let a reference-human peptide pass as
+                # exclusive when it is not.
                 continue
             if not protein:
                 continue
@@ -298,10 +338,6 @@ def _non_cta_overlapping_peptides(
         if len(seen) == len(candidate_peptides):
             break
 
-    _report_progress(
-        on_progress,
-        f"Found {len(seen)} CTA candidate peptides that also occur in non-CTA proteins.",
-    )
     return seen
 
 
