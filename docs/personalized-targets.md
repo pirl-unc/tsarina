@@ -86,7 +86,11 @@ The default workflow applies the following stages in order:
    amino acids.
 3. **Enforce source specificity.** CTA peptides must not occur in a non-CTA
    human protein. Viral peptides must not occur anywhere in the human proteome.
-   Mutation peptides must span the altered residue and differ from wild type.
+   Mutation peptides must span the altered residue, differ from wild type,
+   and be absent from all reference-human coding proteins, including other
+   genes, coding isoforms, and germline IG/TR segments. A mutation in one gene
+   can otherwise recreate a normal sequence from another gene (for example,
+   BRAF V600K can produce the PLK1 sequence `KIGDFGLATK`).
 4. **Attach public MS evidence.** Registered IEDB/CEDAR observations are
    aggregated by peptide.
 5. **Apply the healthy-tissue gate.** Peptides observed on healthy,
@@ -98,6 +102,12 @@ The default workflow applies the following stages in order:
 
 See [Data and evidence](data-and-evidence.md) for the exact observation
 classification used by the MS and healthy-tissue stages.
+
+For raw sequence audits, `mutant_peptides(require_human_exclusive=False)`
+retains reference-human matches. The patient and unified target workflows
+always use the screened default. This reference-sequence screen does not
+prove tumor presentation or clinical safety and does not cover individual
+germline variants or rearranged V(D)J junctions.
 
 ## Evidence tiers
 

@@ -40,11 +40,13 @@ Typical usage::
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pandas as pd
 
 from .alleles import IEDB27_AB
+from .scoring import PRESENTATION_PERCENTILE_THRESHOLDS
 
 
 def build_panel_matrix(
@@ -58,6 +60,7 @@ def build_panel_matrix(
     cedar_path: str | Path | None = None,
     mhc_class: str = "I",
     ms_confirmed_only: bool = False,
+    max_presentation_percentile: float = PRESENTATION_PERCENTILE_THRESHOLDS[-1],
 ) -> pd.DataFrame:
     """Build a source protein x HLA allele panel matrix.
 
@@ -74,7 +77,8 @@ def build_panel_matrix(
         What to put in each cell:
 
         - ``"peptide_count"``: number of unique peptides from this source
-          predicted to bind this allele (requires MHCflurry)
+          with presentation percentile at or below
+          ``max_presentation_percentile`` for this allele (requires MHCflurry)
         - ``"ms_peptide_count"``: number of MS-confirmed peptides
           (requires ``iedb_path``)
         - ``"best_percentile"``: best MHCflurry presentation percentile
@@ -93,6 +97,11 @@ def build_panel_matrix(
         MHC class filter (default ``"I"``).
     ms_confirmed_only
         If True, only include peptides with IEDB/CEDAR MS evidence.
+    max_presentation_percentile
+        Inclusive maximum presentation percentile for ``peptide_count``
+        (default 1.0, the top 1%). Must be finite and in [0, 100]. Missing
+        or invalid prediction percentiles never count. Other metrics retain
+        their existing definitions and do not apply this cutoff.
 
     Returns
     -------
@@ -106,6 +115,10 @@ def build_panel_matrix(
         raise ValueError(
             f"Unknown metric '{metric}'. Supported: {', '.join(sorted(valid_metrics))}."
         )
+    if not math.isfinite(max_presentation_percentile) or not (
+        0 <= max_presentation_percentile <= 100
+    ):
+        raise ValueError("max_presentation_percentile must be finite and in [0, 100]")
 
     if alleles is None:
         alleles = list(IEDB27_AB)
@@ -163,7 +176,11 @@ def build_panel_matrix(
                 for allele in alleles:
                     allele_data = src_data[src_data["allele"] == allele]
                     if metric == "peptide_count":
-                        row[allele] = allele_data["peptide"].nunique()
+                        percentile = pd.to_numeric(
+                            allele_data["presentation_percentile"], errors="coerce"
+                        )
+                        passing = percentile.between(0, max_presentation_percentile)
+                        row[allele] = allele_data.loc[passing, "peptide"].nunique()
                     elif metric == "best_percentile":
                         if (
                             not allele_data.empty

@@ -1,3 +1,137 @@
+# Review fixes and release (2026-09-24)
+
+## Specification
+
+Resolve #175–#178 together in a versioned PR from a feature branch. Screen
+mutant targets against all reference-human coding proteins before they can
+be ranked as non-self; retain an explicitly documented raw-enumeration mode
+for audit use. Reuse the existing candidate-driven overlap scan rather than
+building a full multi-length proteome posting index. Verify PLK1 and RAS-family
+overlaps against Ensembl 112 and show that patient/unified target paths use
+the safe default.
+
+Give `build_panel_matrix` an explicit, validated maximum presentation percentile
+for binder counts, defaulting to the existing candidate threshold of 1.0.
+Exclude missing/non-finite scores and test threshold boundaries, zero-count
+alleles, duplicates, and preservation of the other metrics.
+
+Replace the invalid NetMHCpanEL import with the supported upstream predictor
+API while preserving presentation/affinity meanings. Exercise the advertised
+selectors with actual installed libraries and, when available, the binary.
+Trace the single failing MHCflurry calibration test: distinguish the public
+2.2.1 API from the development checkout, retain real calibration verification,
+and make the optional integration contract explicit rather than simply skipping
+the assertion. File independently reproduced upstream library bugs with their
+owning repos and link them in the PR.
+
+## Plan
+
+- [x] Reinspect current files, prior evidence, lessons, and dependency APIs.
+- [x] Finalize dependency/test contracts and capture failing regression cases.
+- [x] Implement human-overlap filtering, binder counts, and predictor fixes.
+- [x] Repair the calibration test contract and document supported behavior.
+- [x] Run format, lint, full tests, real-data checks, and review the full diff.
+- [ ] Bump version, create/review PR, merge after CI, deploy from clean main.
+- [ ] Verify PyPI artifacts and issue closure; identify next upstream work.
+
+## Review
+
+The reported baseline failure was
+`tests/test_alleles.py::test_global53_default_uses_mhcflurry_runtime_calibration_when_available`,
+an AttributeError for `Class1AffinityPredictor.percent_rank_calibrated_allele`
+on installed MHCflurry 2.2.1. Tracked explicitly as #178. Direct calls to the
+public `percentile_ranks()` API verified every default allele and calibration
+reuse on that same installed release. The test now exercises those numeric
+results, checks equivalent C*14 ranks, and still rejects uncalibrated C*15:05.
+
+Fourteen new mutation/filter regression cases failed against the original
+implementation. The shared coding-protein scan now removes exactly the 14
+matches found by the independent full-FASTA audit (722 raw hotspot rows ->
+708 screened rows). Tests cover alternate isoforms, IG segments, explicit raw
+enumeration, reference errors, and the patient/unified pipeline boundaries.
+An initial test-fixture context omitted the residue before the BRAF window;
+corrected it to the actual Ensembl sequence before final verification.
+
+The NetMHCpan selector defect belongs to Tsarina: no generic `NetMHCpanEL`
+export was found in the inspected upstream history. Corrected #177's title
+instead of asserting an unverified upstream removal. Both selectors now use
+the working version-detecting adapter, with EL and BA metrics kept distinct.
+The MHCflurry failure also belongs to the downstream test, not to the library.
+
+`pip check` reports unrelated pre-existing shared-environment conflicts
+(eureka-bench pins, dataclasses-json/marshmallow, TensorFlow/h5py, tweety,
+pdfx). These are installed-version conflicts, not demonstrated upstream code
+failures; no dependencies were replaced to mask them. Previously tracked
+sercol#4 and topiary#374 are now closed and those conflicts no longer appear.
+
+Final local verification: `./format.sh` and `./lint.sh` pass; full suite is
+**605 passed, 19 warnings, no skips**. Both real NetMHCpan-selector integration
+cases and the previously failing MHCflurry calibration test pass. A separate
+real MHCflurry 2.2.1 smoke prediction returns numeric scores for SLYNTVATL and
+poly-A. Wheel/sdist build and `twine check` pass for 1.31.7. Full-diff review
+confirmed that existing CTA scan policy and other matrix metrics are preserved.
+
+# Major-issue review (2026-09-24)
+
+## Specification
+
+Review current main (e71c1b2, 1.31.6) for consequential correctness,
+integration, and release problems. Focus on candidate selection, evidence
+assignment, safety filters, and deployment/install contracts. Validate each
+finding with a minimal reproduction or an unambiguous execution path;
+distinguish current defects from historical issues and environment drift.
+This is an audit, with no requested product-code changes or release.
+
+## Plan
+
+- [x] Inspect repository state, instructions, lessons, and recent changes.
+- [x] Establish lint/test baseline and inspect resolved dependency paths.
+- [x] Trace high-impact selection/evidence/scoring paths and boundary cases.
+- [x] Reproduce major findings; check existing issues and file new defects.
+- [x] Record review evidence, limitations, and prioritized findings.
+
+## Review
+
+Reviewed current code rather than carrying forward historical findings. No
+product-code edits, PR, or release are part of this audit. Findings are open:
+
+1. **P1 — mutant reference-human overlap**
+   ([#175](https://github.com/pirl-unc/tsarina/issues/175)). Mutant generation
+   compares only against the source transcript's wild-type k-mer. Searching
+   all 722 generated hotspot rows against 123,495 Ensembl 112 reference
+   proteins found 14 overlapping rows: KRAS G12R in RHOT2/RASL10B and BRAF
+   V600K in PLK1. With public MS simulated as absent, actual peptide generation
+   and NetMHCpan scoring retained the PLK1-identical `KIGDFGLATK` as STRONG
+   for HLA-A*03:01 (presentation percentile 0.027). This demonstrates sequence
+   non-exclusivity, not healthy-tissue presentation or clinical toxicity.
+2. **P2 — binder-count matrix has no binding gate**
+   ([#176](https://github.com/pirl-unc/tsarina/issues/176)). The older public
+   `build_panel_matrix(metric='peptide_count')` counts all predictions,
+   including weak/unscored pairs. Reproduced equal counts of two for strong
+   A*02:01 and 95th/99th-percentile B*07:02 predictions. This is distinct from
+   the main `tsarina panel` command and from closed issue #34.
+3. **P2 — advertised EL predictor adapter is incompatible with mhctools**
+   ([#177](https://github.com/pirl-unc/tsarina/issues/177)). Installed mhctools
+   3.44.55 lacks `NetMHCpanEL`. Real `netmhcpan_el` scoring fails at import;
+   the same input succeeds with `netmhcpan`, including presentation and
+   affinity output, proving the executable is installed and working.
+4. **Baseline test/dependency contract failure**
+   ([#178](https://github.com/pirl-unc/tsarina/issues/178)). Full
+   `TEST_SH_MAX=2 ./test.sh`: 585 passed, one failed, 19 warnings. The optional
+   calibration test expects `percent_rank_calibrated_allele`, absent from
+   installed MHCflurry 2.2.1. The development checkout has the method; this
+   is not evidence of a target-selection failure. No environment packages
+   were replaced to hide the baseline failure.
+
+Lint passed. All 19 hotspot transcript reference residues also matched the
+cached Ensembl 112 proteins. Dependency paths were inspected: tsarina and
+hitlist resolve locally; oncoref 1.8.194, mhcgnomes 3.64.1, pyensembl 2.10.4,
+and MHCflurry 2.2.1 resolve to installed packages. Reproduction scripts used
+real sequence data and real NetMHCpan where stated; panel-count scores were
+controlled fixtures. No claim is made that this was an exhaustive audit or
+that the entire suite passed. Fixes and release verification remain future
+work tracked in the linked issues.
+
 # Issue release series (2026-09-22)
 
 ## Specification

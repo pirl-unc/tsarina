@@ -1,4 +1,6 @@
+import shutil
 import sys
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -181,3 +183,73 @@ def test_topiary_pivot_preserves_affinity_percentile():
     assert row["presentation_percentile"] == 0.42
     assert row["affinity_nm"] == 72.5
     assert row["affinity_percentile"] == 0.18
+
+
+@pytest.mark.parametrize("predictor", ["netmhcpan", "netmhcpan_el", "netmhcpan_ba"])
+def test_netmhcpan_selectors_use_version_detecting_factory(monkeypatch, predictor):
+    """The factory's two output kinds must keep their distinct score units."""
+    from tsarina.scoring import score_presentation
+
+    calls = []
+    model = object()
+
+    def factory(**kwargs):
+        calls.append(kwargs)
+        return model
+
+    class Topiary:
+        def __init__(self, models, alleles):
+            assert models == [model]
+            assert alleles == ["HLA-A*02:01"]
+
+        def predict_from_named_peptides(self, peptides):
+            assert list(peptides.values()) == ["SLYNTVATL"]
+            return pd.DataFrame(
+                [
+                    {
+                        "peptide": "SLYNTVATL",
+                        "allele": "HLA-A*02:01",
+                        "kind": "pMHC_presentation",
+                        "score": 0.9,
+                        "percentile_rank": 0.1,
+                        "value": float("nan"),
+                    },
+                    {
+                        "peptide": "SLYNTVATL",
+                        "allele": "HLA-A*02:01",
+                        "kind": "pMHC_affinity",
+                        "score": 0.7,
+                        "percentile_rank": 0.8,
+                        "value": 75.0,
+                    },
+                ]
+            )
+
+    monkeypatch.setitem(sys.modules, "mhctools", SimpleNamespace(NetMHCpan=factory))
+    monkeypatch.setitem(sys.modules, "topiary", SimpleNamespace(TopiaryPredictor=Topiary))
+    out = score_presentation(["SLYNTVATL"], ["HLA-A*02:01"], predictor=predictor)
+    assert calls == [{"alleles": ["HLA-A*02:01"], "default_peptide_lengths": [9]}]
+    assert out.iloc[0]["presentation_percentile"] == 0.1
+    assert out.iloc[0]["affinity_nm"] == 75.0
+    assert out.iloc[0]["affinity_percentile"] == 0.8
+
+
+@pytest.mark.parametrize("predictor", ["netmhcpan", "netmhcpan_el"])
+def test_netmhcpan_real_backend_when_installed(predictor):
+    """Catch adapter API drift with the actual optional stack and binary."""
+    pytest.importorskip("mhctools")
+    pytest.importorskip("topiary")
+    if shutil.which("netMHCpan") is None:
+        pytest.skip("optional NetMHCpan executable is not installed")
+    from tsarina.scoring import score_presentation
+
+    out = score_presentation(
+        ["SLYNTVATL", "AAAAAAAAA"], ["HLA-A*02:01"], predictor=predictor
+    ).set_index("peptide")
+    assert set(out.index) == {"SLYNTVATL", "AAAAAAAAA"}
+    assert out["presentation_percentile"].between(0, 100).all()
+    assert (out["affinity_nm"] > 0).all()
+    assert (
+        out.loc["SLYNTVATL", "presentation_percentile"]
+        < out.loc["AAAAAAAAA", "presentation_percentile"]
+    )

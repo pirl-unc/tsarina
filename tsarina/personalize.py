@@ -375,8 +375,9 @@ def personalized_targets(
         excluded as if it measured zero.
     mutations
         List of hotspot labels (e.g. ``["KRAS G12D"]``).  Wildtype-identical
-        k-mers are filtered in :mod:`tsarina.mutations`; they are already
-        tumor-specific by construction.
+        k-mers and matches to any other reference-human coding protein are
+        filtered in :mod:`tsarina.mutations` before scoring. Sequence
+        exclusivity does not establish tumor presentation by itself.
     viruses
         List of virus keys (e.g. ``["hpv16", "ebv"]``).  By default only
         viral k-mers that do not appear in any human protein are kept; set

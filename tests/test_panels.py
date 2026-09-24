@@ -138,3 +138,34 @@ def test_unknown_metric_raises():
 
     with pytest.raises(ValueError, match="Unknown metric"):
         build_panel_matrix(metric="not_a_metric")
+
+
+@pytest.mark.parametrize("cutoff,expected", [(None, 2), (0.1, 1), (0.5, 1), (1.0, 2)])
+def test_peptide_count_counts_only_passing_unique_predictions(monkeypatch, cutoff, expected):
+    from tsarina.panels import build_panel_matrix
+
+    peptides = ["AAAAAAAAA", "LLLLLLLLL", "SSSSSSSSS", "TTTTTTTTT", "VVVVVVVVV"]
+    targets = pd.DataFrame({"peptide": peptides, "source": "MAGEA4", "category": "cta"})
+    scores = pd.DataFrame(
+        {
+            "peptide": peptides * 2 + [peptides[0]],
+            "allele": ["HLA-A*02:01"] * 5 + ["HLA-B*07:02"] * 5 + ["HLA-A*02:01"],
+            "presentation_percentile": [0.1, 1.0, float("nan"), float("inf"), -1.0]
+            + [95.0] * 5
+            + [0.1],
+        }
+    )
+    monkeypatch.setattr("tsarina.targets.target_peptides", lambda **kw: targets)
+    monkeypatch.setattr("tsarina.scoring.score_presentation", lambda **kw: scores)
+    kwargs = {} if cutoff is None else {"max_presentation_percentile": cutoff}
+    result = build_panel_matrix(category="cta", alleles=["HLA-A*02:01", "HLA-B*07:02"], **kwargs)
+    assert result.iloc[0]["HLA-A*02:01"] == expected
+    assert result.iloc[0]["HLA-B*07:02"] == 0
+
+
+@pytest.mark.parametrize("cutoff", [-1, 101, float("nan"), float("inf")])
+def test_invalid_binder_count_cutoff_raises(cutoff):
+    from tsarina.panels import build_panel_matrix
+
+    with pytest.raises(ValueError, match="max_presentation_percentile"):
+        build_panel_matrix(max_presentation_percentile=cutoff)

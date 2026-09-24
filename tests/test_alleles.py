@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from tsarina.alleles import (
@@ -116,24 +117,26 @@ def test_global53_default_keeps_one_c14_representative():
 
 
 def test_global53_default_uses_mhcflurry_runtime_calibration_when_available():
-    try:
-        mhcflurry = pytest.importorskip("mhcflurry")
-    except Exception as e:
-        pytest.skip(f"mhcflurry is installed but not importable: {e}")
+    mhcflurry = pytest.importorskip("mhcflurry")
 
     predictor = mhcflurry.Class1AffinityPredictor.load()
-    missing = sorted(
-        allele
-        for allele in set(get_panel("global53_abc"))
-        if predictor.percent_rank_calibrated_allele(allele) is None
-    )
-    assert missing == []
-    assert predictor.percent_rank_calibrated_allele("HLA-A*24:02") is not None
+    # Exercise the public calibration API available in MHCflurry 2.2.1 as
+    # well as development versions. The newer resolver helper is not needed
+    # here: numeric ranks prove both calibration and pseudosequence reuse.
+    alleles = get_panel("global53_abc")
+    ranks = predictor.percentile_ranks([500.0] * len(alleles), alleles=alleles)
+    assert np.isfinite(ranks).all()
+    assert ((ranks >= 0) & (ranks <= 100)).all()
+    assert np.isfinite(predictor.percentile_ranks([50, 500, 5000], allele="HLA-A*24:02")).all()
     assert (
         predictor.allele_to_sequence["HLA-C*14:02"] == predictor.allele_to_sequence["HLA-C*14:03"]
     )
-    assert predictor.percent_rank_calibrated_allele("HLA-C*14:03") == "HLA-C*14:02"
-    assert predictor.percent_rank_calibrated_allele("HLA-C*15:05") is None
+    np.testing.assert_array_equal(
+        predictor.percentile_ranks([50, 500, 5000], allele="HLA-C*14:03"),
+        predictor.percentile_ranks([50, 500, 5000], allele="HLA-C*14:02"),
+    )
+    with pytest.raises(ValueError, match="percentile"):
+        predictor.percentile_ranks([500], allele="HLA-C*15:05")
 
 
 def test_all_alleles_have_source_category():
