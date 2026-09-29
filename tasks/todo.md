@@ -2397,12 +2397,12 @@ failure without inventing biological equivalence or changing a 53-allele panel
 into 54 alleles under its existing name. Audit proposed dependency-floor and
 pandas changes against actual requirements rather than release age.
 
-- [ ] Reproduce the failing calibration test and compare old/new model artifacts.
-- [ ] Inspect training provenance for C*14:03 and record reproducible evidence.
-- [ ] File confirmed problems on their owning repositories; link from the PR.
-- [ ] Implement the justified panel/test/CI contract and document model scope.
-- [ ] Repair local editable installs with `./develop.sh` and verify import paths.
-- [ ] Run `./format.sh`, `./lint.sh`, and `./test.sh`; review the complete diff.
+- [x] Reproduce the failing calibration test and compare old/new model artifacts.
+- [x] Inspect training provenance for C*14:03 and record reproducible evidence.
+- [x] File confirmed problems on their owning repositories; link from the PR.
+- [x] Implement the justified panel/test/CI contract and document model scope.
+- [x] Repair local editable installs with `./develop.sh` and verify import paths.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`; review the complete diff.
 - [ ] Bump version on the feature branch, open/merge PR, deploy clean main.
 - [ ] Verify PyPI artifacts and review the next dependency-ordered issue block.
 
@@ -2415,7 +2415,27 @@ need evidence and an explicit compatibility policy.
 
 ### Review
 
-Pending investigation and verification.
+PR: https://github.com/pirl-unc/tsarina/pull/183 (fixes #181 and #182).
+
+- `./format.sh` and `./lint.sh`: passed.
+- `./test.sh --run-mhcflurry`: 609 passed, no skips, pandas 2.3.3 and
+  current editable sibling dependencies; 81% coverage.
+- Same full suite with isolated pandas 3.0.6 and published oncoref 1.8.206:
+  609 passed, no skips; 81% coverage. No pandas upper bound is warranted by
+  this suite. This is tsarina compatibility evidence, not exhaustive upstream
+  pandas validation.
+- Real-model integration against the legacy 2.2.0 bundle: 2 passed.
+- Missing-model negative check: enabled integration fails explicitly.
+- QC negative check: injecting GAGE12B into canonical targets fails explicitly.
+- Strict MkDocs build passed; CLI default/legacy override verified.
+- CI at 0266798 passed lint, Python 3.9–3.12 unit tests and real-model integration.
+
+The shared environment loads unrelated third-party pytest plugins. Final local
+runs used `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` with explicit pytest-cov/xdist
+plugins after interrupting slow concurrent runs; no tests were excluded.
+Deployment uses the same explicit plugin configuration and enables model tests.
+Final merge/publication evidence will be recorded on PR #183 after execution,
+avoiding a commit on main or a claim of publication before upload succeeds.
 
 ### Dependency and QC findings
 
