@@ -2384,3 +2384,53 @@ regeneration sidecars are packaged.
    expression) and [hitlist#490](https://github.com/pirl-unc/hitlist/issues/490)
    (queried versus observed allele scope); retain SPAG4 candidate-reference
    follow-up in [oncoref#548](https://github.com/pirl-unc/oncoref/issues/548).
+
+## MHCflurry panel contract audit (2026-09-29)
+
+### Specification
+
+Establish the exact software version, model download release, named sequence
+columns, full pseudosequences, and calibration behavior behind the C*14:02 /
+C*14:03 claim. Separate representation changes from model training evidence and
+from tsarina's stable, named panel membership. Fix the demonstrated integration
+failure without inventing biological equivalence or changing a 53-allele panel
+into 54 alleles under its existing name. Audit proposed dependency-floor and
+pandas changes against actual requirements rather than release age.
+
+- [ ] Reproduce the failing calibration test and compare old/new model artifacts.
+- [ ] Inspect training provenance for C*14:03 and record reproducible evidence.
+- [ ] File confirmed problems on their owning repositories; link from the PR.
+- [ ] Implement the justified panel/test/CI contract and document model scope.
+- [ ] Repair local editable installs with `./develop.sh` and verify import paths.
+- [ ] Run `./format.sh`, `./lint.sh`, and `./test.sh`; review the complete diff.
+- [ ] Bump version on the feature branch, open/merge PR, deploy clean main.
+- [ ] Verify PyPI artifacts and review the next dependency-ordered issue block.
+
+### Plan check-in
+
+The implementation follows the artifact audit. Dependency floors will change
+only if a required API/data contract demonstrably needs the newer minimum;
+a pandas upper bound requires an observed incompatibility. Named panel changes
+need evidence and an explicit compatibility policy.
+
+### Review
+
+Pending investigation and verification.
+
+### Dependency and QC findings
+
+The published oncoref 1.8.206 wheel and the current checkout both include
+rejected/noncoding candidates in raw evidence. All nine protein-model flags
+are outside `cta_gene_ids()` (published wheel: 2,532 evidence rows / 624
+canonical IDs). Issue #182 tracks the incorrect raw-universe assertion.
+The test now checks canonical admitted IDs while retaining the complete raw
+diagnostic. No membership, evidence, or length threshold changes.
+
+The pandas 3.0.6 baseline passed 603 tests and failed only that same QC
+assertion; it also failed on pandas 2.3.3. No pandas-specific incompatibility
+supports the proposed upper bound. Current floors retain their audited API
+contracts rather than being raised to whichever release happens to be installed.
+
+Real-model calibration and scoring passed against the 2.3.0 presentation bundle.
+All seven old panel memberships compare exactly equal to origin/main; only the
+new global54 panel and CLI/API defaults change. The release version is 1.32.0.

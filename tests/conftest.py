@@ -38,6 +38,23 @@ from __future__ import annotations
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-mhcflurry",
+        action="store_true",
+        help="Run real MHCflurry integration tests; requires the test-mhcflurry extra and models",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-mhcflurry"):
+        return
+    skip = pytest.mark.skip(reason="enable real model tests with --run-mhcflurry")
+    for item in items:
+        if "mhcflurry" in item.keywords:
+            item.add_marker(skip)
+
+
 class _UnstubbedMHCflurryPredictor:
     """Sentinel ``Class1PresentationPredictor`` that refuses to predict.
 

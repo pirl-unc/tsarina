@@ -85,3 +85,10 @@
   on their shape. Compact molecular alleles such as A0201 resemble serotypes;
   keep legacy-name exceptions explicit and test both spellings of the same
   invalid input, including mixed valid/invalid queries.
+- When auditing predictor drift, compare full sequences from explicitly named
+  columns in the exact old and new model bundles. Record software and model
+  versions independently; do not infer representation length from a prefix or
+  equate NetMHCpan's 34-residue reference with MHCflurry's trained representation.
+- Do not call pan-allele predictions untrustworthy solely because direct training
+  data are absent, or treat different percentile calibrations as proof of
+  biological specificity. Separate encoding, training evidence, and validation.

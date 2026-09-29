@@ -1,6 +1,3 @@
-import numpy as np
-import pytest
-
 from tsarina.alleles import (
     GLOBAL44_ADDON,
     GLOBAL48_ADDON,
@@ -37,6 +34,7 @@ def test_panel_names_order():
         "global51_abc_ssa",
         "global51_abc",
         "global53_abc",
+        "global54_abc",
     ]
 
 
@@ -58,9 +56,16 @@ def test_global51_has_51_alleles_for_reference_global_panel():
     assert len(panel) == 51
 
 
-def test_global53_has_53_alleles_for_default_global_panel():
+def test_global53_keeps_53_alleles_for_legacy_panel():
     panel = get_panel("global53_abc")
     assert len(panel) == 53
+
+
+def test_global54_restores_c14_03_without_changing_legacy_panel():
+    panel = get_panel("global54_abc")
+    assert len(panel) == 54
+    assert set(panel) == set(get_panel("global53_abc")) | {"HLA-C*14:03"}
+    assert set(panel) == set(get_panel("global51_abc")) | set(GLOBAL53_CTA_MS_ADDON)
 
 
 def test_global51_keeps_reference_backbone():
@@ -98,7 +103,7 @@ def test_global51_ab_complement_is_reference_backed():
     )
 
 
-def test_global53_default_adds_cta_ms_supported_alleles():
+def test_global53_adds_cta_ms_supported_alleles():
     panel = set(get_panel("global53_abc"))
     assert set(get_panel("global51_abc")) - {"HLA-C*14:03"} < panel
     assert set(GLOBAL53_CTA_MS_ADDON) <= panel
@@ -109,34 +114,11 @@ def test_global53_default_adds_cta_ms_supported_alleles():
     ]
 
 
-def test_global53_default_keeps_one_c14_representative():
+def test_global53_legacy_keeps_one_c14_representative():
     panel = set(get_panel("global53_abc"))
     assert "HLA-C*14:02" in panel
     assert "HLA-C*14:03" not in panel
     assert set(GLOBAL53_HLA_C) <= panel
-
-
-def test_global53_default_uses_mhcflurry_runtime_calibration_when_available():
-    mhcflurry = pytest.importorskip("mhcflurry")
-
-    predictor = mhcflurry.Class1AffinityPredictor.load()
-    # Exercise the public calibration API available in MHCflurry 2.2.1 as
-    # well as development versions. The newer resolver helper is not needed
-    # here: numeric ranks prove both calibration and pseudosequence reuse.
-    alleles = get_panel("global53_abc")
-    ranks = predictor.percentile_ranks([500.0] * len(alleles), alleles=alleles)
-    assert np.isfinite(ranks).all()
-    assert ((ranks >= 0) & (ranks <= 100)).all()
-    assert np.isfinite(predictor.percentile_ranks([50, 500, 5000], allele="HLA-A*24:02")).all()
-    assert (
-        predictor.allele_to_sequence["HLA-C*14:02"] == predictor.allele_to_sequence["HLA-C*14:03"]
-    )
-    np.testing.assert_array_equal(
-        predictor.percentile_ranks([50, 500, 5000], allele="HLA-C*14:03"),
-        predictor.percentile_ranks([50, 500, 5000], allele="HLA-C*14:02"),
-    )
-    with pytest.raises(ValueError, match="percentile"):
-        predictor.percentile_ranks([500], allele="HLA-C*15:05")
 
 
 def test_all_alleles_have_source_category():

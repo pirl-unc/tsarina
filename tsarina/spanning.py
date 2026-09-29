@@ -32,7 +32,7 @@ Typical usage::
 
     table = spanning_pmhc_set(
         cta_count=25,
-        panel="global53_abc",
+        panel="global54_abc",
         lengths=(8, 9, 10, 11),
     )
 """
@@ -50,7 +50,7 @@ from typing import TextIO
 import pandas as pd
 
 _DEFAULT_RANK_COLUMN = "tumor_prevalence_panel_score"
-_DEFAULT_PANEL = "global53_abc"
+_DEFAULT_PANEL = "global54_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_CANCER_RNA_THRESHOLD = 2.0
 _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
@@ -397,7 +397,7 @@ def spanning_pmhc_set(
         Explicit allele list.  Overrides ``panel``.
     panel
         Named panel from :mod:`tsarina.alleles`.  Default
-        ``"global53_abc"`` (53 globally broad HLA-A/B/C alleles
+        ``"global54_abc"`` (54 globally broad HLA-A/B/C alleles
         constrained to MHCflurry affinity percentile-rank calibrated alleles
         and augmented with CTA-MS supported alleles).
     lengths

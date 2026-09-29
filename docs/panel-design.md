@@ -29,7 +29,7 @@ Write a CTA × HLA matrix whose cells contain selected peptides:
 tsarina panel --format wide --output panel-wide.csv
 ```
 
-The default run targets up to 25 non-empty CTAs across `global53_abc`, uses
+The default run targets up to 25 non-empty CTAs across `global54_abc`, uses
 8–11mer CTA-exclusive peptides, requires public-MS evidence, scores with
 MHCflurry, and retains up to three peptides per CTA × HLA cell.
 
@@ -193,7 +193,8 @@ that tradeoff is desirable.
 | `global48_abc` | 48 | Adds representation for Latin America and MENA |
 | `global51_abc_ssa` | 51 | Legacy Global-48 extension for Sub-Saharan Africa |
 | `global51_abc` | 51 | Reference A/B backbone plus frequent HLA-C and common-A/B complements |
-| `global53_abc` | 53 | Default Global-51 extension with CTA-MS-supported alleles |
+| `global53_abc` | 53 | Legacy CTA-MS extension; fixed membership omits C*14:03 |
+| `global54_abc` | 54 | Default Global-51 extension with CTA-MS-supported alleles, including C*14:03 |
 
 Use a named panel or provide an explicit list:
 
@@ -202,7 +203,7 @@ tsarina panel --panel iedb27_ab
 tsarina panel --alleles 'HLA-A*02:01,HLA-A*24:02,HLA-B*07:02'
 ```
 
-### Why Global-53 is the default
+### Why Global-54 is the default
 
 `global51_abc` contains:
 
@@ -212,15 +213,42 @@ tsarina panel --alleles 'HLA-A*02:01,HLA-A*24:02,HLA-B*07:02'
 - `B*18:01`, `B*40:02`, and `B*46:01`, the highest-frequency calibrated
   alleles needed to complement the IEDB/Paul common HLA-A/B set.
 
-`global53_abc` adds `A*29:02`, `B*15:02`, and `B*27:05`, which were the top
-missing alleles in a public CTA-MS audit. It keeps `C*14:02` but not
-`C*14:03`: MHCflurry uses the same pseudosequence and percentile calibration
-for both, while local CTA-MS support favored `C*14:02`.
+`global54_abc` adds `A*29:02`, `B*15:02`, and `B*27:05`, which were the top
+missing alleles in a public CTA-MS audit. It retains all 21 reference HLA-C
+allotypes, including both `C*14:02` and `C*14:03`.
 
-All 53 default alleles resolve through MHCflurry's calibrated
-percentile-rank lookup. `HLA-C*15:05` is not in the default panel because
-MHCflurry can score its raw affinity and presentation but lacks an affinity
-percentile-rank calibration.
+The previous default, `global53_abc`, omitted `C*14:03` because the older
+MHCflurry model bundles encoded both C*14 alleles identically and local CTA-MS
+support favored `C*14:02`. Its membership remains unchanged; use
+`--panel global53_abc` to reproduce that panel.
+
+The MHCflurry 2.3.0 presentation bundle changes the trained representation from
+37 to 39 residues and distinguishes these alleles at pseudosequence position
+5 (R for `C*14:02`, H for `C*14:03`). The 34-residue representation is the
+NetMHCpan-derived reference, not the old trained MHCflurry encoding. The
+standalone sequence download already contained 39 residues in download release
+2.2.0, although that release's trained models still used 37. Inspect the
+sequences bundled with the actual model, not just its software version.
+
+The 2.3.0 presentation archive's `affinity_predictor_train_data.csv.bz2`
+contains 171 `C*14:03` rows and unique peptides, all qualitative MS observations
+(151 Keskin; 20 PMID 31844290). Thus this allele has direct training evidence;
+training inclusion and differing percentile ranks alone do not establish
+independently validated biological specificity. The panel restores an existing
+reference allotype whose encoding-based exclusion no longer applies.
+
+All 54 default alleles have numeric affinity calibration in the audited 2.3.0
+bundle. Tsarina selection uses **presentation** percentiles; it does not require
+affinity percentiles for scoring. `HLA-C*15:05`, historically omitted because it
+lacked affinity calibration in older bundles, can still be supplied explicitly.
+The integration tests verify finite scores without freezing an upstream
+allele's calibration availability or assuming permanent sequence equivalence.
+
+Model references:
+
+- [MHCflurry pseudosequence definitions](https://github.com/openvax/mhcflurry/blob/2.3.0/mhcflurry/pseudosequences.py)
+- [MHCflurry 2.3.0 release](https://github.com/openvax/mhcflurry/releases/tag/2.3.0)
+- [Audited presentation model archive](https://github.com/openvax/mhcflurry/releases/download/2.3.0/models_class1_presentation.20260928.tar.bz2)
 
 Panel references:
 
@@ -244,7 +272,7 @@ CTA:
    \(1 - (1 - f)^2\); and
 3. combine carrier probabilities across loci.
 
-All default `global53_abc` alleles have source, proxy, resolution, and nonzero
+All default `global54_abc` alleles have source, proxy, resolution, and nonzero
 frequency provenance. The result is a panel-design estimate, not a
 clinical-grade population-genetics analysis.
 

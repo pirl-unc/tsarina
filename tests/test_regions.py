@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from tsarina.regions import (
     GLOBAL_ALLELE_FREQUENCY_ROWS,
@@ -123,20 +124,22 @@ def test_all_loci_are_abc():
     assert global_loci == {"A", "B", "C"}
 
 
-def test_global53_panel_has_frequency_support():
+@pytest.mark.parametrize("panel_name", ["global53_abc", "global54_abc"])
+def test_global_panel_has_frequency_support(panel_name):
     from tsarina.alleles import get_panel
     from tsarina.spanning import _weighted_allele_frequencies
 
-    alleles = get_panel("global53_abc")
+    alleles = get_panel(panel_name)
     weighted = _weighted_allele_frequencies(alleles)
     missing = [allele for allele in alleles if weighted.get(allele, 0.0) <= 0.0]
     assert missing == []
 
 
-def test_global53_panel_has_auditable_subpop_and_global_frequencies():
+@pytest.mark.parametrize("panel_name", ["global53_abc", "global54_abc"])
+def test_global_panel_has_auditable_subpop_and_global_frequencies(panel_name):
     from tsarina.alleles import get_panel
 
-    alleles = get_panel("global53_abc")
+    alleles = get_panel(panel_name)
     audit = allele_frequency_audit(alleles)
 
     assert audit["allele"].tolist() == alleles

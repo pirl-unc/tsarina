@@ -12,8 +12,8 @@
 
 """Public HLA class I allele panels for population-spanning vaccine design.
 
-Panels are organized as nested tiers: each larger panel is a superset of
-the previous one, adding alleles for broader geographic coverage.
+The original panels through Global-51 SSA form nested tiers. The reference
+A/B/C panels use a separate backbone, with named memberships kept stable.
 
 Tier structure::
 
@@ -23,7 +23,8 @@ Tier structure::
     Global-48               48 alleles   + Latin America, MENA
     Global-51               51 alleles   + additional Sub-Saharan Africa
     Global-51 (A/B/C)       51 alleles   Global reference default backbone
-    Global-53 (A/B/C)       53 alleles   Global default + CTA-MS supported alleles
+    Global-53 (A/B/C)       53 alleles   Legacy CTA-MS extension, omitting C*14:03
+    Global-54 (A/B/C)       54 alleles   Global default, including both C*14 alleles
 
 The IEDB-27 baseline corresponds to the published IEDB/TepiTool panel of
 the 27 most frequent global MHC class I alleles. The Global-51 A/B/C panel
@@ -31,7 +32,10 @@ keeps that backbone, adds the frequent HLA-C allotypes profiled by Sarkizova
 et al., and fills the remaining 51-panel slots from the IEDB/Paul 38 common
 HLA-A/B allele-specific threshold set. The Global-53 A/B/C panel adds the
 strongest missing CTA-MS supported alleles from the local public-MS audit while
-keeping only HLA-C*14:02 from the MHCflurry-identical HLA-C*14:02/C*14:03 pair.
+keeping only HLA-C*14:02 from the pair that shared a pseudosequence in the
+37-residue MHCflurry models. The 2.3.0 model bundle uses 39 residues and
+distinguishes HLA-C*14:03. Global-54 restores it while preserving Global-53
+membership for reproducibility.
 """
 
 from __future__ import annotations
@@ -233,11 +237,29 @@ PANEL_DEFINITIONS: OrderedDict[str, dict] = OrderedDict(
                 "description": (
                     "Global-51 A/B/C plus CTA-MS supported A/B alleles: "
                     "HLA-A*29:02, HLA-B*15:02, and HLA-B*27:05; keeps "
-                    "HLA-C*14:02 but not the MHCflurry-identical HLA-C*14:03."
+                    "HLA-C*14:02 but omits HLA-C*14:03, which shared its encoding "
+                    "in the older 37-residue MHCflurry models. Legacy membership is fixed."
                 ),
                 "alleles": _sorted_alleles(
                     set(GLOBAL51_AB_BACKBONE)
                     | set(GLOBAL53_HLA_C)
+                    | set(GLOBAL51_COMMON_AB_COMPLEMENT)
+                    | set(GLOBAL53_CTA_MS_ADDON)
+                ),
+            },
+        ),
+        (
+            "global54_abc",
+            {
+                "label": "Global-54 A/B/C",
+                "description": (
+                    "Global-51 A/B/C plus CTA-MS supported HLA-A*29:02, HLA-B*15:02, "
+                    "and HLA-B*27:05. Includes both HLA-C*14:02 and HLA-C*14:03, "
+                    "which the MHCflurry 2.3.0 model bundle distinguishes."
+                ),
+                "alleles": _sorted_alleles(
+                    set(GLOBAL51_AB_BACKBONE)
+                    | set(GLOBAL51_HLA_C)
                     | set(GLOBAL51_COMMON_AB_COMPLEMENT)
                     | set(GLOBAL53_CTA_MS_ADDON)
                 ),
@@ -326,7 +348,7 @@ def get_panel(name: str) -> list[str]:
     name : str
         Panel key: ``"iedb27_ab"``, ``"iedb36_abc"``, ``"global44_abc"``,
         ``"global48_abc"``, ``"global51_abc_ssa"``, ``"global51_abc"``,
-        or ``"global53_abc"``.
+        ``"global53_abc"``, or ``"global54_abc"``.
 
     Returns
     -------

@@ -125,8 +125,15 @@ def test_real_pyensembl_lengths_for_known_genes():
     assert gene_max_protein_length("ENSG00000215274", ensembl=ensembl) == 116
 
 
-def test_oncoref_universe_has_no_fragment_models():
+def test_oncoref_canonical_targets_have_no_fragment_models():
+    from tsarina import CTA_gene_ids
+
     _ensembl_or_skip()
-    # The oncoref CTA universe must contain no fragment / no-protein gene models.
+    # Raw evidence includes rejected/noncoding candidates for audit. Only the
+    # canonical target set must contain no fragment / no-protein gene models.
+    # Still run the diagnostic over all evidence so rejected rows stay visible.
     flagged = find_fragment_gene_models()
-    assert flagged == [], f"fragment gene models in oncoref CTA universe: {flagged}"
+    selected_ids = CTA_gene_ids()
+    assert selected_ids
+    selected_fragments = [row for row in flagged if row["gene_id"] in selected_ids]
+    assert selected_fragments == [], f"fragment gene models in canonical CTAs: {selected_fragments}"
