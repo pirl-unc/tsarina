@@ -2384,3 +2384,73 @@ regeneration sidecars are packaged.
    expression) and [hitlist#490](https://github.com/pirl-unc/hitlist/issues/490)
    (queried versus observed allele scope); retain SPAG4 candidate-reference
    follow-up in [oncoref#548](https://github.com/pirl-unc/oncoref/issues/548).
+
+## MHCflurry panel contract audit (2026-09-29)
+
+### Specification
+
+Establish the exact software version, model download release, named sequence
+columns, full pseudosequences, and calibration behavior behind the C*14:02 /
+C*14:03 claim. Separate representation changes from model training evidence and
+from tsarina's stable, named panel membership. Fix the demonstrated integration
+failure without inventing biological equivalence or changing a 53-allele panel
+into 54 alleles under its existing name. Audit proposed dependency-floor and
+pandas changes against actual requirements rather than release age.
+
+- [x] Reproduce the failing calibration test and compare old/new model artifacts.
+- [x] Inspect training provenance for C*14:03 and record reproducible evidence.
+- [x] File confirmed problems on their owning repositories; link from the PR.
+- [x] Implement the justified panel/test/CI contract and document model scope.
+- [x] Repair local editable installs with `./develop.sh` and verify import paths.
+- [x] Run `./format.sh`, `./lint.sh`, and `./test.sh`; review the complete diff.
+- [ ] Bump version on the feature branch, open/merge PR, deploy clean main.
+- [ ] Verify PyPI artifacts and review the next dependency-ordered issue block.
+
+### Plan check-in
+
+The implementation follows the artifact audit. Dependency floors will change
+only if a required API/data contract demonstrably needs the newer minimum;
+a pandas upper bound requires an observed incompatibility. Named panel changes
+need evidence and an explicit compatibility policy.
+
+### Review
+
+PR: https://github.com/pirl-unc/tsarina/pull/183 (fixes #181 and #182).
+
+- `./format.sh` and `./lint.sh`: passed.
+- `./test.sh --run-mhcflurry`: 609 passed, no skips, pandas 2.3.3 and
+  current editable sibling dependencies; 81% coverage.
+- Same full suite with isolated pandas 3.0.6 and published oncoref 1.8.206:
+  609 passed, no skips; 81% coverage. No pandas upper bound is warranted by
+  this suite. This is tsarina compatibility evidence, not exhaustive upstream
+  pandas validation.
+- Real-model integration against the legacy 2.2.0 bundle: 2 passed.
+- Missing-model negative check: enabled integration fails explicitly.
+- QC negative check: injecting GAGE12B into canonical targets fails explicitly.
+- Strict MkDocs build passed; CLI default/legacy override verified.
+- CI at 0266798 passed lint, Python 3.9–3.12 unit tests and real-model integration.
+
+The shared environment loads unrelated third-party pytest plugins. Final local
+runs used `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` with explicit pytest-cov/xdist
+plugins after interrupting slow concurrent runs; no tests were excluded.
+Deployment uses the same explicit plugin configuration and enables model tests.
+Final merge/publication evidence will be recorded on PR #183 after execution,
+avoiding a commit on main or a claim of publication before upload succeeds.
+
+### Dependency and QC findings
+
+The published oncoref 1.8.206 wheel and the current checkout both include
+rejected/noncoding candidates in raw evidence. All nine protein-model flags
+are outside `cta_gene_ids()` (published wheel: 2,532 evidence rows / 624
+canonical IDs). Issue #182 tracks the incorrect raw-universe assertion.
+The test now checks canonical admitted IDs while retaining the complete raw
+diagnostic. No membership, evidence, or length threshold changes.
+
+The pandas 3.0.6 baseline passed 603 tests and failed only that same QC
+assertion; it also failed on pandas 2.3.3. No pandas-specific incompatibility
+supports the proposed upper bound. Current floors retain their audited API
+contracts rather than being raised to whichever release happens to be installed.
+
+Real-model calibration and scoring passed against the 2.3.0 presentation bundle.
+All seven old panel memberships compare exactly equal to origin/main; only the
+new global54 panel and CLI/API defaults change. The release version is 1.32.0.

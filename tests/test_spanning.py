@@ -811,12 +811,13 @@ def test_panel_summary_counts_ms_tiers_per_cta():
 
 
 def test_panel_default_resolves_via_get_panel():
-    """Default 53-allele panel should produce 54 columns including 'cta'."""
+    """Default 54-allele panel should produce 55 columns including 'cta'."""
     df = spanning_pmhc_set(
         cta_count=2,
         max_percentile=10.0,
     )
-    assert df.shape[1] == 54  # 1 cta + 53 alleles
+    assert df.shape[1] == 55  # 1 cta + 54 alleles
+    assert "HLA-C*14:03" in df.columns
 
 
 def test_explicit_alleles_override_panel():

@@ -105,3 +105,18 @@ and thymus are treated as safety evidence.
 ./lint.sh
 ./test.sh
 ```
+
+Real MHCflurry model integration tests run in a separate CI job. To run them
+locally (Python 3.10+):
+
+```bash
+pip install -e ".[test-mhcflurry]"
+mhcflurry downloads fetch models_class1_presentation
+pytest tests/test_mhcflurry_integration.py --run-mhcflurry
+```
+
+These tests check the downloaded presentation bundle, including its affinity
+calibration, through Tsarina's scoring interface. Enabling them requires the
+dependency and models; missing prerequisites fail rather than skip. Use
+`./test.sh --run-mhcflurry` to include them in the full suite.
+`./deploy.sh` requires this extra and model bundle and always runs these tests.

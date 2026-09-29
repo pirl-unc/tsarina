@@ -11,7 +11,7 @@ echo "==> Running lint checks..."
 
 echo ""
 echo "==> Running tests..."
-./test.sh
+./test.sh --run-mhcflurry
 
 echo ""
 echo "==> Cleaning old builds..."

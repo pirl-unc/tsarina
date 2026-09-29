@@ -1375,7 +1375,7 @@ GLOBAL_ALLELE_FREQUENCY_ROWS = [
             source_label="Sarkizova HLA-C global allele frequency",
             source_url="https://pmc.ncbi.nlm.nih.gov/articles/PMC12738900/",
             proxy="Sarkizova global HLA-C allotype set",
-            note="Published HLA-C allotype frequency for the legacy global51_abc panel.",
+            note="Published HLA-C allotype frequency for the global51_abc and global54_abc panels.",
         ),
     ]
 ]
