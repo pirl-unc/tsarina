@@ -174,7 +174,7 @@ def _data_info(args: argparse.Namespace) -> None:
 
 def _data_fetch_all(args: argparse.Namespace) -> None:
     paths = fetch_all_data_assets(force=args.force)
-    print(f"Fetched {len(paths)} data-asset file(s) into {data_dir()}.")
+    print(f"Fetched {len(paths)} data-asset file(s).")
 
 
 def _build_observations(args: argparse.Namespace) -> None:
