@@ -1,5 +1,9 @@
 # Lessons
 
+- Scope completion reports to the issues actually included in the verified
+  release. A merged/deployed PR does not mean the repository's remaining open
+  bugs are fixed; check a named issue against current code before saying so.
+
 - When reporting a test failure, name the failing test, exception, and resolved
   dependency version. Exercise the library's supported public operation before
   treating an absent convenience helper as an upstream defect or raising the

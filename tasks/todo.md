@@ -1,3 +1,36 @@
+# Correct fetch-all destination output (#180, 2026-09-29)
+
+## Specification
+
+Keep hitlist as the owner of download paths and its existing progress output.
+`tsarina data fetch-all` must not describe the independently configured corpus
+directory as the asset-cache destination. Remove the directory from tsarina's
+redundant summary, retaining the number of fetched files (including zero).
+Preserve force forwarding and download error propagation. No cache migration,
+directory creation, dependency change, or new download API is required.
+Release the fix as 1.32.1 through a PR, then deploy from clean main.
+
+## Plan
+
+- [x] Inspect #180, current main, upstream download output, and release scripts.
+- [x] Correct the summary and verify distinct corpus/cache paths without downloads.
+- [x] Run format, lint, and full tests with real-model checks and one worker.
+- [ ] Review the diff, merge after CI, deploy, and verify PyPI artifacts.
+- [ ] Confirm issue closure and inspect the next relevant open work.
+
+## Review
+
+Verified the real upstream progress formatter through the tsarina parser with
+a temporary asset and an independently configured corpus directory. Both force
+modes preserve the actual asset-cache output without consulting `data_dir()`.
+An empty asset registry prints a zero count, and download errors still propagate.
+Format and lint pass. `TEST_SH_MAX=1 ./test.sh --run-mhcflurry` passed all 609
+tests, including the real-model contracts (19 warnings, 70.42 seconds).
+Reviewed the complete diff: the runtime change removes only the incorrect
+directory suffix, and no new dependency API is needed. Completion claims
+identify the released issue and version explicitly; PR #183 did not include
+this fix. Merge, publication, and artifact verification are tracked in PR #185.
+
 # Review fixes and release (2026-09-24)
 
 ## Specification
