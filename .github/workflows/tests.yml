@@ -51,11 +51,11 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check tsarina tests
+          ruff check tsarina tests scripts/develop.py
 
       - name: Check formatting with ruff
         run: |
-          ruff format --check tsarina tests
+          ruff format --check tsarina tests scripts/develop.py
 
   test:
     runs-on: ubuntu-latest

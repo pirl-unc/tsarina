@@ -2,6 +2,9 @@
 
 set -e
 
+# Resolve paths relative to this checkout, even when invoked from elsewhere.
+cd "$(dirname "$0")"
+
 # Install into the virtualenv that is already active, if there is one.
 #
 # This script used to create and activate ./.venv unconditionally.  Run from a
@@ -23,16 +26,6 @@ else
     source "$VENV_DIR/bin/activate"
 fi
 
-if command -v uv &> /dev/null; then
-    echo "Using uv to install package with development dependencies..."
-    uv pip install -e ".[dev]"
-    PIP_INSTALL=(uv pip install)
-else
-    echo "uv not found, falling back to regular pip..."
-    pip install -e ".[dev]"
-    PIP_INSTALL=(pip install)
-fi
-
 # Develop against sibling checkouts when they are present, so tsarina tracks
 # the code its results actually depend on rather than the last PyPI release.
 # Falls back silently to the pinned wheel for any repo that is absent.
@@ -50,20 +43,18 @@ fi
 # scoring change look like a tsarina change.
 SIBLINGS=(hitlist oncoref mhcgnomes pyensembl datacache gtfparse serializable sercol)
 SIBLING_ROOT="${SIBLING_ROOT:-..}"
+INSTALL_ARGS=(-e ".[dev]")
 for sibling in "${SIBLINGS[@]}"; do
     sibling_dir="$SIBLING_ROOT/$sibling"
     if [ -d "$sibling_dir" ]; then
-        echo "Installing sibling $sibling editable from $sibling_dir ..."
-        # --no-deps is load-bearing.  Resolving one sibling's dependencies can
-        # replace another sibling's editable install with a released wheel:
-        # installing sercol pulled serializable==0.4.1 over the editable
-        # serializable 1.1.0 checkout, silently undoing the line above it.
-        # tsarina's own ".[dev]" install above resolves the closure; a sibling
-        # that needs a dependency its last release did not is the one case
-        # wanting a manual install, and the report below names it.
-        "${PIP_INSTALL[@]}" -e "$sibling_dir" --no-deps
+        echo "Selecting sibling $sibling editable from $sibling_dir ..."
+        INSTALL_ARGS+=(-e "$sibling_dir")
     fi
 done
+
+# Resolve every editable together, validate the proposed environment against
+# installed consumers, then install with dependencies and require pip check.
+python scripts/develop.py "${INSTALL_ARGS[@]}"
 
 # Say where everything landed.  The failure being guarded against is not an
 # install error -- it is an install that succeeds into the wrong place, so the
@@ -118,8 +109,7 @@ for name in SIBLING_NAMES.split():
 if shadowed:
     print(
         f"\nWARNING: {', '.join(shadowed)} resolved outside their checkouts despite "
-        "one being present.\nA released wheel is shadowing the dev tree — most likely "
-        "pulled in as another\npackage's dependency. Re-run this script, and if it "
-        "persists, install that\none last with `--no-deps`."
+        "one being present.\nCheck the reported import paths and remove the "
+        "shadowing installation, then re-run this script."
     )
 PY

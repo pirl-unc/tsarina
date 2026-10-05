@@ -106,6 +106,13 @@ and thymus are treated as safety evidence.
 ./test.sh
 ```
 
+`develop.sh` uses the active virtualenv (or creates `.venv`) and requires
+pip >=23.0. It resolves Tsarina and present sibling checkouts together, checks
+the proposed versions against installed consumers before changing packages,
+and runs `pip check` after installation. If a checkout is incompatible, update
+that checkout or use a separate virtualenv; the refused install leaves the
+installed packages unchanged. Missing siblings use their released packages.
+
 Real MHCflurry model integration tests run in a separate CI job. To run them
 locally (Python 3.10+):
 
