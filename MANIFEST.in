@@ -1,3 +1,5 @@
 include LICENSE
 include README.md
+include develop.sh
+include scripts/develop.py
 include scripts/regenerate_hpa_cancer_prevalence.py

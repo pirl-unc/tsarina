@@ -1,3 +1,83 @@
+# Compatible development installs (#184, 2026-10-05)
+
+## Specification
+
+Resolve Tsarina with its dev extra and every present scientific-data sibling
+as one editable installation. Before changing installed packages, use pip's
+dry-run report to project the complete resulting environment, including
+untouched installed consumers. Validate that projection with pip check in a
+temporary metadata-only virtualenv, so a stale sibling cannot violate an
+existing consumer's minimum unnoticed. Reject conflicts with the consumer,
+requirement, proposed version, and instructions to update the checkout or use
+a separate virtualenv. Install the checked editable set together with normal
+dependency resolution; require a successful final pip check. Use the selected
+Python interpreter consistently and pip >=23.0's stable report format.
+
+Retain active-virtualenv selection, absent-sibling release fallback, optional
+predictor policy, and resolved-import reporting. Avoid pip internals, custom
+requirement parsing, runtime dependency additions, and individual --no-deps
+installs. A failed preflight must preserve installed distributions. Regression
+tests will exercise actual pip resolution offline in disposable virtualenvs,
+including stale sibling-vs-sibling and installed-consumer constraints, newly
+added dependencies, editable preservation, and final-check failure handling.
+Release as 1.32.2 via PR and deploy from clean main.
+
+## Plan
+
+- [x] Read #184, local workflow/lessons, installer APIs, and current environment.
+- [x] Implement joint resolution and whole-environment preflight before install.
+- [x] Prove rejection and successful editable/dependency installs with regressions.
+- [x] Run format, lint, full tests including real models, and review the diff.
+- [ ] Bump version, open PR, wait for CI, merge, and deploy clean main.
+- [ ] Verify PyPI artifacts/issue closure and review dependency-ordered next work.
+
+## Plan check-in
+
+The current environment passes pip check. Joint sibling resolution alone
+cannot protect an untouched installed consumer, and installer success alone
+does not establish a consistent environment. The implementation will use
+pip's public report, interpreter-selection, and check commands for those
+two separate gates, with no preflight package installation.
+
+## Review
+
+Initial offline regressions exposed a local interpreter constraint: copying
+uv's macOS Python executable loses its relative libpython dylib. Use the
+POSIX symlink behavior of `python -m venv` in disposable environments; the
+resolution/preflight design is unchanged. Verification continues with that
+correction before any real development installation.
+
+The three core regressions fail against main's original script: stale sibling
+installs exit successfully after downgrading mhcgnomes, and newly declared
+dependencies remain absent. All six initial tests pass on the repaired script.
+The first full format/lint/model-enabled test run passed 615 tests (19 warnings).
+The real sibling preflight refused mhcgnomes 3.64.2 against hitlist 1.64.6's
+>=3.64.4 minimum, preserved every installed distribution version, and left
+pip check passing. No sibling was updated to disguise that expected refusal.
+
+Review also isolates the metadata-check subprocess from PYTHONPATH/PYTHONHOME
+so foreign distribution metadata cannot shadow proposed versions; an added
+negative regression exercises that case. Version 1.32.2 is bumped explicitly
+on the feature branch because the current deploy.sh uploads the existing
+version (the script's behavior is already documented in this task log).
+Final validation, PR, merge, and release verification remain pending.
+
+Final validation: format/lint pass; the full model-enabled suite passes all
+616 tests (19 warnings, 97.39 seconds; 81% runtime coverage). Seven new tests
+cover the two rejection paths, successful installation of a new dependency
+while preserving all editables, absent-sibling fallback and environment
+markers, final-check failure, future report rejection, and PYTHONPATH metadata
+shadowing. The helper is included in local/CI lint gates. Python 3.9 syntax
+checks and Bash syntax checks pass. Reviewed the complete change: no runtime
+dependency or scientific-selection behavior changes; normal installation
+resolves the joint graph and constrains it to the preflight-checked versions.
+
+Built wheel and sdist successfully before the PR. The sdist includes byte-for-
+byte copies of develop.sh, scripts/develop.py, and its regression tests; wheel
+version matches 1.32.2. Post-merge clean-main deployment, artifact digests,
+issue closure, and next-work review will be recorded in the PR description,
+so release evidence does not require a direct commit on main.
+
 # Correct fetch-all destination output (#180, 2026-09-29)
 
 ## Specification
