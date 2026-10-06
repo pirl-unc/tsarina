@@ -230,8 +230,11 @@ def optimize_construct(
     history = []
 
     def signature(state):
+        # Padding beyond a native interval end produces the same construct.
+        # Count actual boundaries so these aliases cannot fill the beam.
         return tuple(
-            (s.segment_id, n, c, link if i else "") for i, (s, n, c, link) in enumerate(state)
+            (s.segment_id, *s.bounds(n, c), link if i else "")
+            for i, (s, n, c, link) in enumerate(state)
         )
 
     def candidates(state):
@@ -249,6 +252,19 @@ def optimize_construct(
                     trial = state.copy()
                     trial[i] = (segment, n, c, linker)
                     yield trial
+                    if len(linker) > len(link) and not feasible(trial):
+                        # At the length cap, a linker and the padding needed
+                        # to fit it must be proposed together. Requiring a
+                        # worse direct join first can trap a narrow beam.
+                        left, left_n, left_c, left_link = state[i - 1]
+                        for cpad in padding:
+                            for npad in padding:
+                                if cpad > left_c or npad > n:
+                                    continue
+                                trial = state.copy()
+                                trial[i - 1] = (left, left_n, cpad, left_link)
+                                trial[i] = (segment, npad, c, linker)
+                                yield trial
             for npad in padding:
                 for cpad in padding:
                     trial = state.copy()

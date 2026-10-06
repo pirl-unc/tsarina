@@ -8,7 +8,7 @@ Detailed specification: [cta-vaccine-spec.md](cta-vaccine-spec.md).
 - [x] Implement native interval subtraction and auditable panel MS support.
 - [x] Implement padding/order/linker optimization, cleavage and final audit.
 - [x] Implement DNA/RNA assembly, constraints, CLI and reports/figures.
-- [ ] Add regression coverage, offline example and live scientific validation.
+- [x] Add regression coverage, offline example and real scientific validation.
 - [x] Run format/lint/full tests, review and bump to 1.33.0.
 - [ ] Open PR, pass CI, merge, deploy and verify published artifacts.
 - [ ] Record review evidence and dependency-ordered follow-up work.
@@ -17,21 +17,38 @@ Plan check-in: use OncoRef as the CTA and expression authority; retain native
 CTA-exclusive intervals and measured MS provenance; audit actual assembled
 sequence and explicit limitations. No gene-level percentile arithmetic.
 
-Review: initial model-enabled checks passed 647 tests; two optional Topiary
-backend tests skipped in the isolated vaccine stack. Live scoped MS scans
-exposed same-gene HSCHR annotations falsely vetoing PRAME/MAGEA3/MAGEA6;
-the vaccine background now resolves those aliases without changing expression
-keys or admitting independent non-CTA loci (Tsarina #187). The full Hitlist
-1.64.7 provenance rebuild initially exhausted scratch disk (Hitlist #643),
-which is now freed. Recreate the cleared temporary environment under the
-ignored project .venv-vaccine directory and rerun complete index/model/design
-validation. Final reports will be retained under ignored vaccine-designs/.
-The current project environment passes pip check with imported Hitlist 1.64.7,
-OncoRef 1.8.207, PyEnsembl 2.23.2 and mhctools 3.47.1. Format/lint pass; the
-full model-enabled suite passes 652 tests (two optional Topiary backend skips,
-19 warnings; 83% runtime coverage). Python 3.9 syntax and synthetic figure QA
-pass. Full strict/loose production runs now use the freshness-checked index,
-10 search rounds, beam width 6 and padding step 2; final live review is pending.
+Review: PR #188 adds the feature and bumps 1.32.2 to 1.33.0. The compatible
+project environment passes pip check with imported Hitlist 1.64.7, OncoRef
+1.8.207, PyEnsembl 2.23.2 and mhctools 3.47.1. Format/lint pass; the final
+model-enabled suite passes 654 tests (two optional Topiary backend skips,
+19 warnings; 84% coverage). Regression checks also prevent clamped padding
+from filling the beam with duplicate constructs and allow linker/padding
+changes together at the length cap. Python 3.9 syntax, synthetic artifacts
+and figure QA pass.
+
+Same-gene HSCHR annotations no longer falsely veto PRAME/MAGEA3/MAGEA6 in
+this feature; expression keys and independent non-CTA vetoes remain intact
+(legacy partition follow-up #187). A full current-index rebuild completed both
+raw scans and mappings, but its lossless contributor export exceeded about
+58 GB available scratch space (Hitlist #643). It was stopped before filling
+the disk; only its owned temporary graph was removed. The stale observation
+cache was neither read as current nor restamped.
+
+Final real-data API validation instead uses explicit fresh scoped Hitlist
+1.64.7 scanner/collector input: 588 human class-I MS rows, 217 peptides,
+1,101 contributor links, source hashes, current classification/dedup/exclusion
+contracts. Strict and loose both retain eight of ten ranked proteoforms in
+26 native pieces: 1000 aa / 3441 nt with HBB/HBB_FI and 120-nt polyA.
+Remaining below-1000 nM window/allele predictions are 1088 (from 1481) and
+950 (from 1444), respectively; both designs are explicitly review-required.
+GAGE1/GAGE2A lack qualifying MS support; no automatic backfill occurs.
+Independent checks verified translation, native/assembled ligand coordinates,
+all final window/allele pairs, constraints and 60 output hashes. A separate
+scan of 98,500 independent translated background occurrences confirms no
+retained native 8-mer collision. Bundled docs include complete selected-cancer
+tables, funnels, layers, ligand/junction/cleavage tables, FASTAs, figures and
+hashed validation snapshots; full provenance bundles remain under ignored
+vaccine-designs/2026-10-06/. Merge/PyPI verification remains pending.
 
 ---
 

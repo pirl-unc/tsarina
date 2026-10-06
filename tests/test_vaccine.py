@@ -285,6 +285,21 @@ def test_order_search_removes_binder_and_preserves_ligands():
     assert a.protein_sequence in result["protein"] and b.protein_sequence in result["protein"]
 
 
+def test_clamped_padding_keeps_beam_slots_for_distinct_constructs():
+    a, b = segment("a", "MCCCCCCCC"), segment("b", "DDDDDDDDD", rank=2)
+    result = optimize_construct(
+        [a, b],
+        [ALLELE],
+        VaccineConfig(padding_step=2, optimization_rounds=2),
+        affinity,
+        cleavage,
+    )
+    # No terminal context exists: there are only two orders and two joins.
+    # Requested padding 0..10 must not create additional construct states.
+    assert all(row["candidates"] <= 4 for row in result["search_history"])
+    assert result["clean_junctions"]
+
+
 def test_padding_changes_only_unsupported_edges():
     a, b = segment("a", "MCCCCCCCCQ", ligand_end=9), segment("b", "DDDDDDDD", rank=2)
 
@@ -320,6 +335,29 @@ def test_aay_rescue_versus_direct_joins():
     assert any(layer["sequence"] == "AAY" for layer in result["layers"])
 
 
+def test_linker_can_trim_padding_in_same_step_at_length_cap():
+    a = segment("a", "MCCCCCCCCQQQ", ligand_end=9)
+    b = segment("b", "DDDDDDDDD", rank=2)
+
+    def scorer(peptides, alleles):
+        frame = affinity(peptides, alleles)
+        frame.loc[frame.peptide.str.contains("QD"), "affinity_nm"] = 100.0
+        frame.loc[frame.peptide.str.contains("CD|DM"), "affinity_nm"] = 1.0
+        frame.loc[frame.peptide.str.contains("AAY"), "affinity_nm"] = 10000.0
+        return frame
+
+    cfg = VaccineConfig(
+        max_padding=3,
+        padding_step=3,
+        beam_width=1,
+        optimization_rounds=1,
+        max_length_aa=21,
+    )
+    result = optimize_construct([a, b], [ALLELE], cfg, scorer, cleavage)
+    assert result["clean_junctions"]
+    assert result["protein"] == "MCCCCCCCCAAYDDDDDDDDD"
+
+
 def test_limits_include_start_stop_and_polya(codons):
     a, b = segment("a", "ACDEFGHIK"), segment("b", "TVWYACDEF", rank=2)
     cfg = VaccineConfig(max_padding=0, max_length_aa=10, max_length_nt=43, poly_a_length=10)
@@ -352,6 +390,8 @@ def test_full_pipeline_artifacts_and_dropout(inputs, ms_scores, codons, tmp_path
     assert funnel.loc["CTA3", "status"] == "no_qualified_panel_ms_ligands"
     manifest = json.loads((tmp_path / "manifest.json").read_text())
     assert manifest["provenance"]["synthetic"]
+    assert manifest["provenance"]["ms_input_kind"] == "supplied_observations"
+    assert "MS evidence source: **supplied observations**" in (tmp_path / "report.md").read_text()
     assert manifest["prediction_callbacks"] == {"affinity": True, "cleavage": True}
     assert manifest["cancer_summary"][0]["world_mortality_count"] is None
     assert {

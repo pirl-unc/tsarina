@@ -104,6 +104,8 @@ def write_vaccine_report(result, output_dir):
         "",
         "## Method and interpretation",
         "",
+        f"MS evidence source: **{result['provenance']['ms_input_kind'].replace('_', ' ')}**. Observation hashes and any supplied source snapshots/provenance are in `manifest.json` and the copied source tables.",
+        "",
         "The p95 prevalence is the fraction of cohort samples in which the proteoform is in the top 5% of that sample's expression ranking. Identical-sequence gene TPMs are summed BEFORE ranking by OncoRef. This is not a 95th-percentile TPM threshold across patients.",
         "",
         "Each proteoform score sums `world mortality share * p95 prevalence` across distinct cancer categories. Prevalence is sample-count-weighted across the specified broad cohorts; each mortality share is counted once. This prioritization is additive across proteoforms and does not estimate distinct patients covered, clinical benefit, or preventable deaths. The observed cohort mixture is not worldwide patient prevalence. Missing measurements are visible, and incomplete scores must be compared cautiously. Global cancer incidence is reported separately; it is not multiplied into the ranking score.",

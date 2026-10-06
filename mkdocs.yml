@@ -8,6 +8,7 @@ nav:
   - Home: index.md
   - Curation: curation.md
   - Vaccine design: vaccine-design.md
+  - Vaccine validation: vaccine-validation.md
 
 theme:
   name: readthedocs

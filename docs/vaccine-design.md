@@ -4,6 +4,10 @@
 CTA-specific regions with panel-supported MS ligands, and assembles one
 DNA/RNA antigen with complete tables, figures, and a final junction audit.
 
+The [real-data validation](vaccine-validation.md) includes strict/loose selected
+proteoforms, per-cancer incidence/mortality/p95 tables, retention figures,
+sequence files and unresolved junction predictions.
+
 ```sh
 python -m venv .venv-vaccine
 . .venv-vaccine/bin/activate
@@ -127,6 +131,9 @@ trimming. Native/API/CSV coordinates are **zero-based, half-open**.
 
 The deterministic beam search compares complete constructs using adjacent
 swaps, reversal/rotations, N/C padding changes, and direct/AAY joins.
+Equivalent padding choices at native boundaries share one search state.
+At a length cap, linker additions can jointly trim adjacent terminal padding,
+preserving every retained ligand without requiring a worse intermediate join.
 `--min-padding`, `--max-padding`, `--padding-step`, `--beam-width`, and
 `--optimization-rounds` control its search budget. This heuristic does not
 guarantee a global optimum.

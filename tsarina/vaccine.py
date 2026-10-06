@@ -213,6 +213,10 @@ def design_vaccine(
         source_tables["queried_ms_observations"] = support.attrs["queried_ms_observations"]
     provenance = {
         **inputs.provenance,
+        "ms_input_kind": inputs.provenance.get(
+            "ms_input_kind",
+            "supplied_observations" if inputs.ms_hits is not None else "hitlist_observations_index",
+        ),
         "prevalence_input_sha256": sha256(
             inputs.prevalence.to_csv(index=False).encode()
         ).hexdigest(),
