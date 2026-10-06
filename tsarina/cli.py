@@ -280,7 +280,7 @@ def _handle_build(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    from . import cli_hits, cli_personalize, cli_spanning
+    from . import cli_hits, cli_personalize, cli_spanning, cli_vaccine
     from .version import __version__
 
     parser = ColorArgumentParser(
@@ -295,6 +295,7 @@ def main() -> None:
     cli_personalize.build_parser(sub)
     cli_hits.build_parser(sub)
     cli_spanning.build_parser(sub)
+    cli_vaccine.build_parser(sub)
 
     argv = sys.argv[1:]
     deprecated_spanning = bool(argv and argv[0] == "spanning")
@@ -319,6 +320,8 @@ def main() -> None:
         cli_hits.handle(args)
     elif args.command == "panel":
         cli_spanning.handle(args)
+    elif args.command == "vaccine":
+        cli_vaccine.handle(args)
 
 
 if __name__ == "__main__":

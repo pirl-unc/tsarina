@@ -10,6 +10,8 @@ figures/
 *.so
 
 .venv/
+.venv-vaccine/
+vaccine-designs/
 venv/
 env/
 

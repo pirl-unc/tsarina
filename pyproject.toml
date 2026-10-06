@@ -32,7 +32,7 @@ dependencies = [
     # MHC_ALLELE_PROVENANCE_VALUES as the provenance vocabulary.
     "hitlist>=1.58.1",
     "mhcgnomes>=3.20.0",
-    # 1.8.150 is the audited single-authority CTA/proteoform API.
+    # The base CTA/proteoform API; the vaccine extra needs the extended definition.
     "oncoref>=1.8.150",
     "pandas",
     "numpy",
@@ -40,6 +40,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+vaccine = [
+    "hitlist>=1.64.7",
+    "oncoref>=1.8.207",
+    "pyensembl",
+    "matplotlib",
+    "mhcflurry>=2.3.0",
+    "mhctools>=3.47.0",
+    "pepsickle>=0.1.3",
+    "dnachisel>=3.2.0",
+    "biopython",
+    "packaging",
+]
 partition = [
     "pyensembl",
 ]
@@ -56,6 +68,7 @@ all = [
 dev = [
     "pyensembl",
     "matplotlib",
+    "biopython",
     "pytest",
     "pytest-cov",
     "ruff",

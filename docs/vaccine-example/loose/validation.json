@@ -1,0 +1,252 @@
+{
+  "config": {
+    "top_k": 10,
+    "panel": "global54_abc",
+    "alleles": null,
+    "definition": "loose",
+    "ensembl_release": 112,
+    "shared_k": 8,
+    "min_padding": 0,
+    "max_padding": 10,
+    "padding_step": 2,
+    "lengths": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "predictor": "mhcflurry",
+    "junction_affinity_nm": 1000,
+    "linkers": [
+      "",
+      "AAY"
+    ],
+    "beam_width": 6,
+    "optimization_rounds": 10,
+    "max_length_aa": 1000,
+    "max_length_nt": 3500,
+    "vaccine_type": "rna",
+    "include_utrs": true,
+    "utr_5p": "HBB",
+    "utr_3p": "HBB_FI",
+    "poly_a_length": 120,
+    "require_clean_junctions": false,
+    "codon_species": "h_sapiens"
+  },
+  "versions": {
+    "tsarina": "1.33.0",
+    "oncoref": "1.8.207",
+    "hitlist": "1.64.7",
+    "pyensembl": "2.23.2",
+    "mhcflurry": "2.3.13",
+    "mhctools": "3.47.1",
+    "pepsickle": "0.1.3",
+    "vaxrank": null,
+    "tsarina_source": "1.33.0",
+    "hitlist_source": "1.64.7"
+  },
+  "status": "junction_review_required",
+  "objective": "sum_category(world_mortality_pct / 100 * sample_weighted_prevalence_p95)",
+  "coordinate_system": "zero-based, half-open",
+  "cohort_mapping": {
+    "lung": [
+      "LUAD",
+      "LUSC"
+    ],
+    "colorectal": [
+      "COAD",
+      "READ"
+    ],
+    "liver": [
+      "LIHC"
+    ],
+    "breast": [
+      "BRCA"
+    ],
+    "stomach": [
+      "STAD"
+    ],
+    "pancreas": [
+      "PAAD"
+    ],
+    "esophagus": [
+      "ESCA"
+    ],
+    "head_and_neck": [
+      "HNSC"
+    ],
+    "prostate": [
+      "PRAD"
+    ],
+    "cervix": [
+      "CESC"
+    ],
+    "bladder": [
+      "BLCA"
+    ],
+    "kidney": [
+      "KICH",
+      "KIRC",
+      "KIRP"
+    ],
+    "melanoma": [
+      "SKCM"
+    ],
+    "ovary": [
+      "OV"
+    ],
+    "uterus_endometrium": [
+      "UCEC"
+    ],
+    "thyroid": [
+      "THCA"
+    ],
+    "brain_cns": [
+      "GBM",
+      "LGG"
+    ],
+    "non_hodgkin_lymphoma": [
+      "DLBC"
+    ],
+    "leukemia_AML": [
+      "LAML"
+    ],
+    "mesothelioma": [
+      "MESO"
+    ],
+    "testicular_germ_cell": [
+      "TGCT"
+    ],
+    "adrenal": [
+      "ACC"
+    ]
+  },
+  "prediction_callbacks": {
+    "affinity": false,
+    "cleavage": false
+  },
+  "input_hashes": {
+    "protein_reference_sha256": "52e96455e10db7eacde46417122292d4c0d2b1655b1ce04c9e9c56ad6d185ad1",
+    "prevalence_input_sha256": "0fa66e54f961d09ab10063b48c4f17587f915c7a671b75147fcc908076fe6bb0",
+    "cta_gene_ids_sha256": "c9233436f8cd3bcf26f8710ff1355a2d9363612dbb7be1b3f8e5a6edaa1d4477",
+    "background_cta_gene_ids_sha256": "539659fba67965f8e05f03976a7673bbeed819389efe2e5e56aee5ecadeb7687",
+    "ms_input_sha256": "8e16783f9e88fa7b21a758ef76366746ae35096ae79cf9c6dc791fa02460a179"
+  },
+  "ms_input_kind": "fresh_scoped_raw_scan",
+  "initial_objective": [
+    1444,
+    2092.051401510373,
+    -0.664723076923077,
+    0,
+    -999
+  ],
+  "final_objective": [
+    950,
+    1282.661586750726,
+    -0.6671692307692307,
+    0,
+    -999
+  ],
+  "cleavage_model": {
+    "name": "pepsickle-in-vivo-human-only",
+    "version": "package:0.1.3;model:human_epitope_sequence_mod+human_epitope_motif_mod;weights-sha256:96da1619131413722c6f4e21e6ff3435985073bceb61aec5fb02b32ed597affa;inference-sha256:a12d58665c8b62775be90a899fb841cdf107c09c3709a2d013b1ca8982fafd4c;features-sha256:4c5474441c668141691ca07ebbff38c965d64fe416e63ebf147e7112e8c66dd3;runtime-sha256:120a9e96316790baef1dac8e1b57555bc1cf261618479a99a85db8ad02ffeb1a",
+    "enzyme": "proteasome epitope proxy",
+    "uniprot": "",
+    "species": "Homo sapiens",
+    "compartments": [
+      "cytosol"
+    ],
+    "evidence": "quantitative_model",
+    "references": [
+      "https://doi.org/10.1093/bioinformatics/btab628",
+      "https://github.com/pdxgx/pepsickle"
+    ],
+    "assay": "Neural ensemble trained from observed epitope C termini; human-only training subset",
+    "limitations": "Native dimensionless model output, not an empirical cleavage, degradation, presentation, or vaccine efficacy probability. Uses a 8-residue context before P1 and after P1 with terminal padding. The upstream package deserializes a pickle model; isolate_subprocess controls process isolation but does not make an untrusted pickle safe.",
+    "score_name": "pepsickle_epitope_model_output",
+    "score_units": "dimensionless native model output",
+    "scored_endpoint": "site_cleavage",
+    "motif_strictness": null,
+    "strictness_basis": null
+  },
+  "protein_aa": 1000,
+  "total_nt": 3441,
+  "ms_queried_observations": 561,
+  "snapshot_artifact_sha256": {
+    "cancer_cohorts.csv": "bfcfa67c39f75dd3b6a2360a87a4822d59c2d242399152eaebd1b0a2a69e6e40",
+    "cds.fasta": "9029fb49c3659545bfe409d761ec92c5853ce6756af5448abfd99199fb8b5aa0",
+    "ligands.csv": "779d1e7bb3de61cc921f5f8d08a0841fa31675b6bc366b68fddb82be008e6a0a",
+    "cleavage.csv": "d46edc963a954fe70a039cf65adf56ca13c57d6019f2492c0c190e42f38ced0c",
+    "hla_panel.csv": "4d70d0ea666d861471b584d97e7754601c940228969878c87f5d07cd95f47dbb",
+    "protein.fasta": "7ff88c78ccabf4c325445f5cdb6a10f96564c8a838e56de5f957444617565567",
+    "construct-map.svg": "98beed10b6986d7954ebad68610681ccd92c910b843d46203457cd9a1e7b75e4",
+    "excluded_segments.csv": "8948292f05a1a75c3fc30193445ae8bdb8f46018815d58b06d946cd7c8c86a28",
+    "search_history.csv": "8f59af0d751ef188ba1a53b28644896ee17e805d65c74e6da369fea43b521fe3",
+    "cancer_summary.csv": "55d000e4fe40900055966019c19d2ad8815c0130048597920ac6f0ae5d9b7055",
+    "specific_intervals.csv": "095bb3284d3d68f950956f6175be6695de4ed7ee69e11d2b3dd24180765786eb",
+    "junction-binders.csv": "16a3d3e0156e5943b9271648b937761ec34aa2e2fa5ead79fd2c40f4e39fbfc9",
+    "funnel.csv": "bacee74ba603e07db6206e961be6003f610b2f3d0fbbeae0852f7eb54baabd6d",
+    "full.fasta": "3d5fffe92002daa34b0c96df37107bb6b20695065988fff2830e29183c19ae4a",
+    "cancer-priorities.svg": "a1abcc4de710e8746c5d01eb480323b47c21cae28f88b871c4e09a7253497668",
+    "layers.csv": "d60297747e9bc88532df2393c64ba982e4409add569dd19aa4ed02614e7162c1",
+    "junctions.csv.gz": "991032f31ed6ba385d8b4ec8054bae9706be2887e12fbf10931e67a6937b3998",
+    "selection.csv": "e766330c77990ece7c066c34463eef1ca7a81215b9adaa2b90fcd57b46c614f5",
+    "sequence-funnel.svg": "4b560dca6fba3073a0d931d10e07af5a6980dff3ae861ecb0e7ccb6c71947242"
+  },
+  "alleles": [
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*02:03",
+    "HLA-A*02:06",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*23:01",
+    "HLA-A*24:02",
+    "HLA-A*26:01",
+    "HLA-A*29:02",
+    "HLA-A*30:01",
+    "HLA-A*30:02",
+    "HLA-A*31:01",
+    "HLA-A*32:01",
+    "HLA-A*33:01",
+    "HLA-A*68:01",
+    "HLA-A*68:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*15:01",
+    "HLA-B*15:02",
+    "HLA-B*18:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*40:01",
+    "HLA-B*40:02",
+    "HLA-B*44:02",
+    "HLA-B*44:03",
+    "HLA-B*46:01",
+    "HLA-B*51:01",
+    "HLA-B*53:01",
+    "HLA-B*57:01",
+    "HLA-B*58:01",
+    "HLA-C*01:02",
+    "HLA-C*02:02",
+    "HLA-C*03:02",
+    "HLA-C*03:03",
+    "HLA-C*03:04",
+    "HLA-C*04:01",
+    "HLA-C*04:03",
+    "HLA-C*05:01",
+    "HLA-C*06:02",
+    "HLA-C*07:01",
+    "HLA-C*07:02",
+    "HLA-C*07:04",
+    "HLA-C*08:01",
+    "HLA-C*08:02",
+    "HLA-C*12:02",
+    "HLA-C*12:03",
+    "HLA-C*14:02",
+    "HLA-C*14:03",
+    "HLA-C*15:02",
+    "HLA-C*16:01",
+    "HLA-C*17:01"
+  ]
+}

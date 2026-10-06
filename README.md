@@ -17,6 +17,7 @@ presentation to produce ranked peptide-MHC (pMHC) candidates.
 |---|---|---|
 | Prioritize targets for one patient | `tsarina personalize` or `personalized_targets()` | Ranked CTA, viral, and mutant pMHCs for that patient's HLA type and tumor |
 | Design an off-the-shelf CTA panel | `tsarina panel` | CTA × HLA matrix with evidence tiers and population-coverage estimates |
+| Assemble a shared CTA vaccine | `tsarina vaccine` | Mortality-ranked proteoforms, sequence funnel, junction audit and DNA/RNA construct |
 | Inspect public peptide observations | `tsarina hits` | Cancer, healthy-tissue, and restriction evidence for specified peptides |
 
 Start with the [documentation guide](docs/index.md) for inputs, data setup, and
@@ -92,6 +93,8 @@ and thymus are treated as safety evidence.
   inputs, prioritization, and output schema
 - [CTA panel design](docs/panel-design.md) — automatic selection, evidence
   tiers, HLA panels, and coverage
+- [CTA vaccine design](docs/vaccine-design.md) — mortality-weighted p95 selection,
+  strict/loose specificity, MS-supported stretches, construct search and full audit
 - [Data and evidence](docs/data-and-evidence.md) — data registry, observation
   classification, scoring, and naming
 - [CTA ownership and downstream evidence](docs/curation.md) — oncoref/Tsarina

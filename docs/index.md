@@ -22,6 +22,13 @@ tiers, and population-coverage estimates.
 
 Continue to [CTA panel design](panel-design.md).
 
+### Assemble a shared CTA vaccine antigen
+
+Rank proteoforms by mortality-weighted p95 prevalence, retain CTA-specific
+MS-supported sequence, and audit a single DNA/RNA construct.
+
+Continue to [CTA vaccine design](vaccine-design.md).
+
 ### Inspect peptide evidence
 
 Use the data registry to install or register IEDB and CEDAR exports, then query
