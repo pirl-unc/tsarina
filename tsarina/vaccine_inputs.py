@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from hashlib import sha256
 from importlib.metadata import version
@@ -372,8 +373,132 @@ def rank_proteoforms(inputs: VaccineInputs):
     return ranking, pd.DataFrame(detailed), pd.DataFrame(summaries)
 
 
-def panel_ms_support(peptides, alleles, hits=None, predictor="mhcflurry"):
+def filter_ms_modality(hits):
+    """Require positive MS modality, retaining non-MS/unknown records for audit.
+
+    Hitlist #644: nonbinding does not imply MS. Curated supplement adapters
+    publish MS-only rows; supplied observations may declare assay_modality when
+    no structured method exists. Explicit non-MS methods always take precedence.
+    """
+    from .spanning import _is_truthy
+
+    method = hits.get("assay_method", pd.Series("", index=hits.index)).fillna("").astype(str)
+    method = method.str.strip().str.lower()
+    modality = hits.get("assay_modality", pd.Series("", index=hits.index)).fillna("").astype(str)
+    source = hits.get("source", pd.Series("", index=hits.index)).fillna("").astype(str)
+    accepted = method.str.contains("mass spectrometry", regex=False) | (
+        method.eq("") & (modality.eq("mass_spectrometry") | source.eq("supplement"))
+    )
+    if "is_binding_assay" in hits:
+        accepted &= ~hits.is_binding_assay.map(_is_truthy)
+    rejected = hits[~accepted].copy()
+    rejected["rejection_reason"] = method[~accepted].map(
+        lambda m: "explicit_non_ms_assay" if m else "unknown_assay_modality"
+    )
+    if "is_binding_assay" in rejected:
+        rejected.loc[rejected.is_binding_assay.map(_is_truthy), "rejection_reason"] = (
+            "binding_assay"
+        )
+    return hits[accepted].copy(), rejected
+
+
+def sample_affinity_support(hits, scores, alleles, cutoff, allow_untyped):
+    """Every binding panel allele in a typed sample, or permitted untyped MS.
+
+    No best-of-haplotype or presentation-percentile gate is applied. The exact
+    observed peptide remains the evidence unit; nested peptide inference is not
+    used. Study-wide allele pools are not individual sample genotypes.
+    """
+    from .spanning import (
+        _SAMPLE_NARROWED_PROVENANCES,
+        _add_evidence,
+        _exact_hla_alleles,
+        _finalize_evidence_bucket,
+        _is_truthy,
+    )
+
+    lookup = scores.set_index(["peptide", "allele"])
+    stats, assignments = {}, []
+    for _, row in hits.iterrows():
+        restriction = _exact_hla_alleles(row.get("mhc_restriction", ""))
+        if row.get("mhc_allele_provenance", "") in _SAMPLE_NARROWED_PROVENANCES:
+            sample = _exact_hla_alleles(row.get("mhc_allele_set", ""))
+        else:
+            sample = restriction
+        mono = _is_truthy(row.get("is_monoallelic", False)) and len(restriction) == 1
+        if mono:
+            sample = restriction
+        tier = "monoallelic_ms" if mono else "sample_allele_ms"
+        if not sample:
+            if not allow_untyped:
+                continue
+            tier = "unrestricted_ms"
+        for allele in alleles:
+            if sample and allele not in sample:
+                continue
+            affinity = float(lookup.loc[(row.peptide, allele), "affinity_nm"])
+            if affinity >= cutoff:
+                continue
+            _add_evidence(stats, (row.peptide, allele, tier), row)
+            assignments.append(
+                {
+                    "peptide": row.peptide,
+                    "allele": allele,
+                    "evidence_tier": tier,
+                    "sample_alleles": ";".join(sorted(sample)),
+                    "affinity_nm": affinity,
+                    **{k: row.get(k, "") for k in ("provenance_id", "assay_iri", "pmid", "source")},
+                }
+            )
+    rows = []
+    for peptide, allele in sorted({(p, a) for p, a, _ in stats}):
+        for tier in ("monoallelic_ms", "sample_allele_ms", "unrestricted_ms"):
+            if (peptide, allele, tier) in stats:
+                score = lookup.loc[(peptide, allele)].to_dict()
+                rows.append(
+                    {
+                        "peptide": peptide,
+                        "allele": allele,
+                        "length": len(peptide),
+                        "evidence_tier": tier,
+                        **_finalize_evidence_bucket(stats[peptide, allele, tier]),
+                        **score,
+                    }
+                )
+                break
+    result = pd.DataFrame(rows)
+    result.attrs["ms_assignments"] = pd.DataFrame(
+        assignments,
+        columns=[
+            "peptide",
+            "allele",
+            "evidence_tier",
+            "sample_alleles",
+            "affinity_nm",
+            "provenance_id",
+            "assay_iri",
+            "pmid",
+            "source",
+        ],
+    )
+    return result
+
+
+def panel_ms_support(
+    peptides,
+    alleles,
+    hits=None,
+    predictor="mhcflurry",
+    *,
+    mode="presentation",
+    affinity_nm=1000,
+    allow_untyped=False,
+):
     """All qualifying MS-supported pMHCs using the existing panel tier policy."""
+    if mode not in {"presentation", "sample_affinity"}:
+        raise ValueError("Invalid MS support mode")
+    if not math.isfinite(affinity_nm) or affinity_nm <= 0:
+        raise ValueError("MS affinity cutoff must be finite and positive")
     from .indexing import load_ms_evidence
     from .scoring import score_presentation
     from .spanning import (
@@ -396,16 +521,33 @@ def panel_ms_support(peptides, alleles, hits=None, predictor="mhcflurry"):
     for column, value in (("mhc_class", "I"), ("species", "Homo sapiens")):
         if column in hits and not hits[column].eq(value).all():
             raise ValueError("MS inputs must contain only human class-I observations")
-    if "is_binding_assay" in hits:
-        hits = hits[~hits.is_binding_assay.fillna(False).astype(bool)]
+    hits, rejected = filter_ms_modality(hits)
+    attrs = {
+        "queried_ms_observations": hits,
+        "rejected_ms_observations": rejected,
+        "ms_input_sha256": sha256(hits.to_csv(index=False).encode()).hexdigest(),
+    }
+    if hits.empty:
+        result = pd.DataFrame()
+        result.attrs.update(attrs)
+        return result
     wanted = sorted(set(hits.peptide))
     score_alleles = _score_alleles_for_panel(alleles, hits)
     scores = score_presentation(wanted, score_alleles, predictor=predictor)
+    if scores.duplicated(["peptide", "allele"]).any():
+        raise ValueError("Duplicate MS predictions")
     actual = set(zip(scores.peptide, scores.allele))
     if any((p, a) not in actual for p in wanted for a in score_alleles):
         raise ValueError(
             "Incomplete MS presentation prediction coverage; allele inference cannot proceed"
         )
+    if mode == "sample_affinity":
+        affinities = pd.to_numeric(scores.affinity_nm, errors="raise")
+        if not affinities.gt(0).all() or not affinities.map(lambda a: a < float("inf")).all():
+            raise ValueError("Invalid MS affinity predictions; allele inference cannot proceed")
+        result = sample_affinity_support(hits, scores, alleles, affinity_nm, allow_untyped)
+        result.attrs.update(attrs)
+        return result
     percentiles = pd.to_numeric(scores.presentation_percentile, errors="raise")
     if not percentiles.between(0, 100).all():
         raise ValueError("Invalid MS presentation percentiles; allele inference cannot proceed")
@@ -421,6 +563,5 @@ def panel_ms_support(peptides, alleles, hits=None, predictor="mhcflurry"):
         False,
     )
     result = result.drop(columns=[c for c in result if c.startswith("_")]).reset_index(drop=True)
-    result.attrs["queried_ms_observations"] = hits
-    result.attrs["ms_input_sha256"] = sha256(hits.to_csv(index=False).encode()).hexdigest()
+    result.attrs.update(attrs)
     return result

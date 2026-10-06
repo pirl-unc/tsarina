@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from fnmatch import fnmatchcase
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
 
@@ -13,6 +14,7 @@ from .vaccine_construct import (
     VaccineConfig,
     encode_construct,
     optimize_construct,
+    reserve_target_segments,
 )
 from .vaccine_inputs import (
     VaccineInputs,
@@ -62,39 +64,107 @@ def design_vaccine(
     if inputs.provenance.get("definition", config.definition) != config.definition:
         raise ValueError("Input CTA definition disagrees with design configuration")
     ranking, cancer_cohorts, cancer_summary = rank_proteoforms(inputs)
-    ranking["selected"] = ranking["rank"] <= config.top_k
-    selected = ranking[ranking.selected].copy()
-    if selected.empty or selected.mortality_weighted_score.max() <= 0:
-        raise ValueError("No positive mortality-weighted CTA prevalence is available")
-    if on_progress:
-        on_progress(f"Selected {len(selected)} proteoforms; subtracting non-CTA 8-mer intervals")
-    background_cta_ids, aliases = resolve_background_cta_ids(inputs.proteins, inputs.cta_gene_ids)
-    forbidden = shared_kmers(
-        inputs.proteins, background_cta_ids, selected.sequence, config.shared_k
-    )
-    intervals = {
-        r.proteoform_key: specific_intervals(r.sequence, forbidden, config.shared_k)
-        for r in selected.itertuples(index=False)
-    }
-    interval_rows, peptides = [], set()
-    for row in selected.itertuples(index=False):
-        for start, end in intervals[row.proteoform_key]:
-            interval_rows.append(
-                {
-                    "proteoform_key": row.proteoform_key,
-                    "name": row.name,
-                    "start": start,
-                    "end": end,
-                    "length_aa": end - start,
-                    "sequence": row.sequence[start:end],
-                }
+    exceptions = {s.strip().upper() for s in config.allow_genes}
+    patterns = [s.strip().upper() for s in config.exclude_gene_patterns]
+    ranking["eligible"] = ranking.name.map(
+        lambda name: (
+            not any(
+                gene.upper() not in exceptions
+                and any(fnmatchcase(gene.upper(), pattern) for pattern in patterns)
+                for gene in name.split("/")
             )
-            for k in config.lengths:
-                peptides.update(row.sequence[a : a + k] for a in range(start, end - k + 1))
+        )
+    )
+    ranking["selection_reason"] = ranking.eligible.map(
+        {True: "not_screened", False: "excluded_gene_pattern"}
+    )
+    eligible = ranking[ranking.eligible].copy()
+    if config.selection_mode == "supported":
+        eligible = eligible[eligible.mortality_weighted_score > 0]
+        ranking.loc[
+            ranking.eligible & (ranking.mortality_weighted_score <= 0), "selection_reason"
+        ] = "non_positive_score"
+    if eligible.empty or eligible.mortality_weighted_score.max() <= 0:
+        raise ValueError("No positive mortality-weighted CTA prevalence is available")
+    background_cta_ids, aliases = resolve_background_cta_ids(inputs.proteins, inputs.cta_gene_ids)
+    batch = max(10, 2 * config.top_k) if config.selection_mode == "supported" else config.top_k
+    inspected = min(batch, len(eligible))
+    while True:
+        candidates = eligible.head(inspected)
+        if on_progress:
+            on_progress(
+                f"Screening {len(candidates)} eligible proteoforms; subtracting non-CTA 8-mers"
+            )
+        forbidden = shared_kmers(
+            inputs.proteins, background_cta_ids, candidates.sequence, config.shared_k
+        )
+        intervals = {
+            r.proteoform_key: specific_intervals(r.sequence, forbidden, config.shared_k)
+            for r in candidates.itertuples(index=False)
+        }
+        interval_rows, peptides = [], set()
+        for row in candidates.itertuples(index=False):
+            for start, end in intervals[row.proteoform_key]:
+                interval_rows.append(
+                    {
+                        "proteoform_key": row.proteoform_key,
+                        "name": row.name,
+                        "start": start,
+                        "end": end,
+                        "length_aa": end - start,
+                        "sequence": row.sequence[start:end],
+                    }
+                )
+                for k in config.lengths:
+                    peptides.update(row.sequence[a : a + k] for a in range(start, end - k + 1))
+        if on_progress:
+            on_progress(f"Reading panel MS evidence for {len(peptides)} CTA-specific peptides")
+        support = panel_ms_support(
+            peptides,
+            alleles,
+            inputs.ms_hits,
+            config.predictor,
+            mode=config.ms_support_mode,
+            affinity_nm=config.ms_affinity_nm,
+            allow_untyped=config.allow_untyped_ms,
+        )
+        segments, ligand_rows = supported_segments(candidates, intervals, support)
+        if config.selection_mode == "ranked":
+            chosen = set(candidates.proteoform_key)
+            length_rejected = []
+            break
+        reserved, length_rejected = reserve_target_segments(segments, config)
+        chosen = {placement[0].proteoform_key for placement in reserved}
+        if len(chosen) >= config.top_k or inspected == len(eligible):
+            break
+        inspected = min(inspected + batch, len(eligible))
+    ranking["selected"] = ranking.proteoform_key.isin(chosen)
+    supported_keys = {s.proteoform_key for s in segments}
+    for row in candidates.itertuples(index=False):
+        reason = "selected"
+        if row.proteoform_key not in chosen:
+            reason = (
+                "no_cta_specific_sequence"
+                if not intervals[row.proteoform_key]
+                else "no_qualified_panel_ms_ligands"
+                if row.proteoform_key not in supported_keys
+                else "minimum_segment_exceeds_length"
+                if row.proteoform_key in length_rejected
+                else "lower_rank_supported"
+            )
+        ranking.loc[ranking.proteoform_key.eq(row.proteoform_key), "selection_reason"] = reason
+    selected = ranking[ranking.selected].copy()
+    segments = [s for s in segments if s.proteoform_key in chosen]
+    ligand_rows = [r for r in ligand_rows if r["proteoform_key"] in chosen]
+    target_count_error = (
+        f"Only {len(selected)} supported proteoforms fit; requested {config.top_k}"
+        if config.selection_mode == "supported" and len(selected) < config.top_k
+        else None
+    )
     if on_progress:
-        on_progress(f"Reading panel MS evidence for {len(peptides)} CTA-specific peptides")
-    support = panel_ms_support(peptides, alleles, inputs.ms_hits, config.predictor)
-    segments, ligand_rows = supported_segments(selected, intervals, support)
+        on_progress(
+            f"Selected {len(selected)} proteoforms after screening {len(candidates)} candidates"
+        )
     design = None
     constraint_error = None
     if segments:
@@ -184,6 +254,20 @@ def design_vaccine(
                     )
                 ),
                 "ms_ligand_count": len({p for s in supported for p in s.peptides}),
+                "assembled_ms_ligand_count": len(
+                    {
+                        r["peptide"]
+                        for r in ligand_rows
+                        if r["proteoform_key"] == row.proteoform_key and r["assembled"]
+                    }
+                ),
+                "assembled_pmhc_count": len(
+                    {
+                        (r["peptide"], r["allele"])
+                        for r in ligand_rows
+                        if r["proteoform_key"] == row.proteoform_key and r["assembled"]
+                    }
+                ),
             }
         )
     versions = {}
@@ -209,8 +293,27 @@ def design_vaccine(
     versions["hitlist_source"] = hitlist_source_version
     source_tables = dict(inputs.source_tables)
     source_tables["background_cta_aliases"] = aliases
-    if "queried_ms_observations" in support.attrs:
-        source_tables["queried_ms_observations"] = support.attrs["queried_ms_observations"]
+    source_tables["selection_screen"] = ranking[
+        ["rank", "proteoform_key", "name", "eligible", "selected", "selection_reason"]
+    ].copy()
+    for key in ("queried_ms_observations", "rejected_ms_observations", "ms_assignments"):
+        if key in support.attrs:
+            source_tables[key] = support.attrs[key]
+    allele_counts = []
+    for allele in alleles:
+        rows = [r for r in ligand_rows if r["assembled"] and r["allele"] == allele]
+        allele_counts.append(
+            {
+                "allele": allele,
+                "retained_peptides": len({r["peptide"] for r in rows}),
+                "retained_proteoforms": len({r["proteoform_key"] for r in rows}),
+                **{
+                    tier: len({r["peptide"] for r in rows if r["evidence_tier"] == tier})
+                    for tier in ("monoallelic_ms", "sample_allele_ms", "unrestricted_ms")
+                },
+            }
+        )
+    source_tables["hla_support_counts"] = pd.DataFrame(allele_counts)
     provenance = {
         **inputs.provenance,
         "ms_input_kind": inputs.provenance.get(
@@ -227,6 +330,9 @@ def design_vaccine(
         "background_cta_alias_count": len(aliases),
         "background_cta_identity": "curated IDs plus exact-symbol HSCHR alternate-haplotype annotations of the same gene",
         "ms_input_sha256": support.attrs.get("ms_input_sha256"),
+        "ms_modality_policy": "positive MS assay method, curated MS-only supplement, or declared supplied modality; explicit non-MS rejected",
+        "inspected_proteoforms": len(candidates),
+        "selected_proteoforms": len(selected),
         "background_translated_occurrences": sum(
             p.gene_id not in background_cta_ids for p in inputs.proteins
         ),
@@ -236,6 +342,39 @@ def design_vaccine(
             .sum()
         ),
     }
+    status = (
+        "insufficient_supported_proteoforms"
+        if target_count_error
+        else "junction_review_required"
+        if design and not design["clean_junctions"]
+        else "designed"
+        if design
+        else "no_feasible_construct"
+        if constraint_error
+        else "no_ms_supported_construct"
+    )
+    funnel_columns = [
+        "rank",
+        "proteoform_key",
+        "name",
+        "status",
+        "raw_aa",
+        "raw_pieces",
+        "specific_aa",
+        "specific_pieces",
+        "ms_supported_aa",
+        "ms_supported_pieces",
+        "padded_aa",
+        "padded_pieces",
+        "assembled_aa",
+        "assembled_pieces",
+        "retained_fraction",
+        "panel_alleles",
+        "assembled_panel_alleles",
+        "ms_ligand_count",
+        "assembled_ms_ligand_count",
+        "assembled_pmhc_count",
+    ]
     result = {
         "config": asdict(config),
         "alleles": alleles,
@@ -271,19 +410,17 @@ def design_vaccine(
                 "construct_end",
             ]
         ),
-        "funnel": pd.DataFrame(funnel),
+        "funnel": pd.DataFrame(funnel, columns=funnel_columns),
         "source_tables": source_tables,
         "design": design,
-        "status": (
-            "junction_review_required" if design and not design["clean_junctions"] else "designed"
-        )
-        if design
-        else ("no_feasible_construct" if constraint_error else "no_ms_supported_construct"),
+        "status": status,
     }
     if output_dir is not None:
         from .vaccine_report import write_vaccine_report
 
         write_vaccine_report(result, output_dir)
+    if target_count_error:
+        raise NoFeasibleConstruct(target_count_error + "; see selection_screen.csv and report.md")
     if design is None:
         if constraint_error:
             raise NoFeasibleConstruct(constraint_error + "; see the evidence report")

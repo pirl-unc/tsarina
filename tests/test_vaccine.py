@@ -18,6 +18,7 @@ from tsarina.vaccine_construct import (
 from tsarina.vaccine_inputs import (
     Protein,
     VaccineInputs,
+    filter_ms_modality,
     load_vaccine_inputs,
     panel_ms_support,
     rank_proteoforms,
@@ -33,6 +34,12 @@ from tsarina.vaccine_sequences import (
 )
 
 ALLELE = "HLA-A*02:01"
+
+
+def test_existing_positional_vaccine_config_keeps_panel_argument():
+    config = VaccineConfig(10, "global54_abc")
+    config.validate()
+    assert config.panel == "global54_abc" and config.selection_mode == "ranked"
 
 
 def test_live_design_requires_current_imported_hitlist(monkeypatch):
@@ -120,6 +127,7 @@ def inputs():
                     "mhc_restriction": ALLELE,
                     "is_monoallelic": True,
                     "pmid": "123",
+                    "assay_modality": "mass_spectrometry",
                 }
             ]
         ),
@@ -253,10 +261,243 @@ def test_ms_assignment_separates_measured_and_inferred_restrictions(ms_scores):
             {"peptide": "TVWYACDEF", "mhc_restriction": "", "is_monoallelic": False},
         ]
     )
+    hits["assay_modality"] = "mass_spectrometry"
     result = panel_ms_support(set(hits.peptide), [ALLELE, other], hits)
     assert set(result.query("peptide == 'ACDEFGHIK'").allele) == {ALLELE}
     assert result.query("peptide == 'ACDEFGHIK'").iloc[0].evidence_tier == "monoallelic_ms"
     assert set(result.query("peptide == 'TVWYACDEF'").evidence_tier) == {"unrestricted_ms"}
+
+
+def test_positive_ms_modality_rejects_nonbinding_fluorescence_and_structures():
+    hits = pd.DataFrame(
+        [
+            {"peptide": "a", "assay_method": "cellular MHC/mass spectrometry"},
+            {"peptide": "b", "assay_method": "", "source": "supplement"},
+            {"peptide": "c", "assay_modality": "mass_spectrometry"},
+            {
+                "peptide": "d",
+                "assay_method": "cellular MHC/direct/fluorescence",
+                "assay_modality": "mass_spectrometry",
+                "is_binding_assay": False,
+            },
+            {"peptide": "e", "assay_method": "x-ray crystallography", "is_binding_assay": False},
+            {"peptide": "f", "assay_method": "purified MHC/direct/fluorescence"},
+            {"peptide": "g"},
+        ]
+    )
+    accepted, rejected = filter_ms_modality(hits)
+    assert set(accepted.peptide) == {"a", "b", "c"}
+    assert set(rejected.peptide) == {"d", "e", "f", "g"}
+    assert rejected.set_index("peptide").loc["g", "rejection_reason"] == "unknown_assay_modality"
+
+
+def test_sample_affinity_accepts_every_binding_sample_allele_without_percentile_gate(monkeypatch):
+    b, outside = "HLA-A*24:02", "HLA-B*07:02"
+
+    def score(peptides, alleles, predictor):
+        return pd.DataFrame(
+            [
+                {
+                    "peptide": p,
+                    "allele": a,
+                    "affinity_nm": {ALLELE: 100, b: 800, outside: 10}[a],
+                    "presentation_percentile": 99.0,
+                }
+                for p in peptides
+                for a in alleles
+            ]
+        )
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", score)
+    hits = pd.DataFrame(
+        [
+            {
+                "peptide": "ACDEFGHIK",
+                "assay_method": "mass spectrometry",
+                "mhc_allele_provenance": "sample_allele_match",
+                "mhc_allele_set": f"{ALLELE};{b}",
+                "provenance_id": "sample:1",
+            }
+        ]
+    )
+    result = panel_ms_support(set(hits.peptide), [ALLELE, b, outside], hits, mode="sample_affinity")
+    assert set(result.allele) == {ALLELE, b}
+    assert set(result.evidence_tier) == {"sample_allele_ms"}
+    assert len(result.attrs["ms_assignments"]) == 2
+    assert set(result.attrs["ms_assignments"].provenance_id) == {"sample:1"}
+
+
+def test_untyped_sample_affinity_is_explicit_and_study_pool_is_not_sample_typing(monkeypatch):
+    def score(peptides, alleles, predictor):
+        return pd.DataFrame(
+            [{"peptide": p, "allele": a, "affinity_nm": 999.0} for p in peptides for a in alleles]
+        )
+
+    monkeypatch.setattr("tsarina.scoring.score_presentation", score)
+    hits = pd.DataFrame(
+        [
+            {
+                "peptide": "ACDEFGHIK",
+                "assay_method": "mass spectrometry",
+                "mhc_allele_provenance": "pmid_class_pool",
+                "mhc_allele_set": ALLELE,
+            }
+        ]
+    )
+    assert panel_ms_support(set(hits.peptide), [ALLELE], hits, mode="sample_affinity").empty
+    result = panel_ms_support(
+        set(hits.peptide), [ALLELE], hits, mode="sample_affinity", allow_untyped=True
+    )
+    assert result.iloc[0].evidence_tier == "unrestricted_ms"
+    assert result.attrs["ms_assignments"].iloc[0].sample_alleles == ""
+    # A different nested peptide is not an observation of the requested peptide.
+    assert panel_ms_support(
+        {"CDEFGHIK"}, [ALLELE], hits, mode="sample_affinity", allow_untyped=True
+    ).empty
+
+
+@pytest.mark.parametrize("bad", [0, -1, float("nan"), float("inf")])
+def test_sample_affinity_rejects_missing_or_invalid_predictions(inputs, monkeypatch, bad):
+    monkeypatch.setattr(
+        "tsarina.scoring.score_presentation",
+        lambda p, a, predictor: pd.DataFrame(
+            [{"peptide": x, "allele": y, "affinity_nm": bad} for x in p for y in a]
+        ),
+    )
+    with pytest.raises(ValueError, match="Invalid MS affinity"):
+        panel_ms_support({"ACDEFGHIK"}, [ALLELE], inputs.ms_hits, mode="sample_affinity")
+
+
+def test_ms_support_validates_cutoff_even_without_observations():
+    with pytest.raises(ValueError, match="cutoff must be finite"):
+        panel_ms_support(
+            set(), [ALLELE], pd.DataFrame(), mode="sample_affinity", affinity_nm=float("nan")
+        )
+
+
+def test_supported_selection_backfills_and_records_the_rejection(inputs, ms_scores, codons):
+    inputs.ms_hits.loc[0, "peptide"] = "TVWYACDEF"
+    result = design_vaccine(
+        VaccineConfig(top_k=1, selection_mode="supported", alleles=(ALLELE,)),
+        inputs,
+        affinity_fn=affinity,
+        cleavage_fn=cleavage,
+    )
+    assert list(result["funnel"].name) == ["CTA3"]
+    screen = result["source_tables"]["selection_screen"].set_index("name")
+    assert screen.loc["CTA1/CTA2", "selection_reason"] == "no_qualified_panel_ms_ligands"
+    assert screen.loc["CTA3", "selected"]
+
+
+def test_exclusion_vetoes_any_group_member_without_changing_cta_background(
+    inputs, ms_scores, codons
+):
+    inputs.proteins[0] = replace(inputs.proteins[0], gene_name="MAGEA4")
+    inputs.proteins[1] = replace(inputs.proteins[1], gene_name="MAGEA3")
+    inputs.ms_hits.loc[0, "peptide"] = "TVWYACDEF"
+    result = design_vaccine(
+        VaccineConfig(
+            top_k=1, alleles=(ALLELE,), exclude_gene_patterns=("MAGE*",), allow_genes=("MAGEA4",)
+        ),
+        inputs,
+        affinity_fn=affinity,
+        cleavage_fn=cleavage,
+    )
+    assert list(result["funnel"].name) == ["CTA3"]
+    row = result["ranking"].query("name == 'MAGEA3/MAGEA4'").iloc[0]
+    assert not row.eligible and row.selection_reason == "excluded_gene_pattern"
+    assert result["provenance"]["background_translated_occurrences"] == 1
+
+
+def test_supported_selection_continues_after_an_empty_first_batch(inputs, ms_scores, codons):
+    inputs.proteins = [
+        Protein(f"g{i}", f"CTA{i}", f"p{i}", "M" * i + "ACDEFGHIK") for i in range(1, 11)
+    ]
+    inputs.proteins.append(Protein("g11", "CTA11", "p11", "MTVWYACDEF"))
+    inputs.cta_gene_ids = {p.gene_id for p in inputs.proteins}
+    inputs.gene_keys = {g: g for g in inputs.cta_gene_ids}
+    inputs.prevalence = pd.DataFrame(
+        [
+            {
+                "proteoform_key": f"g{i}",
+                "cancer_code": c,
+                "prevalence_p95": 1 - i * 0.03,
+                "n_samples": n,
+            }
+            for i in range(1, 12)
+            for c, n in [("L1", 10), ("L2", 30)]
+        ]
+    )
+    inputs.ms_hits.loc[0, "peptide"] = "TVWYACDEF"
+    result = design_vaccine(
+        VaccineConfig(top_k=1, selection_mode="supported", alleles=(ALLELE,)),
+        inputs,
+        affinity_fn=affinity,
+        cleavage_fn=cleavage,
+    )
+    assert list(result["funnel"].name) == ["CTA11"]
+    assert result["provenance"]["inspected_proteoforms"] == 11
+
+
+def test_supported_shortfall_writes_audit_instead_of_claiming_target_count(
+    inputs, ms_scores, codons, tmp_path
+):
+    with pytest.raises(ValueError, match="Only 1 supported proteoforms fit; requested 2"):
+        design_vaccine(
+            VaccineConfig(top_k=2, selection_mode="supported", alleles=(ALLELE,)),
+            inputs,
+            output_dir=tmp_path,
+            affinity_fn=affinity,
+            cleavage_fn=cleavage,
+        )
+    assert (
+        json.loads((tmp_path / "manifest.json").read_text())["status"]
+        == "insufficient_supported_proteoforms"
+    )
+    assert (tmp_path / "selection_screen.csv").exists()
+
+
+def test_supported_zero_ms_writes_empty_selection_audit(inputs, tmp_path):
+    inputs.ms_hits.loc[0, "assay_method"] = "cellular MHC/direct/fluorescence"
+    with pytest.raises(ValueError, match="Only 0 supported proteoforms fit"):
+        design_vaccine(
+            VaccineConfig(top_k=1, selection_mode="supported", alleles=(ALLELE,)),
+            inputs,
+            output_dir=tmp_path,
+            affinity_fn=affinity,
+            cleavage_fn=cleavage,
+        )
+    assert (
+        json.loads((tmp_path / "manifest.json").read_text())["status"]
+        == "insufficient_supported_proteoforms"
+    )
+    assert (
+        pd.read_csv(tmp_path / "rejected_ms_observations.csv").iloc[0].assay_method
+        == "cellular MHC/direct/fluorescence"
+    )
+
+
+def test_supported_construct_reserves_one_piece_per_protein_at_length_cap():
+    a1 = segment("a1", "CCCCCCCCCCC")
+    a2 = replace(segment("a2", "DDDDDDDDDDD"), proteoform_key=a1.proteoform_key)
+    b = segment("b", "EEEEEEEEEEEE", rank=2)
+    result = optimize_construct(
+        [a1, a2, b],
+        [ALLELE],
+        VaccineConfig(
+            top_k=2,
+            selection_mode="supported",
+            max_length_aa=24,
+            max_padding=0,
+            optimization_rounds=0,
+        ),
+        affinity,
+        cleavage,
+    )
+    keys = {r["proteoform_key"] for r in result["layers"] if r["kind"] == "cta_segment"}
+    assert keys == {"a1", "b"}
+    assert len(result["protein"]) == 24
+    assert len(result["excluded_segments"]) == 1
 
 
 def test_junction_audit_includes_multiboundary_and_synthetic_start():
@@ -510,6 +751,15 @@ def test_vaccine_cli_both_definitions(monkeypatch, tmp_path):
             "mrna",
             "--max-length-nt",
             "100",
+            "--selection-mode",
+            "supported",
+            "--exclude-gene-pattern",
+            "MAGE*",
+            "--allow-gene",
+            "MAGEA4",
+            "--ms-support-mode",
+            "sample-affinity",
+            "--allow-untyped-ms",
             "-o",
             str(tmp_path),
         ],
@@ -518,6 +768,14 @@ def test_vaccine_cli_both_definitions(monkeypatch, tmp_path):
     assert [c.definition for c, _ in calls] == ["strict", "loose"]
     assert all(c.vaccine_type == "rna" and c.max_length_nt == 100 for c, _ in calls)
     assert calls[1][1]["output_dir"] == tmp_path / "loose"
+    assert all(
+        c.selection_mode == "supported"
+        and c.exclude_gene_patterns == ("MAGE*",)
+        and c.allow_genes == ("MAGEA4",)
+        and c.ms_support_mode == "sample_affinity"
+        and c.allow_untyped_ms
+        for c, _ in calls
+    )
 
 
 def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(inputs, monkeypatch):

@@ -15,6 +15,36 @@ def build_parser(sub):
     p = sub.add_parser("vaccine", help="Design a mortality-prioritized CTA vaccine antigen")
     p.add_argument("-o", "--output-dir", required=True)
     p.add_argument("-k", "--top-k", type=int, default=10)
+    p.add_argument(
+        "--selection-mode",
+        choices=["ranked", "supported"],
+        default="ranked",
+        help="Ranked counts candidates; supported requires k contributing MS-supported proteins",
+    )
+    p.add_argument(
+        "--exclude-gene-pattern",
+        action="append",
+        default=[],
+        help="Repeatable gene-symbol glob, e.g. 'MAGE*'; does not alter CTA membership",
+    )
+    p.add_argument(
+        "--allow-gene",
+        action="append",
+        default=[],
+        help="Exact gene-symbol exception to exclusion patterns, e.g. MAGEA4",
+    )
+    p.add_argument(
+        "--ms-support-mode",
+        choices=["presentation", "sample-affinity"],
+        default="presentation",
+        help="Presentation tier cutoffs, or affinity to any typed sample allele",
+    )
+    p.add_argument("--ms-affinity-nm", type=float, default=1000)
+    p.add_argument(
+        "--allow-untyped-ms",
+        action="store_true",
+        help="In sample-affinity mode, permit untyped MS with predicted panel binding",
+    )
     p.add_argument("--cta-definition", choices=["strict", "loose", "both"], default="strict")
     p.add_argument("--panel", choices=panel_names(), default="global54_abc")
     p.add_argument(
@@ -68,6 +98,12 @@ def handle(args):
     try:
         config = VaccineConfig(
             top_k=args.top_k,
+            selection_mode=args.selection_mode,
+            exclude_gene_patterns=tuple(args.exclude_gene_pattern),
+            allow_genes=tuple(args.allow_gene),
+            ms_support_mode=args.ms_support_mode.replace("-", "_"),
+            ms_affinity_nm=args.ms_affinity_nm,
+            allow_untyped_ms=args.allow_untyped_ms,
             definition="strict" if args.cta_definition == "both" else args.cta_definition,
             panel=args.panel,
             alleles=tuple(a.strip() for a in args.alleles.split(",")) if args.alleles else None,

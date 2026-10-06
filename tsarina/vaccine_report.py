@@ -104,7 +104,13 @@ def write_vaccine_report(result, output_dir):
         "",
         "## Method and interpretation",
         "",
+        f"Selection mode: **{result['config']['selection_mode']}**; requested {result['config']['top_k']} proteoforms. Exclusion patterns: {result['config']['exclude_gene_patterns']}; exact exceptions: {result['config']['allow_genes']}. `selection_screen.csv` records excluded, unsupported, length-rejected and uninspected candidates. Exclusions do not alter CTA membership or the non-CTA background. Supported mode reserves one whole ligand-bearing piece per contributing target before allocating extra pieces.",
+        "",
         f"MS evidence source: **{result['provenance']['ms_input_kind'].replace('_', ' ')}**. Observation hashes and any supplied source snapshots/provenance are in `manifest.json` and the copied source tables.",
+        "",
+        "MS modality is positively established by the structured assay method, curated MS-only supplementary source, or declared supplied MS modality when no method is reported. Explicit non-MS and unknown-method records are excluded; `rejected_ms_observations.csv` preserves the source rows and reasons. Nonbinding is not equivalent to MS (Hitlist #644).",
+        "",
+        f"MS support mode: **{result['config']['ms_support_mode']}**. Sample-affinity mode retains the exact observed peptide with every typed sample allele predicted below {result['config']['ms_affinity_nm']:g} nM; it does not require best-of-haplotype or presentation-percentile selection. Untyped sample support by panel prediction: {result['config']['allow_untyped_ms']}. Study-wide allele pools are not sample genotypes. `ms_assignments.csv`, when present, links each observation to its measured or predicted assignment; `hla_support_counts.csv` reports distinct retained peptide counts by allele and evidence tier. Presentation mode uses the tier-percentile policy below. Neither mode infers a nested unobserved peptide from a longer observed sequence.",
         "",
         "The p95 prevalence is the fraction of cohort samples in which the proteoform is in the top 5% of that sample's expression ranking. Identical-sequence gene TPMs are summed BEFORE ranking by OncoRef. This is not a 95th-percentile TPM threshold across patients.",
         "",
@@ -112,7 +118,7 @@ def write_vaccine_report(result, output_dir):
         "",
         "Strict = OncoRef core reproductive tissues (testis, ovary, placenta). Loose = extended reproductive tract, including prostate. Each definition has its own non-CTA background. Normal-tissue restriction does not establish target safety.",
         "",
-        "All translated non-CTA coding isoforms are screened. Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary gene's CTA identity, with exact resolutions in `background_cta_aliases.csv`; this does not change expression keys or admit independent non-CTA loci. Every residue covered by an independent non-CTA 8-mer is removed, including a full identical protein from another non-CTA gene. Native coordinates are zero-based, half-open. Each remaining contiguous interval must contain a qualifying panel MS ligand. Monoallelic evidence uses presentation percentile ≤2; sample-allele inference ≤1; unrestricted MS plus predicted assignment ≤0.5. Allele inference is labeled separately from measured restriction. Every qualifying ligand and repeated native occurrence is retained in the evidence tables.",
+        "All translated non-CTA coding isoforms are screened. Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary gene's CTA identity, with exact resolutions in `background_cta_aliases.csv`; this does not change expression keys or admit independent non-CTA loci. Every residue covered by an independent non-CTA 8-mer is removed, including a full identical protein from another non-CTA gene. Native coordinates are zero-based, half-open. Each remaining contiguous interval must contain a qualifying panel MS ligand. In presentation mode, monoallelic evidence uses presentation percentile ≤2; sample-allele inference ≤1; unrestricted MS plus predicted assignment ≤0.5. Allele inference is labeled separately from measured restriction. Every qualifying ligand and repeated native occurrence is retained in the evidence tables.",
         "",
         "Padding trims terminal context only. Construct search compares complete sequences under the configured beam/round budget, including order, independent N/C padding and linker changes. Its lexicographic objective minimizes the number of peptide/allele junction predictions below the affinity cutoff, then their log binding burden, then maximizes mean predicted boundary cleavage, then minimizes linker length and retains context. The heuristic does not guarantee a global optimum. Final audit includes the initiating methionine, linker-internal windows and windows crossing multiple boundaries.",
         "",
@@ -172,6 +178,8 @@ def write_vaccine_report(result, output_dir):
                 "padded_aa",
                 "assembled_aa",
                 "assembled_pieces",
+                "assembled_ms_ligand_count",
+                "assembled_pmhc_count",
                 "retained_fraction",
                 "assembled_panel_alleles",
             ],
@@ -233,6 +241,8 @@ def _figures(result, out):
     import numpy as np
 
     selected = result["ranking"].query("selected")
+    if selected.empty:
+        return
     data = result["cancer_summary"]
     categories = list(
         dict.fromkeys(data.sort_values("world_mortality_pct", ascending=False).burden_category)
