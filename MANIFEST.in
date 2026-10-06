@@ -3,3 +3,5 @@ include README.md
 include develop.sh
 include scripts/develop.py
 include scripts/regenerate_hpa_cancer_prevalence.py
+include docs/vaccine-design.md
+include examples/cta_vaccine_demo.py

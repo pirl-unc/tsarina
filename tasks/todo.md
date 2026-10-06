@@ -1,3 +1,40 @@
+# CTA vaccine design (2026-10-06)
+
+Detailed specification: [cta-vaccine-spec.md](cta-vaccine-spec.md).
+
+- [x] Inspect OncoRef, Pirlygenes, Tsarina, Vaxrank, scientific predictors and lessons.
+- [x] Create feature branch and document objective, identity, funnel and constraints.
+- [x] Implement mortality/proteoform input adapter and strict/loose definitions.
+- [x] Implement native interval subtraction and auditable panel MS support.
+- [x] Implement padding/order/linker optimization, cleavage and final audit.
+- [x] Implement DNA/RNA assembly, constraints, CLI and reports/figures.
+- [ ] Add regression coverage, offline example and live scientific validation.
+- [x] Run format/lint/full tests, review and bump to 1.33.0.
+- [ ] Open PR, pass CI, merge, deploy and verify published artifacts.
+- [ ] Record review evidence and dependency-ordered follow-up work.
+
+Plan check-in: use OncoRef as the CTA and expression authority; retain native
+CTA-exclusive intervals and measured MS provenance; audit actual assembled
+sequence and explicit limitations. No gene-level percentile arithmetic.
+
+Review: initial model-enabled checks passed 647 tests; two optional Topiary
+backend tests skipped in the isolated vaccine stack. Live scoped MS scans
+exposed same-gene HSCHR annotations falsely vetoing PRAME/MAGEA3/MAGEA6;
+the vaccine background now resolves those aliases without changing expression
+keys or admitting independent non-CTA loci (Tsarina #187). The full Hitlist
+1.64.7 provenance rebuild initially exhausted scratch disk (Hitlist #643),
+which is now freed. Recreate the cleared temporary environment under the
+ignored project .venv-vaccine directory and rerun complete index/model/design
+validation. Final reports will be retained under ignored vaccine-designs/.
+The current project environment passes pip check with imported Hitlist 1.64.7,
+OncoRef 1.8.207, PyEnsembl 2.23.2 and mhctools 3.47.1. Format/lint pass; the
+full model-enabled suite passes 652 tests (two optional Topiary backend skips,
+19 warnings; 83% runtime coverage). Python 3.9 syntax and synthetic figure QA
+pass. Full strict/loose production runs now use the freshness-checked index,
+10 search rounds, beam width 6 and padding step 2; final live review is pending.
+
+---
+
 # Compatible development installs (#184, 2026-10-05)
 
 ## Specification

@@ -24,13 +24,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[test-mhcflurry]"
+          pip install -e ".[test-mhcflurry,vaccine]"
 
       - name: Download presentation models
         run: mhcflurry downloads fetch models_class1_presentation
 
       - name: Verify real model contracts
-        run: pytest tests/test_mhcflurry_integration.py --run-mhcflurry -v
+        run: pytest tests/test_mhcflurry_integration.py tests/test_vaccine_models.py --run-mhcflurry -v
 
   lint:
     runs-on: ubuntu-latest
@@ -51,11 +51,11 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check tsarina tests scripts/develop.py
+          ruff check tsarina tests scripts/develop.py examples/cta_vaccine_demo.py
 
       - name: Check formatting with ruff
         run: |
-          ruff format --check tsarina tests scripts/develop.py
+          ruff format --check tsarina tests scripts/develop.py examples/cta_vaccine_demo.py
 
   test:
     runs-on: ubuntu-latest

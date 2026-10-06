@@ -7,6 +7,7 @@ repo_name: pirl-unc/tsarina
 nav:
   - Home: index.md
   - Curation: curation.md
+  - Vaccine design: vaccine-design.md
 
 theme:
   name: readthedocs

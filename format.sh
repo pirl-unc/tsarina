@@ -2,7 +2,7 @@
 
 set -e
 
-SOURCES="tsarina tests scripts/develop.py"
+SOURCES="tsarina tests scripts/develop.py examples/cta_vaccine_demo.py"
 
 echo "Running ruff format..."
 ruff format $SOURCES

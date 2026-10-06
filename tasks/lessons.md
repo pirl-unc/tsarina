@@ -1,5 +1,14 @@
 # Lessons
 
+- When validating a feature against a just-released sibling, verify the code
+  actually imported after every coordinated environment install. A resolver
+  can downgrade Hitlist to satisfy an unrelated consumer's exact reference
+  pin. For CTA vaccine validation, require Hitlist >=1.64.7 (correctness #637,
+  performance/default CTA #641), record both imported source and installed
+  distribution versions, and use a compatible isolated stack when shared
+  consumers prevent the requested release. Do not validate against a stale
+  observations cache without the current Hitlist freshness check.
+
 - Scope completion reports to the issues actually included in the verified
   release. A merged/deployed PR does not mean the repository's remaining open
   bugs are fixed; check a named issue against current code before saying so.
