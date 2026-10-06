@@ -1,3 +1,50 @@
+# Restricted ten-proteoform vaccine design (2026-10-06)
+
+Specification: [vaccine-supported-selection-spec.md](vaccine-supported-selection-spec.md).
+
+- [x] Read current code, evidence audit, FDA reference and Hitlist issue status.
+- [x] Create feature branch and specify exclusions, real-MS gate and target count.
+- [x] Implement gene exclusions, explicit supported selection and whole-piece reservation.
+- [x] Enforce positive MS modality and preserve accepted/rejected source audits.
+- [x] Add regression tests and document the new selection contract/options.
+- [x] Freshly scan expanded candidates and validate strict/loose ten-target designs.
+- [x] Update figures/tables/examples and independently reconcile all scientific outputs.
+- [ ] Run format/lint/full model tests, review, bump version and land PR.
+- [ ] Deploy clean main, verify PyPI artifacts and record foundational follow-up work.
+
+Plan check-in: keep MAGEA4 as the sole allowed MAGE-family target, preserve
+CTA membership for excluded proteins, require genuine MS, and count ten
+proteoforms that actually contribute native segments. Preserve the existing
+1000-aa / 3500-nt limits; disclose feasibility failures rather than relax them.
+
+Review: format/lint pass; 669 tests pass with actual MHCflurry, two optional
+Topiary skips and 19 warnings (84% coverage). Hitlist 1.64.7's fresh scoped raw
+scan covers 48,108 candidate peptides from the first 60 eligible positive-score
+proteoforms per definition: 898 nonbinding records / 361 distinct peptides,
+with positive MS modality subsequently enforced. Strict and loose each retain
+ten distinct full-sequence targets in 20 native pieces, 1000 aa / 3441 nt.
+Strict retains 113 distinct MS peptides / 639 pMHC assignments / 51 panel
+alleles; loose retains 113 / 627 / 52. Counts are sequence/assignment units,
+not independent patients. Strict includes CT83; loose instead includes CABYR.
+Only MAGEA4 remains eligible among MAGE genes.
+
+Independent checks pass for all 34 runtime artifact hashes per definition,
+translation/UTR/stop/polyA lengths, target count, MS modality and sample
+assignments, retained ligand coordinates, all final junction windows and
+independent scans of 98,500 non-CTA translated occurrences. All six scientific
+figures have been visually checked. Junction predictions below 1000 nM decline
+1068→517 (strict) and 1232→656 (loose); both explicitly require review.
+Bundled reports include cancer incidence/mortality/p95, complete sequence
+funnels, all candidate outcomes, per-allele counts, evidence assignments,
+accepted/rejected observations, figures and FASTAs. Hitlist #644 remains
+upstream; this PR closes Tsarina #189 through an explicit consumer MS gate.
+Python 3.9 syntax, strict MkDocs, distribution build/Twine checks and all
+48 bundled snapshot hashes also pass. The sdist contains exact copies of all
+report artifacts. Merge and clean-main deployment remain pending; final
+release evidence will be recorded on the PR without a direct main commit.
+
+---
+
 # CTA vaccine design (2026-10-06)
 
 Detailed specification: [cta-vaccine-spec.md](cta-vaccine-spec.md).

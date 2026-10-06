@@ -99,12 +99,14 @@ def main(output_dir):
                     "mhc_restriction": ALLELES[0],
                     "is_monoallelic": True,
                     "pmid": "SYNTHETIC",
+                    "assay_modality": "mass_spectrometry",
                 },
                 {
                     "peptide": "TVWYACDEF",
                     "mhc_restriction": ALLELES[1],
                     "is_monoallelic": True,
                     "pmid": "SYNTHETIC",
+                    "assay_modality": "mass_spectrometry",
                 },
             ]
         ),

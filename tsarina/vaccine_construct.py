@@ -39,8 +39,23 @@ class VaccineConfig:
     poly_a_length: int = 0
     require_clean_junctions: bool = False
     codon_species: str = "h_sapiens"
+    selection_mode: str = "ranked"
+    exclude_gene_patterns: tuple[str, ...] = ()
+    allow_genes: tuple[str, ...] = ()
+    ms_support_mode: str = "presentation"
+    ms_affinity_nm: float = 1000
+    allow_untyped_ms: bool = False
 
     def validate(self):
+        if self.selection_mode not in {"ranked", "supported"}:
+            raise ValueError("selection_mode must be ranked or supported")
+        if self.ms_support_mode not in {"presentation", "sample_affinity"}:
+            raise ValueError("ms_support_mode must be presentation or sample_affinity")
+        if not math.isfinite(self.ms_affinity_nm) or self.ms_affinity_nm <= 0:
+            raise ValueError("ms_affinity_nm must be finite and positive")
+        for name in ("exclude_gene_patterns", "allow_genes"):
+            if any(not isinstance(s, str) or not s.strip() for s in getattr(self, name)):
+                raise ValueError(f"{name} must contain nonempty gene symbols/patterns")
         for name in ("top_k", "shared_k", "padding_step", "beam_width"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(f"{name} must be a positive integer")
@@ -184,6 +199,41 @@ class PredictionAudit:
         return key, junctions, cleavage
 
 
+def construct_fits(placements, config):
+    """Check actual initiation and all nucleotide elements at the length caps."""
+    utr5, utr3, poly_a = nucleotide_elements(config)
+    sequence, _ = assemble_layers(placements)
+    return (config.max_length_aa is None or len(sequence) <= config.max_length_aa) and (
+        config.max_length_nt is None
+        or 3 * len(sequence) + len(utr5) + len(utr3) + len(poly_a) + 3 <= config.max_length_nt
+    )
+
+
+def reserve_target_segments(segments, config):
+    """Reserve one shortest whole ligand-bearing segment per target in rank order."""
+    groups = {}
+    for segment in sorted(segments, key=lambda s: (s.rank, s.proteoform_key)):
+        groups.setdefault(segment.proteoform_key, []).append(segment)
+    retained, rejected = [], []
+    for key, group in groups.items():
+        shortest = min(
+            group,
+            key=lambda s: (
+                len(s.sequence(config.min_padding, config.min_padding)),
+                -len(s.alleles),
+                s.segment_id,
+            ),
+        )
+        placement = (shortest, config.min_padding, config.min_padding, "")
+        if construct_fits([*retained, placement], config):
+            retained.append(placement)
+        else:
+            rejected.append(key)
+        if len(retained) == config.top_k:
+            break
+    return retained, rejected
+
+
 def optimize_construct(
     segments, alleles, config, affinity_fn=None, cleavage_fn=None, on_progress=None
 ):
@@ -205,7 +255,14 @@ def optimize_construct(
         )
 
     retained, excluded = [], []
+    if config.selection_mode == "supported":
+        retained, rejected = reserve_target_segments(segments, config)
+        if rejected or len(retained) != len({s.proteoform_key for s in segments}):
+            raise NoFeasibleConstruct("Cannot preserve every selected supported proteoform")
+    reserved_ids = {placement[0].segment_id for placement in retained}
     for segment in sorted(segments, key=lambda s: (s.rank, -len(s.alleles), s.segment_id)):
+        if segment.segment_id in reserved_ids:
+            continue
         placement = (segment, config.min_padding, config.min_padding, "")
         if feasible([*retained, placement]):
             retained.append(placement)

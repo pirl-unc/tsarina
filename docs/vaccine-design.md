@@ -25,6 +25,15 @@ tsarina vaccine --top-k 10 --cta-definition both --auto-fetch \
 tsarina vaccine -k 5 --hla 'HLA-A*02:01,HLA-A*24:02,HLA-B*07:02' \
   --vaccine-type dna --max-padding 10 --padding-step 1 --linkers '' \
   --require-clean-junctions -o dna-out
+
+# Ten contributing proteins; MAGEA4 is the sole eligible MAGE-family member.
+# Exact MS peptides qualify by affinity to any sample allele; untyped MS can
+# use panel predictions. Quote the glob so your shell does not expand it.
+tsarina vaccine -k 10 --selection-mode supported --cta-definition both \
+  --exclude-gene-pattern 'MAGE*' --allow-gene MAGEA4 \
+  --ms-support-mode sample-affinity --ms-affinity-nm 1000 --allow-untyped-ms \
+  --include-utrs --poly-a-length 120 --max-length-aa 1000 --max-length-nt 3500 \
+  --padding-step 2 --beam-width 6 --optimization-rounds 10 -o magea4-ten-out
 ```
 
 The vaccine extra needs OncoRef >=1.8.207 for loose CTAs. Current Vaxrank and
@@ -70,6 +79,25 @@ prevalence; represented histologies can be narrower than the burden category.
 Missing measurements stay missing in the cohort table. Incomplete scores
 are observed partial scores and are flagged for cautious comparison.
 
+`--selection-mode ranked` preserves top-k candidate selection before downstream
+filtering. `--selection-mode supported` instead inspects eligible positive-score
+proteoforms in rank order and requires k targets that contribute native sequence
+after specificity, panel MS support and minimum whole-segment length checks.
+It reserves one shortest ligand-preserving segment per target before filling
+extra pieces by rank. A shortfall writes an audit and fails; it never silently
+returns fewer contributing proteins. `selection_screen.csv` records the complete
+ranking with exclusion, unsupported, length-rejected, selected and uninspected
+states. A bounded scan batch can inspect lower-ranked targets beyond the selected
+k; those remain auditable.
+
+Repeatable `--exclude-gene-pattern` accepts gene-symbol globs;
+`--allow-gene` provides exact symbol exceptions. Any excluded member vetoes an
+identical-full-sequence group. These controls affect candidate eligibility,
+not CTA membership, expression grouping or the non-CTA background. MAGEA4 is
+the target of FDA-approved [TECELRA](https://www.fda.gov/vaccines-blood-biologics/cellular-gene-therapy-products/tecelra);
+that approval does not establish this vaccine's safety or approve its other
+peptide-HLA assignments.
+
 Global cancer incidence, mortality, absolute counts, CTA p95 prevalence,
 and sample denominators are separate table columns. Incidence is not an
 additional multiplicative score factor. OncoRef's current curated reference
@@ -96,8 +124,8 @@ It does not admit every nominated or warning-tier CTA. Each definition has
 its own non-CTA background and independent design under `strict/` or `loose/`.
 
 1. Collapse byte-identical longest translated proteins, preserving all gene,
-   transcript and protein IDs. Select top-k **before** downstream filtering;
-   failed targets are reported rather than silently replaced.
+   transcript and protein IDs. Ranked mode selects top-k before downstream
+   filtering; supported mode explicitly backfills contributing targets.
    For specificity, same-symbol Ensembl `HSCHR` alternate-haplotype annotations
    inherit the curated primary gene's CTA membership; they are another
    annotation of that gene, not an independent non-CTA locus. The exact
@@ -111,21 +139,40 @@ its own non-CTA background and independent design under `strict/` or `loose/`.
    Sharing with another CTA is allowed, including an unselected CTA; sharing
    with any independent non-CTA source is disqualifying, including an identical
    full protein.
-3. Query live Hitlist human class-I observations for peptides entirely within
-   those stretches. Monoallelic MS uses presentation percentile <=2;
-   sample-genotype/deconvolved MS <=1; unrestricted peptide MS plus prediction
-   <=0.5. Inferred allele support is distinct from measured restriction.
+3. Query live Hitlist human class-I observations for exact peptides entirely
+   within those stretches. Require positive MS modality; explicitly non-MS
+   fluorescence, stability and structural assays and unknown-modality records
+   are rejected with complete metadata in `rejected_ms_observations.csv`.
+   Hitlist's nonbinding flag alone is insufficient ([#644](https://github.com/pirl-unc/hitlist/issues/644)).
+   Curated MS-only supplements may have blank methods; supplied data with blank
+   methods must declare `assay_modality=mass_spectrometry`.
+   Default presentation mode uses monoallelic percentile <=2, sample/deconvolved
+   <=1 and unrestricted peptide MS plus prediction <=0.5. Sample-affinity mode
+   instead accepts every typed sample panel allele with affinity below
+   `--ms-affinity-nm` (default 1000), without requiring a best-allele assignment
+   or presentation-percentile cutoff. `--allow-untyped-ms` permits prediction
+   against the panel when exact sample typing is unavailable; study-wide allele
+   pools are not sample genotypes. `ms_assignments.csv` links observations to
+   qualified alleles. The peptide must be exactly observed; a longer observed
+   peptide does not support a different unobserved nested epitope. Inferred
+   allele support is always distinct from measured restriction.
 4. Keep stretches containing at least one qualifying ligand, preserving all
    supported ligands and repeated occurrences. Trim unsupported terminal
    padding to at most 10 aa by default; internal native context stays intact.
 5. Fit whole pieces in protein rank order under construct limits, prioritizing
    broader allele support within a protein. Record all exclusions; never cut
-   a supported ligand to force a piece to fit.
+   a supported ligand to force a piece to fit. Supported mode first reserves one
+   shortest whole ligand-bearing segment per selected target.
 
 `funnel.csv` reports raw, specific, MS-supported, maximally padded, and
 assembled aa lengths/piece counts, fractions retained, support and dropout
 reasons. MS-supported length means the full specific interval before end
 trimming. Native/API/CSV coordinates are **zero-based, half-open**.
+`assembled_ms_ligand_count` and `assembled_pmhc_count` count distinct retained
+peptides and peptide-HLA pairs per proteoform. `hla_support_counts.csv` counts
+retained peptides by allele and evidence tier. Shared peptides across different
+proteoforms and multi-allele predictions must not be counted as independent MS
+observations or patients.
 
 ## Construct search and design elements
 

@@ -1,5 +1,20 @@
 # Lessons
 
+- For this vaccine's requested MS gate, an exact observed peptide plus predicted
+  affinity to any sample allele is sufficient. Do not substitute best-allele
+  deconvolution or presentation-percentile cutoffs for that affinity criterion.
+  Untyped observations may use panel prediction when explicitly configured;
+  preserve the distinction from measured allele-specific MS evidence.
+
+- A nonbinding observation is not automatically an MS-eluted ligand. Before
+  reporting MS support, verify positive assay modality and retain rejected
+  fluorescence, stability and structural records in the audit. Hitlist #644
+  demonstrated that its partition could overstate CTA vaccine evidence.
+- When a user requests ten proteins under exclusions, count proteins that
+  contribute verified MS-supported native sequence, reserve capacity for each,
+  and document backfill separately from the original ranked top-k behavior.
+  A gene exclusion must not relabel that gene's proteins as non-CTA background.
+
 - When validating a feature against a just-released sibling, verify the code
   actually imported after every coordinated environment install. A resolver
   can downgrade Hitlist to satisfy an unrelated consumer's exact reference
