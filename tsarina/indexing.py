@@ -138,6 +138,7 @@ def load_ms_evidence(
     columns: list[str] | None = None,
     auto_build: bool = True,
     drop_binding_assays: bool = True,
+    include_binding: bool = False,
 ) -> pd.DataFrame:
     """Load MS evidence rows from the hitlist observations index.
 
@@ -165,6 +166,10 @@ def load_ms_evidence(
         missing or stale index is built before the read.
     drop_binding_assays
         If True (default), drop rows flagged as binding-assay data.
+    include_binding
+        Also read the separate binding partition with identical pushdown
+        filters. Use with ``drop_binding_assays=False`` and an explicit
+        assay-method/result gate to recover legacy misclassified MS rows.
 
     Returns
     -------
@@ -189,6 +194,10 @@ def load_ms_evidence(
         )
 
     df = load_observations(**load_kwargs)
+    if include_binding:
+        from hitlist.observations import load_binding
+
+        df = pd.concat([df, load_binding(**load_kwargs)], ignore_index=True)
 
     if drop_binding_assays and "is_binding_assay" in df.columns:
         df = df[~df["is_binding_assay"]]

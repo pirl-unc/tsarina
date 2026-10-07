@@ -1,0 +1,7 @@
+{
+  "name": "tsarina-report-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {"test:website": "node scripts/check_vaccine_website.mjs"},
+  "devDependencies": {"jsdom": "27.0.1"}
+}

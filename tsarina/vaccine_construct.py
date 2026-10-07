@@ -45,10 +45,27 @@ class VaccineConfig:
     ms_support_mode: str = "presentation"
     ms_affinity_nm: float = 1000
     allow_untyped_ms: bool = False
+    normal_ms_policy: str = "audit"
+    normal_ms_atlas_dir: str | None = None
+    normal_ms_min_donors: int = 1
 
     def validate(self):
-        if self.selection_mode not in {"ranked", "supported"}:
-            raise ValueError("selection_mode must be ranked or supported")
+        if self.normal_ms_policy not in {"audit", "exclude"}:
+            raise ValueError("normal_ms_policy must be audit or exclude")
+        if self.normal_ms_policy == "exclude" and not self.normal_ms_atlas_dir:
+            raise ValueError(
+                "Normal-MS exclusion requires normal_ms_atlas_dir with verified Atlas tables"
+            )
+        if type(self.normal_ms_min_donors) is not int or self.normal_ms_min_donors < 1:
+            raise ValueError("normal_ms_min_donors must be a positive integer")
+        if self.selection_mode not in {"ranked", "supported", "budget"}:
+            raise ValueError("selection_mode must be ranked, supported or budget")
+        if (
+            self.selection_mode == "budget"
+            and self.max_length_aa is None
+            and self.max_length_nt is None
+        ):
+            raise ValueError("Budget selection requires max_length_aa or max_length_nt")
         if self.ms_support_mode not in {"presentation", "sample_affinity"}:
             raise ValueError("ms_support_mode must be presentation or sample_affinity")
         if not math.isfinite(self.ms_affinity_nm) or self.ms_affinity_nm <= 0:

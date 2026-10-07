@@ -1,3 +1,32 @@
+# Vaccine atlas and length-budget design (2026-10-07)
+
+Specification: [vaccine-atlas-spec.md](vaccine-atlas-spec.md).
+
+- [x] Regenerate strict/loose ten-target designs with current Hitlist; independently audit.
+- [x] Verify plan: reusable report output plus standalone renderer and published example.
+- [x] Implement coverage bounds, evidence/sample maps and length-budget allocation.
+- [x] Package friendly website, source explanations, CT83 comparison and scientific plots.
+- [x] Generate length-budget designs and independently reconcile results and figures.
+- [x] Run format/lint/full tests, packaging, strict docs build and browser checks.
+- [ ] Bump version, open PR, pass CI, merge and deploy from clean main to PyPI.
+- [ ] Verify published GitHub Pages and PyPI artifacts; record review and next issue block.
+
+Progress review: normal cardiac exclusions are verified against Atlas 2020.12
+donor/sample rows and PMID 33858848. The default published examples use one
+distinct donor and primary nonmalignant heart/brain/lung HLA-I evidence.
+Both budget examples pass an independent 70,142-primary-8-mer check, including
+their synthetic junctions. Strict retains 22 proteoforms / 94 exact MS peptides;
+loose retains 32 / 133; both are 1000 aa / 3441 total RNA nt. CT83 passes
+specificity and MS support under both definitions but loses the budget
+allocation. All remaining predicted junction binders are explicitly reported.
+The full model-enabled suite passes 683 tests with two optional skips.
+Issues #193 (primary frequency values), #194 (longer normal ligands),
+#195 (lazy figure layout), #196 (negative assay results) and #197 (legacy
+binding-partition reads) are recorded and fixed in this branch. All four
+designs, all 194 cumulative prefixes, cardiac exclusions and downloadable
+artifacts reconcile independently. Strict MkDocs and browser-control checks
+pass; an installed wheel renders a saved report without rerunning models.
+
 # Restricted ten-proteoform vaccine design (2026-10-06)
 
 Specification: [vaccine-supported-selection-spec.md](vaccine-supported-selection-spec.md).

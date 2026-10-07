@@ -1,6 +1,62 @@
-# MAGEA4-only MAGE family: ten-proteoform vaccine validation (2026-10-06)
+# Vaccine design validation (2026-10-07)
 
-Both strict and loose designs now contain **ten contributing CTA proteoforms**,
+The current [Vaccine Atlas](vaccine-results/index.html) compares strict and
+loose CTA definitions with either a length budget or ten contributing
+proteoforms. MAGEA4 is the only eligible MAGE-family target. All designs use
+actual MHCflurry/Pepsickle predictions and source-verified nonmalignant
+heart/brain/lung HLA-I exclusions at one distinct donor.
+
+| Design | Proteoforms | Native pieces | Protein aa | Total RNA nt | Distinct MS peptides | Peptide–HLA pairs | Supported panel alleles | Remaining junction predictions <1000 nM |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Strict budget | 22 | 30 | 1000 | 3441 | 94 | 451 | 54/54 | 1147 |
+| Loose budget | 32 | 42 | 1000 | 3441 | 133 | 698 | 54/54 | 2026 |
+| Strict ten | 10 | 20 | 999 | 3438 | 109 | 595 | 50/54 | 403 |
+| Loose ten | 10 | 20 | 1000 | 3441 | 109 | 583 | 51/54 | 490 |
+
+Counts deduplicate identical protein sequences, exact observed peptides and
+peptide–HLA pairs separately. Predicted assignments are labeled apart from
+measured monoallelic restrictions. These are MS-observed ligands, not
+T-cell-validated epitopes or clinical patient coverage. All constructs still
+require junction review; increasing protein breadth increased the number of
+remaining predicted junction binders in these budget examples.
+
+The primary Atlas 2020.12 rows establish `AETSYVKV`, `LAETSYVKV` and
+`ALAETSYVKV` in donor AUT01-DN11 heart tissue. The
+[study](https://doi.org/10.1136/jitc-2020-002071) describes nonmalignant primary
+autopsy tissues from donors without diagnosed cancer, who could have other
+diseases. Every covered 8-mer is excluded. The MAGEA4 maps show native sequence,
+specificity subtraction, the normal-MS gate and chosen pieces with cancer and
+normal-tissue observations overlaid. Absence of an observed hit does not
+establish tissue absence or safety.
+
+CT83 passes specificity and MS filtering under both definitions: 113 aa remain
+with four qualifying observed peptides and the same mortality score. It is
+retained by the strict ten-protein design, remains unscreened after the loose
+ten-protein target is reached, and loses the marginal-gain allocation in both
+budget designs. These outcomes distinguish definition, evidence and allocation.
+
+Inputs use Hitlist 1.65.1, OncoRef 1.8.207 and Ensembl r112. The raw evidence
+scan covers full candidate protein sequences and both legacy assay partitions.
+Explicit non-MS and negative records are excluded. The broader Atlas audit
+also checks longer source ligands sharing only an 8-mer; its additional matches
+were already removed by the non-CTA background, so the model designs are
+unchanged. Original model execution metadata is preserved when rendering.
+
+Independent checks verify translation and total lengths, every source/output
+hash, exact native/assembled peptide coordinates, sample-allele assignments,
+every final junction window, non-CTA sequence specificity and all 70,142
+qualifying primary tissue 8-mers, including synthetic junctions. Every website
+prefix has independently calculated HLA probabilities and cancer union bounds
+using the primary CIWD Table A2 values. Validation summaries, source rows,
+figures and tables are available in each design's website downloads.
+
+## Archived ten-protein examples (2026-10-06)
+
+The following snapshots precede the verified normal-MS exclusion and broader
+assay-partition audit. They retain cardiac peptide sequences removed from the
+current designs. Use the linked Atlas above for the current comparison.
+
+These strict and loose designs contain **ten contributing CTA proteoforms**,
 with every other MAGE-family member excluded. Selection remains ordered by
 individual global mortality × p95 expression-prevalence score. Identical full
 protein sequences consume one slot. Unsupported candidates are explicitly

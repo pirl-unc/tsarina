@@ -630,6 +630,19 @@ def test_full_pipeline_artifacts_and_dropout(inputs, ms_scores, codons, tmp_path
     assert funnel.loc["CTA1/CTA2", "assembled_aa"] == 9
     assert funnel.loc["CTA3", "status"] == "no_qualified_panel_ms_ligands"
     manifest = json.loads((tmp_path / "manifest.json").read_text())
+    from tsarina.vaccine_website import render_saved_reports
+
+    site = json.loads((tmp_path / "website" / "data.json").read_text())
+    view = site["designs"][cfg.definition]
+    assert view["panel_size"] == 1
+    assert view["protein_aa"] == len(result["design"]["protein"])
+    assert view["sequences"]["full"] == result["design"]["full_nt"]
+    index = render_saved_reports(
+        {"custom": tmp_path}, tmp_path / "rendered", analysis_date="2026-10-07"
+    )
+    replay = json.loads(index.with_name("data.json").read_text())
+    assert replay["analysis_date"] == "2026-10-07"
+    assert replay["designs"]["custom"]["coverage"] == view["coverage"]
     assert manifest["provenance"]["synthetic"]
     assert manifest["provenance"]["ms_input_kind"] == "supplied_observations"
     assert "MS evidence source: **supplied observations**" in (tmp_path / "report.md").read_text()
@@ -728,6 +741,9 @@ def test_invalid_design_constraints(kwargs):
 
 
 def test_vaccine_cli_both_definitions(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "tsarina.vaccine_website.render_saved_reports", lambda reports, output: output
+    )
     from tsarina.cli import main
 
     calls = []

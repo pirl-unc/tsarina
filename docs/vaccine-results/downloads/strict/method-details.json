@@ -1,0 +1,3744 @@
+{
+  "settings": {
+    "top_k": 10,
+    "panel": "global54_abc",
+    "alleles": null,
+    "definition": "strict",
+    "ensembl_release": 112,
+    "shared_k": 8,
+    "min_padding": 0,
+    "max_padding": 10,
+    "padding_step": 2,
+    "lengths": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "predictor": "mhcflurry",
+    "junction_affinity_nm": 1000,
+    "linkers": [
+      "",
+      "AAY"
+    ],
+    "beam_width": 6,
+    "optimization_rounds": 20,
+    "max_length_aa": 1000,
+    "max_length_nt": 3500,
+    "vaccine_type": "rna",
+    "include_utrs": true,
+    "utr_5p": "HBB",
+    "utr_3p": "HBB_FI",
+    "poly_a_length": 120,
+    "require_clean_junctions": false,
+    "codon_species": "h_sapiens",
+    "selection_mode": "budget",
+    "exclude_gene_patterns": [
+      "MAGE*"
+    ],
+    "allow_genes": [
+      "MAGEA4"
+    ],
+    "ms_support_mode": "sample_affinity",
+    "ms_affinity_nm": 1000,
+    "allow_untyped_ms": true,
+    "normal_ms_policy": "exclude",
+    "normal_ms_atlas_dir": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12",
+    "normal_ms_min_donors": 1
+  },
+  "model_and_data_versions": {
+    "tsarina": "1.33.1",
+    "oncoref": "1.8.207",
+    "hitlist": "1.65.1",
+    "pyensembl": "2.23.2",
+    "mhcflurry": "2.3.13",
+    "mhctools": "3.47.11",
+    "pepsickle": "0.1.3",
+    "vaxrank": null,
+    "tsarina_source": "1.33.1",
+    "hitlist_source": "1.65.1"
+  },
+  "source_provenance": {
+    "definition": "strict",
+    "oncoref_version": "1.8.207",
+    "hitlist_version": "1.64.7",
+    "ensembl_release": 112,
+    "expression_scope": "genome",
+    "expression_threshold": 0.95,
+    "protein_reference_sha256": "52e96455e10db7eacde46417122292d4c0d2b1655b1ce04c9e9c56ad6d185ad1",
+    "ms_input_kind": "fresh_full_protein_raw_scan",
+    "ms_source_provenance": {
+      "schema_version": 1,
+      "sources": {
+        "iedb": {
+          "path": "/Users/iskander/code/pfo-analysis/pfo019/cta-selection/data/mhc_ligand_full.csv",
+          "sha256": "957337189072a918fe38a216cfa4893cb08a74c35027ce0489252dd446eb6ad8",
+          "size_bytes": 7773476136,
+          "upstream_description": "",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "assay_iri_when_reported"
+        },
+        "cedar": {
+          "path": "/Users/iskander/code/pfo-analysis/pfo004/cta-vaccine-design/data/cedar-mhc-ligand-full.csv",
+          "sha256": "3b137c99686c0df9f930a4e287995e818e289f7df47c6eeb56dbcb1c7f39d8e6",
+          "size_bytes": 6945931753,
+          "upstream_description": "",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "assay_iri_when_reported"
+        },
+        "supplement:abelin_2019_maptac_class1.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/abelin_2019_maptac_class1.csv",
+          "sha256": "74ec46e105ae406d89971fe2c87d3e03b36c8f650f8d78695425dd467bca9c42",
+          "size_bytes": 246822,
+          "upstream_description": "Immunity 2019 Table S1B, sheet DataS1B",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:abelin_2019_maptac_class2.csv": {
+          "path": "/Users/iskander/Library/Caches/hitlist/abelin_2019_maptac_class2.csv",
+          "sha256": "a9b6454f05c24c11113bde92d35f3222d60eb0746ef8e6ac34ed2b0b6daa1c47",
+          "size_bytes": 1638237,
+          "upstream_description": "Immunity 2019 Table S1B, sheet DataS1B",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:abelin_2019_dr_tissue.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/abelin_2019_dr_tissue.csv",
+          "sha256": "f95bb24097fc26a3272b3fb9942ae7dc8e4800b5a6cea2d9a6d92530d33b073c",
+          "size_bytes": 210368,
+          "upstream_description": "Immunity 2019 Table S1B, sheet DataS1B",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:strazar_2023_hla2.csv": {
+          "path": "/Users/iskander/Library/Caches/hitlist/strazar_2023_hla2.csv",
+          "sha256": "3dc547ae7cd4cfd735794e30c52430bb33f52d3960644d24bf07e44d6496e085",
+          "size_bytes": 13932615,
+          "upstream_description": "Immunity 2023 Table S2 / ST_ligands_merged.csv (mmc3.zip)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:gomez_zepeda_2024_jy.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/gomez_zepeda_2024_jy.csv",
+          "sha256": "9eecfa2a8deeb75dc504caecfe659fb8cbbb58625180046ab2a68782d7cfa8b2",
+          "size_bytes": 577082,
+          "upstream_description": "Nature Comms S5+S6 (deep profiling) + S3+S4 (method comparison)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:gomez_zepeda_2024_hela.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/gomez_zepeda_2024_hela.csv",
+          "sha256": "56ea133ccd210f4267b366756d2693279349b962b95087e787f2c00cdc8f6709",
+          "size_bytes": 261764,
+          "upstream_description": "Nature Comms S3+S4 (method comparison)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:gomez_zepeda_2024_skmel37.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/gomez_zepeda_2024_skmel37.csv",
+          "sha256": "c2d04f556f1bc39cee8856fc753a03739b5baf344e478cd973c7339496a1d207",
+          "size_bytes": 286030,
+          "upstream_description": "Nature Comms S3+S4 (method comparison)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:gomez_zepeda_2024_raji.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/gomez_zepeda_2024_raji.csv",
+          "sha256": "6e9b2d322aec33ff69a20050c842ce97111521576d0b012c206ec5507110c672",
+          "size_bytes": 668528,
+          "upstream_description": "Nature Comms S5+S6 (deep profiling)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:gomez_zepeda_2024_plasma.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/gomez_zepeda_2024_plasma.csv",
+          "sha256": "133fa549b65cd962a10648e72c4185dd5be1e2706b1f6388067d7ffbc6048718",
+          "size_bytes": 33847,
+          "upstream_description": "Nature Comms S3+S4 (method comparison)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_wildtype.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_wildtype.csv",
+          "sha256": "ee2fe18ad0b10382d400670e3d2215c71714aad9234ac95b89bb9410055bdafb",
+          "size_bytes": 250548,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_b2m_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_b2m_ko.csv",
+          "sha256": "5d32d27ba14100925f3647644e6cb8c9ee2024e2dd4512b5e03b685c451c4364",
+          "size_bytes": 7650,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_calr_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_calr_ko.csv",
+          "sha256": "6246a14486388806dc20f0bc7150be19653498f1fedffb6e7e45a51e4a4a0a69",
+          "size_bytes": 232191,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_canx_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_canx_ko.csv",
+          "sha256": "8672e8c0d7bc0fd637a22a5b9d19f5b3020ff5d9c5d4f8fa1eecfbe36186d96b",
+          "size_bytes": 217182,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_erap1_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_erap1_ko.csv",
+          "sha256": "596a10f1eadeee71d2c24f4fa1b512862775672b2bc4999b5a726624d1d8a170",
+          "size_bytes": 125926,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_ganab_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_ganab_ko.csv",
+          "sha256": "5b6cec7cafafe17e823ca9789d5859ac2877f9120fdbe18c7621a330605bf2d2",
+          "size_bytes": 151604,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_irf2_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_irf2_ko.csv",
+          "sha256": "91836f74a6868cac49b5638add348792d1920521b2e701be66ced1d5adfbdab5",
+          "size_bytes": 70407,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_pdia3_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_pdia3_ko.csv",
+          "sha256": "a24382e88da5dc06c877a5e1027db6ab26a765911840ffc173613fc2560ab608",
+          "size_bytes": 95826,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_sppl3_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_sppl3_ko.csv",
+          "sha256": "38d66d6ca3dd12f1e13e0e448cf06cac6b9c229ccf2682f440fe8a8fb74da4a8",
+          "size_bytes": 199225,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_tap1_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_tap1_ko.csv",
+          "sha256": "babd57cb0fad48365369bbcb64f6c4fcb8a372f7bce6fd1e08e9d987c0e5bb38",
+          "size_bytes": 120243,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_tap2_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_tap2_ko.csv",
+          "sha256": "d0163b980196dd24fbb6f8a24d026d410f049a2cd9bf7e572c97d1896ed33867",
+          "size_bytes": 42720,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        },
+        "supplement:shapiro_2025_hap1_tapbp_ko.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/supplementary/shapiro_2025_hap1_tapbp_ko.csv",
+          "sha256": "86773579291c8fa0d51e8b5b0dbc57a2bf07646695f2eb21449f27bdcc154766",
+          "size_bytes": 59337,
+          "upstream_description": "MCP supplementary mmc6.csv (PMC12090245)",
+          "locator_basis": "ingested_csv_logical_data_row_1_based",
+          "upstream_record_locator_status": "not_available"
+        }
+      },
+      "contributors": {
+        "file": "contributors.parquet",
+        "sha256": "b5d996fccdefe598d2fe77a5749a97509d2725f4bcfb26d55a90a626c306a2a2",
+        "size_bytes": 486685
+      },
+      "n_contributor_links": 5285,
+      "hitlist_source_version": "1.65.1",
+      "query_scope": "All 8\u201315mers across full sequences of every positive eligible proteoform, before specificity subtraction",
+      "candidate_scope": {
+        "strict": [
+          "XAGE1A/B",
+          "ENSG00000147381",
+          "ENSG00000185686",
+          "ENSG00000234068",
+          "NY-ESO-1",
+          "ENSG00000205777",
+          "ENSG00000189064",
+          "ENSG00000158639",
+          "ENSG00000238269",
+          "ENSG00000274274",
+          "CGB3/5/8",
+          "ENSG00000188120",
+          "ENSG00000170516",
+          "ENSG00000117148",
+          "ENSG00000007350",
+          "GAGE12C/D/E",
+          "ENSG00000068985",
+          "ENSG00000224659",
+          "ENSG00000224902",
+          "ENSG00000204019",
+          "ENSG00000155622",
+          "CXorf49/B",
+          "ENSG00000126752",
+          "ENSG00000227234",
+          "ENSG00000169059",
+          "SSX4/B",
+          "ENSG00000141096",
+          "ENSG00000233803",
+          "VCY/1B",
+          "ENSG00000269586",
+          "CT45A5/6/7",
+          "SPANXA1/2",
+          "ENSG00000168757",
+          "TSPY10/3",
+          "ENSG00000258992",
+          "ENSG00000205642",
+          "ENSG00000167634",
+          "ENSG00000182583",
+          "ENSG00000170498",
+          "ENSG00000187690",
+          "SSX2/B",
+          "ENSG00000124092",
+          "ENSG00000198759",
+          "ENSG00000198573",
+          "ENSG00000131721",
+          "ENSG00000196406",
+          "ENSG00000238083",
+          "ENSG00000204941",
+          "ENSG00000143512",
+          "ENSG00000006634",
+          "ENSG00000177627",
+          "ENSG00000233056",
+          "ENSG00000171495",
+          "ENSG00000203989",
+          "ENSG00000203909",
+          "ENSG00000006659",
+          "ENSG00000274183",
+          "ENSG00000171402",
+          "ENSG00000120211",
+          "ENSG00000112273",
+          "ENSG00000006047",
+          "ENSG00000143452",
+          "ENSG00000118245",
+          "ENSG00000132446",
+          "ENSG00000221826",
+          "ENSG00000179046",
+          "ENSG00000229549",
+          "ENSG00000215274",
+          "ENSG00000171794",
+          "ENSG00000163958",
+          "ENSG00000170848",
+          "CT45A2/8/9",
+          "ENSG00000261949",
+          "ENSG00000243130",
+          "ENSG00000187191",
+          "ENSG00000124490",
+          "ENSG00000168619",
+          "ENSG00000248099",
+          "HSFY1/2",
+          "ENSG00000231924",
+          "ENSG00000203784",
+          "ENSG00000147378",
+          "ENSG00000125207",
+          "ENSG00000137948",
+          "ENSG00000159708",
+          "ENSG00000131126",
+          "ENSG00000163530",
+          "ENSG00000143006",
+          "ENSG00000137869",
+          "ENSG00000179059",
+          "ENSG00000121101",
+          "ENSG00000153060",
+          "ENSG00000243978",
+          "ENSG00000174898",
+          "ENSG00000168026",
+          "ENSG00000092345",
+          "ENSG00000183668",
+          "ENSG00000197651",
+          "ENSG00000164299",
+          "ENSG00000175646",
+          "ENSG00000176988",
+          "ENSG00000176566",
+          "ENSG00000176177",
+          "ENSG00000104755",
+          "ENSG00000137225",
+          "ENSG00000223601",
+          "ENSG00000165584",
+          "ENSG00000182459",
+          "ENSG00000171405",
+          "ENSG00000165863",
+          "ENSG00000162641",
+          "ENSG00000234414",
+          "ENSG00000268964",
+          "ENSG00000139351",
+          "ENSG00000206557",
+          "ENSG00000185792",
+          "ENSG00000102021",
+          "ENSG00000126856",
+          "ENSG00000236446",
+          "ENSG00000166049",
+          "ENSG00000185888",
+          "ENSG00000105198",
+          "ENSG00000135248",
+          "ENSG00000122304",
+          "ENSG00000182308",
+          "ENSG00000170965",
+          "ENSG00000165805",
+          "ENSG00000205442",
+          "ENSG00000124467",
+          "ENSG00000111254",
+          "ENSG00000106013",
+          "ENSG00000140932",
+          "ENSG00000213218",
+          "ENSG00000176256",
+          "ENSG00000010318",
+          "ENSG00000163206",
+          "ENSG00000163467"
+        ],
+        "loose": [
+          "XAGE1A/B",
+          "ENSG00000147381",
+          "ENSG00000185686",
+          "ENSG00000234068",
+          "NY-ESO-1",
+          "ENSG00000101951",
+          "ENSG00000205777",
+          "ENSG00000189064",
+          "ENSG00000154040",
+          "ENSG00000158639",
+          "ENSG00000238269",
+          "ENSG00000274274",
+          "ENSG00000128040",
+          "CGB3/5/8",
+          "ENSG00000188120",
+          "ENSG00000170516",
+          "ENSG00000117148",
+          "ENSG00000007350",
+          "GAGE12C/D/E",
+          "ENSG00000068985",
+          "ENSG00000224659",
+          "ENSG00000224902",
+          "ENSG00000204019",
+          "ENSG00000155622",
+          "CXorf49/B",
+          "ENSG00000126752",
+          "ENSG00000227234",
+          "ENSG00000169059",
+          "SSX4/B",
+          "ENSG00000141096",
+          "ENSG00000233803",
+          "VCY/1B",
+          "ENSG00000269586",
+          "CT45A5/6/7",
+          "SPANXA1/2",
+          "ENSG00000168757",
+          "TSPY10/3",
+          "ENSG00000148848",
+          "ENSG00000258992",
+          "ENSG00000205642",
+          "ENSG00000167634",
+          "ENSG00000182583",
+          "ENSG00000170498",
+          "ENSG00000187690",
+          "SSX2/B",
+          "ENSG00000124092",
+          "ENSG00000198759",
+          "ENSG00000198573",
+          "ENSG00000131721",
+          "ENSG00000196406",
+          "ENSG00000105679",
+          "ENSG00000238083",
+          "ENSG00000168515",
+          "ENSG00000173809",
+          "ENSG00000204941",
+          "ENSG00000143512",
+          "ENSG00000006634",
+          "ENSG00000177627",
+          "ENSG00000233056",
+          "ENSG00000171495",
+          "ENSG00000203989",
+          "ENSG00000203909",
+          "ENSG00000116183",
+          "ENSG00000006659",
+          "ENSG00000274183",
+          "ENSG00000187569",
+          "ENSG00000171402",
+          "ENSG00000120211",
+          "ENSG00000112273",
+          "ENSG00000177398",
+          "ENSG00000006047",
+          "ENSG00000143452",
+          "ENSG00000118245",
+          "ENSG00000178287",
+          "ENSG00000132446",
+          "ENSG00000221826",
+          "ENSG00000179046",
+          "ENSG00000229549",
+          "ENSG00000215274",
+          "ENSG00000171794",
+          "ENSG00000163958",
+          "ENSG00000170848",
+          "CT45A2/8/9",
+          "ENSG00000164871",
+          "ENSG00000261949",
+          "ENSG00000243130",
+          "ENSG00000180483",
+          "ENSG00000187191",
+          "ENSG00000124490",
+          "ENSG00000168619",
+          "ENSG00000248099",
+          "HSFY1/2",
+          "ENSG00000231924",
+          "ENSG00000203784",
+          "ENSG00000147378",
+          "ENSG00000125207",
+          "ENSG00000137948",
+          "ENSG00000159708",
+          "ENSG00000131126",
+          "ENSG00000163530",
+          "ENSG00000154997",
+          "ENSG00000143006",
+          "ENSG00000137869",
+          "ENSG00000069206",
+          "ENSG00000163263",
+          "ENSG00000179059",
+          "ENSG00000121101",
+          "ENSG00000153060",
+          "ENSG00000243978",
+          "ENSG00000174898",
+          "ENSG00000168026",
+          "ENSG00000092345",
+          "ENSG00000183668",
+          "ENSG00000197651",
+          "ENSG00000164299",
+          "ENSG00000175646",
+          "ENSG00000176988",
+          "ENSG00000169393",
+          "ENSG00000176566",
+          "ENSG00000176177",
+          "ENSG00000104755",
+          "ENSG00000137225",
+          "ENSG00000223601",
+          "ENSG00000181552",
+          "ENSG00000165584",
+          "ENSG00000182459",
+          "ENSG00000171405",
+          "TP53TG3B/C/D",
+          "ENSG00000165863",
+          "ENSG00000162641",
+          "ENSG00000188859",
+          "ENSG00000234414",
+          "ENSG00000268964",
+          "ENSG00000139351",
+          "ENSG00000206557",
+          "ENSG00000178125",
+          "ENSG00000185792",
+          "ENSG00000102021",
+          "ENSG00000126856",
+          "ENSG00000236446",
+          "ENSG00000166049",
+          "ENSG00000185888",
+          "ENSG00000105198",
+          "ENSG00000135248",
+          "ENSG00000122304",
+          "ENSG00000182308",
+          "ENSG00000170965",
+          "ENSG00000165805",
+          "ENSG00000205442",
+          "ENSG00000177910",
+          "ENSG00000249481",
+          "ENSG00000124467",
+          "ENSG00000111254",
+          "ENSG00000106013",
+          "ENSG00000140932",
+          "ENSG00000213218",
+          "ENSG00000176256",
+          "ENSG00000010318",
+          "ENSG00000163206",
+          "ENSG00000163467"
+        ]
+      },
+      "curation_fingerprints": {
+        "curation:cell_lines.yaml": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/cell_lines.yaml",
+          "size": 69063,
+          "mtime": 1791389386.7228787,
+          "sha256": "763e87f3de212ee61a7c6afc165a97a6fb229418ffa9ed52f230caf4af043434"
+        },
+        "curation:monoallelic_lines.yaml": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/monoallelic_lines.yaml",
+          "size": 1974,
+          "mtime": 1791389386.723884,
+          "sha256": "fbbb90c66374da3831f46a3051982fdb324adb85189c5ee538d1f50ffe210bd1"
+        },
+        "curation:peptide_attributions/connelley_2022_bola_a19.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/peptide_attributions/connelley_2022_bola_a19.csv",
+          "size": 179,
+          "mtime": 1791389386.7331219,
+          "sha256": "69cfe31da459776ace3e040f1e2c576e72d90fa28244555f8a38079504b7b1e7"
+        },
+        "curation:peptide_attributions/sarkizova_2020_patient_cohort.csv": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/peptide_attributions/sarkizova_2020_patient_cohort.csv",
+          "size": 1073141,
+          "mtime": 1791389386.7354193,
+          "sha256": "f37af217074c08f23a9521c791bba5230a4cf849bf2871bfc20bed1aaaef0729"
+        },
+        "curation:pmid_overrides.yaml": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/pmid_overrides.yaml",
+          "size": 664821,
+          "mtime": 1791389386.7246392,
+          "sha256": "577c4990d5d821d40c972b8fc0e68bcb4ec8f9ec3c20abaee8889fdc485b826c"
+        },
+        "curation:tissue_categories.yaml": {
+          "path": "/Users/iskander/code/tsarina/.venv-vaccine/lib/python3.12/site-packages/hitlist/data/tissue_categories.yaml",
+          "size": 2474,
+          "mtime": 1791389386.7290204,
+          "sha256": "5f3b53cb82aa3f4556bf858ccb42f55f286e2fd3d99d1e14e912031f46f6ba7c"
+        }
+      }
+    },
+    "prevalence_input_sha256": "0fa66e54f961d09ab10063b48c4f17587f915c7a671b75147fcc908076fe6bb0",
+    "cta_gene_ids_sha256": "c3c3173a05d481ad43c0ab920fa00310a439315d71636bdf4399f28b5e2934a0",
+    "background_cta_gene_ids_sha256": "2f013fd2e992330c6840c5c316df17799ae8543e852897295d917d51e099a0be",
+    "background_cta_alias_count": 165,
+    "background_cta_identity": "curated IDs plus exact-symbol HSCHR alternate-haplotype annotations of the same gene",
+    "ms_input_sha256": "174859a5c7e04d5a076b2db241c2b2fa9af3f8272af3758d6a4f23bc7ef5d458",
+    "ms_modality_policy": "positive MS assay method, curated MS-only supplement, or declared supplied modality; explicit non-MS rejected",
+    "inspected_proteoforms": 137,
+    "selected_proteoforms": 22,
+    "background_translated_occurrences": 98500,
+    "world_mortality_share_represented_pct": 85.94999999999999,
+    "tissue_map_scope": "All 8\u201315mers across full sequences of every positive eligible proteoform, before specificity subtraction",
+    "budget_stop_reason": "no remaining whole segment fits with positive known expression or new allele/peptide gain",
+    "verified_normal_ms": {
+      "release": "2020.12",
+      "source_url": "https://hla-ligand-atlas.org/data",
+      "publication": "https://doi.org/10.1136/jitc-2020-002071",
+      "license": "CC-BY-4.0",
+      "coverage": "Supplied Atlas snapshot; not an exhaustive survey of all tissue MS studies",
+      "n_source_sample_hits": 967449,
+      "n_source_peptides": 223246,
+      "n_source_donors": 21,
+      "files": {
+        "peptides": {
+          "path": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12/peptides.tsv.gz",
+          "url": "https://hla-ligand-atlas.org/rel/2020.12/peptides.tsv.gz",
+          "sha256": "daeb0c0146e3037c6e4b2b58663a7a9dc6bce821ef1995e817f70367a0ad28c3",
+          "size_bytes": 2104709
+        },
+        "donors": {
+          "path": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12/donors.tsv.gz",
+          "url": "https://hla-ligand-atlas.org/rel/2020.12/donors.tsv.gz",
+          "sha256": "753c8ba45bdd4d9026decc4cd837325a66b2d1ea93d28d437c66aabe5c45a5b3",
+          "size_bytes": 1190
+        },
+        "sample_hits": {
+          "path": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12/sample_hits.tsv.gz",
+          "url": "https://hla-ligand-atlas.org/rel/2020.12/sample_hits.tsv.gz",
+          "sha256": "0e8771113cae27c620b2b9619f035675ddcc87b8d7dfac50750e71ab60eb0167",
+          "size_bytes": 3167689
+        }
+      },
+      "donor_typing_rows": [
+        {
+          "source_row": 1,
+          "donor": "AUT01-DN13",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 2,
+          "donor": "OVA01-DN281",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 3,
+          "donor": "AUT01-DN05",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 4,
+          "donor": "AUT01-DN03",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 5,
+          "donor": "AUT01-DN02",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 6,
+          "donor": "AUT01-DN12",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 7,
+          "donor": "AUT01-DN08",
+          "hla_allele": "A*68:01"
+        },
+        {
+          "source_row": 8,
+          "donor": "AUT01-DN02",
+          "hla_allele": "A*68:01"
+        },
+        {
+          "source_row": 9,
+          "donor": "AUT01-DN08",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 10,
+          "donor": "AUT01-DN03",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 11,
+          "donor": "AUT01-DN02",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 12,
+          "donor": "AUT01-DN12",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 13,
+          "donor": "THY01-DN4",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 14,
+          "donor": "AUT01-DN17",
+          "hla_allele": "B*35:03"
+        },
+        {
+          "source_row": 15,
+          "donor": "AUT01-DN02",
+          "hla_allele": "B*35:03"
+        },
+        {
+          "source_row": 16,
+          "donor": "OVA01-DN281",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 17,
+          "donor": "AUT01-DN17",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 18,
+          "donor": "AUT01-DN03",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 19,
+          "donor": "AUT01-DN02",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 20,
+          "donor": "AUT01-DN12",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 21,
+          "donor": "AUT01-DN09",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 22,
+          "donor": "AUT01-DN08",
+          "hla_allele": "C*03:03"
+        },
+        {
+          "source_row": 23,
+          "donor": "AUT01-DN03",
+          "hla_allele": "C*03:03"
+        },
+        {
+          "source_row": 24,
+          "donor": "AUT01-DN02",
+          "hla_allele": "C*03:03"
+        },
+        {
+          "source_row": 25,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB1*04:01"
+        },
+        {
+          "source_row": 26,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DRB1*04:01"
+        },
+        {
+          "source_row": 27,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 28,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 29,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 30,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 31,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 32,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 33,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 34,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 35,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 36,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 37,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 38,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 39,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 40,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 41,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 42,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 43,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 44,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 45,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 46,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 47,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 48,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*03:02-DQB1*03:01"
+        },
+        {
+          "source_row": 49,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DQA1*03:02-DQB1*03:01"
+        },
+        {
+          "source_row": 50,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DQA1*03:01-DQB1*03:01"
+        },
+        {
+          "source_row": 51,
+          "donor": "AUT01-DN15",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 52,
+          "donor": "AUT01-DN11",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 53,
+          "donor": "THY01-DN5",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 54,
+          "donor": "AUT01-DN16",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 55,
+          "donor": "AUT01-DN05",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 56,
+          "donor": "THY01-DN6",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 57,
+          "donor": "AUT01-DN03",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 58,
+          "donor": "OVA01-DN281",
+          "hla_allele": "B*35:01"
+        },
+        {
+          "source_row": 59,
+          "donor": "AUT01-DN03",
+          "hla_allele": "B*35:01"
+        },
+        {
+          "source_row": 60,
+          "donor": "AUT01-DN12",
+          "hla_allele": "B*35:01"
+        },
+        {
+          "source_row": 61,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB1*11:03"
+        },
+        {
+          "source_row": 62,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 63,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 64,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 65,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 66,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 67,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 68,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 69,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 70,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 71,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 72,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB4*01:01"
+        },
+        {
+          "source_row": 73,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB4*01:01"
+        },
+        {
+          "source_row": 74,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 75,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 76,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 77,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 78,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 79,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*02:01-DQB1*03:01"
+        },
+        {
+          "source_row": 80,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*02:01-DQB1*02:02"
+        },
+        {
+          "source_row": 81,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*02:01-DQB1*02:02"
+        },
+        {
+          "source_row": 82,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DQA1*02:01-DQB1*02:02"
+        },
+        {
+          "source_row": 83,
+          "donor": "AUT01-DN08",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 84,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 85,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 86,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 87,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 88,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 89,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 90,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*05:05-DQB1*02:02"
+        },
+        {
+          "source_row": 91,
+          "donor": "AUT01-DN15",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 92,
+          "donor": "AUT01-DN14",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 93,
+          "donor": "OVA01-DN278",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 94,
+          "donor": "AUT01-DN04",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 95,
+          "donor": "AUT01-DN12",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 96,
+          "donor": "THY01-DN4",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 97,
+          "donor": "AUT01-DN04",
+          "hla_allele": "A*23:01"
+        },
+        {
+          "source_row": 98,
+          "donor": "AUT01-DN14",
+          "hla_allele": "B*27:05"
+        },
+        {
+          "source_row": 99,
+          "donor": "AUT01-DN04",
+          "hla_allele": "B*27:05"
+        },
+        {
+          "source_row": 100,
+          "donor": "AUT01-DN04",
+          "hla_allele": "B*50:01"
+        },
+        {
+          "source_row": 101,
+          "donor": "AUT01-DN13",
+          "hla_allele": "C*02:02"
+        },
+        {
+          "source_row": 102,
+          "donor": "AUT01-DN14",
+          "hla_allele": "C*02:02"
+        },
+        {
+          "source_row": 103,
+          "donor": "AUT01-DN04",
+          "hla_allele": "C*02:02"
+        },
+        {
+          "source_row": 104,
+          "donor": "AUT01-DN11",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 105,
+          "donor": "AUT01-DN04",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 106,
+          "donor": "THY01-DN6",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 107,
+          "donor": "AUT01-DN09",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 108,
+          "donor": "OVA01-DN278",
+          "hla_allele": "DRB1*13:01"
+        },
+        {
+          "source_row": 109,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB1*13:01"
+        },
+        {
+          "source_row": 110,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 111,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 112,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 113,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 114,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*02:02-DPB1*04:01"
+        },
+        {
+          "source_row": 115,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*02:02-DPB1*03:01"
+        },
+        {
+          "source_row": 116,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*01:03-DQB1*06:03"
+        },
+        {
+          "source_row": 117,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*01:03-DQB1*02:02"
+        },
+        {
+          "source_row": 118,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*02:01-DQB1*06:03"
+        },
+        {
+          "source_row": 119,
+          "donor": "THY01-DN5",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 120,
+          "donor": "AUT01-DN05",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 121,
+          "donor": "THY01-DN1",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 122,
+          "donor": "AUT01-DN06",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 123,
+          "donor": "AUT01-DN11",
+          "hla_allele": "B*49:01"
+        },
+        {
+          "source_row": 124,
+          "donor": "AUT01-DN05",
+          "hla_allele": "B*49:01"
+        },
+        {
+          "source_row": 125,
+          "donor": "OVA01-DN281",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 126,
+          "donor": "THY01-DN5",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 127,
+          "donor": "AUT01-DN05",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 128,
+          "donor": "THY01-DN1",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 129,
+          "donor": "AUT01-DN06",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 130,
+          "donor": "AUT01-DN13",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 131,
+          "donor": "AUT01-DN15",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 132,
+          "donor": "AUT01-DN11",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 133,
+          "donor": "AUT01-DN16",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 134,
+          "donor": "AUT01-DN05",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 135,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 136,
+          "donor": "OVA01-DN278",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 137,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 138,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 139,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB1*14:54"
+        },
+        {
+          "source_row": 140,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DRB1*14:54"
+        },
+        {
+          "source_row": 141,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:01-DQB1*05:03"
+        },
+        {
+          "source_row": 142,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*01:01-DQB1*05:03"
+        },
+        {
+          "source_row": 143,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*01:01-DQB1*03:01"
+        },
+        {
+          "source_row": 144,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*01:01-DQB1*03:01"
+        },
+        {
+          "source_row": 145,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*05:05-DQB1*05:03"
+        },
+        {
+          "source_row": 146,
+          "donor": "AUT01-DN14",
+          "hla_allele": "A*68:02"
+        },
+        {
+          "source_row": 147,
+          "donor": "AUT01-DN06",
+          "hla_allele": "A*68:02"
+        },
+        {
+          "source_row": 148,
+          "donor": "AUT01-DN17",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 149,
+          "donor": "THY01-DN5",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 150,
+          "donor": "THY01-DN1",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 151,
+          "donor": "AUT01-DN06",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 152,
+          "donor": "AUT01-DN14",
+          "hla_allele": "B*14:02"
+        },
+        {
+          "source_row": 153,
+          "donor": "AUT01-DN06",
+          "hla_allele": "B*14:02"
+        },
+        {
+          "source_row": 154,
+          "donor": "AUT01-DN14",
+          "hla_allele": "C*08:02"
+        },
+        {
+          "source_row": 155,
+          "donor": "AUT01-DN06",
+          "hla_allele": "C*08:02"
+        },
+        {
+          "source_row": 156,
+          "donor": "AUT01-DN08",
+          "hla_allele": "DRB1*13:03"
+        },
+        {
+          "source_row": 157,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB1*13:03"
+        },
+        {
+          "source_row": 158,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DRB1*13:03"
+        },
+        {
+          "source_row": 159,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DRB1*08:01"
+        },
+        {
+          "source_row": 160,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*04:01-DQB1*03:01"
+        },
+        {
+          "source_row": 161,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*04:01-DQB1*04:02"
+        },
+        {
+          "source_row": 162,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*05:05-DQB1*04:02"
+        },
+        {
+          "source_row": 163,
+          "donor": "AUT01-DN08",
+          "hla_allele": "A*32:01"
+        },
+        {
+          "source_row": 164,
+          "donor": "AUT01-DN08",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 165,
+          "donor": "AUT01-DN15",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 166,
+          "donor": "OVA01-DN278",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 167,
+          "donor": "THY01-DN4",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 168,
+          "donor": "AUT01-DN08",
+          "hla_allele": "C*07:04"
+        },
+        {
+          "source_row": 169,
+          "donor": "AUT01-DN15",
+          "hla_allele": "C*07:04"
+        },
+        {
+          "source_row": 170,
+          "donor": "AUT01-DN08",
+          "hla_allele": "DRB1*14:01"
+        },
+        {
+          "source_row": 171,
+          "donor": "AUT01-DN17",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 172,
+          "donor": "THY01-DN3",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 173,
+          "donor": "AUT01-DN16",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 174,
+          "donor": "AUT01-DN09",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 175,
+          "donor": "AUT01-DN09",
+          "hla_allele": "A*30:01"
+        },
+        {
+          "source_row": 176,
+          "donor": "THY01-DN6",
+          "hla_allele": "B*13:02"
+        },
+        {
+          "source_row": 177,
+          "donor": "AUT01-DN09",
+          "hla_allele": "B*13:02"
+        },
+        {
+          "source_row": 178,
+          "donor": "AUT01-DN09",
+          "hla_allele": "B*35:08"
+        },
+        {
+          "source_row": 179,
+          "donor": "AUT01-DN11",
+          "hla_allele": "A*69:01"
+        },
+        {
+          "source_row": 180,
+          "donor": "AUT01-DN11",
+          "hla_allele": "B*37:01"
+        },
+        {
+          "source_row": 181,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB1*13:02"
+        },
+        {
+          "source_row": 182,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB3*03:01"
+        },
+        {
+          "source_row": 183,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*01:02-DQB1*06:04"
+        },
+        {
+          "source_row": 184,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*01:02-DQB1*03:03"
+        },
+        {
+          "source_row": 185,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*02:01-DQB1*06:04"
+        },
+        {
+          "source_row": 186,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*02:01-DQB1*03:03"
+        },
+        {
+          "source_row": 187,
+          "donor": "AUT01-DN12",
+          "hla_allele": "C*03:04"
+        },
+        {
+          "source_row": 188,
+          "donor": "THY01-DN4",
+          "hla_allele": "C*03:04"
+        },
+        {
+          "source_row": 189,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DRB1*01:01"
+        },
+        {
+          "source_row": 190,
+          "donor": "THY01-DN1",
+          "hla_allele": "DRB1*01:01"
+        },
+        {
+          "source_row": 191,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DRB1*12:01"
+        },
+        {
+          "source_row": 192,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 193,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 194,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 195,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 196,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 197,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 198,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 199,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 200,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*01:03-DPB1*09:01"
+        },
+        {
+          "source_row": 201,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*01:03-DPB1*09:01"
+        },
+        {
+          "source_row": 202,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 203,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 204,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 205,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 206,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*02:01-DPB1*09:01"
+        },
+        {
+          "source_row": 207,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*02:01-DPB1*09:01"
+        },
+        {
+          "source_row": 208,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:01-DQB1*05:01"
+        },
+        {
+          "source_row": 209,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*01:01-DQB1*05:01"
+        },
+        {
+          "source_row": 210,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:01-DQB1*05:01"
+        },
+        {
+          "source_row": 211,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*05:05-DQB1*05:01"
+        },
+        {
+          "source_row": 212,
+          "donor": "AUT01-DN13",
+          "hla_allele": "A*02:05"
+        },
+        {
+          "source_row": 213,
+          "donor": "AUT01-DN13",
+          "hla_allele": "B*58:01"
+        },
+        {
+          "source_row": 214,
+          "donor": "AUT01-DN13",
+          "hla_allele": "B*40:02"
+        },
+        {
+          "source_row": 215,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 216,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 217,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 218,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 219,
+          "donor": "THY01-DN1",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 220,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 221,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DRB1*10:01"
+        },
+        {
+          "source_row": 222,
+          "donor": "THY01-DN6",
+          "hla_allele": "DRB1*10:01"
+        },
+        {
+          "source_row": 223,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 224,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 225,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 226,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 227,
+          "donor": "THY01-DN1",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 228,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 229,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 230,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 231,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 232,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 233,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 234,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 235,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:02-DQB1*05:01"
+        },
+        {
+          "source_row": 236,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:02-DQB1*05:01"
+        },
+        {
+          "source_row": 237,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:02-DQB1*05:01"
+        },
+        {
+          "source_row": 238,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:01-DQB1*06:02"
+        },
+        {
+          "source_row": 239,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:01-DQB1*06:02"
+        },
+        {
+          "source_row": 240,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:01-DQB1*06:02"
+        },
+        {
+          "source_row": 241,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*03:02-DQB1*03:02"
+        },
+        {
+          "source_row": 242,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*05:05-DQB1*03:02"
+        },
+        {
+          "source_row": 243,
+          "donor": "AUT01-DN15",
+          "hla_allele": "B*08:01"
+        },
+        {
+          "source_row": 244,
+          "donor": "OVA01-DN281",
+          "hla_allele": "B*08:01"
+        },
+        {
+          "source_row": 245,
+          "donor": "AUT01-DN16",
+          "hla_allele": "B*08:01"
+        },
+        {
+          "source_row": 246,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB1*03:01"
+        },
+        {
+          "source_row": 247,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DRB1*03:01"
+        },
+        {
+          "source_row": 248,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*01:03-DPB1*01:01"
+        },
+        {
+          "source_row": 249,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*02:01-DPB1*03:01"
+        },
+        {
+          "source_row": 250,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*02:01-DPB1*01:01"
+        },
+        {
+          "source_row": 251,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DQA1*05:01-DQB1*03:01"
+        },
+        {
+          "source_row": 252,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DQA1*05:01-DQB1*02:01"
+        },
+        {
+          "source_row": 253,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*05:01-DQB1*02:01"
+        },
+        {
+          "source_row": 254,
+          "donor": "THY01-DN3",
+          "hla_allele": "B*41:01"
+        },
+        {
+          "source_row": 255,
+          "donor": "AUT01-DN16",
+          "hla_allele": "B*41:01"
+        },
+        {
+          "source_row": 256,
+          "donor": "THY01-DN3",
+          "hla_allele": "C*17:01"
+        },
+        {
+          "source_row": 257,
+          "donor": "AUT01-DN16",
+          "hla_allele": "C*17:01"
+        },
+        {
+          "source_row": 258,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB1*04:05"
+        },
+        {
+          "source_row": 259,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB1*04:05"
+        },
+        {
+          "source_row": 260,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DRB1*04:05"
+        },
+        {
+          "source_row": 261,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*03:02-DQB1*02:01"
+        },
+        {
+          "source_row": 262,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*03:02-DQB1*02:02"
+        },
+        {
+          "source_row": 263,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*05:01-DQB1*02:02"
+        },
+        {
+          "source_row": 264,
+          "donor": "AUT01-DN17",
+          "hla_allele": "B*45:01"
+        },
+        {
+          "source_row": 265,
+          "donor": "AUT01-DN17",
+          "hla_allele": "C*16:01"
+        },
+        {
+          "source_row": 266,
+          "donor": "THY01-DN1",
+          "hla_allele": "C*16:01"
+        },
+        {
+          "source_row": 267,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:02-DQB1*05:03"
+        },
+        {
+          "source_row": 268,
+          "donor": "THY01-DN1",
+          "hla_allele": "A*29:02"
+        },
+        {
+          "source_row": 269,
+          "donor": "THY01-DN1",
+          "hla_allele": "B*44:03"
+        },
+        {
+          "source_row": 270,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*01:03-DPB1*14:01"
+        },
+        {
+          "source_row": 271,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*02:01-DPB1*04:01"
+        },
+        {
+          "source_row": 272,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*02:01-DPB1*14:01"
+        },
+        {
+          "source_row": 273,
+          "donor": "THY01-DN3",
+          "hla_allele": "A*25:01"
+        },
+        {
+          "source_row": 274,
+          "donor": "THY01-DN6",
+          "hla_allele": "A*25:01"
+        },
+        {
+          "source_row": 275,
+          "donor": "THY01-DN3",
+          "hla_allele": "B*18:01"
+        },
+        {
+          "source_row": 276,
+          "donor": "THY01-DN3",
+          "hla_allele": "C*12:03"
+        },
+        {
+          "source_row": 277,
+          "donor": "THY01-DN6",
+          "hla_allele": "C*12:03"
+        },
+        {
+          "source_row": 278,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*01:02-DQB1*02:02"
+        },
+        {
+          "source_row": 279,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*03:03-DQB1*02:02"
+        },
+        {
+          "source_row": 280,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*03:03-DQB1*06:02"
+        },
+        {
+          "source_row": 281,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*03:03-DQB1*06:02"
+        },
+        {
+          "source_row": 282,
+          "donor": "THY01-DN4",
+          "hla_allele": "A*26:08"
+        },
+        {
+          "source_row": 283,
+          "donor": "OVA01-DN278",
+          "hla_allele": "C*05:01"
+        },
+        {
+          "source_row": 284,
+          "donor": "THY01-DN4",
+          "hla_allele": "C*05:01"
+        },
+        {
+          "source_row": 285,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*01:02-DQB1*03:01"
+        },
+        {
+          "source_row": 286,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*05:05-DQB1*06:02"
+        },
+        {
+          "source_row": 287,
+          "donor": "THY01-DN5",
+          "hla_allele": "B*07:06"
+        },
+        {
+          "source_row": 288,
+          "donor": "THY01-DN5",
+          "hla_allele": "C*15:05"
+        },
+        {
+          "source_row": 289,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*01:02-DQB1*03:02"
+        },
+        {
+          "source_row": 290,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*03:03-DQB1*03:02"
+        },
+        {
+          "source_row": 291,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*104:01"
+        },
+        {
+          "source_row": 292,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*104:01"
+        },
+        {
+          "source_row": 293,
+          "donor": "THY01-DN6",
+          "hla_allele": "B*39:01"
+        },
+        {
+          "source_row": 294,
+          "donor": "THY01-DN6",
+          "hla_allele": "DRB1*16:01"
+        },
+        {
+          "source_row": 295,
+          "donor": "THY01-DN6",
+          "hla_allele": "DRB5*02:02"
+        },
+        {
+          "source_row": 296,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:05-DQB1*05:01"
+        },
+        {
+          "source_row": 297,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:05-DQB1*05:02"
+        },
+        {
+          "source_row": 298,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:02-DQB1*05:02"
+        },
+        {
+          "source_row": 299,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*01:03-DPB1*17:01"
+        },
+        {
+          "source_row": 300,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*02:01-DPB1*17:01"
+        },
+        {
+          "source_row": 301,
+          "donor": "OVA01-DN281",
+          "hla_allele": "A*26:01"
+        },
+        {
+          "source_row": 302,
+          "donor": "OVA01-DN281",
+          "hla_allele": "DRB1*04:04"
+        },
+        {
+          "source_row": 303,
+          "donor": "OVA01-DN281",
+          "hla_allele": "DRB1*11:08"
+        }
+      ],
+      "min_donors": 1,
+      "class": "I",
+      "n_query_peptides": 45185,
+      "query_match": "any shared 8-mer, including longer source ligands",
+      "n_qualifying_observations": 35,
+      "n_blacklisted_peptides": 24
+    },
+    "normal_ms_execution_reference": {
+      "release": "2020.12",
+      "source_url": "https://hla-ligand-atlas.org/data",
+      "publication": "https://doi.org/10.1136/jitc-2020-002071",
+      "license": "CC-BY-4.0",
+      "coverage": "Supplied Atlas snapshot; not an exhaustive survey of all tissue MS studies",
+      "n_source_sample_hits": 967449,
+      "n_source_peptides": 223246,
+      "n_source_donors": 21,
+      "files": {
+        "peptides": {
+          "path": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12/peptides.tsv.gz",
+          "url": "https://hla-ligand-atlas.org/rel/2020.12/peptides.tsv.gz",
+          "sha256": "daeb0c0146e3037c6e4b2b58663a7a9dc6bce821ef1995e817f70367a0ad28c3",
+          "size_bytes": 2104709
+        },
+        "donors": {
+          "path": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12/donors.tsv.gz",
+          "url": "https://hla-ligand-atlas.org/rel/2020.12/donors.tsv.gz",
+          "sha256": "753c8ba45bdd4d9026decc4cd837325a66b2d1ea93d28d437c66aabe5c45a5b3",
+          "size_bytes": 1190
+        },
+        "sample_hits": {
+          "path": "/Users/iskander/code/tsarina/vaccine-designs/hla-ligand-atlas-2020.12/sample_hits.tsv.gz",
+          "url": "https://hla-ligand-atlas.org/rel/2020.12/sample_hits.tsv.gz",
+          "sha256": "0e8771113cae27c620b2b9619f035675ddcc87b8d7dfac50750e71ab60eb0167",
+          "size_bytes": 3167689
+        }
+      },
+      "donor_typing_rows": [
+        {
+          "source_row": 1,
+          "donor": "AUT01-DN13",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 2,
+          "donor": "OVA01-DN281",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 3,
+          "donor": "AUT01-DN05",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 4,
+          "donor": "AUT01-DN03",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 5,
+          "donor": "AUT01-DN02",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 6,
+          "donor": "AUT01-DN12",
+          "hla_allele": "A*11:01"
+        },
+        {
+          "source_row": 7,
+          "donor": "AUT01-DN08",
+          "hla_allele": "A*68:01"
+        },
+        {
+          "source_row": 8,
+          "donor": "AUT01-DN02",
+          "hla_allele": "A*68:01"
+        },
+        {
+          "source_row": 9,
+          "donor": "AUT01-DN08",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 10,
+          "donor": "AUT01-DN03",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 11,
+          "donor": "AUT01-DN02",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 12,
+          "donor": "AUT01-DN12",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 13,
+          "donor": "THY01-DN4",
+          "hla_allele": "B*15:01"
+        },
+        {
+          "source_row": 14,
+          "donor": "AUT01-DN17",
+          "hla_allele": "B*35:03"
+        },
+        {
+          "source_row": 15,
+          "donor": "AUT01-DN02",
+          "hla_allele": "B*35:03"
+        },
+        {
+          "source_row": 16,
+          "donor": "OVA01-DN281",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 17,
+          "donor": "AUT01-DN17",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 18,
+          "donor": "AUT01-DN03",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 19,
+          "donor": "AUT01-DN02",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 20,
+          "donor": "AUT01-DN12",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 21,
+          "donor": "AUT01-DN09",
+          "hla_allele": "C*04:01"
+        },
+        {
+          "source_row": 22,
+          "donor": "AUT01-DN08",
+          "hla_allele": "C*03:03"
+        },
+        {
+          "source_row": 23,
+          "donor": "AUT01-DN03",
+          "hla_allele": "C*03:03"
+        },
+        {
+          "source_row": 24,
+          "donor": "AUT01-DN02",
+          "hla_allele": "C*03:03"
+        },
+        {
+          "source_row": 25,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB1*04:01"
+        },
+        {
+          "source_row": 26,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DRB1*04:01"
+        },
+        {
+          "source_row": 27,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 28,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 29,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 30,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 31,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 32,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DRB4*01:03"
+        },
+        {
+          "source_row": 33,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 34,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 35,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 36,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 37,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 38,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 39,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 40,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 41,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 42,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 43,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DPA1*01:03-DPB1*04:01"
+        },
+        {
+          "source_row": 44,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 45,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 46,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 47,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DPA1*01:03-DPB1*04:02"
+        },
+        {
+          "source_row": 48,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*03:02-DQB1*03:01"
+        },
+        {
+          "source_row": 49,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DQA1*03:02-DQB1*03:01"
+        },
+        {
+          "source_row": 50,
+          "donor": "AUT01-DN02",
+          "hla_allele": "DQA1*03:01-DQB1*03:01"
+        },
+        {
+          "source_row": 51,
+          "donor": "AUT01-DN15",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 52,
+          "donor": "AUT01-DN11",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 53,
+          "donor": "THY01-DN5",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 54,
+          "donor": "AUT01-DN16",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 55,
+          "donor": "AUT01-DN05",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 56,
+          "donor": "THY01-DN6",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 57,
+          "donor": "AUT01-DN03",
+          "hla_allele": "A*01:01"
+        },
+        {
+          "source_row": 58,
+          "donor": "OVA01-DN281",
+          "hla_allele": "B*35:01"
+        },
+        {
+          "source_row": 59,
+          "donor": "AUT01-DN03",
+          "hla_allele": "B*35:01"
+        },
+        {
+          "source_row": 60,
+          "donor": "AUT01-DN12",
+          "hla_allele": "B*35:01"
+        },
+        {
+          "source_row": 61,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB1*11:03"
+        },
+        {
+          "source_row": 62,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 63,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 64,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 65,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DRB1*07:01"
+        },
+        {
+          "source_row": 66,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 67,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 68,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 69,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 70,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 71,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB3*02:02"
+        },
+        {
+          "source_row": 72,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB4*01:01"
+        },
+        {
+          "source_row": 73,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DRB4*01:01"
+        },
+        {
+          "source_row": 74,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 75,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 76,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 77,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 78,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DPA1*01:03-DPB1*03:01"
+        },
+        {
+          "source_row": 79,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*02:01-DQB1*03:01"
+        },
+        {
+          "source_row": 80,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*02:01-DQB1*02:02"
+        },
+        {
+          "source_row": 81,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*02:01-DQB1*02:02"
+        },
+        {
+          "source_row": 82,
+          "donor": "AUT01-DN09",
+          "hla_allele": "DQA1*02:01-DQB1*02:02"
+        },
+        {
+          "source_row": 83,
+          "donor": "AUT01-DN08",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 84,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 85,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 86,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 87,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 88,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 89,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*05:05-DQB1*03:01"
+        },
+        {
+          "source_row": 90,
+          "donor": "AUT01-DN03",
+          "hla_allele": "DQA1*05:05-DQB1*02:02"
+        },
+        {
+          "source_row": 91,
+          "donor": "AUT01-DN15",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 92,
+          "donor": "AUT01-DN14",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 93,
+          "donor": "OVA01-DN278",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 94,
+          "donor": "AUT01-DN04",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 95,
+          "donor": "AUT01-DN12",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 96,
+          "donor": "THY01-DN4",
+          "hla_allele": "A*02:01"
+        },
+        {
+          "source_row": 97,
+          "donor": "AUT01-DN04",
+          "hla_allele": "A*23:01"
+        },
+        {
+          "source_row": 98,
+          "donor": "AUT01-DN14",
+          "hla_allele": "B*27:05"
+        },
+        {
+          "source_row": 99,
+          "donor": "AUT01-DN04",
+          "hla_allele": "B*27:05"
+        },
+        {
+          "source_row": 100,
+          "donor": "AUT01-DN04",
+          "hla_allele": "B*50:01"
+        },
+        {
+          "source_row": 101,
+          "donor": "AUT01-DN13",
+          "hla_allele": "C*02:02"
+        },
+        {
+          "source_row": 102,
+          "donor": "AUT01-DN14",
+          "hla_allele": "C*02:02"
+        },
+        {
+          "source_row": 103,
+          "donor": "AUT01-DN04",
+          "hla_allele": "C*02:02"
+        },
+        {
+          "source_row": 104,
+          "donor": "AUT01-DN11",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 105,
+          "donor": "AUT01-DN04",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 106,
+          "donor": "THY01-DN6",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 107,
+          "donor": "AUT01-DN09",
+          "hla_allele": "C*06:02"
+        },
+        {
+          "source_row": 108,
+          "donor": "OVA01-DN278",
+          "hla_allele": "DRB1*13:01"
+        },
+        {
+          "source_row": 109,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB1*13:01"
+        },
+        {
+          "source_row": 110,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 111,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 112,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 113,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DRB3*01:01"
+        },
+        {
+          "source_row": 114,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*02:02-DPB1*04:01"
+        },
+        {
+          "source_row": 115,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DPA1*02:02-DPB1*03:01"
+        },
+        {
+          "source_row": 116,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*01:03-DQB1*06:03"
+        },
+        {
+          "source_row": 117,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*01:03-DQB1*02:02"
+        },
+        {
+          "source_row": 118,
+          "donor": "AUT01-DN04",
+          "hla_allele": "DQA1*02:01-DQB1*06:03"
+        },
+        {
+          "source_row": 119,
+          "donor": "THY01-DN5",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 120,
+          "donor": "AUT01-DN05",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 121,
+          "donor": "THY01-DN1",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 122,
+          "donor": "AUT01-DN06",
+          "hla_allele": "B*07:02"
+        },
+        {
+          "source_row": 123,
+          "donor": "AUT01-DN11",
+          "hla_allele": "B*49:01"
+        },
+        {
+          "source_row": 124,
+          "donor": "AUT01-DN05",
+          "hla_allele": "B*49:01"
+        },
+        {
+          "source_row": 125,
+          "donor": "OVA01-DN281",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 126,
+          "donor": "THY01-DN5",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 127,
+          "donor": "AUT01-DN05",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 128,
+          "donor": "THY01-DN1",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 129,
+          "donor": "AUT01-DN06",
+          "hla_allele": "C*07:02"
+        },
+        {
+          "source_row": 130,
+          "donor": "AUT01-DN13",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 131,
+          "donor": "AUT01-DN15",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 132,
+          "donor": "AUT01-DN11",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 133,
+          "donor": "AUT01-DN16",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 134,
+          "donor": "AUT01-DN05",
+          "hla_allele": "C*07:01"
+        },
+        {
+          "source_row": 135,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 136,
+          "donor": "OVA01-DN278",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 137,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 138,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB1*11:01"
+        },
+        {
+          "source_row": 139,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB1*14:54"
+        },
+        {
+          "source_row": 140,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DRB1*14:54"
+        },
+        {
+          "source_row": 141,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:01-DQB1*05:03"
+        },
+        {
+          "source_row": 142,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*01:01-DQB1*05:03"
+        },
+        {
+          "source_row": 143,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*01:01-DQB1*03:01"
+        },
+        {
+          "source_row": 144,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*01:01-DQB1*03:01"
+        },
+        {
+          "source_row": 145,
+          "donor": "AUT01-DN05",
+          "hla_allele": "DQA1*05:05-DQB1*05:03"
+        },
+        {
+          "source_row": 146,
+          "donor": "AUT01-DN14",
+          "hla_allele": "A*68:02"
+        },
+        {
+          "source_row": 147,
+          "donor": "AUT01-DN06",
+          "hla_allele": "A*68:02"
+        },
+        {
+          "source_row": 148,
+          "donor": "AUT01-DN17",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 149,
+          "donor": "THY01-DN5",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 150,
+          "donor": "THY01-DN1",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 151,
+          "donor": "AUT01-DN06",
+          "hla_allele": "A*03:01"
+        },
+        {
+          "source_row": 152,
+          "donor": "AUT01-DN14",
+          "hla_allele": "B*14:02"
+        },
+        {
+          "source_row": 153,
+          "donor": "AUT01-DN06",
+          "hla_allele": "B*14:02"
+        },
+        {
+          "source_row": 154,
+          "donor": "AUT01-DN14",
+          "hla_allele": "C*08:02"
+        },
+        {
+          "source_row": 155,
+          "donor": "AUT01-DN06",
+          "hla_allele": "C*08:02"
+        },
+        {
+          "source_row": 156,
+          "donor": "AUT01-DN08",
+          "hla_allele": "DRB1*13:03"
+        },
+        {
+          "source_row": 157,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DRB1*13:03"
+        },
+        {
+          "source_row": 158,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DRB1*13:03"
+        },
+        {
+          "source_row": 159,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DRB1*08:01"
+        },
+        {
+          "source_row": 160,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*04:01-DQB1*03:01"
+        },
+        {
+          "source_row": 161,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*04:01-DQB1*04:02"
+        },
+        {
+          "source_row": 162,
+          "donor": "AUT01-DN06",
+          "hla_allele": "DQA1*05:05-DQB1*04:02"
+        },
+        {
+          "source_row": 163,
+          "donor": "AUT01-DN08",
+          "hla_allele": "A*32:01"
+        },
+        {
+          "source_row": 164,
+          "donor": "AUT01-DN08",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 165,
+          "donor": "AUT01-DN15",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 166,
+          "donor": "OVA01-DN278",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 167,
+          "donor": "THY01-DN4",
+          "hla_allele": "B*44:02"
+        },
+        {
+          "source_row": 168,
+          "donor": "AUT01-DN08",
+          "hla_allele": "C*07:04"
+        },
+        {
+          "source_row": 169,
+          "donor": "AUT01-DN15",
+          "hla_allele": "C*07:04"
+        },
+        {
+          "source_row": 170,
+          "donor": "AUT01-DN08",
+          "hla_allele": "DRB1*14:01"
+        },
+        {
+          "source_row": 171,
+          "donor": "AUT01-DN17",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 172,
+          "donor": "THY01-DN3",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 173,
+          "donor": "AUT01-DN16",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 174,
+          "donor": "AUT01-DN09",
+          "hla_allele": "A*24:02"
+        },
+        {
+          "source_row": 175,
+          "donor": "AUT01-DN09",
+          "hla_allele": "A*30:01"
+        },
+        {
+          "source_row": 176,
+          "donor": "THY01-DN6",
+          "hla_allele": "B*13:02"
+        },
+        {
+          "source_row": 177,
+          "donor": "AUT01-DN09",
+          "hla_allele": "B*13:02"
+        },
+        {
+          "source_row": 178,
+          "donor": "AUT01-DN09",
+          "hla_allele": "B*35:08"
+        },
+        {
+          "source_row": 179,
+          "donor": "AUT01-DN11",
+          "hla_allele": "A*69:01"
+        },
+        {
+          "source_row": 180,
+          "donor": "AUT01-DN11",
+          "hla_allele": "B*37:01"
+        },
+        {
+          "source_row": 181,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB1*13:02"
+        },
+        {
+          "source_row": 182,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DRB3*03:01"
+        },
+        {
+          "source_row": 183,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*01:02-DQB1*06:04"
+        },
+        {
+          "source_row": 184,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*01:02-DQB1*03:03"
+        },
+        {
+          "source_row": 185,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*02:01-DQB1*06:04"
+        },
+        {
+          "source_row": 186,
+          "donor": "AUT01-DN11",
+          "hla_allele": "DQA1*02:01-DQB1*03:03"
+        },
+        {
+          "source_row": 187,
+          "donor": "AUT01-DN12",
+          "hla_allele": "C*03:04"
+        },
+        {
+          "source_row": 188,
+          "donor": "THY01-DN4",
+          "hla_allele": "C*03:04"
+        },
+        {
+          "source_row": 189,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DRB1*01:01"
+        },
+        {
+          "source_row": 190,
+          "donor": "THY01-DN1",
+          "hla_allele": "DRB1*01:01"
+        },
+        {
+          "source_row": 191,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DRB1*12:01"
+        },
+        {
+          "source_row": 192,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 193,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 194,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 195,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 196,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 197,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 198,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 199,
+          "donor": "THY01-DN4",
+          "hla_allele": "DPA1*01:03-DPB1*02:01"
+        },
+        {
+          "source_row": 200,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*01:03-DPB1*09:01"
+        },
+        {
+          "source_row": 201,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*01:03-DPB1*09:01"
+        },
+        {
+          "source_row": 202,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 203,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 204,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 205,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*02:01-DPB1*02:01"
+        },
+        {
+          "source_row": 206,
+          "donor": "THY01-DN3",
+          "hla_allele": "DPA1*02:01-DPB1*09:01"
+        },
+        {
+          "source_row": 207,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DPA1*02:01-DPB1*09:01"
+        },
+        {
+          "source_row": 208,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:01-DQB1*05:01"
+        },
+        {
+          "source_row": 209,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*01:01-DQB1*05:01"
+        },
+        {
+          "source_row": 210,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:01-DQB1*05:01"
+        },
+        {
+          "source_row": 211,
+          "donor": "AUT01-DN12",
+          "hla_allele": "DQA1*05:05-DQB1*05:01"
+        },
+        {
+          "source_row": 212,
+          "donor": "AUT01-DN13",
+          "hla_allele": "A*02:05"
+        },
+        {
+          "source_row": 213,
+          "donor": "AUT01-DN13",
+          "hla_allele": "B*58:01"
+        },
+        {
+          "source_row": 214,
+          "donor": "AUT01-DN13",
+          "hla_allele": "B*40:02"
+        },
+        {
+          "source_row": 215,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 216,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 217,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 218,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 219,
+          "donor": "THY01-DN1",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 220,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB1*15:01"
+        },
+        {
+          "source_row": 221,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DRB1*10:01"
+        },
+        {
+          "source_row": 222,
+          "donor": "THY01-DN6",
+          "hla_allele": "DRB1*10:01"
+        },
+        {
+          "source_row": 223,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 224,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 225,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 226,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 227,
+          "donor": "THY01-DN1",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 228,
+          "donor": "THY01-DN4",
+          "hla_allele": "DRB5*01:01"
+        },
+        {
+          "source_row": 229,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 230,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 231,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 232,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 233,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 234,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*01:02-DQB1*06:02"
+        },
+        {
+          "source_row": 235,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:02-DQB1*05:01"
+        },
+        {
+          "source_row": 236,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:02-DQB1*05:01"
+        },
+        {
+          "source_row": 237,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:02-DQB1*05:01"
+        },
+        {
+          "source_row": 238,
+          "donor": "AUT01-DN13",
+          "hla_allele": "DQA1*01:01-DQB1*06:02"
+        },
+        {
+          "source_row": 239,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:01-DQB1*06:02"
+        },
+        {
+          "source_row": 240,
+          "donor": "THY01-DN1",
+          "hla_allele": "DQA1*01:01-DQB1*06:02"
+        },
+        {
+          "source_row": 241,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*03:02-DQB1*03:02"
+        },
+        {
+          "source_row": 242,
+          "donor": "AUT01-DN14",
+          "hla_allele": "DQA1*05:05-DQB1*03:02"
+        },
+        {
+          "source_row": 243,
+          "donor": "AUT01-DN15",
+          "hla_allele": "B*08:01"
+        },
+        {
+          "source_row": 244,
+          "donor": "OVA01-DN281",
+          "hla_allele": "B*08:01"
+        },
+        {
+          "source_row": 245,
+          "donor": "AUT01-DN16",
+          "hla_allele": "B*08:01"
+        },
+        {
+          "source_row": 246,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DRB1*03:01"
+        },
+        {
+          "source_row": 247,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DRB1*03:01"
+        },
+        {
+          "source_row": 248,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*01:03-DPB1*01:01"
+        },
+        {
+          "source_row": 249,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*02:01-DPB1*03:01"
+        },
+        {
+          "source_row": 250,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DPA1*02:01-DPB1*01:01"
+        },
+        {
+          "source_row": 251,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DQA1*05:01-DQB1*03:01"
+        },
+        {
+          "source_row": 252,
+          "donor": "AUT01-DN15",
+          "hla_allele": "DQA1*05:01-DQB1*02:01"
+        },
+        {
+          "source_row": 253,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*05:01-DQB1*02:01"
+        },
+        {
+          "source_row": 254,
+          "donor": "THY01-DN3",
+          "hla_allele": "B*41:01"
+        },
+        {
+          "source_row": 255,
+          "donor": "AUT01-DN16",
+          "hla_allele": "B*41:01"
+        },
+        {
+          "source_row": 256,
+          "donor": "THY01-DN3",
+          "hla_allele": "C*17:01"
+        },
+        {
+          "source_row": 257,
+          "donor": "AUT01-DN16",
+          "hla_allele": "C*17:01"
+        },
+        {
+          "source_row": 258,
+          "donor": "THY01-DN3",
+          "hla_allele": "DRB1*04:05"
+        },
+        {
+          "source_row": 259,
+          "donor": "THY01-DN5",
+          "hla_allele": "DRB1*04:05"
+        },
+        {
+          "source_row": 260,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DRB1*04:05"
+        },
+        {
+          "source_row": 261,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*03:02-DQB1*02:01"
+        },
+        {
+          "source_row": 262,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*03:02-DQB1*02:02"
+        },
+        {
+          "source_row": 263,
+          "donor": "AUT01-DN16",
+          "hla_allele": "DQA1*05:01-DQB1*02:02"
+        },
+        {
+          "source_row": 264,
+          "donor": "AUT01-DN17",
+          "hla_allele": "B*45:01"
+        },
+        {
+          "source_row": 265,
+          "donor": "AUT01-DN17",
+          "hla_allele": "C*16:01"
+        },
+        {
+          "source_row": 266,
+          "donor": "THY01-DN1",
+          "hla_allele": "C*16:01"
+        },
+        {
+          "source_row": 267,
+          "donor": "AUT01-DN17",
+          "hla_allele": "DQA1*01:02-DQB1*05:03"
+        },
+        {
+          "source_row": 268,
+          "donor": "THY01-DN1",
+          "hla_allele": "A*29:02"
+        },
+        {
+          "source_row": 269,
+          "donor": "THY01-DN1",
+          "hla_allele": "B*44:03"
+        },
+        {
+          "source_row": 270,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*01:03-DPB1*14:01"
+        },
+        {
+          "source_row": 271,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*02:01-DPB1*04:01"
+        },
+        {
+          "source_row": 272,
+          "donor": "THY01-DN1",
+          "hla_allele": "DPA1*02:01-DPB1*14:01"
+        },
+        {
+          "source_row": 273,
+          "donor": "THY01-DN3",
+          "hla_allele": "A*25:01"
+        },
+        {
+          "source_row": 274,
+          "donor": "THY01-DN6",
+          "hla_allele": "A*25:01"
+        },
+        {
+          "source_row": 275,
+          "donor": "THY01-DN3",
+          "hla_allele": "B*18:01"
+        },
+        {
+          "source_row": 276,
+          "donor": "THY01-DN3",
+          "hla_allele": "C*12:03"
+        },
+        {
+          "source_row": 277,
+          "donor": "THY01-DN6",
+          "hla_allele": "C*12:03"
+        },
+        {
+          "source_row": 278,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*01:02-DQB1*02:02"
+        },
+        {
+          "source_row": 279,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*03:03-DQB1*02:02"
+        },
+        {
+          "source_row": 280,
+          "donor": "THY01-DN3",
+          "hla_allele": "DQA1*03:03-DQB1*06:02"
+        },
+        {
+          "source_row": 281,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*03:03-DQB1*06:02"
+        },
+        {
+          "source_row": 282,
+          "donor": "THY01-DN4",
+          "hla_allele": "A*26:08"
+        },
+        {
+          "source_row": 283,
+          "donor": "OVA01-DN278",
+          "hla_allele": "C*05:01"
+        },
+        {
+          "source_row": 284,
+          "donor": "THY01-DN4",
+          "hla_allele": "C*05:01"
+        },
+        {
+          "source_row": 285,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*01:02-DQB1*03:01"
+        },
+        {
+          "source_row": 286,
+          "donor": "THY01-DN4",
+          "hla_allele": "DQA1*05:05-DQB1*06:02"
+        },
+        {
+          "source_row": 287,
+          "donor": "THY01-DN5",
+          "hla_allele": "B*07:06"
+        },
+        {
+          "source_row": 288,
+          "donor": "THY01-DN5",
+          "hla_allele": "C*15:05"
+        },
+        {
+          "source_row": 289,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*01:02-DQB1*03:02"
+        },
+        {
+          "source_row": 290,
+          "donor": "THY01-DN5",
+          "hla_allele": "DQA1*03:03-DQB1*03:02"
+        },
+        {
+          "source_row": 291,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*104:01"
+        },
+        {
+          "source_row": 292,
+          "donor": "THY01-DN5",
+          "hla_allele": "DPA1*01:03-DPB1*104:01"
+        },
+        {
+          "source_row": 293,
+          "donor": "THY01-DN6",
+          "hla_allele": "B*39:01"
+        },
+        {
+          "source_row": 294,
+          "donor": "THY01-DN6",
+          "hla_allele": "DRB1*16:01"
+        },
+        {
+          "source_row": 295,
+          "donor": "THY01-DN6",
+          "hla_allele": "DRB5*02:02"
+        },
+        {
+          "source_row": 296,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:05-DQB1*05:01"
+        },
+        {
+          "source_row": 297,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:05-DQB1*05:02"
+        },
+        {
+          "source_row": 298,
+          "donor": "THY01-DN6",
+          "hla_allele": "DQA1*01:02-DQB1*05:02"
+        },
+        {
+          "source_row": 299,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*01:03-DPB1*17:01"
+        },
+        {
+          "source_row": 300,
+          "donor": "THY01-DN6",
+          "hla_allele": "DPA1*02:01-DPB1*17:01"
+        },
+        {
+          "source_row": 301,
+          "donor": "OVA01-DN281",
+          "hla_allele": "A*26:01"
+        },
+        {
+          "source_row": 302,
+          "donor": "OVA01-DN281",
+          "hla_allele": "DRB1*04:04"
+        },
+        {
+          "source_row": 303,
+          "donor": "OVA01-DN281",
+          "hla_allele": "DRB1*11:08"
+        }
+      ],
+      "min_donors": 1,
+      "class": "I",
+      "n_query_peptides": 363650,
+      "n_qualifying_observations": 19,
+      "n_blacklisted_peptides": 13
+    },
+    "independent_primary_evidence_audit": {
+      "execution_manifest_sha256": "f200b37d7121c398c158da84c8493c4eb0d59869c8f31a8595a3e27dc96186d6",
+      "broader_source_ligand_match": "any shared 8-mer, all source ligand lengths",
+      "effect_on_candidate_specific_intervals": "none; additional matches already removed by non-CTA background",
+      "rejected_negative_full_protein_records": 0,
+      "effect_on_model_support_assignments": "none",
+      "models_and_construct": "unchanged; original execution versions preserved"
+    }
+  },
+  "coordinate_system": "zero-based, half-open",
+  "objective": "sum_category(world_mortality_pct / 100 * sample_weighted_prevalence_p95)",
+  "prediction_callbacks": {
+    "affinity": false,
+    "cleavage": false
+  },
+  "population_method": "CIWD Table A2 known-allele proxy, HWE within locus and linkage equilibrium across loci; no panel normalization. Other-source frequencies are excluded.",
+  "cancer_method": "Marginal p95 union bounds, no patient-overlap data or clinical coverage calculation.",
+  "tissue_method": "Normal-MS policy: exclude. Exclusion uses primary donor-resolved Atlas nonmalignant heart/brain/lung HLA-I records, with 1 distinct donor(s). Tissue flags alone do not trigger this gate. Remaining observations are audited, not proof of safe regions."
+}

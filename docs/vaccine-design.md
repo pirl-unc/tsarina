@@ -90,6 +90,18 @@ ranking with exclusion, unsupported, length-rejected, selected and uninspected
 states. A bounded scan batch can inspect lower-ranked targets beyond the selected
 k; those remain auditable.
 
+`--selection-mode budget` removes the protein count cap and requires an amino
+acid or total nucleotide limit. It screens every eligible positive-scoring
+proteoform and greedily adds whole ligand-bearing pieces by marginal
+mortality-weighted lower expression-union gain per amino acid. Ties use
+incidence gain, new supported HLA alleles, new exact observed peptides and
+protein rank. The expression surrogate is `max(prevalence)` per cancer;
+additional pieces from the same protein can add ligand evidence without
+counting expression twice. Missing measurements add no known expression gain.
+The allocation is a heuristic, with its decisions in `budget_allocation.csv`;
+it does not optimize actual patient overlap or guarantee a global optimum.
+`--top-k` is ignored in this mode.
+
 Repeatable `--exclude-gene-pattern` accepts gene-symbol globs;
 `--allow-gene` provides exact symbol exceptions. Any excluded member vetoes an
 identical-full-sequence group. These controls affect candidate eligibility,
@@ -118,8 +130,13 @@ second time. Requested references must be available or explicitly fetched.
 
 ## Definitions and the native sequence funnel
 
-Strict uses OncoRef's canonical core reproductive scope (testis/ovary/placenta);
-loose uses its extended reproductive-tract scope, including prostate.
+Strict uses OncoRef's canonical core reproductive scope: **testis, ovary and
+placenta**. Loose adds **cervix, endometrium, epididymis, fallopian tube,
+prostate, seminal vesicle and vagina** to the RNA numerator. Neither adds
+breast or thymus. Thymus remains in the default RNA fraction denominator but
+is excluded from somatic maxima and the reproductive protein flag; protein
+annotations use broader reproductive tissue conventions. These are curated
+RNA/protein restriction rules with exceptions, not absolute absence gates.
 It does not admit every nominated or warning-tier CTA. Each definition has
 its own non-CTA background and independent design under `strict/` or `loose/`.
 
@@ -143,6 +160,8 @@ its own non-CTA background and independent design under `strict/` or `loose/`.
    within those stretches. Require positive MS modality; explicitly non-MS
    fluorescence, stability and structural assays and unknown-modality records
    are rejected with complete metadata in `rejected_ms_observations.csv`.
+   Explicitly negative assay results are also rejected; an MS method alone
+   does not establish detection. Separate positive observations remain eligible.
    Hitlist's nonbinding flag alone is insufficient ([#644](https://github.com/pirl-unc/hitlist/issues/644)).
    Curated MS-only supplements may have blank methods; supplied data with blank
    methods must declare `assay_modality=mass_spectrometry`.
@@ -173,6 +192,33 @@ peptides and peptide-HLA pairs per proteoform. `hla_support_counts.csv` counts
 retained peptides by allele and evidence tier. Shared peptides across different
 proteoforms and multi-allele predictions must not be counted as independent MS
 observations or patients.
+
+### Source-verified nonmalignant tissue exclusion
+
+By default, `--normal-ms-policy audit` displays normal-tissue observations.
+Use `--normal-ms-policy exclude --normal-ms-atlas-dir PATH` to also remove
+residues covered by 8-mers from donor-resolved nonmalignant **heart, brain and
+lung HLA-I** observations. `PATH` contains the original HLA Ligand Atlas
+2020.12 `peptides`, `donors` and `sample_hits` TSVs, as `.tsv.gz` files or the
+release ZIP's `HLA_*.tsv` names. Hitlist >=1.65.1 reads and fingerprints them.
+The vaccine default threshold is **one distinct donor**, configurable with
+`--normal-ms-min-donors`; repeated samples from one donor are not independent
+replication. All three organs fall outside both CTA definitions.
+
+The [Atlas data](https://hla-ligand-atlas.org/data) and
+[primary study](https://doi.org/10.1136/jitc-2020-002071) establish primary
+autopsy tissue from donors without diagnosed malignancy. Donors could have
+other diseases. Cell lines, tumor-adjacent sources and unresolved donor
+records do not establish this exclusion. IEDB tissue flags alone are audit
+evidence. The blacklist does not require predicted affinity to the vaccine
+panel, and donor HLA genotypes are not measured peptide restrictions.
+
+`normal_ms_summary.csv`, `normal_ms_audit.csv` and
+`normal_ms_exclusions.csv` preserve exact source records, donor counts and
+qualification decisions. `cta_specific_before_normal_ms.csv` and the added
+funnel stage distinguish sequence lost to the normal-MS gate. Other normal
+observations remain visible warnings. Neither absence of an observation nor
+this exclusion establishes vaccine safety.
 
 ## Construct search and design elements
 
@@ -220,6 +266,11 @@ Sources: [Vaxrank mRNA library](https://github.com/openvax/vaxrank/blob/main/vax
 
 ## Output bundle and API
 
+Every successful construct writes a self-contained `website/` alongside the
+scientific report. With `--definition both`, a combined website also appears
+at the output root. View the [published Vaccine Atlas](vaccine-results/index.html)
+for strict/loose budget designs and ten-protein comparisons.
+
 | Artifact | Meaning |
 | --- | --- |
 | `report.md`, SVG figures | Selected proteins/cancers, retention funnel, construct map |
@@ -233,6 +284,39 @@ Sources: [Vaxrank mRNA library](https://github.com/openvax/vaxrank/blob/main/vax
 | `junctions.csv`, `cleavage.csv`, `search_history.csv` | Final predictions and optimization history |
 | `protein.fasta`, `cds.fasta`, `full.fasta` | Single antigen, CDS/stop, complete DNA/RNA |
 | `manifest.json` | Configuration/results, versions, model identities, input/sequence/output hashes |
+| `website/index.html` | Interactive protein/cancer/HLA results, definitions and sources |
+| `website/downloads/*/cumulative-*.csv` | Protein/segment cumulative coverage bounds and MS counts |
+| `protein_ms_map.csv`, `full_protein_ms_observations.csv` | Exact native peptide positions and sample context, including removed regions |
+
+The website includes SVG/PNG figures for HLA frequencies and measured/inferred
+support, protein additions, MS peptides versus final construct prefix length,
+and full-protein tissue maps. Each observed peptide is counted once in overall
+MS totals, with its strongest HLA evidence tier; these are not T-cell-validated
+epitopes. Large website CSV downloads are losslessly gzip-compressed.
+
+HLA carrier reach sums published CIWD Table A2 allele frequencies within each
+locus, applies Hardy–Weinberg equilibrium to two copies, then assumes linkage
+equilibrium across loci. Missing CIWD frequencies are explicit and omitted
+from the known-allele proxy. Frequencies are never panel-normalized. This donor
+reference is not census-weighted global population coverage. Cancer curves
+show marginal union bounds `max(p)` to `min(1, sum(p))`; missing measurements
+widen the upper bound. Mortality/incidence use separate global burden shares
+without renormalizing the represented cancer subset. HLA and cancer curves
+are not multiplied into a clinical coverage estimate.
+
+Render any named collection of completed reports without rerunning models:
+
+```sh
+tsarina vaccine-report \
+  --report strict=designs/strict --report loose=designs/loose \
+  --output-dir vaccine-website --analysis-date 2026-10-07
+python -m http.server --directory vaccine-website 8000
+```
+
+The renderer verifies every saved manifest artifact hash before reading it.
+Use a fresh website output directory to avoid mixing results.
+Reports can have different panels, DNA/RNA settings and target counts. Relative
+assets require no CDN or scientific software to view once served over HTTP.
 
 Regional HLA frequencies are proxy evidence, not guaranteed population
 coverage. The broad default `global54_abc` can be replaced by a named panel
