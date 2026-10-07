@@ -110,7 +110,7 @@ def write_vaccine_report(result, output_dir):
             if result["config"]["selection_mode"] == "budget"
             else f"requested {result['config']['top_k']} proteoforms. "
         )
-        + f"Exclusion patterns: {result['config']['exclude_gene_patterns']}; exact exceptions: {result['config']['allow_genes']}. `selection_screen.csv` records excluded, unsupported, length-rejected and uninspected candidates. Exclusions do not alter CTA membership or the non-CTA background. Supported mode reserves one whole ligand-bearing piece per contributing target before allocating extra pieces. Budget mode greedily allocates whole native pieces by marginal mortality-weighted lower expression-union gain per aa, then incidence gain, new panel alleles and observed peptide evidence. It is a heuristic, not a patient-level coverage optimum.",
+        + f"Exclusion patterns: {result['config']['exclude_gene_patterns']}; exact exceptions: {result['config']['allow_genes']}. `selection_screen.csv` records excluded, unsupported, length-rejected and uninspected candidates. Exclusions do not alter CTA membership or the non-CTA background. Supported mode reserves one whole ligand-bearing piece per contributing target before allocating extra pieces. Budget mode greedily allocates whole native pieces by marginal mortality-weighted lower expression-union gain per aa, then incidence gain, new panel alleles and observed peptide evidence. Equal scores prefer already selected proteins, then longer contiguous native pieces, then rank. It is a heuristic, not a patient-level coverage optimum.",
         "",
         f"MS evidence source: **{result['provenance']['ms_input_kind'].replace('_', ' ')}**. Observation hashes and any supplied source snapshots/provenance are in `manifest.json` and the copied source tables.",
         "",
@@ -129,6 +129,8 @@ def write_vaccine_report(result, output_dir):
         "All translated non-CTA coding isoforms are screened. Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary gene's CTA identity, with exact resolutions in `background_cta_aliases.csv`; this does not change expression keys or admit independent non-CTA loci. Every residue covered by an independent non-CTA 8-mer is removed, including a full identical protein from another non-CTA gene. Native coordinates are zero-based, half-open. Each remaining contiguous interval must contain a qualifying panel MS ligand. In presentation mode, monoallelic evidence uses presentation percentile ≤2; sample-allele inference ≤1; unrestricted MS plus predicted assignment ≤0.5. Allele inference is labeled separately from measured restriction. Every qualifying ligand and repeated native occurrence is retained in the evidence tables.",
         "",
         "Padding trims terminal context only. Construct search compares complete sequences under the configured beam/round budget, including order, independent N/C padding and linker changes. Its lexicographic objective minimizes the number of peptide/allele junction predictions below the affinity cutoff, then their log binding burden, then maximizes mean predicted boundary cleavage, then minimizes linker length and retains context. The heuristic does not guarantee a global optimum. Final audit includes the initiating methionine, linker-internal windows and windows crossing multiple boundaries.",
+        "",
+        "The sequence funnel separates biological exclusions from design choices. `padded_aa` counts all MS-supported regions with maximum allowed terminal context; `allocated_aa` counts that same maximum context for the pieces retained after allocation. `budget_excluded_aa` is their difference, and `terminal_trimmed_aa` is allocated minus assembled native aa. The latter reflects length/junction edge optimization, not an additional tissue exclusion. These context figures are per-protein comparisons, not a claim that all maximum-context pieces fit the complete construct simultaneously.",
         "",
         "Pepsickle predicts proteasomal cleavage with the human-only in-vivo model and eight residues of context on each side when available; a probability is a model output, not proof of cleavage. MHC binding does not establish presentation or immunogenicity. HLA frequencies are regional proxy evidence from the existing Tsarina panel audit, not a guarantee of population coverage.",
         "",
@@ -186,6 +188,7 @@ def write_vaccine_report(result, output_dir):
                 "ms_supported_aa",
                 "ms_supported_pieces",
                 "padded_aa",
+                "allocated_aa",
                 "assembled_aa",
                 "assembled_pieces",
                 "assembled_ms_ligand_count",
@@ -308,6 +311,8 @@ def _figures(result, out):
     stages = ["raw_aa", "specific_aa", "ms_supported_aa", "padded_aa", "assembled_aa"]
     if "normal_ms_filtered_aa" in funnel:
         stages.insert(2, "normal_ms_filtered_aa")
+    if "allocated_aa" in funnel:
+        stages.insert(-1, "allocated_aa")
     fig, ax = plt.subplots(figsize=(10, max(3, len(funnel) * 0.65)))
     yy = np.arange(len(funnel))
     for i, stage in enumerate(stages):

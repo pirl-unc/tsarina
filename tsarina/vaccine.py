@@ -105,7 +105,7 @@ def design_vaccine(
     else:
         full_hits = inputs.ms_hits.copy()
     raw_hits = full_hits
-    full_hits, _ = filter_ms_modality(raw_hits)
+    full_hits, rejected_full_hits = filter_ms_modality(raw_hits)
     normal_exclusions, verified_hits, normal_summary, normal_audit, normal_provenance = (
         pd.DataFrame(),
         pd.DataFrame(),
@@ -315,6 +315,10 @@ def design_vaccine(
         normal_filtered_aa = sum(b - a for a, b in pieces)
         ms_aa = sum(s.specific_end - s.specific_start for s in supported)
         padded_aa = sum(len(s.sequence(config.max_padding, config.max_padding)) for s in supported)
+        allocated = [s for s in supported if s.segment_id in placements]
+        allocated_aa = sum(
+            len(s.sequence(config.max_padding, config.max_padding)) for s in allocated
+        )
         assembled_aa = sum(len(layer["sequence"]) for layer in assembled)
         status = "retained"
         if not row.sequence:
@@ -343,6 +347,10 @@ def design_vaccine(
                 "ms_supported_pieces": len(supported),
                 "padded_aa": padded_aa,
                 "padded_pieces": len(supported),
+                "allocated_aa": allocated_aa,
+                "allocated_pieces": len(allocated),
+                "budget_excluded_aa": padded_aa - allocated_aa,
+                "terminal_trimmed_aa": allocated_aa - assembled_aa,
                 "assembled_aa": assembled_aa,
                 "assembled_pieces": len(assembled),
                 "retained_fraction": assembled_aa / row.length_aa if row.length_aa else 0,
@@ -423,6 +431,7 @@ def design_vaccine(
         source_tables.get("ms_assignments"),
     )
     source_tables["full_protein_ms_observations"] = full_hits
+    source_tables["rejected_full_protein_ms_observations"] = rejected_full_hits
     allele_counts = []
     for allele in alleles:
         rows = [r for r in ligand_rows if r["assembled"] and r["allele"] == allele]
@@ -502,6 +511,10 @@ def design_vaccine(
         "ms_supported_pieces",
         "padded_aa",
         "padded_pieces",
+        "allocated_aa",
+        "allocated_pieces",
+        "budget_excluded_aa",
+        "terminal_trimmed_aa",
         "assembled_aa",
         "assembled_pieces",
         "retained_fraction",

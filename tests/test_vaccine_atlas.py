@@ -188,6 +188,47 @@ def test_budget_has_no_protein_cap_and_recomputes_marginal_gain():
     assert len(short) == 1
 
 
+def test_equal_budget_gains_prefer_existing_protein_then_longer_native_piece():
+    first = Segment(
+        "z-first", "p1", "CTA1", 2, 0.1, "ACDEFGHIK", 0, 9, 0, 9, ("HLA-A*01:01",), ("ACDEFGHIK",)
+    )
+    same = replace(first, segment_id="same", peptides=("CDEFGHIKL",))
+    other = replace(same, segment_id="other", proteoform_key="p2", name="CTA2", rank=1)
+    cancer = pd.DataFrame(
+        [
+            {
+                "proteoform_key": key,
+                "burden_category": "lung",
+                "prevalence_p95": prevalence,
+                "complete_measurement": True,
+                "world_mortality_pct": 20,
+                "world_incidence_pct": 10,
+            }
+            for key, prevalence in [("p1", 0.8), ("p2", 0.7)]
+        ]
+    )
+    config = VaccineConfig(selection_mode="budget", max_length_aa=19)
+    chosen, history = select_budget_segments([first, same, other], cancer, config)
+    assert {s.proteoform_key for s in chosen} == {"p1"}
+    assert [row["new_proteoform"] for row in history] == [True, False]
+    # Equal gain per aa: one longer native stretch wins over shorter pieces.
+    short = replace(first, alleles=())
+    long = replace(
+        short,
+        segment_id="long",
+        specific_end=18,
+        ligand_end=18,
+        protein_sequence="ACDEFGHIKLMNPQRSTVW",
+        peptides=("ACDEFGHIK", "LMNPQRSTV"),
+    )
+    chosen, _ = select_budget_segments([short, long], cancer.iloc[:0], config)
+    assert [s.segment_id for s in chosen] == ["long"]
+    # A genuinely higher expression gain outranks the compactness preference.
+    cancer.loc[cancer.proteoform_key.eq("p2"), "prevalence_p95"] = 0.9
+    chosen, _ = select_budget_segments([first, other], cancer, config)
+    assert chosen[0].proteoform_key == "p2"
+
+
 def test_full_protein_map_preserves_removed_healthy_regions_and_cancer_context():
     proteins = pd.DataFrame(
         [{"proteoform_key": "p", "name": "CTA", "sequence": "ACDEFGHIKLMNPQRSTVWY"}]

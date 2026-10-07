@@ -1,5 +1,19 @@
 # Lessons
 
+- When a protein retains little sequence, separate biological exclusions from
+  MS support, terminal trimming and budget allocation. Do not imply discarded
+  sequence lacks evidence when coverage scoring and length constraints removed it.
+  Equal coverage/evidence scores should prefer reuse of selected proteins and
+  longer contiguous native regions when the user asks for compact designs.
+
+- Describe scientific project aims directly in website headings and introductions.
+  Avoid promotional slogans, sentence fragments and vague claims of broader
+  reach. The project heading should describe the project consistently across
+  design modes; quantitative differences belong in results and figures.
+- A nucleotide budget includes the configured UTRs, polyA and stop codon.
+  Derive the amino-acid cap after subtracting those elements, including all
+  encoded methionine/linker residues, then regenerate rather than truncate.
+
 - A normal-MS 8-mer veto must consider overlaps from every source ligand
   length, including longer peptides absent intact from the CTA. Verify the
   entire primary blacklist independently; an exact native-peptide query can

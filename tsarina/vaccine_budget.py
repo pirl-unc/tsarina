@@ -10,7 +10,10 @@ def select_budget_segments(segments, cancer, config):
 
     Primary gain is the increase in mortality-weighted max marginal p95
     prevalence per aa, then incidence gain per aa, newly supported panel
-    alleles per aa and distinct observed peptides per aa. max(p) is the
+    alleles per aa and distinct observed peptides per aa. Equal scores prefer
+    an already selected proteoform, then a longer contiguous native piece,
+    before protein rank. No rejected intervening sequence is restored.
+    max(p) is the
     conservative union bound; no patient independence is assumed. Missing
     measurements contribute no *known* gain. Additional same-protein pieces
     can add evidence but cannot count expression twice.
@@ -24,7 +27,7 @@ def select_budget_segments(segments, cancer, config):
             row.world_incidence_pct / 100,
         )
     chosen, remaining, history = [], list(segments), []
-    current, alleles, peptides = {}, set(), set()
+    current, alleles, peptides, proteins = {}, set(), set(), set()
     while remaining:
         options = []
         for segment in remaining:
@@ -45,6 +48,8 @@ def select_budget_segments(segments, cancer, config):
                 *[gain / length for gain in gains],
                 new_alleles / length,
                 new_peptides / length,
+                segment.proteoform_key in proteins,
+                length,
                 -segment.rank,
             )
             options.append((score, segment.segment_id, placement, gains, new_alleles, new_peptides))
@@ -54,8 +59,10 @@ def select_budget_segments(segments, cancer, config):
             options, key=lambda x: (x[0], x[1])
         )
         segment = placement[0]
+        new_proteoform = segment.proteoform_key not in proteins
         chosen.append(placement)
         remaining.remove(segment)
+        proteins.add(segment.proteoform_key)
         alleles.update(segment.alleles)
         peptides.update(segment.peptides)
         for category, value in prevalence.get(segment.proteoform_key, {}).items():
@@ -69,6 +76,8 @@ def select_budget_segments(segments, cancer, config):
                 "incidence_gain": gains[1],
                 "new_alleles": new_alleles,
                 "new_ms_peptides": new_peptides,
+                "new_proteoform": new_proteoform,
+                "native_length_aa": len(segment.sequence(config.min_padding, config.min_padding)),
                 "gain_per_aa": score[0],
             }
         )
