@@ -1,3 +1,38 @@
+# Project aims and 2.5-kb vaccine budget (2026-10-07)
+
+Use a literal project description in the shared website template and published
+site. Keep the heading independent of design mode. The aim is one CTA vaccine
+antigen prioritizing cancers responsible for the most deaths, with exact MS
+ligand evidence and broad HLA support. Replace promotional slogans.
+
+The full RNA cap is 2500 nt, including HBB 5′ UTR (50 nt), HBB_FI 3′ UTR
+(268 nt), polyA (120 nt) and stop codon (3 nt). This leaves 686 encoded aa,
+including the initiating methionine and linkers; maximum total is 2499 nt.
+Regenerate all four comparisons with 686-aa/2500-nt caps using the audited
+inputs and actual models, preserving source gates. Do not truncate an existing
+construct. Refresh tables/plots and verify every changed artifact before PR,
+clean-main PyPI release and Pages publication.
+
+- [x] Replace headline/intro and capture the copy correction in lessons.
+- [x] Refresh full-protein evidence with latest Hitlist 1.66.0.
+- [x] Add compact-region tie-break without sacrificing higher coverage/evidence gains.
+- [x] Regenerate strict/loose budget and ten-protein comparisons at the new caps.
+- [x] Independently audit sequences, lengths, MS support and coverage tables.
+- [x] Run format/lint/full tests, website checks and strict docs build.
+- [ ] Bump version, PR/CI/merge, deploy PyPI and verify live Pages.
+
+Review: all four designs use 686 aa / 2499 total RNA nt with actual model
+predictions and Hitlist 1.66.0 fresh full-protein evidence. Strict/loose budget
+designs contain 23/26 proteoforms, 32/33 native pieces, 93/85 distinct MS peptides,
+442/352 peptide–HLA pairs and 53/54 supported panel alleles respectively.
+Equal-score allocation favors protein reuse and longer native pieces. PRAME
+retains 139/57 aa in budget mode and 211/140 aa in ten-protein mode; the funnel
+now separates piece omission from terminal trimming. Independent checks pass
+for all four designs and all 175 coverage prefixes. Format/lint, 684 full-suite
+tests (two optional skips), strict MkDocs, browser controls/layout and wheel/
+sdist checks pass. Version 1.34.1 is prepared on the feature branch; publication
+evidence will be recorded on the PR after clean-main deployment.
+
 # Vaccine atlas and length-budget design (2026-10-07)
 
 Specification: [vaccine-atlas-spec.md](vaccine-atlas-spec.md).

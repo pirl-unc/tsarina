@@ -1,3 +1,8 @@
 segment_id,reason
+ENSG00000185686:410-509,construct_length_limit
+ENSG00000185686:58-71,construct_length_limit
+ENSG00000185686:0-27,construct_length_limit
+ENSG00000185686:125-207,construct_length_limit
 ENSG00000117148:151-366,construct_length_limit
 ENSG00000007350:294-596,construct_length_limit
+ENSG00000007350:142-213,construct_length_limit

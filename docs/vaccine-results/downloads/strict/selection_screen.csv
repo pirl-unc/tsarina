@@ -24,7 +24,7 @@ rank,proteoform_key,name,eligible,selected,selection_reason
 23,ENSG00000224659,GAGE12J,True,False,no_qualified_panel_ms_ligands
 24,ENSG00000224902,GAGE12H,True,False,no_qualified_panel_ms_ligands
 25,ENSG00000204019,CT83,True,False,budget_not_selected
-26,ENSG00000155622,XAGE2,True,False,budget_not_selected
+26,ENSG00000155622,XAGE2,True,True,selected
 27,CXorf49/B,CXorf49/CXorf49B,True,True,selected
 28,ENSG00000126752,SSX1,True,False,budget_not_selected
 29,ENSG00000227234,SPANXB1,True,True,selected
@@ -73,7 +73,7 @@ rank,proteoform_key,name,eligible,selected,selection_reason
 72,ENSG00000118245,TNP1,True,False,no_qualified_panel_ms_ligands
 73,ENSG00000132446,FTHL17,True,False,budget_not_selected
 74,ENSG00000221826,PSG3,True,False,no_qualified_panel_ms_ligands
-75,ENSG00000179046,TRIML2,True,False,budget_not_selected
+75,ENSG00000179046,TRIML2,True,True,selected
 76,ENSG00000229549,TSPY8,True,False,no_cta_specific_sequence
 77,ENSG00000215274,GAGE10,True,False,no_qualified_panel_ms_ligands
 78,ENSG00000171794,UTF1,True,False,budget_not_selected
@@ -108,7 +108,7 @@ rank,proteoform_key,name,eligible,selected,selection_reason
 107,ENSG00000092345,DAZL,True,False,budget_not_selected
 108,ENSG00000183668,PSG9,True,False,budget_not_selected
 109,ENSG00000197651,CCER1,True,False,no_qualified_panel_ms_ligands
-110,ENSG00000164299,SPZ1,True,True,selected
+110,ENSG00000164299,SPZ1,True,False,budget_not_selected
 111,ENSG00000175646,PRM1,True,False,no_qualified_panel_ms_ligands
 112,ENSG00000176988,FMR1NB,True,False,no_qualified_panel_ms_ligands
 113,ENSG00000176566,DCAF4L2,True,False,budget_not_selected

@@ -6,12 +6,18 @@ proteoforms. MAGEA4 is the only eligible MAGE-family target. All designs use
 actual MHCflurry/Pepsickle predictions and source-verified nonmalignant
 heart/brain/lung HLA-I exclusions at one distinct donor.
 
+The complete RNA budget is **2500 nt**, including 50 nt of HBB 5′ UTR,
+268 nt of HBB_FI 3′ UTR, 120 nt of polyA and a 3-nt stop codon. This leaves
+**686 encoded amino acids**, including methionine and linkers. All four
+constructs use 2499 total nt. Equal allocation scores prefer an already
+selected protein, then a longer contiguous native piece, before protein rank.
+
 | Design | Proteoforms | Native pieces | Protein aa | Total RNA nt | Distinct MS peptides | Peptide–HLA pairs | Supported panel alleles | Remaining junction predictions <1000 nM |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Strict budget | 22 | 30 | 1000 | 3441 | 94 | 451 | 54/54 | 1147 |
-| Loose budget | 32 | 42 | 1000 | 3441 | 133 | 698 | 54/54 | 2026 |
-| Strict ten | 10 | 20 | 999 | 3438 | 109 | 595 | 50/54 | 403 |
-| Loose ten | 10 | 20 | 1000 | 3441 | 109 | 583 | 51/54 | 490 |
+| Strict budget | 23 | 32 | 686 | 2499 | 93 | 442 | 53/54 | 1470 |
+| Loose budget | 26 | 33 | 686 | 2499 | 85 | 352 | 54/54 | 1393 |
+| Strict ten | 10 | 15 | 686 | 2499 | 86 | 381 | 49/54 | 683 |
+| Loose ten | 10 | 18 | 686 | 2499 | 76 | 379 | 51/54 | 714 |
 
 Counts deduplicate identical protein sequences, exact observed peptides and
 peptide–HLA pairs separately. Predicted assignments are labeled apart from
@@ -35,12 +41,24 @@ retained by the strict ten-protein design, remains unscreened after the loose
 ten-protein target is reached, and loses the marginal-gain allocation in both
 budget designs. These outcomes distinguish definition, evidence and allocation.
 
-Inputs use Hitlist 1.65.1, OncoRef 1.8.207 and Ensembl r112. The raw evidence
+PRAME starts at 509 aa. Non-CTA sequence subtraction leaves 445 aa in seven
+regions; the normal-MS gate removes no further PRAME sequence, and all seven
+regions have qualifying MS support. At most ten residues of terminal context
+around their ligands leave 430 aa across all seven supported regions. The
+strict budget design chooses pieces representing 176 aa at that context limit,
+then trims 37 terminal aa to retain 139 aa. The 254 aa omitted with unselected
+pieces are a budget decision, not a biological exclusion. The loose budget
+design retains 57 aa; strict/loose ten-protein comparisons retain 211/140 aa.
+The expression objective counts a protein once; additional regions can add
+ligands but cannot increase that protein's expression prevalence. Compactness
+breaks equal scores and does not override higher coverage/evidence gains.
+
+Inputs use Hitlist 1.66.0, OncoRef 1.8.207 and Ensembl r112. The raw evidence
 scan covers full candidate protein sequences and both legacy assay partitions.
-Explicit non-MS and negative records are excluded. The broader Atlas audit
-also checks longer source ligands sharing only an 8-mer; its additional matches
-were already removed by the non-CTA background, so the model designs are
-unchanged. Original model execution metadata is preserved when rendering.
+Explicit non-MS and negative records are excluded. The Atlas audit also checks
+longer source ligands sharing only an 8-mer. Actual model predictions were
+regenerated under the smaller construct budget; execution metadata is preserved
+when rendering.
 
 Independent checks verify translation and total lengths, every source/output
 hash, exact native/assembled peptide coordinates, sample-allele assignments,

@@ -19,7 +19,7 @@ mhcflurry downloads fetch models_class1_presentation
 tsarina vaccine --top-k 10 --cta-definition both --auto-fetch \
   --panel global54_abc --vaccine-type mrna \
   --include-utrs --utr-5p HBB --utr-3p HBB_FI --poly-a-length 120 \
-  --max-length-aa 1000 --max-length-nt 3500 -o vaccine-out
+  --max-length-aa 686 --max-length-nt 2500 -o vaccine-out
 
 # Custom alleles, coding DNA, fine-grained edge search, direct joins only.
 tsarina vaccine -k 5 --hla 'HLA-A*02:01,HLA-A*24:02,HLA-B*07:02' \
@@ -32,9 +32,17 @@ tsarina vaccine -k 5 --hla 'HLA-A*02:01,HLA-A*24:02,HLA-B*07:02' \
 tsarina vaccine -k 10 --selection-mode supported --cta-definition both \
   --exclude-gene-pattern 'MAGE*' --allow-gene MAGEA4 \
   --ms-support-mode sample-affinity --ms-affinity-nm 1000 --allow-untyped-ms \
-  --include-utrs --poly-a-length 120 --max-length-aa 1000 --max-length-nt 3500 \
+  --include-utrs --poly-a-length 120 --max-length-aa 686 --max-length-nt 2500 \
   --padding-step 2 --beam-width 6 --optimization-rounds 10 -o magea4-ten-out
 ```
+
+For the published RNA designs, the complete construct budget is **2500 nt**.
+The HBB 5′ UTR is 50 nt, HBB_FI 3′ UTR is 268 nt, polyA is 120 nt and the
+stop codon is 3 nt. The encoded protein budget is therefore
+`floor((2500 - 50 - 268 - 120 - 3) / 3) = 686 aa`, including the initiating
+methionine and all linkers. A full 686-aa construct uses 2499 total nt.
+Custom UTR/polyA settings change this calculation; `--max-length-nt` always
+constrains the full nucleotide sequence.
 
 The vaccine extra needs OncoRef >=1.8.207 for loose CTAs. Current Vaxrank and
 PirlyGenes releases pin 1.8.206, so use a compatible separate environment
@@ -94,8 +102,12 @@ k; those remain auditable.
 acid or total nucleotide limit. It screens every eligible positive-scoring
 proteoform and greedily adds whole ligand-bearing pieces by marginal
 mortality-weighted lower expression-union gain per amino acid. Ties use
-incidence gain, new supported HLA alleles, new exact observed peptides and
-protein rank. The expression surrogate is `max(prevalence)` per cancer;
+incidence gain, new supported HLA alleles and new exact observed peptides.
+When these gains per amino acid are equal, prefer another piece from an
+already selected protein, then a longer contiguous native piece, then protein
+rank. This reduces additional proteins and fragmentation without overriding
+higher coverage/evidence scores or restoring excluded sequence.
+The expression surrogate is `max(prevalence)` per cancer;
 additional pieces from the same protein can add ligand evidence without
 counting expression twice. Missing measurements add no known expression gain.
 The allocation is a heuristic, with its decisions in `budget_allocation.csv`;
