@@ -29,6 +29,9 @@ MS-supported sequence, and audit a single DNA/RNA construct.
 
 Continue to [CTA vaccine design](vaccine-design.md).
 
+Explore the [Vaccine Atlas](vaccine-results/index.html) for strict/loose antigen
+comparisons, source-resolved tissue maps, HLA reach and cumulative evidence.
+
 ### Inspect peptide evidence
 
 Use the data registry to install or register IEDB and CEDAR exports, then query

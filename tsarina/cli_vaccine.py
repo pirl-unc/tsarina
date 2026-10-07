@@ -17,9 +17,9 @@ def build_parser(sub):
     p.add_argument("-k", "--top-k", type=int, default=10)
     p.add_argument(
         "--selection-mode",
-        choices=["ranked", "supported"],
+        choices=["ranked", "supported", "budget"],
         default="ranked",
-        help="Ranked counts candidates; supported requires k contributing MS-supported proteins",
+        help="Ranked counts candidates; supported requires k contributors; budget ignores k and fills a length cap by marginal gain",
     )
     p.add_argument(
         "--exclude-gene-pattern",
@@ -40,6 +40,23 @@ def build_parser(sub):
         help="Presentation tier cutoffs, or affinity to any typed sample allele",
     )
     p.add_argument("--ms-affinity-nm", type=float, default=1000)
+    p.add_argument(
+        "--normal-ms-policy",
+        choices=["audit", "exclude"],
+        default="audit",
+        help="Audit normal MS overlaps, or subtract 8-mers from healthy primary MS outside the CTA tissue scope",
+    )
+    p.add_argument(
+        "--normal-ms-atlas-dir",
+        type=Path,
+        help="Primary Atlas peptides/donors/sample_hits TSV(.gz) snapshot",
+    )
+    p.add_argument(
+        "--normal-ms-min-donors",
+        type=int,
+        default=1,
+        help="Distinct verified nonmalignant donors for sequence exclusion",
+    )
     p.add_argument(
         "--allow-untyped-ms",
         action="store_true",
@@ -104,6 +121,9 @@ def handle(args):
             ms_support_mode=args.ms_support_mode.replace("-", "_"),
             ms_affinity_nm=args.ms_affinity_nm,
             allow_untyped_ms=args.allow_untyped_ms,
+            normal_ms_policy=args.normal_ms_policy,
+            normal_ms_atlas_dir=str(args.normal_ms_atlas_dir) if args.normal_ms_atlas_dir else None,
+            normal_ms_min_donors=args.normal_ms_min_donors,
             definition="strict" if args.cta_definition == "both" else args.cta_definition,
             panel=args.panel,
             alleles=tuple(a.strip() for a in args.alleles.split(",")) if args.alleles else None,
@@ -131,6 +151,7 @@ def handle(args):
         cohorts = json.loads(args.cancer_cohorts.read_text()) if args.cancer_cohorts else None
         definitions = ["strict", "loose"] if args.cta_definition == "both" else [config.definition]
         failed = False
+        reports = {}
         for definition in definitions:
             out = (
                 Path(args.output_dir) / definition
@@ -150,11 +171,50 @@ def handle(args):
                 print(f"{definition} vaccine design failed: {error}", file=sys.stderr)
                 continue
             design = result["design"]
+            reports[definition] = out
             print(
                 f"{definition}: {design['length_aa']} aa, {design['length_nt']} nt; audit: {out / 'report.md'}"
             )
+        if len(reports) > 1:
+            from .vaccine_website import render_saved_reports
+
+            render_saved_reports(reports, Path(args.output_dir) / "website")
         if failed:
             sys.exit(1)
     except (ValueError, KeyError, ImportError, FileNotFoundError) as error:
         print(f"Vaccine design failed: {error}", file=sys.stderr)
+        sys.exit(1)
+
+
+def build_report_parser(sub):
+    p = sub.add_parser(
+        "vaccine-report", help="Render a friendly website from verified saved vaccine reports"
+    )
+    p.add_argument(
+        "--report",
+        action="append",
+        required=True,
+        metavar="NAME=PATH",
+        help="Repeat for comparisons, e.g. strict=results/strict loose=results/loose",
+    )
+    p.add_argument("-o", "--output-dir", required=True)
+    p.add_argument(
+        "--analysis-date", help="Explicit ISO analysis date for reproducible presentation"
+    )
+
+
+def handle_report(args):
+    from .vaccine_website import render_saved_reports
+
+    try:
+        reports = {}
+        for value in args.report:
+            name, path = value.split("=", 1)
+            if name in reports:
+                raise ValueError(f"Duplicate report name: {name}")
+            reports[name] = Path(path)
+        index = render_saved_reports(reports, args.output_dir, analysis_date=args.analysis_date)
+        print(f"Website: {index}")
+    except (ValueError, KeyError, FileNotFoundError) as error:
+        print(f"Vaccine report failed: {error}", file=sys.stderr)
         sys.exit(1)

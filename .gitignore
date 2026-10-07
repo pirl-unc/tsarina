@@ -37,3 +37,4 @@ uv.lock
 
 # regeneration sidecar (scripts/regenerate_table.py dry run)
 *.regen.csv
+node_modules/

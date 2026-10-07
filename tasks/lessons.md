@@ -1,5 +1,36 @@
 # Lessons
 
+- A normal-MS 8-mer veto must consider overlaps from every source ligand
+  length, including longer peptides absent intact from the CTA. Verify the
+  entire primary blacklist independently; an exact native-peptide query can
+  hide partial overlaps even when current examples happen to lose them through
+  a different filter.
+
+- Before excluding a normal-tissue peptide, trace the original primary sample,
+  donor and study methods. IEDB's source-tissue field alone is insufficient.
+  AUT01-DN11 heart observations in the Atlas are nonmalignant primary autopsy
+  tissue from a donor without diagnosed malignancy, not adjacent tumor or a
+  cell line. Call the tissue nonmalignant, and do not imply disease-free donors.
+
+- Hitlist's legacy evidence split can both admit non-MS rows and hide true MS
+  rows in the binding partition. A downstream positive-MS gate cannot recover
+  those missing records. Audit both partitions or use the corrected upstream
+  index contract, and invalidate caches when that classification changes.
+
+- Public scientific results websites should explain inputs, methods and limits
+  without PR/release history. Provide reusable generation and saved-report
+  rendering when the user wants both a package output and a standalone site.
+- A protein-count cap is a design choice, not a biological requirement. When
+  the user changes to a sequence budget, allocate by marginal coverage and
+  show segment-level gains versus length alongside the prior count-limited design.
+- Tissue MS overlays must query full proteins, including rejected regions.
+  Absence in a CTA-specific peptide query is not evidence of tissue absence;
+  cancer source tissue must never be relabeled healthy tissue. Retained sequence
+  specificity and observed normal-tissue presentation do not prove safety.
+- Shared environment updates must use current mutually compatible stable
+  releases, preserve editables/local work and refresh stale checkout metadata.
+  Report unresolved constraints; do not silently downgrade to make a solver pass.
+
 - For this vaccine's requested MS gate, an exact observed peptide plus predicted
   affinity to any sample allele is sufficient. Do not substitute best-allele
   deconvolution or presentation-percentile cutoffs for that affinity criterion.

@@ -296,6 +296,7 @@ def main() -> None:
     cli_hits.build_parser(sub)
     cli_spanning.build_parser(sub)
     cli_vaccine.build_parser(sub)
+    cli_vaccine.build_report_parser(sub)
 
     argv = sys.argv[1:]
     deprecated_spanning = bool(argv and argv[0] == "spanning")
@@ -322,6 +323,8 @@ def main() -> None:
         cli_spanning.handle(args)
     elif args.command == "vaccine":
         cli_vaccine.handle(args)
+    elif args.command == "vaccine-report":
+        cli_vaccine.handle_report(args)
 
 
 if __name__ == "__main__":

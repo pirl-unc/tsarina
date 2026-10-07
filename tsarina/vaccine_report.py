@@ -104,7 +104,13 @@ def write_vaccine_report(result, output_dir):
         "",
         "## Method and interpretation",
         "",
-        f"Selection mode: **{result['config']['selection_mode']}**; requested {result['config']['top_k']} proteoforms. Exclusion patterns: {result['config']['exclude_gene_patterns']}; exact exceptions: {result['config']['allow_genes']}. `selection_screen.csv` records excluded, unsupported, length-rejected and uninspected candidates. Exclusions do not alter CTA membership or the non-CTA background. Supported mode reserves one whole ligand-bearing piece per contributing target before allocating extra pieces.",
+        f"Selection mode: **{result['config']['selection_mode']}**; "
+        + (
+            "no protein count cap (top_k is ignored). "
+            if result["config"]["selection_mode"] == "budget"
+            else f"requested {result['config']['top_k']} proteoforms. "
+        )
+        + f"Exclusion patterns: {result['config']['exclude_gene_patterns']}; exact exceptions: {result['config']['allow_genes']}. `selection_screen.csv` records excluded, unsupported, length-rejected and uninspected candidates. Exclusions do not alter CTA membership or the non-CTA background. Supported mode reserves one whole ligand-bearing piece per contributing target before allocating extra pieces. Budget mode greedily allocates whole native pieces by marginal mortality-weighted lower expression-union gain per aa, then incidence gain, new panel alleles and observed peptide evidence. It is a heuristic, not a patient-level coverage optimum.",
         "",
         f"MS evidence source: **{result['provenance']['ms_input_kind'].replace('_', ' ')}**. Observation hashes and any supplied source snapshots/provenance are in `manifest.json` and the copied source tables.",
         "",
@@ -116,7 +122,9 @@ def write_vaccine_report(result, output_dir):
         "",
         "Each proteoform score sums `world mortality share * p95 prevalence` across distinct cancer categories. Prevalence is sample-count-weighted across the specified broad cohorts; each mortality share is counted once. This prioritization is additive across proteoforms and does not estimate distinct patients covered, clinical benefit, or preventable deaths. The observed cohort mixture is not worldwide patient prevalence. Missing measurements are visible, and incomplete scores must be compared cautiously. Global cancer incidence is reported separately; it is not multiplied into the ranking score.",
         "",
-        "Strict = OncoRef core reproductive tissues (testis, ovary, placenta). Loose = extended reproductive tract, including prostate. Each definition has its own non-CTA background. Normal-tissue restriction does not establish target safety.",
+        "Strict RNA numerator = OncoRef core reproductive tissues (testis, ovary, placenta). Loose adds cervix, endometrium, epididymis, fallopian tube, prostate, seminal vesicle and vagina. Neither RNA numerator adds breast or thymus. Thymus remains in the default fraction denominator but is excluded from somatic maxima and the reproductive protein flag; protein annotations use broader reproductive tissue conventions. These are curated RNA/protein evidence gates with exceptions, not absolute absence rules. Each definition has its own non-CTA background. Normal-tissue restriction does not establish target safety.",
+        "",
+        f"Normal-MS policy: **{result['config'].get('normal_ms_policy', 'audit')}**. When exclusion is enabled, primary donor-resolved nonmalignant Atlas HLA-I observations in heart, brain and lung blacklist peptides at {result['config'].get('normal_ms_min_donors', 1)} distinct donor(s). All residues covered by their 8-mers are removed after non-CTA subtraction. `normal_ms_summary.csv` and `normal_ms_audit.csv` preserve donor counts and qualification/exclusion reasons. These tissues are outside both CTA scopes. Other tissue observations remain warnings. Atlas autopsy donors had no diagnosed malignancy but could have other disease; nonmalignant is not disease-free. Dataset completeness and lack of observed presentation do not establish safety.",
         "",
         "All translated non-CTA coding isoforms are screened. Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary gene's CTA identity, with exact resolutions in `background_cta_aliases.csv`; this does not change expression keys or admit independent non-CTA loci. Every residue covered by an independent non-CTA 8-mer is removed, including a full identical protein from another non-CTA gene. Native coordinates are zero-based, half-open. Each remaining contiguous interval must contain a qualifying panel MS ligand. In presentation mode, monoallelic evidence uses presentation percentile ≤2; sample-allele inference ≤1; unrestricted MS plus predicted assignment ≤0.5. Allele inference is labeled separately from measured restriction. Every qualifying ligand and repeated native occurrence is retained in the evidence tables.",
         "",
@@ -173,6 +181,8 @@ def write_vaccine_report(result, output_dir):
                 "raw_aa",
                 "specific_aa",
                 "specific_pieces",
+                "normal_ms_filtered_aa",
+                "normal_ms_filtered_pieces",
                 "ms_supported_aa",
                 "ms_supported_pieces",
                 "padded_aa",
@@ -220,14 +230,26 @@ def write_vaccine_report(result, output_dir):
         [
             "Exact configuration, dependency versions, source table hashes, sequence hashes, search history and predictor identity are in `manifest.json`. The copied reference tables retain upstream source anchors and provenance notes. Synthetic input/prediction callbacks are explicitly labeled.",
             "",
+            "The friendly interactive report is in `website/index.html`. Serve this directory over HTTP to view it. Its downloads include cumulative cancer-expression union bounds, locus-aware HLA carrier proxies, MS counts versus final-order construct length and full native-protein tissue MS maps. Tissue observations are an audit layer; retained normal-tissue overlaps require review. Missing observations do not establish safety. Saved manifests can be rendered with `tsarina vaccine-report` without rerunning models.",
+            "",
             "Scientific references: [OncoRef mortality report](https://github.com/pirl-unc/oncoref/blob/main/scripts/cta_mortality_coverage_report.py); [Vaxrank construction](https://github.com/openvax/vaxrank); [MHCflurry 2.0](https://pubmed.ncbi.nlm.nih.gov/32711842/); [Pepsickle](https://pubmed.ncbi.nlm.nih.gov/34478497/). OncoRef reference limitations: [mortality source/count refresh #542](https://github.com/pirl-unc/oncoref/issues/542), [category scope #543](https://github.com/pirl-unc/oncoref/issues/543).",
             "",
         ]
     )
     (out / "report.md").write_text("\n".join(lines))
     _figures(result, out)
+    if design:
+        from .vaccine_website import write_vaccine_website
+
+        write_vaccine_website(
+            {result["config"]["definition"]: result},
+            out / "website",
+            reports={result["config"]["definition"]: out},
+        )
     hashes = {
-        p.name: sha256(p.read_bytes()).hexdigest() for p in sorted(out.iterdir()) if p.is_file()
+        p.relative_to(out).as_posix(): sha256(p.read_bytes()).hexdigest()
+        for p in sorted(out.rglob("*"))
+        if p.is_file()
     }
     manifest = _json_value({**result, "artifact_sha256": hashes})
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
@@ -284,13 +306,15 @@ def _figures(result, out):
     plt.close(fig)
     funnel = result["funnel"]
     stages = ["raw_aa", "specific_aa", "ms_supported_aa", "padded_aa", "assembled_aa"]
+    if "normal_ms_filtered_aa" in funnel:
+        stages.insert(2, "normal_ms_filtered_aa")
     fig, ax = plt.subplots(figsize=(10, max(3, len(funnel) * 0.65)))
     yy = np.arange(len(funnel))
     for i, stage in enumerate(stages):
         ax.barh(
-            yy + (i - 2) * 0.15,
+            yy + (i - (len(stages) - 1) / 2) * 0.13,
             funnel[stage],
-            height=0.14,
+            height=0.12,
             label=stage.replace("_aa", "").replace("_", " "),
         )
     ax.set_yticks(yy, funnel.name)

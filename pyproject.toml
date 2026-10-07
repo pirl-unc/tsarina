@@ -41,7 +41,7 @@ dependencies = [
 
 [project.optional-dependencies]
 vaccine = [
-    "hitlist>=1.64.7",
+    "hitlist>=1.65.1",  # donor-resolved Atlas tissue blacklist API
     "oncoref>=1.8.207",
     "pyensembl",
     "matplotlib",
@@ -95,7 +95,7 @@ include = ["tsarina*"]
 # Explicit globs keep package ownership visible: a narrow gene-level MS overlay
 # and downstream HPA cancer-prevalence features, never a CTA definition table.
 [tool.setuptools.package-data]
-tsarina = ["data/gene-ms-safety-evidence.csv", "data/hpa-*.csv"]
+tsarina = ["data/gene-ms-safety-evidence.csv", "data/hpa-*.csv", "data/vaccine-website/*", "data/vaccine-website/fonts/*"]
 
 [tool.ruff]
 target-version = "py39"

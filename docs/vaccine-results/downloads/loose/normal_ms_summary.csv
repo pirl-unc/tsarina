@@ -1,0 +1,35 @@
+peptide,n_donors,n_donors_heart,n_donors_brain,n_donors_lung,n_qualified_observations,n_unresolved_donor_observations,donor_ids,blacklisted
+AETSYVKV,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN11""]",True
+AGAPVYLAAVL,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN04""]",True
+AGAPVYLAAVLE,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN04""]",True
+AGIFHFQI,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN13""]",True
+AITATQKTVD,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN11""]",True
+ALAETSYVKV,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN11""]",True
+ALLEKAYAK,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN12""]",True
+ATQKTVDGPSG,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN13""]",True
+DPVTLNVLY,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN12""]",True
+EKNVNQSL,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN05""]",True
+EYPNLNGLYI,1,0,1,0,1,0,"[""hla-ligand-atlas:AUT01-DN09""]",True
+FLPPPPPPLD,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN14""]",True
+FLPPPPPPLDD,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN14""]",True
+GETVEFDVV,2,2,0,0,2,0,"[""hla-ligand-atlas:AUT01-DN05"", ""hla-ligand-atlas:AUT01-DN11""]",True
+GIVEGLMT,2,1,0,1,2,0,"[""hla-ligand-atlas:AUT01-DN05"", ""hla-ligand-atlas:AUT01-DN13""]",True
+GIVEGLMTTV,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN06""]",True
+GIVEGLMTTVH,3,1,0,2,3,0,"[""hla-ligand-atlas:AUT01-DN02"", ""hla-ligand-atlas:AUT01-DN03"", ""hla-ligand-atlas:AUT01-DN05""]",True
+GLWEIENNPTV,3,0,1,3,4,0,"[""hla-ligand-atlas:AUT01-DN12"", ""hla-ligand-atlas:AUT01-DN14"", ""hla-ligand-atlas:AUT01-DN15""]",True
+ILLLLLLLLL,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN08""]",True
+KLFIGGLNV,3,1,2,2,5,0,"[""hla-ligand-atlas:AUT01-DN09"", ""hla-ligand-atlas:AUT01-DN14"", ""hla-ligand-atlas:AUT01-DN15""]",True
+LAETSYVKV,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN11""]",True
+LLLLLLLLLLL,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN08""]",True
+QESNVQLKL,3,0,0,3,3,0,"[""hla-ligand-atlas:AUT01-DN05"", ""hla-ligand-atlas:AUT01-DN13"", ""hla-ligand-atlas:AUT01-DN15""]",True
+RALEEQGATW,1,1,0,0,1,0,"[""hla-ligand-atlas:AUT01-DN13""]",True
+RLLLLLLLK,1,0,1,0,1,0,"[""hla-ligand-atlas:AUT01-DN06""]",True
+SAAAAAAAAAY,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN12""]",True
+SRLSESSSS,1,0,1,0,1,0,"[""hla-ligand-atlas:AUT01-DN11""]",True
+SSSGGGGGGGRF,2,0,0,2,2,0,"[""hla-ligand-atlas:AUT01-DN04"", ""hla-ligand-atlas:AUT01-DN05""]",True
+TQKTVDGPSGKL,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN05""]",True
+VKLISWYDNE,1,0,1,0,1,0,"[""hla-ligand-atlas:AUT01-DN08""]",True
+VRNGYGFINR,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN14""]",True
+WEIENNPTV,2,1,1,1,3,0,"[""hla-ligand-atlas:AUT01-DN05"", ""hla-ligand-atlas:AUT01-DN11""]",True
+YIDAQFEAY,1,0,0,1,1,0,"[""hla-ligand-atlas:AUT01-DN15""]",True
+YVVESTGVF,4,1,2,1,4,0,"[""hla-ligand-atlas:AUT01-DN05"", ""hla-ligand-atlas:AUT01-DN08"", ""hla-ligand-atlas:AUT01-DN11"", ""hla-ligand-atlas:AUT01-DN13""]",True

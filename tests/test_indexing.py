@@ -13,6 +13,40 @@ import pandas as pd
 from tsarina.indexing import ensure_index_built, load_ms_evidence
 
 
+def test_live_ms_gate_recovers_ms_from_both_legacy_partitions():
+    from tsarina.vaccine_inputs import filter_ms_modality
+
+    ms = pd.DataFrame(
+        [{"peptide": "ACDEFGHIK", "assay_method": "mass spectrometry", "is_binding_assay": False}]
+    )
+    binding = pd.DataFrame(
+        [
+            {
+                "peptide": "KRFSLDFNL",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "is_binding_assay": True,
+            },
+            {"peptide": "AAAAAAAAA", "assay_method": "fluorescence", "is_binding_assay": True},
+        ]
+    )
+    with (
+        patch("tsarina.indexing.ensure_index_built"),
+        patch("hitlist.observations.load_observations", return_value=ms) as primary,
+        patch("hitlist.observations.load_binding", return_value=binding) as secondary,
+    ):
+        hits = load_ms_evidence(
+            peptides={"ACDEFGHIK", "KRFSLDFNL", "AAAAAAAAA"},
+            drop_binding_assays=False,
+            include_binding=True,
+        )
+    assert primary.call_args == secondary.call_args
+    assert primary.call_args.kwargs["mhc_class"] == "I"
+    assert primary.call_args.kwargs["species"] == "Homo sapiens"
+    accepted, rejected = filter_ms_modality(hits)
+    assert accepted.peptide.tolist() == ["ACDEFGHIK", "KRFSLDFNL"]
+    assert rejected.peptide.tolist() == ["AAAAAAAAA"]
+
+
 def _artifact_patches(tmp_path: Path, observations: Path, *, is_built: bool):
     """Patch set common to every ensure_index_built test."""
     return (

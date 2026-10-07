@@ -390,7 +390,14 @@ def filter_ms_modality(hits):
         method.eq("") & (modality.eq("mass_spectrometry") | source.eq("supplement"))
     )
     if "is_binding_assay" in hits:
-        accepted &= ~hits.is_binding_assay.map(_is_truthy)
+        # Legacy Hitlist flags can classify explicit MS as binding based on
+        # qualitative result labels. Structured MS method takes precedence.
+        accepted &= method.str.contains(
+            "mass spectrometry", regex=False
+        ) | ~hits.is_binding_assay.map(_is_truthy)
+    qualitative = hits.get("qualitative_measurement", pd.Series("", index=hits.index))
+    negative = qualitative.fillna("").astype(str).str.strip().str.lower().str.startswith("negative")
+    accepted &= ~negative
     rejected = hits[~accepted].copy()
     rejected["rejection_reason"] = method[~accepted].map(
         lambda m: "explicit_non_ms_assay" if m else "unknown_assay_modality"
@@ -399,6 +406,7 @@ def filter_ms_modality(hits):
         rejected.loc[rejected.is_binding_assay.map(_is_truthy), "rejection_reason"] = (
             "binding_assay"
         )
+    rejected.loc[negative[~accepted], "rejection_reason"] = "negative_assay_result"
     return hits[accepted].copy(), rejected
 
 
@@ -512,7 +520,9 @@ def panel_ms_support(
         return pd.DataFrame()
     if hits is None:
         require_current_hitlist()
-        hits = load_ms_evidence(peptides=set(peptides))
+        hits = load_ms_evidence(
+            peptides=set(peptides), drop_binding_assays=False, include_binding=True
+        )
     if hits.empty:
         return pd.DataFrame()
     hits = hits[hits.peptide.isin(peptides)].copy()
