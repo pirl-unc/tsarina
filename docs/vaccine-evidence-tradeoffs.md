@@ -15,7 +15,7 @@ Yes. More PRAME regions add exact MS-observed peptides and supported presenters 
 | Loose | Retained | 10 | 40 | 21 | 4 |
 | Loose | All qualifying | 56 | 48 | 34 | 11 |
 
-Strict PRAME can add **33 observed peptides** and two presenters, **HLA-A*01:01 and HLA-A*68:01**. Loose can add 46 peptides and eight presenters. These additions do not change the current global allele union, because other proteins already support those alleles. They do broaden support for PRAME. The totals describe all qualifying regions, not an addition that fits into the already full construct.
+Strict PRAME can add **33 observed peptides** and two presenters, `HLA-A*01:01` and `HLA-A*68:01`. Loose can add 46 peptides and eight presenters. These additions do not change the current global allele union, because other proteins already support those alleles. They do broaden support for PRAME. The totals describe all qualifying regions, not an addition that fits into the already full construct.
 
 Typing-supported includes measured restriction and affinity-based inference within a typed sample. Measured restriction follows the report’s monoallelic-MS evidence tier. Untyped samples can qualify through panel prediction under the configured policy.
 
@@ -44,25 +44,25 @@ Rarity alone is not an exclusion gate.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | XAGE1A/XAGE1B | 32 | 1 | 2 | 5.731588 | 3.691344 | None |
 | MAGEA4 | 112 | 4 | 27 | 1.169170 | 1.162587 | None |
-| PRAME | 139 | 5 | 23 | 1.759744 | 3.206828 | HLA-A*24:02, HLA-B*46:01 |
+| PRAME | 139 | 5 | 23 | 1.759744 | 3.206828 | `HLA-A*24:02`, `HLA-B*46:01` |
 | CTAG1A/CTAG1B | 43 | 1 | 7 | 0.000000 | 0.000000 | None |
 | ACTL8 | 123 | 1 | 6 | 0.024282 | 0.025065 | None |
 | XAGE2 | 8 | 1 | 1 | 0.000000 | 0.000000 | None |
 | CXorf49/CXorf49B | 23 | 1 | 5 | 0.000000 | 0.000000 | None |
-| SPANXB1 | 50 | 1 | 3 | 0.000000 | 0.000000 | HLA-A*33:01 |
+| SPANXB1 | 50 | 1 | 3 | 0.000000 | 0.000000 | `HLA-A*33:01` |
 | SSX4/SSX4B | 9 | 1 | 1 | 0.000000 | 0.000000 | None |
 | NLRP7 | 30 | 3 | 4 | 0.022078 | 0.110390 | None |
 | KISS1 | 9 | 1 | 1 | 0.006897 | 0.003448 | None |
 | SSX2/SSX2B | 9 | 1 | 1 | 0.000000 | 0.000000 | None |
 | RHOXF2 | 10 | 1 | 2 | 0.000000 | 0.000000 | None |
-| HHIPL2 | 10 | 1 | 1 | 0.000000 | 0.000000 | HLA-A*11:01 |
+| HHIPL2 | 10 | 1 | 1 | 0.000000 | 0.000000 | `HLA-A*11:01` |
 | TRIML2 | 8 | 1 | 1 | 0.000000 | 0.000000 | None |
 | ZDHHC19 | 10 | 1 | 1 | 0.005844 | 0.005844 | None |
 | PIWIL1 | 9 | 1 | 1 | 0.016602 | 0.136133 | None |
 | EBLN1 | 9 | 1 | 1 | 0.000000 | 0.000000 | None |
 | NLRP9 | 8 | 1 | 1 | 0.000000 | 0.000000 | None |
 | PRSS38 | 8 | 1 | 1 | 0.000000 | 0.000000 | None |
-| GARIN1B | 9 | 1 | 1 | 0.000000 | 0.000000 | HLA-B*53:01, HLA-B*58:01 |
+| GARIN1B | 9 | 1 | 1 | 0.000000 | 0.000000 | `HLA-B*53:01`, `HLA-B*58:01` |
 | PRM2 | 9 | 1 | 1 | 0.000000 | 0.000000 | None |
 | ANKRD7 | 9 | 1 | 1 | 0.000000 | 0.000000 | None |
 

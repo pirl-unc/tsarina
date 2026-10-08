@@ -1,3 +1,27 @@
+# Rendered HLA notation correction (2026-10-08)
+
+The live evidence-comparison page parses paired asterisks inside HLA allele
+names as Markdown emphasis, hiding required molecular notation. Use inline
+code for every allele name on this page. Preserve all scientific results and
+data hashes; verify the rendered text includes each exact allele string.
+This is a documentation correction, with its own issue, versioned PR and
+clean-main deployment.
+
+- [x] Reproduce the live rendering error and create a feature branch.
+- [x] File the bug, correct allele markup, and record the verification lesson.
+- [x] Run format/lint/full tests and a strict MkDocs rendering check.
+- [ ] Bump version, pass PR CI, merge, deploy and verify PyPI/Pages.
+
+Plan check-in: the failure concerns rendered allele notation only. Inline
+code preserves molecular names without changing analysis inputs or results.
+Issue: https://github.com/pirl-unc/tsarina/issues/204.
+
+Review: format/lint passed; the full real-model suite passed 684 tests with
+two optional skips and 19 warnings (85% coverage). Strict MkDocs passed.
+The rendered HTML preserves all eight molecular allele names exactly, and
+all nine scientific assets retain their published source hashes. Version
+1.34.3 is prepared; final merge/publication evidence will be posted to the PR.
+
 # MS evidence, target HLA support and rare-CTA justification (2026-10-08)
 
 Audit the published 2.5-kb designs without claiming that additional segments
@@ -17,7 +41,7 @@ probabilities as clinical protection. File the demonstrated allocator limits.
 - [x] Compare coverage-loss tolerances and distinct-MS yield under the sequence cap.
 - [x] Document per-protein justifications, assumptions and limitations; file issues.
 - [x] Verify analysis independently, run required formatting/lint/tests, and review.
-- [ ] Publish the analysis through a versioned PR, PyPI and GitHub Pages.
+- [x] Publish the analysis through a versioned PR, PyPI and GitHub Pages.
 
 Plan check-in: the current allocation counts distinct new MS peptides after
 cancer gains and new global allele counts. Any positive cancer gain outranks
@@ -37,7 +61,11 @@ variant, 98,500/98,312 non-CTA background occurrences, and 70,142 primary normal
 8-mers. All pass. Two figures in PNG/SVG were visually checked; the docs page
 and links were checked in Chrome. Format/lint, strict MkDocs and 684 full-suite
 tests pass (two optional skips). Issues #201/#202 track the scientific allocation
-limits; this analysis does not claim to resolve them. Version 1.34.2 is prepared.
+limits; this analysis does not claim to resolve them. PR #203 merged and
+version 1.34.2 was deployed from clean main; both published distributions
+match the local release artifacts and PyPI SHA256 metadata. All seven PR
+checks, main CI and the Pages workflow passed. Final live-page verification
+found the allele-markup defect tracked in the correction above.
 
 # Project aims and 2.5-kb vaccine budget (2026-10-07)
 
