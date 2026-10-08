@@ -1,17 +1,12 @@
 # Data and evidence
 
-Tsarina keeps three questions separate:
+Tsarina combines curated target definitions, IEDB/CEDAR peptide observations
+and HLA presentation predictions. Definitions establish the candidate source;
+observations provide cancer, healthy-tissue and HLA-restriction evidence;
+predictions compare candidate peptide–allele pairs.
 
-1. **What is the target?** CTA, viral, and mutation definitions establish the
-   candidate source.
-2. **Where has its peptide been observed?** IEDB/CEDAR observations provide
-   cancer, healthy-tissue, and HLA-restriction evidence.
-3. **Could this HLA present it?** Prediction fills gaps and compares candidate
-   peptide-allele pairs.
-
-This separation is important: downstream MS or prediction evidence can select,
-rank, or exclude a candidate, but it cannot add a gene to the canonical CTA
-universe.
+MS and prediction evidence can select, rank or exclude a candidate. Canonical
+CTA membership comes from OncoRef.
 
 ## Evidence model
 
@@ -122,14 +117,13 @@ replacing an input export:
 tsarina build observations --force
 ```
 
-Freshness is hitlist's call, not Tsarina's. Every query routes through hitlist,
-which compares the stored artifact version and the fingerprints of its curation
-files against `observations.parquet`, and the builder contract against
-`peptide_mappings.parquet`. Either artifact that no longer matches is rebuilt
-automatically, so a curation fix upstream reaches your results on the next
-command instead of waiting for a manual `--force`. Validation costs
-milliseconds when both artifacts are current, and Tsarina reports on stderr
-when a rebuild actually happened.
+Hitlist validates index freshness before each query. It compares the stored
+artifact version and curation-file fingerprints against
+`observations.parquet`, and the builder contract against
+`peptide_mappings.parquet`. An artifact that no longer matches is rebuilt
+automatically, so updated curation applies on the next command. Validation
+costs milliseconds when both artifacts are current. Tsarina reports rebuilds
+on stderr.
 
 An index copied in without its IEDB/CEDAR exports cannot be validated — hitlist
 needs the sources to fingerprint — so it is used as found.

@@ -1,3 +1,31 @@
+# Plain-language documentation and linked navigation (2026-10-08)
+
+Replace the homepage's "Start with your outcome" and "Continue to" copy with
+literal workflow headings linked directly to their guides. Use short "See:"
+references where a separate destination is useful. Review the README and
+documentation introductions/headings for canned navigation, rhetorical
+questions and vague narration; replace them with concrete descriptions.
+Preserve command examples, scientific criteria, source tables and results.
+Check any affected anchors and the rendered links before publishing.
+
+- [x] Review the current documentation and create a feature branch.
+- [x] Record the copy correction in lessons and file the documentation issue.
+- [x] Edit navigation, introductions and headings; inspect the complete diff.
+- [x] Run format/lint/full tests and strict MkDocs; verify rendered links/layout.
+- [ ] Bump version, pass PR CI, merge, deploy and verify PyPI/Pages.
+
+Plan check-in: linked workflow headings replace separate "Continue to" lines.
+Plain descriptions replace canned lead-ins. Technical meaning stays intact.
+Issue: https://github.com/pirl-unc/tsarina/issues/206.
+
+Review: format/lint and strict MkDocs passed. The full real-model suite passed
+684 tests with two optional skips and 19 warnings (85% coverage). All four
+homepage workflow headings link directly to their guides; 134 internal links
+and anchors across seven rendered pages and README relative destinations
+resolve. The quoted navigation phrases are absent from docs and README.
+Commands, tables, scientific criteria and result files are unchanged. Version
+1.34.4 is prepared; final publication evidence will be recorded on the PR.
+
 # Rendered HLA notation correction (2026-10-08)
 
 The live evidence-comparison page parses paired asterisks inside HLA allele

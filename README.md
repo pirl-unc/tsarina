@@ -11,7 +11,7 @@ recurrent-mutation targets. It then combines tumor context, public
 immunopeptidomics evidence, healthy-tissue safety evidence, and predicted HLA
 presentation to produce ranked peptide-MHC (pMHC) candidates.
 
-## Choose a workflow
+## Workflows
 
 | Goal | Entry point | Result |
 |---|---|---|
@@ -20,8 +20,7 @@ presentation to produce ranked peptide-MHC (pMHC) candidates.
 | Assemble a shared CTA vaccine | `tsarina vaccine` | Mortality-ranked proteoforms, sequence funnel, junction audit and DNA/RNA construct |
 | Inspect public peptide observations | `tsarina hits` | Cancer, healthy-tissue, and restriction evidence for specified peptides |
 
-Start with the [documentation guide](docs/index.md) for inputs, data setup, and
-the workflow-specific guides.
+See: [documentation](docs/index.md) — inputs, dataset setup and workflow details.
 
 ## Install
 
@@ -74,7 +73,7 @@ documented in [CTA ownership and downstream evidence](docs/curation.md).
 
 ## How ranking works
 
-Tsarina applies the same high-level sequence across workflows:
+Target selection follows five stages:
 
 1. choose candidates from the relevant shared-target sets;
 2. enforce tumor context and exclude non-target human peptide matches;

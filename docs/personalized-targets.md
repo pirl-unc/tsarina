@@ -75,9 +75,9 @@ targets = personalized_targets(
 )
 ```
 
-## What the workflow does
+## Selection stages
 
-The default workflow applies the following stages in order:
+The default selection applies these stages in order:
 
 1. **Choose tumor-relevant sources.** CTAs must have at least 2.0 TPM and
    `HIGH` or `MODERATE` oncoref restriction confidence. Mutations and viruses
