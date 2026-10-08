@@ -62,11 +62,11 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check tsarina tests scripts/develop.py examples/cta_vaccine_demo.py
+          ruff check tsarina tests scripts/develop.py scripts/analyze_vaccine_tradeoffs.py examples/cta_vaccine_demo.py
 
       - name: Check formatting with ruff
         run: |
-          ruff format --check tsarina tests scripts/develop.py examples/cta_vaccine_demo.py
+          ruff format --check tsarina tests scripts/develop.py scripts/analyze_vaccine_tradeoffs.py examples/cta_vaccine_demo.py
 
   test:
     runs-on: ubuntu-latest

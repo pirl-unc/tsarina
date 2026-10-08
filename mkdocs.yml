@@ -9,6 +9,7 @@ nav:
   - Curation: curation.md
   - Vaccine design: vaccine-design.md
   - Vaccine validation: vaccine-validation.md
+  - Coverage and MS evidence: vaccine-evidence-tradeoffs.md
 
 theme:
   name: readthedocs

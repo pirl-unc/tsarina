@@ -1,3 +1,44 @@
+# MS evidence, target HLA support and rare-CTA justification (2026-10-08)
+
+Audit the published 2.5-kb designs without claiming that additional segments
+fit the existing full construct. Quantify extra PRAME MS peptides, protein-level
+HLA support and global allele support independently. For each retained protein,
+report the change when it is removed from the final set, including mortality/
+incidence expression bounds, unique MS peptides and the HLA carrier proxy.
+Compare candidate segment allocations at explicit tolerated losses of modeled
+expression coverage, preserving the current global allele set and RNA cap.
+These allocation comparisons precede junction optimization and are not new
+validated vaccine constructs. Preserve all biological/MS gates and source data.
+Do not silently introduce a clinical benefit model or treat population carrier
+probabilities as clinical protection. File the demonstrated allocator limits.
+
+- [x] Inspect scoring precedence and audit additional PRAME evidence/HLA support.
+- [x] Compute final-set removal contributions and top-three coverage baselines.
+- [x] Compare coverage-loss tolerances and distinct-MS yield under the sequence cap.
+- [x] Document per-protein justifications, assumptions and limitations; file issues.
+- [x] Verify analysis independently, run required formatting/lint/tests, and review.
+- [ ] Publish the analysis through a versioned PR, PyPI and GitHub Pages.
+
+Plan check-in: the current allocation counts distinct new MS peptides after
+cancer gains and new global allele counts. Any positive cancer gain outranks
+evidence regardless of magnitude. The current cancer score counts expression
+once per protein and cannot represent extra HLA support specific to that target.
+Compare alternatives before changing these scientific priorities.
+
+Review: all eight allocation runs reached their model optimum. Preserve each
+global allele's strongest restriction tier and current PRAME/MAGEA4/XAGE1A/B
+target-specific support. At zero expression loss, strict keeps 93 observed
+peptides with 19 proteins; loose reaches 89 with 18. A 0.05-pp tolerance gives
+strict 11 proteins / 95 observed peptides / 49 PRAME peptides. These are native
+allocations only, with no new assembled construct or junction validation.
+Independent checks cover every candidate's source evidence, native coordinates,
+coverage calculations, length accounting, 146/142 preserved restrictions per
+variant, 98,500/98,312 non-CTA background occurrences, and 70,142 primary normal
+8-mers. All pass. Two figures in PNG/SVG were visually checked; the docs page
+and links were checked in Chrome. Format/lint, strict MkDocs and 684 full-suite
+tests pass (two optional skips). Issues #201/#202 track the scientific allocation
+limits; this analysis does not claim to resolve them. Version 1.34.2 is prepared.
+
 # Project aims and 2.5-kb vaccine budget (2026-10-07)
 
 Use a literal project description in the shared website template and published
@@ -19,7 +60,7 @@ clean-main PyPI release and Pages publication.
 - [x] Regenerate strict/loose budget and ten-protein comparisons at the new caps.
 - [x] Independently audit sequences, lengths, MS support and coverage tables.
 - [x] Run format/lint/full tests, website checks and strict docs build.
-- [ ] Bump version, PR/CI/merge, deploy PyPI and verify live Pages.
+- [x] Bump version, PR/CI/merge, deploy PyPI and verify live Pages.
 
 Review: all four designs use 686 aa / 2499 total RNA nt with actual model
 predictions and Hitlist 1.66.0 fresh full-protein evidence. Strict/loose budget
@@ -30,8 +71,9 @@ retains 139/57 aa in budget mode and 211/140 aa in ten-protein mode; the funnel
 now separates piece omission from terminal trimming. Independent checks pass
 for all four designs and all 175 coverage prefixes. Format/lint, 684 full-suite
 tests (two optional skips), strict MkDocs, browser controls/layout and wheel/
-sdist checks pass. Version 1.34.1 is prepared on the feature branch; publication
-evidence will be recorded on the PR after clean-main deployment.
+sdist checks pass. Version 1.34.1 was merged and deployed; PyPI artifacts and all
+361 published website files were verified. Release evidence:
+https://github.com/pirl-unc/tsarina/pull/200#issuecomment-6048125061.
 
 # Vaccine atlas and length-budget design (2026-10-07)
 
