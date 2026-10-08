@@ -1,5 +1,14 @@
 # Lessons
 
+- A positive marginal expression score can be arbitrarily small. Do not use
+  lexicographic precedence to claim a rare CTA is justified over substantially
+  more MS-observed peptides from a common CTA. Compare explicit cancer-coverage
+  loss tolerances and evidence yield before choosing a scientific default.
+  Separate global HLA allele coverage from support for each target protein;
+  an allele already represented by another protein can still broaden PRAME
+  presentation. Count distinct observed peptides, not duplicate assays or
+  inferred peptide–HLA pairs, and preserve restriction evidence tiers.
+
 - When a protein retains little sequence, separate biological exclusions from
   MS support, terminal trimming and budget allocation. Do not imply discarded
   sequence lacks evidence when coverage scoring and length constraints removed it.

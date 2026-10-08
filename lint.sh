@@ -2,7 +2,7 @@
 
 set -e
 
-SOURCES="tsarina tests scripts/develop.py examples/cta_vaccine_demo.py"
+SOURCES="tsarina tests scripts/develop.py scripts/analyze_vaccine_tradeoffs.py examples/cta_vaccine_demo.py"
 
 echo "Running ruff check..."
 ruff check $SOURCES

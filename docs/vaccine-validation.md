@@ -1,5 +1,10 @@
 # Vaccine design validation (2026-10-07)
 
+See [coverage and MS evidence comparisons](vaccine-evidence-tradeoffs.md) for
+additional PRAME presenters, per-protein removal contributions, and alternative
+segment allocations at explicit tolerated losses of modeled expression coverage.
+Those allocations await junction optimization and are not new vaccine constructs.
+
 The current [Vaccine Atlas](vaccine-results/index.html) compares strict and
 loose CTA definitions with either a length budget or ten contributing
 proteoforms. MAGEA4 is the only eligible MAGE-family target. All designs use

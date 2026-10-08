@@ -114,6 +114,13 @@ The allocation is a heuristic, with its decisions in `budget_allocation.csv`;
 it does not optimize actual patient overlap or guarantee a global optimum.
 `--top-k` is ignored in this mode.
 
+This lexicographic priority lets a very small positive expression gain outrank
+many additional MS peptides. Its HLA gain counts new alleles across the entire
+construct, so it can miss broader presentation of PRAME when those alleles
+already support another protein. The [coverage and evidence comparisons](vaccine-evidence-tradeoffs.md)
+quantify these limitations and compare alternative allocations without changing
+the current command's default scoring.
+
 Repeatable `--exclude-gene-pattern` accepts gene-symbol globs;
 `--allow-gene` provides exact symbol exceptions. Any excluded member vetoes an
 identical-full-sequence group. These controls affect candidate eligibility,

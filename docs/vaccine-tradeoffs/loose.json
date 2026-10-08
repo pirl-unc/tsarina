@@ -1,0 +1,2721 @@
+{
+  "mode": "loose",
+  "analyzer_source_sha256": "d0fdf70a9af2569c997cd9fa2d67031ef7e68ec2c4ac57d1cabf5e055cb6c6bf",
+  "calculation_versions": {
+    "python": "3.12.6",
+    "tsarina_source": "1.34.2",
+    "scipy": "1.18.1",
+    "numpy": "2.5.3",
+    "pandas": "2.3.3"
+  },
+  "input_report_versions": {
+    "tsarina": "1.34.1",
+    "oncoref": "1.8.207",
+    "hitlist": "1.66.0",
+    "pyensembl": "2.23.2",
+    "mhcflurry": "2.3.13",
+    "mhctools": "3.47.11",
+    "pepsickle": "0.1.3",
+    "vaxrank": null,
+    "tsarina_source": "1.34.1",
+    "hitlist_source": "1.66.0"
+  },
+  "baseline": {
+    "mortality": 13.383674017419999,
+    "incidence": 12.616286769429998
+  },
+  "current": {
+    "ms_peptides": 85,
+    "pmhc": 352,
+    "alleles": 54,
+    "typed_alleles": 35,
+    "measured_alleles": 13,
+    "measured_peptides": 18,
+    "typed_inferred_peptides": 58,
+    "untyped_inferred_peptides": 9,
+    "carrier_proxy": {
+      "reach": 0.9999508901649349,
+      "loci": {
+        "A": 0.9794737071,
+        "B": 0.8664170599000001,
+        "C": 0.9820895311000001
+      },
+      "frequency_sums": {
+        "A": 0.85673,
+        "B": 0.63451,
+        "C": 0.8661700000000002
+      },
+      "missing_alleles": [
+        "HLA-C*04:03"
+      ]
+    },
+    "proteoforms": 26,
+    "pieces": 33,
+    "protein_aa": 686,
+    "total_nt": 2499,
+    "proteins": [
+      {
+        "name": "XAGE1A/XAGE1B",
+        "aa": 32,
+        "pieces": 1,
+        "ms_peptides": 2,
+        "unique_ms_peptides": 2,
+        "mortality_loss_pp": 5.7315879112799974,
+        "incidence_loss_pp": 3.691343630539997,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "MAGEA4",
+        "aa": 125,
+        "pieces": 4,
+        "ms_peptides": 28,
+        "unique_ms_peptides": 28,
+        "mortality_loss_pp": 1.1691695516100005,
+        "incidence_loss_pp": 1.1625868729000004,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "PRAME",
+        "aa": 57,
+        "pieces": 4,
+        "ms_peptides": 10,
+        "unique_ms_peptides": 10,
+        "mortality_loss_pp": 1.745208646030001,
+        "incidence_loss_pp": 3.197525647319999,
+        "global_alleles_lost": [
+          "HLA-B*46:01"
+        ],
+        "carrier_proxy_loss_pp": 5.7947796860968737e-05
+      },
+      {
+        "name": "CTAG1A/CTAG1B",
+        "aa": 43,
+        "pieces": 1,
+        "ms_peptides": 7,
+        "unique_ms_peptides": 7,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "ACTL8",
+        "aa": 123,
+        "pieces": 1,
+        "ms_peptides": 6,
+        "unique_ms_peptides": 6,
+        "mortality_loss_pp": 0.024281984730000872,
+        "incidence_loss_pp": 0.025065274559999295,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "CXorf49/CXorf49B",
+        "aa": 23,
+        "pieces": 1,
+        "ms_peptides": 5,
+        "unique_ms_peptides": 5,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "SPANXB1",
+        "aa": 52,
+        "pieces": 1,
+        "ms_peptides": 3,
+        "unique_ms_peptides": 3,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [
+          "HLA-A*33:01"
+        ],
+        "carrier_proxy_loss_pp": 0.0005269039027644418
+      },
+      {
+        "name": "SSX4/SSX4B",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [
+          "HLA-A*30:02"
+        ],
+        "carrier_proxy_loss_pp": 0.0005912977108057937
+      },
+      {
+        "name": "NLRP7",
+        "aa": 22,
+        "pieces": 2,
+        "ms_peptides": 3,
+        "unique_ms_peptides": 3,
+        "mortality_loss_pp": 0.022077922079999368,
+        "incidence_loss_pp": 0.11038961039999862,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "KISS1",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.033862843739999704,
+        "incidence_loss_pp": 0.026481983620000094,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "SSX2/SSX2B",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "RHOXF2",
+        "aa": 10,
+        "pieces": 1,
+        "ms_peptides": 2,
+        "unique_ms_peptides": 2,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "GAPDHS",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "SCGB1D1",
+        "aa": 49,
+        "pieces": 1,
+        "ms_peptides": 2,
+        "unique_ms_peptides": 2,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [
+          "HLA-A*31:01"
+        ],
+        "carrier_proxy_loss_pp": 0.0018328619912910682
+      },
+      {
+        "name": "HHIPL2",
+        "aa": 10,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "ZDHHC19",
+        "aa": 12,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0058441558450006426,
+        "incidence_loss_pp": 0.0058441558450006426,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "DEFB119",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.003633720750002567,
+        "incidence_loss_pp": 0.002325581279999156,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "PIWIL1",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0166015625,
+        "incidence_loss_pp": 0.13613281249999964,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "SEPTIN14",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "EBLN1",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "FAM78B",
+        "aa": 11,
+        "pieces": 1,
+        "ms_peptides": 2,
+        "unique_ms_peptides": 2,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "PRSS38",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "GARIN1B",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [
+          "HLA-B*53:01"
+        ],
+        "carrier_proxy_loss_pp": 0.00018881990256902625
+      },
+      {
+        "name": "PRM2",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "SPATS1",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      },
+      {
+        "name": "ANKRD7",
+        "aa": 9,
+        "pieces": 1,
+        "ms_peptides": 1,
+        "unique_ms_peptides": 1,
+        "mortality_loss_pp": 0.0,
+        "incidence_loss_pp": 0.0,
+        "global_alleles_lost": [],
+        "carrier_proxy_loss_pp": 0.0
+      }
+    ]
+  },
+  "top_three": {
+    "mortality_lower_pp": 13.276395265274997,
+    "incidence_lower_pp": 12.302039538725001
+  },
+  "prame": {
+    "retained": {
+      "ms_peptides": 10,
+      "pmhc": 95,
+      "alleles": 40,
+      "typed_alleles": 21,
+      "measured_alleles": 4,
+      "measured_peptides": 3,
+      "typed_inferred_peptides": 6,
+      "untyped_inferred_peptides": 1,
+      "carrier_proxy": {
+        "reach": 0.9987963916291269,
+        "loci": {
+          "A": 0.6487304175999999,
+          "B": 0.8086899879,
+          "C": 0.9820895311000001
+        },
+        "frequency_sums": {
+          "A": 0.40732,
+          "B": 0.56261,
+          "C": 0.8661700000000002
+        },
+        "missing_alleles": [
+          "HLA-C*04:03"
+        ]
+      }
+    },
+    "all_supported": {
+      "ms_peptides": 56,
+      "pmhc": 437,
+      "alleles": 48,
+      "typed_alleles": 34,
+      "measured_alleles": 11,
+      "measured_peptides": 15,
+      "typed_inferred_peptides": 32,
+      "untyped_inferred_peptides": 9,
+      "carrier_proxy": {
+        "reach": 0.9998069498457965,
+        "loci": {
+          "A": 0.9271647856,
+          "B": 0.8520136039,
+          "C": 0.9820895311000001
+        },
+        "frequency_sums": {
+          "A": 0.73012,
+          "B": 0.61531,
+          "C": 0.8661700000000002
+        },
+        "missing_alleles": [
+          "HLA-C*04:03"
+        ]
+      }
+    },
+    "additional_peptides": [
+      "ALLERASATL",
+      "ALQSLLQHL",
+      "ALYVDSLFFL",
+      "DQLLRHVM",
+      "EAAQPMTKK",
+      "EAAQPMTKKR",
+      "ELFSYLIEK",
+      "ELFSYLIEKV",
+      "FLKEGACDEL",
+      "FLRGRLDQL",
+      "FYDPEPIL",
+      "FYDPEPILC",
+      "GLSNLTHVL",
+      "GRLDQLLRH",
+      "HARLRELL",
+      "HVLYPVPLESY",
+      "HVMNPLETL",
+      "IAQFTSQFL",
+      "ITDDQLLAL",
+      "KMILKMVQL",
+      "LAYLHARL",
+      "LQALYVDSL",
+      "LSEGDVMHL",
+      "LSHIHASSY",
+      "LSLQCLQAL",
+      "LYVDSLFFL",
+      "MPMQDIKMI",
+      "MPMQDIKMIL",
+      "PYLGQMINL",
+      "QSLLQHLI",
+      "QYIAQFTSQF",
+      "RLDQLLRHV",
+      "RLSEGDVMHL",
+      "SLLQHLIGL",
+      "SLSGVMLTDV",
+      "SPSVSQLSVL",
+      "SPYLGQMI",
+      "SPYLGQMINL",
+      "SQFLSLQCL",
+      "SQSPSVSQL",
+      "TLAKFSPYL",
+      "TLHLERLAY",
+      "VLYPVPLESY",
+      "VQLDSIEDLEV",
+      "YEDIHGTLHL",
+      "YLHARLREL"
+    ],
+    "additional_target_alleles": [
+      "HLA-A*01:01",
+      "HLA-A*02:03",
+      "HLA-A*02:06",
+      "HLA-A*03:01",
+      "HLA-A*29:02",
+      "HLA-A*30:02",
+      "HLA-A*68:01",
+      "HLA-B*35:01"
+    ],
+    "additional_global_alleles": []
+  },
+  "required_alleles": [
+    "HLA-A*01:01",
+    "HLA-A*02:01",
+    "HLA-A*02:03",
+    "HLA-A*02:06",
+    "HLA-A*03:01",
+    "HLA-A*11:01",
+    "HLA-A*23:01",
+    "HLA-A*24:02",
+    "HLA-A*26:01",
+    "HLA-A*29:02",
+    "HLA-A*30:01",
+    "HLA-A*30:02",
+    "HLA-A*31:01",
+    "HLA-A*32:01",
+    "HLA-A*33:01",
+    "HLA-A*68:01",
+    "HLA-A*68:02",
+    "HLA-B*07:02",
+    "HLA-B*08:01",
+    "HLA-B*15:01",
+    "HLA-B*15:02",
+    "HLA-B*18:01",
+    "HLA-B*27:05",
+    "HLA-B*35:01",
+    "HLA-B*40:01",
+    "HLA-B*40:02",
+    "HLA-B*44:02",
+    "HLA-B*44:03",
+    "HLA-B*46:01",
+    "HLA-B*51:01",
+    "HLA-B*53:01",
+    "HLA-B*57:01",
+    "HLA-B*58:01",
+    "HLA-C*01:02",
+    "HLA-C*02:02",
+    "HLA-C*03:02",
+    "HLA-C*03:03",
+    "HLA-C*03:04",
+    "HLA-C*04:01",
+    "HLA-C*04:03",
+    "HLA-C*05:01",
+    "HLA-C*06:02",
+    "HLA-C*07:01",
+    "HLA-C*07:02",
+    "HLA-C*07:04",
+    "HLA-C*08:01",
+    "HLA-C*08:02",
+    "HLA-C*12:02",
+    "HLA-C*12:03",
+    "HLA-C*14:02",
+    "HLA-C*14:03",
+    "HLA-C*15:02",
+    "HLA-C*16:01",
+    "HLA-C*17:01"
+  ],
+  "input_sha256": {
+    "ranking.csv": "dc7c30317fac1976215aa4d1f03ec322f38f6717219618ee569d8f40019dba4f",
+    "specific_intervals.csv": "a4172511158c7595a47f4500362f9d04b701af2462fd271aae67db72aa8b6906",
+    "ms_assignments.csv": "c6ba9b7930d4ad0f0c4aff9fbb33216a89984af090fe93e2cc83c54692aa1c0e",
+    "cancer_summary.csv.gz": "b944358a1350f531f07240744a9d9e74db71be91644b3048a796b5d733e24b6f",
+    "ligands.csv": "6239df6d182c72638fab1a7256521d2780e74d928384752ef9f078c0a7e1163e",
+    "report_data_json": "7bb14fd77cd8fc82d5f4b61e1daae1147d6ed1b213b8b56b51fcce8ddc21d927"
+  },
+  "allocation_only": true,
+  "global_union_only": false,
+  "max_aa": 686,
+  "max_nt": 2500,
+  "rna_overhead_nt": 441,
+  "protected_restrictions": [
+    {
+      "target": "global",
+      "allele": "HLA-A*01:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*02:01",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*02:03",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*02:06",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*03:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*11:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*23:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*24:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*26:01",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*29:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*30:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*30:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*31:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*32:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*33:01",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*68:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-A*68:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*07:02",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*08:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*15:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*15:02",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*18:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*27:05",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*35:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*40:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*40:02",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*44:02",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*44:03",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*46:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*51:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*53:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*57:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-B*58:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*01:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*02:02",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*03:02",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*03:03",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*03:04",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*04:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*04:03",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*05:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*06:02",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*07:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*07:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*07:04",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*08:01",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*08:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*12:02",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*12:03",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*14:02",
+      "tier": 0
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*14:03",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*15:02",
+      "tier": 2
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*16:01",
+      "tier": 1
+    },
+    {
+      "target": "global",
+      "allele": "HLA-C*17:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-A*02:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-A*23:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-A*24:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-A*30:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-A*32:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-A*68:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*07:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*08:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*15:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*15:02",
+      "tier": 0
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*18:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*27:05",
+      "tier": 0
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*40:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*40:02",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*44:02",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*44:03",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*46:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*51:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-B*57:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*01:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*02:02",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*03:02",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*03:03",
+      "tier": 0
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*03:04",
+      "tier": 0
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*04:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*04:03",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*05:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*06:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*07:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*07:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*07:04",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*08:01",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*08:02",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*12:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*12:03",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*14:02",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*14:03",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*15:02",
+      "tier": 2
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*16:01",
+      "tier": 1
+    },
+    {
+      "target": "PRAME",
+      "allele": "HLA-C*17:01",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*01:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*02:01",
+      "tier": 0
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*02:03",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*02:06",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*03:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*23:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*26:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*29:02",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*32:01",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-A*68:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*07:02",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*08:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*15:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*27:05",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*40:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*40:02",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*44:02",
+      "tier": 0
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-B*51:01",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*01:02",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*02:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*03:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*03:03",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*03:04",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*04:01",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*04:03",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*05:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*06:02",
+      "tier": 0
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*07:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*07:02",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*07:04",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*08:01",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*08:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*12:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*12:03",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*14:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*14:03",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*15:02",
+      "tier": 2
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*16:01",
+      "tier": 1
+    },
+    {
+      "target": "MAGEA4",
+      "allele": "HLA-C*17:01",
+      "tier": 2
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-B*15:01",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-B*40:01",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*01:02",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*03:03",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*03:04",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*05:01",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*06:02",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*08:02",
+      "tier": 1
+    },
+    {
+      "target": "XAGE1A/XAGE1B",
+      "allele": "HLA-C*12:03",
+      "tier": 1
+    }
+  ],
+  "comparisons": [
+    {
+      "tolerance_pp": 0.0,
+      "status": 0,
+      "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+      "mip_gap": 2.1132821100260767e-16,
+      "aa_upper_bound_with_start_m": 683,
+      "complete_rna_nt_upper_bound": 2490,
+      "proteoforms": 18,
+      "pieces": 25,
+      "ms_peptides": 89,
+      "alleles": 54,
+      "evidence": {
+        "ms_peptides": 89,
+        "pmhc": 400,
+        "alleles": 54,
+        "typed_alleles": 39,
+        "measured_alleles": 16,
+        "measured_peptides": 23,
+        "typed_inferred_peptides": 57,
+        "untyped_inferred_peptides": 9,
+        "carrier_proxy": {
+          "reach": 0.9999508901649349,
+          "loci": {
+            "A": 0.9794737071,
+            "B": 0.8664170599000001,
+            "C": 0.9820895311000001
+          },
+          "frequency_sums": {
+            "A": 0.85673,
+            "B": 0.63451,
+            "C": 0.8661700000000002
+          },
+          "missing_alleles": [
+            "HLA-C*04:03"
+          ]
+        }
+      },
+      "carrier_proxy": {
+        "reach": 0.9999508901649349,
+        "loci": {
+          "A": 0.9794737071,
+          "B": 0.8664170599000001,
+          "C": 0.9820895311000001
+        },
+        "frequency_sums": {
+          "A": 0.85673,
+          "B": 0.63451,
+          "C": 0.8661700000000002
+        },
+        "missing_alleles": [
+          "HLA-C*04:03"
+        ]
+      },
+      "mortality_lower_pp": 13.383674017419999,
+      "incidence_lower_pp": 12.616286769429998,
+      "proteins": [
+        {
+          "name": "CXorf49/CXorf49B",
+          "aa": 23,
+          "pieces": 1,
+          "ms_peptides": 5,
+          "alleles": 5,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 5,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "ACTL8",
+          "aa": 123,
+          "pieces": 1,
+          "ms_peptides": 6,
+          "alleles": 11,
+          "measured_peptides": 3,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "PIWIL1",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "RHOXF2",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 8,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "GARIN1B",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 4,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "HHIPL2",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "MAGEA4",
+          "aa": 116,
+          "pieces": 3,
+          "ms_peptides": 27,
+          "alleles": 39,
+          "measured_peptides": 5,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "ZDHHC19",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 2,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "NLRP7",
+          "aa": 22,
+          "pieces": 2,
+          "ms_peptides": 3,
+          "alleles": 6,
+          "measured_peptides": 3,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SCGB1D1",
+          "aa": 49,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 2
+        },
+        {
+          "name": "KISS1",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "DEFB119",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "PRAME",
+          "aa": 138,
+          "pieces": 5,
+          "ms_peptides": 23,
+          "alleles": 46,
+          "measured_peptides": 8,
+          "typed_inferred_peptides": 11,
+          "untyped_inferred_peptides": 4
+        },
+        {
+          "name": "FAM78B",
+          "aa": 11,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 2,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SPANXB1",
+          "aa": 50,
+          "pieces": 1,
+          "ms_peptides": 3,
+          "alleles": 9,
+          "measured_peptides": 2,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "CTAG1A/CTAG1B",
+          "aa": 43,
+          "pieces": 1,
+          "ms_peptides": 7,
+          "alleles": 6,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 7,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SSX4/SSX4B",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 5,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "XAGE1A/XAGE1B",
+          "aa": 32,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "XAGE1A/B:12-81",
+          "key": "XAGE1A/B",
+          "name": "XAGE1A/XAGE1B",
+          "start": 20,
+          "end": 52,
+          "length_aa": 32
+        },
+        {
+          "segment_id": "ENSG00000147381:101-162",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 101,
+          "end": 154,
+          "length_aa": 53
+        },
+        {
+          "segment_id": "ENSG00000147381:208-268",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 217,
+          "end": 259,
+          "length_aa": 42
+        },
+        {
+          "segment_id": "ENSG00000147381:287-317",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 296,
+          "end": 317,
+          "length_aa": 21
+        },
+        {
+          "segment_id": "ENSG00000185686:0-27",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 3,
+          "end": 17,
+          "length_aa": 14
+        },
+        {
+          "segment_id": "ENSG00000185686:35-46",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 36,
+          "end": 45,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000185686:58-71",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 58,
+          "end": 71,
+          "length_aa": 13
+        },
+        {
+          "segment_id": "ENSG00000185686:84-111",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 88,
+          "end": 108,
+          "length_aa": 20
+        },
+        {
+          "segment_id": "ENSG00000185686:410-509",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 421,
+          "end": 503,
+          "length_aa": 82
+        },
+        {
+          "segment_id": "NY-ESO-1:70-134",
+          "key": "NY-ESO-1",
+          "name": "CTAG1A/CTAG1B",
+          "start": 91,
+          "end": 134,
+          "length_aa": 43
+        },
+        {
+          "segment_id": "ENSG00000117148:0-140",
+          "key": "ENSG00000117148",
+          "name": "ACTL8",
+          "start": 4,
+          "end": 127,
+          "length_aa": 123
+        },
+        {
+          "segment_id": "CXorf49/B:422-514",
+          "key": "CXorf49/B",
+          "name": "CXorf49/CXorf49B",
+          "start": 491,
+          "end": 514,
+          "length_aa": 23
+        },
+        {
+          "segment_id": "ENSG00000227234:0-103",
+          "key": "ENSG00000227234",
+          "name": "SPANXB1",
+          "start": 50,
+          "end": 100,
+          "length_aa": 50
+        },
+        {
+          "segment_id": "SSX4/B:0-54",
+          "key": "SSX4/B",
+          "name": "SSX4/SSX4B",
+          "start": 22,
+          "end": 31,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000167634:506-522",
+          "key": "ENSG00000167634",
+          "name": "NLRP7",
+          "start": 513,
+          "end": 521,
+          "length_aa": 8
+        },
+        {
+          "segment_id": "ENSG00000167634:631-669",
+          "key": "ENSG00000167634",
+          "name": "NLRP7",
+          "start": 649,
+          "end": 663,
+          "length_aa": 14
+        },
+        {
+          "segment_id": "ENSG00000170498:84-138",
+          "key": "ENSG00000170498",
+          "name": "KISS1",
+          "start": 87,
+          "end": 96,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000131721:48-183",
+          "key": "ENSG00000131721",
+          "name": "RHOXF2",
+          "start": 108,
+          "end": 118,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000168515:14-90",
+          "key": "ENSG00000168515",
+          "name": "SCGB1D1",
+          "start": 38,
+          "end": 87,
+          "length_aa": 49
+        },
+        {
+          "segment_id": "ENSG00000143512:644-724",
+          "key": "ENSG00000143512",
+          "name": "HHIPL2",
+          "start": 688,
+          "end": 698,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000163958:142-309",
+          "key": "ENSG00000163958",
+          "name": "ZDHHC19",
+          "start": 216,
+          "end": 226,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000180483:0-88",
+          "key": "ENSG00000180483",
+          "name": "DEFB119",
+          "start": 10,
+          "end": 19,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000125207:0-307",
+          "key": "ENSG00000125207",
+          "name": "PIWIL1",
+          "start": 219,
+          "end": 228,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000188859:0-63",
+          "key": "ENSG00000188859",
+          "name": "FAM78B",
+          "start": 33,
+          "end": 44,
+          "length_aa": 11
+        },
+        {
+          "segment_id": "ENSG00000135248:0-63",
+          "key": "ENSG00000135248",
+          "name": "GARIN1B",
+          "start": 24,
+          "end": 33,
+          "length_aa": 9
+        }
+      ]
+    },
+    {
+      "tolerance_pp": 0.05,
+      "status": 0,
+      "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+      "mip_gap": 0.0,
+      "aa_upper_bound_with_start_m": 682,
+      "complete_rna_nt_upper_bound": 2487,
+      "proteoforms": 13,
+      "pieces": 19,
+      "ms_peptides": 89,
+      "alleles": 54,
+      "evidence": {
+        "ms_peptides": 89,
+        "pmhc": 396,
+        "alleles": 54,
+        "typed_alleles": 36,
+        "measured_alleles": 15,
+        "measured_peptides": 22,
+        "typed_inferred_peptides": 58,
+        "untyped_inferred_peptides": 9,
+        "carrier_proxy": {
+          "reach": 0.9999508901649349,
+          "loci": {
+            "A": 0.9794737071,
+            "B": 0.8664170599000001,
+            "C": 0.9820895311000001
+          },
+          "frequency_sums": {
+            "A": 0.85673,
+            "B": 0.63451,
+            "C": 0.8661700000000002
+          },
+          "missing_alleles": [
+            "HLA-C*04:03"
+          ]
+        }
+      },
+      "carrier_proxy": {
+        "reach": 0.9999508901649349,
+        "loci": {
+          "A": 0.9794737071,
+          "B": 0.8664170599000001,
+          "C": 0.9820895311000001
+        },
+        "frequency_sums": {
+          "A": 0.85673,
+          "B": 0.63451,
+          "C": 0.8661700000000002
+        },
+        "missing_alleles": [
+          "HLA-C*04:03"
+        ]
+      },
+      "mortality_lower_pp": 13.340333297084998,
+      "incidence_lower_pp": 12.581635048685,
+      "proteins": [
+        {
+          "name": "CXorf49/CXorf49B",
+          "aa": 23,
+          "pieces": 1,
+          "ms_peptides": 5,
+          "alleles": 5,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 5,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "ACTL8",
+          "aa": 123,
+          "pieces": 1,
+          "ms_peptides": 6,
+          "alleles": 11,
+          "measured_peptides": 3,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "PIWIL1",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "GARIN1B",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 4,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "HHIPL2",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "MAGEA4",
+          "aa": 116,
+          "pieces": 3,
+          "ms_peptides": 27,
+          "alleles": 39,
+          "measured_peptides": 5,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "NLRP7",
+          "aa": 8,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SCGB1D1",
+          "aa": 49,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 2
+        },
+        {
+          "name": "PRAME",
+          "aa": 223,
+          "pieces": 4,
+          "ms_peptides": 36,
+          "alleles": 45,
+          "measured_peptides": 10,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 4
+        },
+        {
+          "name": "FAM78B",
+          "aa": 11,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 2,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SPANXB1",
+          "aa": 50,
+          "pieces": 1,
+          "ms_peptides": 3,
+          "alleles": 9,
+          "measured_peptides": 2,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SSX2/SSX2B",
+          "aa": 18,
+          "pieces": 2,
+          "ms_peptides": 2,
+          "alleles": 6,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "XAGE1A/XAGE1B",
+          "aa": 32,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "XAGE1A/B:12-81",
+          "key": "XAGE1A/B",
+          "name": "XAGE1A/XAGE1B",
+          "start": 20,
+          "end": 52,
+          "length_aa": 32
+        },
+        {
+          "segment_id": "ENSG00000147381:101-162",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 101,
+          "end": 154,
+          "length_aa": 53
+        },
+        {
+          "segment_id": "ENSG00000147381:208-268",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 217,
+          "end": 259,
+          "length_aa": 42
+        },
+        {
+          "segment_id": "ENSG00000147381:287-317",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 296,
+          "end": 317,
+          "length_aa": 21
+        },
+        {
+          "segment_id": "ENSG00000185686:35-46",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 36,
+          "end": 45,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000185686:58-71",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 58,
+          "end": 71,
+          "length_aa": 13
+        },
+        {
+          "segment_id": "ENSG00000185686:84-111",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 88,
+          "end": 108,
+          "length_aa": 20
+        },
+        {
+          "segment_id": "ENSG00000185686:215-401",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 217,
+          "end": 398,
+          "length_aa": 181
+        },
+        {
+          "segment_id": "ENSG00000117148:0-140",
+          "key": "ENSG00000117148",
+          "name": "ACTL8",
+          "start": 4,
+          "end": 127,
+          "length_aa": 123
+        },
+        {
+          "segment_id": "CXorf49/B:422-514",
+          "key": "CXorf49/B",
+          "name": "CXorf49/CXorf49B",
+          "start": 491,
+          "end": 514,
+          "length_aa": 23
+        },
+        {
+          "segment_id": "ENSG00000227234:0-103",
+          "key": "ENSG00000227234",
+          "name": "SPANXB1",
+          "start": 50,
+          "end": 100,
+          "length_aa": 50
+        },
+        {
+          "segment_id": "ENSG00000167634:506-522",
+          "key": "ENSG00000167634",
+          "name": "NLRP7",
+          "start": 513,
+          "end": 521,
+          "length_aa": 8
+        },
+        {
+          "segment_id": "SSX2/B:0-33",
+          "key": "SSX2/B",
+          "name": "SSX2/SSX2B",
+          "start": 22,
+          "end": 31,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "SSX2/B:129-223",
+          "key": "SSX2/B",
+          "name": "SSX2/SSX2B",
+          "start": 145,
+          "end": 154,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000168515:14-90",
+          "key": "ENSG00000168515",
+          "name": "SCGB1D1",
+          "start": 38,
+          "end": 87,
+          "length_aa": 49
+        },
+        {
+          "segment_id": "ENSG00000143512:644-724",
+          "key": "ENSG00000143512",
+          "name": "HHIPL2",
+          "start": 688,
+          "end": 698,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000125207:0-307",
+          "key": "ENSG00000125207",
+          "name": "PIWIL1",
+          "start": 219,
+          "end": 228,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000188859:0-63",
+          "key": "ENSG00000188859",
+          "name": "FAM78B",
+          "start": 33,
+          "end": 44,
+          "length_aa": 11
+        },
+        {
+          "segment_id": "ENSG00000135248:0-63",
+          "key": "ENSG00000135248",
+          "name": "GARIN1B",
+          "start": 24,
+          "end": 33,
+          "length_aa": 9
+        }
+      ]
+    },
+    {
+      "tolerance_pp": 0.1,
+      "status": 0,
+      "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+      "mip_gap": 0.0,
+      "aa_upper_bound_with_start_m": 682,
+      "complete_rna_nt_upper_bound": 2487,
+      "proteoforms": 13,
+      "pieces": 19,
+      "ms_peptides": 89,
+      "alleles": 54,
+      "evidence": {
+        "ms_peptides": 89,
+        "pmhc": 396,
+        "alleles": 54,
+        "typed_alleles": 36,
+        "measured_alleles": 15,
+        "measured_peptides": 22,
+        "typed_inferred_peptides": 58,
+        "untyped_inferred_peptides": 9,
+        "carrier_proxy": {
+          "reach": 0.9999508901649349,
+          "loci": {
+            "A": 0.9794737071,
+            "B": 0.8664170599000001,
+            "C": 0.9820895311000001
+          },
+          "frequency_sums": {
+            "A": 0.85673,
+            "B": 0.63451,
+            "C": 0.8661700000000002
+          },
+          "missing_alleles": [
+            "HLA-C*04:03"
+          ]
+        }
+      },
+      "carrier_proxy": {
+        "reach": 0.9999508901649349,
+        "loci": {
+          "A": 0.9794737071,
+          "B": 0.8664170599000001,
+          "C": 0.9820895311000001
+        },
+        "frequency_sums": {
+          "A": 0.85673,
+          "B": 0.63451,
+          "C": 0.8661700000000002
+        },
+        "missing_alleles": [
+          "HLA-C*04:03"
+        ]
+      },
+      "mortality_lower_pp": 13.340333297084998,
+      "incidence_lower_pp": 12.581635048685,
+      "proteins": [
+        {
+          "name": "CXorf49/CXorf49B",
+          "aa": 23,
+          "pieces": 1,
+          "ms_peptides": 5,
+          "alleles": 5,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 5,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "ACTL8",
+          "aa": 123,
+          "pieces": 1,
+          "ms_peptides": 6,
+          "alleles": 11,
+          "measured_peptides": 3,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "PIWIL1",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "GARIN1B",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 4,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "HHIPL2",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "MAGEA4",
+          "aa": 116,
+          "pieces": 3,
+          "ms_peptides": 27,
+          "alleles": 39,
+          "measured_peptides": 5,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "NLRP7",
+          "aa": 8,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SCGB1D1",
+          "aa": 49,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 2
+        },
+        {
+          "name": "PRAME",
+          "aa": 223,
+          "pieces": 4,
+          "ms_peptides": 36,
+          "alleles": 45,
+          "measured_peptides": 10,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 4
+        },
+        {
+          "name": "FAM78B",
+          "aa": 11,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 2,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SPANXB1",
+          "aa": 50,
+          "pieces": 1,
+          "ms_peptides": 3,
+          "alleles": 9,
+          "measured_peptides": 2,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SSX2/SSX2B",
+          "aa": 18,
+          "pieces": 2,
+          "ms_peptides": 2,
+          "alleles": 6,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "XAGE1A/XAGE1B",
+          "aa": 32,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "XAGE1A/B:12-81",
+          "key": "XAGE1A/B",
+          "name": "XAGE1A/XAGE1B",
+          "start": 20,
+          "end": 52,
+          "length_aa": 32
+        },
+        {
+          "segment_id": "ENSG00000147381:101-162",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 101,
+          "end": 154,
+          "length_aa": 53
+        },
+        {
+          "segment_id": "ENSG00000147381:208-268",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 217,
+          "end": 259,
+          "length_aa": 42
+        },
+        {
+          "segment_id": "ENSG00000147381:287-317",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 296,
+          "end": 317,
+          "length_aa": 21
+        },
+        {
+          "segment_id": "ENSG00000185686:35-46",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 36,
+          "end": 45,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000185686:58-71",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 58,
+          "end": 71,
+          "length_aa": 13
+        },
+        {
+          "segment_id": "ENSG00000185686:84-111",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 88,
+          "end": 108,
+          "length_aa": 20
+        },
+        {
+          "segment_id": "ENSG00000185686:215-401",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 217,
+          "end": 398,
+          "length_aa": 181
+        },
+        {
+          "segment_id": "ENSG00000117148:0-140",
+          "key": "ENSG00000117148",
+          "name": "ACTL8",
+          "start": 4,
+          "end": 127,
+          "length_aa": 123
+        },
+        {
+          "segment_id": "CXorf49/B:422-514",
+          "key": "CXorf49/B",
+          "name": "CXorf49/CXorf49B",
+          "start": 491,
+          "end": 514,
+          "length_aa": 23
+        },
+        {
+          "segment_id": "ENSG00000227234:0-103",
+          "key": "ENSG00000227234",
+          "name": "SPANXB1",
+          "start": 50,
+          "end": 100,
+          "length_aa": 50
+        },
+        {
+          "segment_id": "ENSG00000167634:506-522",
+          "key": "ENSG00000167634",
+          "name": "NLRP7",
+          "start": 513,
+          "end": 521,
+          "length_aa": 8
+        },
+        {
+          "segment_id": "SSX2/B:0-33",
+          "key": "SSX2/B",
+          "name": "SSX2/SSX2B",
+          "start": 22,
+          "end": 31,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "SSX2/B:129-223",
+          "key": "SSX2/B",
+          "name": "SSX2/SSX2B",
+          "start": 145,
+          "end": 154,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000168515:14-90",
+          "key": "ENSG00000168515",
+          "name": "SCGB1D1",
+          "start": 38,
+          "end": 87,
+          "length_aa": 49
+        },
+        {
+          "segment_id": "ENSG00000143512:644-724",
+          "key": "ENSG00000143512",
+          "name": "HHIPL2",
+          "start": 688,
+          "end": 698,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000125207:0-307",
+          "key": "ENSG00000125207",
+          "name": "PIWIL1",
+          "start": 219,
+          "end": 228,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000188859:0-63",
+          "key": "ENSG00000188859",
+          "name": "FAM78B",
+          "start": 33,
+          "end": 44,
+          "length_aa": 11
+        },
+        {
+          "segment_id": "ENSG00000135248:0-63",
+          "key": "ENSG00000135248",
+          "name": "GARIN1B",
+          "start": 24,
+          "end": 33,
+          "length_aa": 9
+        }
+      ]
+    },
+    {
+      "tolerance_pp": 0.25,
+      "status": 0,
+      "message": "Optimization terminated successfully. (HiGHS Status 7: Optimal)",
+      "mip_gap": 0.0,
+      "aa_upper_bound_with_start_m": 683,
+      "complete_rna_nt_upper_bound": 2490,
+      "proteoforms": 13,
+      "pieces": 19,
+      "ms_peptides": 90,
+      "alleles": 54,
+      "evidence": {
+        "ms_peptides": 90,
+        "pmhc": 404,
+        "alleles": 54,
+        "typed_alleles": 36,
+        "measured_alleles": 15,
+        "measured_peptides": 22,
+        "typed_inferred_peptides": 60,
+        "untyped_inferred_peptides": 8,
+        "carrier_proxy": {
+          "reach": 0.9999508901649349,
+          "loci": {
+            "A": 0.9794737071,
+            "B": 0.8664170599000001,
+            "C": 0.9820895311000001
+          },
+          "frequency_sums": {
+            "A": 0.85673,
+            "B": 0.63451,
+            "C": 0.8661700000000002
+          },
+          "missing_alleles": [
+            "HLA-C*04:03"
+          ]
+        }
+      },
+      "carrier_proxy": {
+        "reach": 0.9999508901649349,
+        "loci": {
+          "A": 0.9794737071,
+          "B": 0.8664170599000001,
+          "C": 0.9820895311000001
+        },
+        "frequency_sums": {
+          "A": 0.85673,
+          "B": 0.63451,
+          "C": 0.8661700000000002
+        },
+        "missing_alleles": [
+          "HLA-C*04:03"
+        ]
+      },
+      "mortality_lower_pp": 13.323731734584998,
+      "incidence_lower_pp": 12.445502236185,
+      "proteins": [
+        {
+          "name": "CXorf49/CXorf49B",
+          "aa": 23,
+          "pieces": 1,
+          "ms_peptides": 5,
+          "alleles": 5,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 5,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "ACTL8",
+          "aa": 123,
+          "pieces": 1,
+          "ms_peptides": 6,
+          "alleles": 11,
+          "measured_peptides": 3,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "GARIN1B",
+          "aa": 9,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 4,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 1
+        },
+        {
+          "name": "HHIPL2",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "MAGEA4",
+          "aa": 116,
+          "pieces": 3,
+          "ms_peptides": 27,
+          "alleles": 39,
+          "measured_peptides": 5,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "NLRP7",
+          "aa": 8,
+          "pieces": 1,
+          "ms_peptides": 1,
+          "alleles": 1,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SCGB1D1",
+          "aa": 49,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 0,
+          "untyped_inferred_peptides": 2
+        },
+        {
+          "name": "PRAME",
+          "aa": 223,
+          "pieces": 4,
+          "ms_peptides": 36,
+          "alleles": 45,
+          "measured_peptides": 10,
+          "typed_inferred_peptides": 22,
+          "untyped_inferred_peptides": 4
+        },
+        {
+          "name": "FAM78B",
+          "aa": 11,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 2,
+          "measured_peptides": 1,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "RHOXF2B",
+          "aa": 10,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 8,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SPANXB1",
+          "aa": 50,
+          "pieces": 1,
+          "ms_peptides": 3,
+          "alleles": 9,
+          "measured_peptides": 2,
+          "typed_inferred_peptides": 1,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "SSX2/SSX2B",
+          "aa": 18,
+          "pieces": 2,
+          "ms_peptides": 2,
+          "alleles": 6,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        },
+        {
+          "name": "XAGE1A/XAGE1B",
+          "aa": 32,
+          "pieces": 1,
+          "ms_peptides": 2,
+          "alleles": 9,
+          "measured_peptides": 0,
+          "typed_inferred_peptides": 2,
+          "untyped_inferred_peptides": 0
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "XAGE1A/B:12-81",
+          "key": "XAGE1A/B",
+          "name": "XAGE1A/XAGE1B",
+          "start": 20,
+          "end": 52,
+          "length_aa": 32
+        },
+        {
+          "segment_id": "ENSG00000147381:101-162",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 101,
+          "end": 154,
+          "length_aa": 53
+        },
+        {
+          "segment_id": "ENSG00000147381:208-268",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 217,
+          "end": 259,
+          "length_aa": 42
+        },
+        {
+          "segment_id": "ENSG00000147381:287-317",
+          "key": "ENSG00000147381",
+          "name": "MAGEA4",
+          "start": 296,
+          "end": 317,
+          "length_aa": 21
+        },
+        {
+          "segment_id": "ENSG00000185686:35-46",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 36,
+          "end": 45,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000185686:58-71",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 58,
+          "end": 71,
+          "length_aa": 13
+        },
+        {
+          "segment_id": "ENSG00000185686:84-111",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 88,
+          "end": 108,
+          "length_aa": 20
+        },
+        {
+          "segment_id": "ENSG00000185686:215-401",
+          "key": "ENSG00000185686",
+          "name": "PRAME",
+          "start": 217,
+          "end": 398,
+          "length_aa": 181
+        },
+        {
+          "segment_id": "ENSG00000117148:0-140",
+          "key": "ENSG00000117148",
+          "name": "ACTL8",
+          "start": 4,
+          "end": 127,
+          "length_aa": 123
+        },
+        {
+          "segment_id": "CXorf49/B:422-514",
+          "key": "CXorf49/B",
+          "name": "CXorf49/CXorf49B",
+          "start": 491,
+          "end": 514,
+          "length_aa": 23
+        },
+        {
+          "segment_id": "ENSG00000227234:0-103",
+          "key": "ENSG00000227234",
+          "name": "SPANXB1",
+          "start": 50,
+          "end": 100,
+          "length_aa": 50
+        },
+        {
+          "segment_id": "ENSG00000167634:506-522",
+          "key": "ENSG00000167634",
+          "name": "NLRP7",
+          "start": 513,
+          "end": 521,
+          "length_aa": 8
+        },
+        {
+          "segment_id": "SSX2/B:0-33",
+          "key": "SSX2/B",
+          "name": "SSX2/SSX2B",
+          "start": 22,
+          "end": 31,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "SSX2/B:129-223",
+          "key": "SSX2/B",
+          "name": "SSX2/SSX2B",
+          "start": 145,
+          "end": 154,
+          "length_aa": 9
+        },
+        {
+          "segment_id": "ENSG00000168515:14-90",
+          "key": "ENSG00000168515",
+          "name": "SCGB1D1",
+          "start": 38,
+          "end": 87,
+          "length_aa": 49
+        },
+        {
+          "segment_id": "ENSG00000143512:644-724",
+          "key": "ENSG00000143512",
+          "name": "HHIPL2",
+          "start": 688,
+          "end": 698,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000203989:48-143",
+          "key": "ENSG00000203989",
+          "name": "RHOXF2B",
+          "start": 108,
+          "end": 118,
+          "length_aa": 10
+        },
+        {
+          "segment_id": "ENSG00000188859:0-63",
+          "key": "ENSG00000188859",
+          "name": "FAM78B",
+          "start": 33,
+          "end": 44,
+          "length_aa": 11
+        },
+        {
+          "segment_id": "ENSG00000135248:0-63",
+          "key": "ENSG00000135248",
+          "name": "GARIN1B",
+          "start": 24,
+          "end": 33,
+          "length_aa": 9
+        }
+      ]
+    }
+  ]
+}

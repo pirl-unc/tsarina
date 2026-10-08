@@ -1,0 +1,24 @@
+{
+  "strict": {
+    "allocation_variants_verified": 4,
+    "source_hashes_verified": 6,
+    "retained_proteins_removal_verified": 23,
+    "native_eightmers_verified": 642,
+    "non_cta_background_occurrences_scanned": 98500,
+    "primary_normal_eightmers_verified": 70142,
+    "preserved_restrictions_verified_per_variant": 146,
+    "synthetic_junctions_verified": false,
+    "scope": "Segment allocation only; not an assembled vaccine"
+  },
+  "loose": {
+    "allocation_variants_verified": 4,
+    "source_hashes_verified": 6,
+    "retained_proteins_removal_verified": 26,
+    "native_eightmers_verified": 683,
+    "non_cta_background_occurrences_scanned": 98312,
+    "primary_normal_eightmers_verified": 70142,
+    "preserved_restrictions_verified_per_variant": 142,
+    "synthetic_junctions_verified": false,
+    "scope": "Segment allocation only; not an assembled vaccine"
+  }
+}
