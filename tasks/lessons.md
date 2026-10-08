@@ -1,5 +1,9 @@
 # Lessons
 
+- Molecular HLA names contain literal asterisks. In Markdown prose and tables,
+  use inline code for allele names so paired asterisks cannot become emphasis.
+  Verify exact names in rendered HTML, not only the Markdown source.
+
 - A positive marginal expression score can be arbitrarily small. Do not use
   lexicographic precedence to claim a rare CTA is justified over substantially
   more MS-observed peptides from a common CTA. Compare explicit cancer-coverage
