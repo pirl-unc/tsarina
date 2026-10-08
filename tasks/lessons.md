@@ -1,5 +1,11 @@
 # Lessons
 
+- Documentation should name the task or subject directly. Avoid "Start with
+  your outcome", "Continue to" and similar coaching/navigation filler. Link
+  descriptive headings to their guides; use a brief "See:" reference when a
+  separate link is needed. Keep technical criteria and caveats precise while
+  removing rhetorical introductions and promotional copy.
+
 - Molecular HLA names contain literal asterisks. In Markdown prose and tables,
   use inline code for allele names so paired asterisks cannot become emphasis.
   Verify exact names in rendered HTML, not only the Markdown source.

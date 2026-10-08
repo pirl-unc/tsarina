@@ -1,47 +1,39 @@
 # Tsarina documentation
 
-Tsarina turns shared cancer targets into ranked peptide-MHC candidates. Use it
-to prioritize CTA, viral, and recurrent-mutation targets for one patient, or to
-design an off-the-shelf CTA panel across a population HLA set.
+Tsarina ranks peptide-MHC candidates from cancer-testis antigens (CTAs),
+oncogenic viruses and recurrent mutations. It supports patient target
+selection, population CTA panels and shared CTA vaccine constructs.
 
-## Start with your outcome
+## Workflows
 
-### Prioritize targets for one patient
+### [Personalized target selection](personalized-targets.md)
 
-Use patient HLA type plus any available CTA expression, hotspot mutations, and
-viral status. Tsarina returns ranked pMHCs with source abundance, public MS
-support, healthy-tissue safety flags, and predicted presentation.
+Patient HLA type, CTA expression, hotspot mutations and viral status determine
+the candidates. Results include ranked pMHCs with source abundance, public MS
+support, healthy-tissue safety flags and predicted presentation.
 
-Continue to [Personalized target selection](personalized-targets.md).
+### [CTA panel design](panel-design.md)
 
-### Design a reusable CTA panel
+Automatic selection applies CTA safety filters and cancer-prevalence ranking;
+an explicit CTA list is also supported. Results include a CTA × HLA matrix,
+evidence tiers and population-coverage estimates.
 
-Use Tsarina's automatic CTA safety filters and cancer-prevalence ranking, or
-provide an explicit CTA list. Tsarina returns a CTA × HLA matrix, evidence
-tiers, and population-coverage estimates.
-
-Continue to [CTA panel design](panel-design.md).
-
-### Assemble a shared CTA vaccine antigen
+### [CTA vaccine design](vaccine-design.md)
 
 Rank proteoforms by mortality-weighted p95 prevalence, retain CTA-specific
 MS-supported sequence, and audit a single DNA/RNA construct.
 
-Continue to [CTA vaccine design](vaccine-design.md).
+See: [Vaccine Atlas](vaccine-results/index.html) — strict/loose antigen
+comparisons, source-resolved tissue maps, HLA coverage and cumulative MS evidence.
 
-Explore the [Vaccine Atlas](vaccine-results/index.html) for strict/loose antigen
-comparisons, source-resolved tissue maps, HLA reach and cumulative evidence.
+### [Data and evidence](data-and-evidence.md)
 
-### Inspect peptide evidence
+Register IEDB and CEDAR exports, query peptide observations, and interpret
+their tissue context, HLA restrictions and prediction scores.
 
-Use the data registry to install or register IEDB and CEDAR exports, then query
-the observation index for specified peptides.
+## Target selection
 
-Continue to [Data and evidence](data-and-evidence.md).
-
-## The shared pipeline
-
-All target-selection workflows follow the same conceptual stages:
+Target selection follows five stages:
 
 1. **Define candidates.** CTA definitions come from oncoref; viral proteins and
    recurrent mutation hotspots come from Tsarina's target modules.
@@ -56,11 +48,11 @@ All target-selection workflows follow the same conceptual stages:
 5. **Rank with provenance.** Results retain target identity, observation
    evidence, prediction scores, and the reason for their rank.
 
-These stages keep target definition distinct from downstream evidence. In
-particular, [oncoref](https://github.com/pirl-unc/oncoref) alone owns CTA
-membership, aliases, HPA restriction calls, and proteoform groups. See
-[CTA ownership and downstream evidence](curation.md) for the integration
-boundary.
+[OncoRef](https://github.com/pirl-unc/oncoref) owns CTA membership, aliases,
+HPA restriction calls and proteoform groups. Tsarina adds downstream evidence
+for selection and ranking.
+
+See: [CTA ownership and downstream evidence](curation.md).
 
 ## Install and prepare data
 
@@ -86,10 +78,10 @@ tsarina data register cedar /data/cedar-mhc-ligand-full.csv
 tsarina data list
 ```
 
-The [Data and evidence](data-and-evidence.md) guide explains storage,
-observation classification, and the evidence model.
+See: [Data and evidence](data-and-evidence.md) — storage, observation
+classification and the evidence model.
 
-## Core target concepts
+## Target types
 
 ### Cancer-testis antigens
 
@@ -110,7 +102,7 @@ Hotspot driver mutations produce shared mutant peptides in patients carrying
 the same alteration. Tsarina enumerates mutation-spanning peptides rather than
 discovering private passenger mutations from whole-exome sequencing.
 
-## Guide map
+## Guides
 
 | Guide | Use it for |
 |---|---|

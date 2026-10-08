@@ -4,7 +4,7 @@ Tsarina consumes one executable cancer-testis antigen definition:
 [oncoref](https://github.com/pirl-unc/oncoref). Tsarina enriches that definition
 with target-selection evidence, but never maintains a second CTA universe.
 
-## At a glance
+## Definition and evidence owners
 
 | Question | Owner |
 |---|---|

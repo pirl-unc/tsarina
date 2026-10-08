@@ -1,12 +1,12 @@
 # Comparing CTA coverage and MS evidence
 
-A protein earns space by what its retained regions add: cancer-expression coverage, observed ligands, and HLA support for the target. A small positive expression score alone is not sufficient justification for choosing it over an MS-rich region of a common CTA.
+Segment allocation balances cancer-expression coverage, observed ligands and HLA support for each protein. A small positive expression score alone is not sufficient justification for choosing it over an MS-rich region of a common CTA.
 
 This analysis compares the [published 2.5-kb designs](vaccine-results/index.html) with alternative **segment allocations**. The alternatives are not assembled vaccine constructs: their segment order, junctional binding, cleavage, linkers and junctional normal-tissue 8-mers have not been optimized or validated. The published constructs remain the current designs.
 
-## Do additional PRAME regions broaden HLA support?
+## PRAME MS evidence and HLA support
 
-Yes. More PRAME regions add exact MS-observed peptides and supported presenters **for PRAME**, even when those alleles are already represented by another protein. MS observation confirms the peptide; many HLA assignments remain inferred from affinity predictions.
+Additional PRAME regions add exact MS-observed peptides and supported presenters **for PRAME**, even when those alleles are already represented by another protein. MS observation confirms the peptide; many HLA assignments remain inferred from affinity predictions.
 
 | Scope | PRAME regions | MS peptides | All HLA | Typed HLA | Measured HLA |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -19,7 +19,7 @@ Strict PRAME can add **33 observed peptides** and two presenters, `HLA-A*01:01` 
 
 Typing-supported includes measured restriction and affinity-based inference within a typed sample. Measured restriction follows the report’s monoallelic-MS evidence tier. Untyped samples can qualify through panel prediction under the configured policy.
 
-## What do the additional proteins contribute?
+## Per-protein contributions
 
 The current expression objective uses the maximum measured p95 prevalence across selected proteins for each cancer, weighted by global mortality or incidence shares. This is a conservative union lower bound from marginal expression data; it is not patient overlap, clinical protection or preventable mortality. Removal losses are conditional on the final set and are not additive.
 
