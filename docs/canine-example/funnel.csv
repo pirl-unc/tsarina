@@ -1,0 +1,3 @@
+proteoform_key,name,raw_aa,specific_aa,specific_pieces,normal_ms_filtered_aa,normal_ms_filtered_pieces,ms_supported_aa,ms_supported_pieces,max_padded_aa,assembled_aa,assembled_pieces,MS_observed_peptides,MS_observations,peptide_DLA_pairs
+a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e,DOG_CTA1,16,16,1,8,1,8,1,8,8,1,1,1,1
+db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667,DOG_CTA2,16,16,1,16,1,16,1,9,9,1,2,2,2

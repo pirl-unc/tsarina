@@ -8,6 +8,9 @@ The [real-data validation](vaccine-validation.md) includes strict/loose selected
 proteoforms, per-cancer incidence/mortality/p95 tables, retention figures,
 sequence files and unresolved junction predictions.
 
+See: [Canine evidence and DLA design](canine-vaccine.md) for frozen dog inputs,
+independent-dog prevalence and explicit DLA genotype coverage.
+
 ```sh
 python -m venv .venv-vaccine
 . .venv-vaccine/bin/activate

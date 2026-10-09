@@ -184,3 +184,7 @@
 - Do not call pan-allele predictions untrustworthy solely because direct training
   data are absent, or treat different percentile calibrations as proof of
   biological specificity. Separate encoding, training evidence, and validation.
+- Publishing an offline scientific report through a documentation builder must
+  preserve every downloaded artifact byte-for-byte, including Markdown. Verify
+  the full manifest against the built and live site; rendering the main HTML
+  page alone does not prove that its downloads or replay hashes survive.

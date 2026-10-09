@@ -1,0 +1,4 @@
+pair_id,tumor_donor,genotype_donor,pairing,weight,unsupported_alleles,genotype_unassessed,qualified_targets_lower,qualified_targets_upper,expression_targets_lower,expression_targets_upper
+pair1,dog1,dog1,observed,0.26666666666666666,DLA-88*003:02,True,1,1,1,1
+pair2,dog2,dog2,observed,0.26666666666666666,,False,1,1,1,1
+pair3,dog3,dog3,observed,0.26666666666666666,DLA-88*003:02,True,0,1,0,1

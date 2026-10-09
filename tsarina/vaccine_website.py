@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+import html
 import json
 import shutil
 from collections import Counter
@@ -41,7 +42,10 @@ def load_saved_report(path):
             raise ValueError(f"Artifact escapes report directory: {name}")
         if not artifact.is_file() or sha256(artifact.read_bytes()).hexdigest() != digest:
             raise ValueError(f"Saved report artifact failed verification: {name}")
-    for key in FRAME_KEYS:
+    frame_keys = (
+        ("ranking", "ligands", "funnel") if result.get("species") == "canine" else FRAME_KEYS
+    )
+    for key in frame_keys:
         result[key] = pd.DataFrame(result[key])
     result["source_tables"] = {
         key: pd.DataFrame(value) for key, value in result["source_tables"].items()
@@ -52,6 +56,36 @@ def load_saved_report(path):
 def render_saved_reports(reports, output_dir, *, analysis_date=None):
     """Render any named collection of completed reports without model execution."""
     results = {name: load_saved_report(path) for name, path in reports.items()}
+    if any(r.get("species") == "canine" for r in results.values()):
+        if not all(r.get("species") == "canine" for r in results.values()):
+            raise ValueError("Human and canine coverage units cannot be pooled in one comparison")
+        if analysis_date is not None:
+            raise ValueError(
+                "Canine reports retain their frozen source versions; analysis-date is a human report option"
+            )
+        out = Path(output_dir)
+        if out.exists() and any(out.iterdir()):
+            raise ValueError("Output directory already contains files")
+        out.mkdir(parents=True, exist_ok=True)
+        links = []
+        for name, result in results.items():
+            source = Path(reports[name])
+            source = source if source.is_dir() else source.parent
+            folder = sha256(name.encode()).hexdigest()[:12] if len(results) > 1 else ""
+            destination = out / folder
+            destination.mkdir(parents=True, exist_ok=True)
+            for filename in [*result["artifact_sha256"], "manifest.json"]:
+                target = destination / filename
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source / filename, target)
+            links.append(f'<li><a href="{folder}/index.html">{html.escape(name)}</a></li>')
+        if len(results) > 1:
+            (out / "index.html").write_text(
+                '<!doctype html><html lang="en"><meta charset="utf-8"><title>Canine cancer-antigen reports</title><h1>Canine cancer-antigen reports</h1><p>Each report retains its own tissue policy, cohort and genotype frame.</p><ul>'
+                + "".join(links)
+                + "</ul></html>"
+            )
+        return out / "index.html"
     return write_vaccine_website(results, output_dir, reports=reports, analysis_date=analysis_date)
 
 

@@ -1,3 +1,43 @@
+# Canine frozen-input migration (2026-10-08)
+
+Spec: [canine-vaccine-spec.md](canine-vaccine-spec.md). Issue: #208.
+
+- [x] Audit Canvax, scientific sources and existing upstream issues.
+- [x] Create a feature branch and record the input/scientific policy.
+- [x] Implement species-scoped import, dog prevalence and DLA paired coverage.
+- [x] Reuse native filtering/assembly with explicit exploratory capability gates.
+- [x] Add CLI, sourced reports/docs and offline acceptance fixture.
+- [x] Run format/lint/full tests, docs build and review human regressions.
+- [ ] Bump version, pass PR CI, merge and deploy clean main to PyPI.
+- [ ] Verify artifacts and record upstream follow-up priorities.
+
+Plan check-in: independent dogs replace p95/sample-count assumptions; explicit
+DLA genotypes replace human allele-frequency coverage. Frozen reviewed inputs
+allow the RNA table to ship independently of unvalidated DLA models. No claim
+that the current Canvax real-data inventory is an admitted canine target list.
+
+Publication plan correction: MkDocs converts report.md to HTML, breaking the
+saved artifact download/hash contract. Preserve all verified saved-report
+artifacts after rendering; reject drift or paths outside the report directory.
+Add regression checks and verify every built/published artifact byte-for-byte.
+
+Review: format/lint and strict MkDocs passed. The full suite with real human
+models passed 718 tests, no skips, 19 warnings and 85% coverage. The first cold
+Matplotlib run had four font-discovery failures; the current 3.11.2 reproduction
+is recorded on existing upstream matplotlib#32328. A successfully generated
+explicit font cache allowed the complete suite to run without library patches.
+The synthetic canine example assembles two exact protein groups, two pieces,
+three distinct MS peptides (one monoallelic, two inferred), three observations
+and three peptide–DLA pairs in 18 aa / 63 nt. Adult-heart identical-protein and
+healthy-MS exclusions, independent-dog denominators, missing/unsupported genotype
+mass, strict reference checks and human regressions are covered. Figures have
+been visually reviewed; the report and guide were inspected in Chrome. All 34
+built artifacts match the manifest and 131 internal links resolve. No real canine target list, clinical coverage or model
+validation is claimed. Version 1.35.0 is prepared; publication evidence will
+be recorded on the PR. Remaining human positive-MS and assembled-background
+bugs are filed as #209/#210; the canine route enforces the reviewed source MS
+decision and final-product background scan.
+
 # Plain-language documentation and linked navigation (2026-10-08)
 
 Replace the homepage's "Start with your outcome" and "Continue to" copy with

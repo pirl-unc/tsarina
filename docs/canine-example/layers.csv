@@ -1,0 +1,4 @@
+kind,start_aa,end_aa,sequence,segment_id,proteoform_key,name,native_start,native_end,n_padding,c_padding
+start_methionine,0,1,M,,,,,,,
+cta_segment,1,9,ACDEFGHI,a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e:0-8,a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e,DOG_CTA1,0.0,8.0,0.0,0.0
+cta_segment,9,18,TVWYHGFED,db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667:0-16,db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667,DOG_CTA2,0.0,9.0,0.0,0.0

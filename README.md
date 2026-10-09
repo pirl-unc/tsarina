@@ -94,6 +94,8 @@ and thymus are treated as safety evidence.
   tiers, HLA panels, and coverage
 - [CTA vaccine design](docs/vaccine-design.md) — mortality-weighted p95 selection,
   strict/loose specificity, MS-supported stretches, construct search and full audit
+- [Canine evidence and DLA design](docs/canine-vaccine.md) — frozen dog inputs,
+  independent-dog RNA prevalence, exact MS support and exploratory DLA constructs
 - [Data and evidence](docs/data-and-evidence.md) — data registry, observation
   classification, scoring, and naming
 - [CTA ownership and downstream evidence](docs/curation.md) — oncoref/Tsarina

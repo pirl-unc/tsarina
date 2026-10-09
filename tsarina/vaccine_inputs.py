@@ -69,6 +69,7 @@ class VaccineInputs:
     ms_hits: pd.DataFrame | None = None
     provenance: dict = field(default_factory=dict)
     source_tables: dict[str, pd.DataFrame] = field(default_factory=dict)
+    canine_evidence: dict | None = None
 
 
 def require_current_hitlist():

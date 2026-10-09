@@ -47,6 +47,27 @@ def design_vaccine(
 
     config = config or VaccineConfig()
     config.validate()
+    if config.species == "canine":
+        if inputs is None or inputs.canine_evidence is None:
+            raise ValueError("Canine design requires a frozen canine input bundle")
+        if cohorts is not None or auto_fetch:
+            raise ValueError(
+                "Canine design uses the frozen bundle, not human cohort/download defaults"
+            )
+        from .vaccine_canine import design_canine_vaccine
+
+        return design_canine_vaccine(
+            config,
+            inputs,
+            output_dir=output_dir,
+            on_progress=on_progress,
+            affinity_fn=affinity_fn,
+            cleavage_fn=cleavage_fn,
+        )
+    if inputs is not None and (
+        inputs.canine_evidence is not None or inputs.provenance.get("taxon") == 9615
+    ):
+        raise ValueError("Canine inputs require species='canine'")
     if output_dir is not None:
         from pathlib import Path
 
