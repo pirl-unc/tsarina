@@ -12,6 +12,67 @@ mortality priors. It implements the offline migration in
 list or validated vaccine is supplied.** The runnable example uses invented
 proteins, dogs, evidence and affinity values to demonstrate the contracts.
 
+## Species names
+
+`--species dog`, `--species 'Canis familiaris'`,
+`--species 'Canis lupus familiaris'` and `--species canis_lupus_familiaris`
+resolve through PyEnsembl >=2.17.1's species registry to the same domestic-dog policy.
+`--species canine` remains the original policy label. Python `VaccineConfig`
+objects use the same resolver; saved configurations retain `species: canine`.
+Human scientific names such as `Homo sapiens` are also accepted.
+
+Unknown names such as `canis lupis` are rejected with the accepted dog names in
+the error. Bare `Canis lupus`, wolf and other species do not select the domestic
+dog policy. [NCBI taxon 9615](https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=9615)
+identifies the dog subspecies; the bundle must still supply that taxon and the
+exact assembly/annotation identity. A name alias does not select a new genome.
+MHC nomenclature prefixes remain separate; the domestic-dog lookup gap is
+tracked in [MHCgnomes #202](https://github.com/pirl-unc/mhcgnomes/issues/202).
+
+## Where the canine CTA set is defined
+
+There is **no built-in biological dog CTA catalogue**. The set comes from the
+reviewed input bundle, with three distinct steps:
+
+1. Each entry in `occurrences` declares `restriction_status`,
+   `restriction_reason` and `normal_assessment` for a complete translated source
+   occurrence. The bundle's `restriction_policy` names its allowed tissues,
+   somatic TPM threshold and versioned normal-evidence source. Upstream curation
+   supplies these decisions; Tsarina does not discover restriction from gene
+   names, human orthology or a testis-only screen.
+2. `canine_prevalence` groups identical complete sequences. A group is admitted
+   only if every occurrence is admitted with assessed normal evidence. Any
+   rejected occurrence rejects the group; otherwise an unknown occurrence keeps
+   it unknown. Supplied healthy-primary somatic RNA outside the allowed tissue
+   scope can reject the group or make its assessment unknown. The full decisions
+   and source occurrences remain in `ranking.csv` and `occurrences.csv`.
+3. Design eligibility additionally requires confirmed tumor prevalence above
+   zero. Native specificity, healthy-MS exclusions, exact MS/DLA support and
+   construct-length gates determine which eligible proteins contribute segments.
+   An admitted CTA is not automatically retained in the vaccine.
+
+The example has three invented sequence groups: `DOG_CTA1` and `DOG_CTA2` are
+admitted and contribute segments; `DOG_CTA3` is rejected because an independent
+adult-heart source encodes its identical protein. Its synthetic strict policy
+allows **testis and placenta**. These are fixture settings, not a recommended
+canine tissue policy or a real target list.
+
+| Definition step | Human mode | Canine mode |
+| --- | --- | --- |
+| CTA membership | OncoRef `cta_gene_ids()` / `cta_extended_gene_ids()`, based on its curated human RNA/protein restriction rules and exceptions | Reviewed per-occurrence admission in the supplied frozen bundle; no bundled canine discovery catalogue |
+| Normal-expression sources | OncoRef human tissue evidence, including HPA | Explicit versioned canine normal-assessment source and supplied sequence-group RNA bounds; human HPA does not supply canine admission |
+| Strict/loose tissue scope | Strict: testis, ovary, placenta. Loose adds cervix, endometrium, epididymis, fallopian tube, prostate, seminal vesicle and vagina | Each bundle declares its allowed tissues and thresholds; labels do not inherit the human scopes |
+| Tumor ranking | Mortality-weighted within-sample p95 prevalence in human cancer cohorts | Absolute TPM prevalence bounds in independent dogs from one named untreated primary-tumor cohort |
+| Protein/segment checks | Exact-sequence grouping, non-CTA background and MS-supported native stretches | The same native-sequence workflow, with all canine source occurrences and explicit canine MS/DLA policy |
+
+The design stages parallel the human workflow. The upstream biological discovery
+criteria and expression datasets are separate. Canvax's current reference and
+expression inventories have not yet produced an admitted real canine
+sequence-level CTA/cohort-prevalence bundle. [Hitlist #661](https://github.com/pirl-unc/hitlist/issues/661)
+tracks the species evidence export and [OncoRef #571](https://github.com/pirl-unc/oncoref/issues/571)
+the reusable reference identity primitive; neither provides a biological dog CTA
+list merely by exposing an API. See: [human CTA definitions](vaccine-design.md#definitions-and-the-native-sequence-funnel).
+
 ## [Offline example](canine-example/index.html)
 
 Install `tsarina[vaccine]`. From a Tsarina checkout:

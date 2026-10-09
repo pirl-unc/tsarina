@@ -188,3 +188,9 @@
   preserve every downloaded artifact byte-for-byte, including Markdown. Verify
   the full manifest against the built and live site; rendering the main HTML
   page alone does not prove that its downloads or replay hashes survive.
+- Species CLI options should resolve common and scientific names through an
+  upstream registry before choosing species-specific defaults. Do not copy
+  synonym lists or infer a reference taxon from broad MHC-family predicates.
+- Distinguish a species-scoped design pipeline from a curated biological CTA
+  catalogue. State who supplies candidate admission, which data and tissue policy
+  define it, and whether the published example uses real or synthetic proteins.
