@@ -1,3 +1,39 @@
+# Vaccine species aliases and canine CTA provenance (2026-10-09)
+
+Resolve common/scientific species names through PyEnsembl's species registry.
+Retain the existing human/canine policy labels; normalize accepted aliases before
+CLI default selection and in frozen VaccineConfig construction. Accept domestic
+dog synonyms already registered upstream, without copying a local synonym list.
+Reject unknown/misspelled names and unsupported species; a wolf/genus label
+cannot override the canine bundle's taxon 9615 or assembly identity. File the
+MHCgnomes domestic-dog resolution gap rather than inheriting its coarse is_dog
+predicate. Clarify where canine CTA admission is defined, how it differs from
+human OncoRef CTA discovery, and which current example proteins are synthetic.
+
+- [x] Reproduce CLI rejection and audit both upstream species registries.
+- [x] Create a feature branch; record the policy and user correction.
+- [x] File the consumer alias bug and upstream domestic-dog resolution gap.
+- [x] Add shared normalization for CLI/Python config and update CTA docs.
+- [x] Verify accepted names end-to-end, rejection cases and human regressions.
+- [x] Run format/lint/full tests and strict docs; bump version on the branch.
+- [ ] Pass PR CI, merge, deploy PyPI and verify published docs/artifacts.
+- [ ] Record release evidence and dependency-ordered next work on the PR.
+
+Plan check-in: use PyEnsembl for domestic-dog name identity, preserve the existing
+canine policy identifier, and leave scientific selection/results unchanged.
+The dog CTA set is reviewed input admission, not a built-in OncoRef-like dog
+discovery catalogue; document this explicitly rather than implying parity.
+
+Issues: Tsarina #213 and pirl-unc/mhcgnomes#202. PyEnsembl's dog scientific-name
+rename support first shipped in 2.17.1 (upstream #407); the vaccine dependency
+floor now records that required contract. A downloaded published 2.17.1 wheel
+passed all 19 species-policy tests in isolation, without editing the shared
+environment. The current 2.27.0 registry also passes. The full real-model suite
+passed 742 tests with no skips, 19 warnings and 85% coverage. Format/lint and
+strict MkDocs passed. The old canine scientific example and all its hashes are
+unchanged; aliases canonicalize the config before policy defaults are chosen.
+Version 1.35.1 is prepared; final release/Pages evidence will be posted on the PR.
+
 # Canine frozen-input migration (2026-10-08)
 
 Spec: [canine-vaccine-spec.md](canine-vaccine-spec.md). Issue: #208.

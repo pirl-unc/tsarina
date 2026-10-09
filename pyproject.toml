@@ -43,7 +43,7 @@ dependencies = [
 vaccine = [
     "hitlist>=1.65.1",  # donor-resolved Atlas tissue blacklist API
     "oncoref>=1.8.207",
-    "pyensembl",
+    "pyensembl>=2.17.1",  # dog scientific-name aliases across Ensembl's rename
     "matplotlib",
     "mhcflurry>=2.3.0",
     "mhctools>=3.47.0",
@@ -66,7 +66,7 @@ all = [
     "matplotlib",
 ]
 dev = [
-    "pyensembl",
+    "pyensembl>=2.17.1",  # exercise the vaccine species-name contract
     "matplotlib",
     "biopython",
     "pytest",

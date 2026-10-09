@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 
 from .peptides import AA20
 from .vaccine_sequences import assemble_layers, junction_windows
+from .vaccine_species import resolve_vaccine_species
 
 
 class NoFeasibleConstruct(ValueError):
@@ -51,6 +52,9 @@ class VaccineConfig:
     species: str = "human"
     canine_cohort: str | None = None
     allow_exploratory_dla: bool = False
+
+    def __post_init__(self):
+        object.__setattr__(self, "species", resolve_vaccine_species(self.species))
 
     @classmethod
     def for_canine(cls, cohort, **kwargs):

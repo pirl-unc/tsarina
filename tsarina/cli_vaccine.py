@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import json
 import sys
+from argparse import ArgumentTypeError
 from dataclasses import replace
 from pathlib import Path
 
 from .alleles import panel_names
 from .vaccine_construct import VaccineConfig
+from .vaccine_species import resolve_vaccine_species
+
+
+def _species_argument(value):
+    try:
+        return resolve_vaccine_species(value)
+    except (ValueError, ImportError) as error:
+        raise ArgumentTypeError(str(error)) from error
 
 
 def build_parser(sub):
@@ -16,7 +25,13 @@ def build_parser(sub):
         "vaccine", help="Design a CTA vaccine antigen from human or frozen canine evidence"
     )
     p.add_argument("-o", "--output-dir", required=True)
-    p.add_argument("--species", choices=["human", "canine"], default="human")
+    p.add_argument(
+        "--species",
+        type=_species_argument,
+        default="human",
+        metavar="SPECIES",
+        help="Human or domestic dog; PyEnsembl common/scientific names accepted (e.g. dog, 'Canis lupus familiaris'). The canine policy label is retained.",
+    )
     p.add_argument("--input-bundle", type=Path, help="Versioned frozen canine evidence JSON")
     p.add_argument(
         "--canine-cohort", help="Named untreated primary-tumor cohort in the canine bundle"

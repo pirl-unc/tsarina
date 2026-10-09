@@ -246,7 +246,18 @@ def test_entire_product_background_audit_includes_added_methionine(tmp_path):
     ]
 
 
-def test_cli_defaults_route_frozen_bundle(tmp_path, capsys, monkeypatch):
+@pytest.mark.parametrize(
+    "species",
+    [
+        "canine",
+        "dog",
+        "Dog",
+        "Canis familiaris",
+        "Canis lupus familiaris",
+        "canis_lupus_familiaris",
+    ],
+)
+def test_cli_defaults_route_frozen_bundle(tmp_path, capsys, monkeypatch, species):
     import sys
 
     from tsarina.cli import main
@@ -258,7 +269,7 @@ def test_cli_defaults_route_frozen_bundle(tmp_path, capsys, monkeypatch):
             "tsarina",
             "vaccine",
             "--species",
-            "canine",
+            species,
             "--input-bundle",
             str(FIXTURE),
             "--canine-cohort",
@@ -281,6 +292,9 @@ def test_cli_defaults_route_frozen_bundle(tmp_path, capsys, monkeypatch):
     manifest = json.loads((tmp_path / "cli" / "manifest.json").read_text())
     assert manifest["config"]["codon_species"] == "generic"
     assert manifest["config"]["panel"] == "bundle"
+    assert manifest["config"]["species"] == "canine"
+    assert manifest["counts"]["assembled_proteins"] == 2
+    assert manifest["counts"]["MS_observed_peptides"] == 3
 
 
 def test_verified_saved_canine_report_and_tamper_rejection(tmp_path):
