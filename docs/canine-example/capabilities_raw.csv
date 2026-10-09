@@ -1,0 +1,4 @@
+allele,tier,reason,model,version,validation_source,weights_sha256,sequence_sha256,lengths
+DLA-88*001:01,sequence_extrapolated,synthetic capability only,synthetic-affinity,v1,synthetic fixture; no empirical validation,42d789bffbaaa76e74e39e1af2a177443669b21da1e0d0ebefded6534e25678c,5f89da009f474a4cf760fa3318539f009f9011641177114a9dd5ed31695c9f1e,"[8, 9]"
+DLA-88*501:01,sequence_extrapolated,synthetic capability only,synthetic-affinity,v1,synthetic fixture; no empirical validation,42d789bffbaaa76e74e39e1af2a177443669b21da1e0d0ebefded6534e25678c,52bbf08a8ca6a652d4f8471b59fe643a03e7a609157e87c46a844d00a6f67224,"[8, 9]"
+DLA-88*003:02,unsupported,synthetic unsupported allele,,,,,,[]

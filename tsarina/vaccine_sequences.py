@@ -79,7 +79,7 @@ class Segment:
         return self.protein_sequence[start:end]
 
 
-def supported_segments(selected, intervals, support):
+def supported_segments(selected, intervals, support, score_column="mortality_weighted_score"):
     """Retain native pieces with qualifying MS support; preserve all occurrences."""
     segments, ligands = [], []
     for protein in selected.itertuples(index=False):
@@ -97,7 +97,7 @@ def supported_segments(selected, intervals, support):
                     protein.proteoform_key,
                     protein.name,
                     int(protein.rank),
-                    float(protein.mortality_weighted_score),
+                    float(getattr(protein, score_column)),
                     protein.sequence,
                     start,
                     end,

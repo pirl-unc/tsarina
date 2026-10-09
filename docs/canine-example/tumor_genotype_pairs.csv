@@ -1,0 +1,4 @@
+pair_id,tumor_donor,genotype_donor,cohort,breed,source_id,pairing,alleles,weight
+pair1,dog1,dog1,osteosarcoma,synthetic mixed breed,synthetic,observed,"['DLA-88*001:01', 'DLA-88*501:01', 'DLA-88*003:02']",1
+pair2,dog2,dog2,osteosarcoma,synthetic mixed breed,synthetic,observed,['DLA-88*501:01'],1
+pair3,dog3,dog3,osteosarcoma,synthetic mixed breed,synthetic,observed,['DLA-88*003:02'],1

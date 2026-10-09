@@ -12,8 +12,20 @@ from .vaccine_construct import VaccineConfig
 
 
 def build_parser(sub):
-    p = sub.add_parser("vaccine", help="Design a mortality-prioritized CTA vaccine antigen")
+    p = sub.add_parser(
+        "vaccine", help="Design a CTA vaccine antigen from human or frozen canine evidence"
+    )
     p.add_argument("-o", "--output-dir", required=True)
+    p.add_argument("--species", choices=["human", "canine"], default="human")
+    p.add_argument("--input-bundle", type=Path, help="Versioned frozen canine evidence JSON")
+    p.add_argument(
+        "--canine-cohort", help="Named untreated primary-tumor cohort in the canine bundle"
+    )
+    p.add_argument(
+        "--allow-exploratory-dla",
+        action="store_true",
+        help="Permit sequence-extrapolated DLA affinity evidence; final assessment remains unassessed",
+    )
     p.add_argument("-k", "--top-k", type=int, default=10)
     p.add_argument(
         "--selection-mode",
@@ -36,14 +48,14 @@ def build_parser(sub):
     p.add_argument(
         "--ms-support-mode",
         choices=["presentation", "sample-affinity"],
-        default="presentation",
+        default=None,
         help="Presentation tier cutoffs, or affinity to any typed sample allele",
     )
     p.add_argument("--ms-affinity-nm", type=float, default=1000)
     p.add_argument(
         "--normal-ms-policy",
         choices=["audit", "exclude"],
-        default="audit",
+        default=None,
         help="Audit normal MS overlaps, or subtract 8-mers from healthy primary MS outside the CTA tissue scope",
     )
     p.add_argument(
@@ -63,9 +75,11 @@ def build_parser(sub):
         help="In sample-affinity mode, permit untyped MS with predicted panel binding",
     )
     p.add_argument("--cta-definition", choices=["strict", "loose", "both"], default="strict")
-    p.add_argument("--panel", choices=panel_names(), default="global54_abc")
+    p.add_argument("--panel", choices=[*panel_names(), "bundle"], default=None)
     p.add_argument(
-        "--alleles", "--hla", help="Comma-separated exact HLA-A/B/C alleles; overrides panel"
+        "--alleles",
+        "--hla",
+        help="Comma-separated exact HLA-A/B/C or canine DLA-I alleles; overrides panel",
     )
     p.add_argument(
         "--cancer-cohorts",
@@ -81,7 +95,7 @@ def build_parser(sub):
     )
     p.add_argument("--lengths", default="8,9,10,11", help="Class-I ligand lengths")
     p.add_argument(
-        "--predictor", choices=["mhcflurry", "netmhcpan", "netmhcpan_el"], default="mhcflurry"
+        "--predictor", choices=["mhcflurry", "netmhcpan", "netmhcpan_el", "frozen"], default=None
     )
     p.add_argument("--junction-affinity-nm", type=float, default=1000)
     p.add_argument(
@@ -106,33 +120,56 @@ def build_parser(sub):
         type=int,
         help="Total nt including UTRs, stop and polyA",
     )
-    p.add_argument("--codon-species", default="h_sapiens")
+    p.add_argument(
+        "--codon-species",
+        help="Coding table: human defaults to h_sapiens; canine defaults to generic (unoptimized)",
+    )
 
 
 def handle(args):
     from .vaccine import design_vaccine
 
     try:
+        canine = args.species == "canine"
+        if canine != bool(args.input_bundle):
+            raise ValueError("--species canine and --input-bundle must be specified together")
+        if canine and args.cta_definition == "both":
+            raise ValueError("Canine strict/loose runs require separate frozen policy bundles")
+        if canine and args.panel not in {None, "bundle"}:
+            raise ValueError("Human named HLA panels cannot be used for canine design")
+        if canine and args.predictor not in {None, "frozen"}:
+            raise ValueError("Canine CLI requires frozen affinity predictions")
+        if not canine and args.predictor == "frozen":
+            raise ValueError("Frozen affinity input is a canine policy option")
+        if not canine and (
+            args.canine_cohort or args.allow_exploratory_dla or args.panel == "bundle"
+        ):
+            raise ValueError("Canine cohort/policy options require --species canine")
         config = VaccineConfig(
+            species=args.species,
+            canine_cohort=args.canine_cohort,
+            allow_exploratory_dla=args.allow_exploratory_dla,
             top_k=args.top_k,
             selection_mode=args.selection_mode,
             exclude_gene_patterns=tuple(args.exclude_gene_pattern),
             allow_genes=tuple(args.allow_gene),
-            ms_support_mode=args.ms_support_mode.replace("-", "_"),
+            ms_support_mode=(
+                args.ms_support_mode or ("sample-affinity" if canine else "presentation")
+            ).replace("-", "_"),
             ms_affinity_nm=args.ms_affinity_nm,
             allow_untyped_ms=args.allow_untyped_ms,
-            normal_ms_policy=args.normal_ms_policy,
+            normal_ms_policy=args.normal_ms_policy or ("exclude" if canine else "audit"),
             normal_ms_atlas_dir=str(args.normal_ms_atlas_dir) if args.normal_ms_atlas_dir else None,
             normal_ms_min_donors=args.normal_ms_min_donors,
             definition="strict" if args.cta_definition == "both" else args.cta_definition,
-            panel=args.panel,
+            panel=args.panel or ("bundle" if canine else "global54_abc"),
             alleles=tuple(a.strip() for a in args.alleles.split(",")) if args.alleles else None,
             ensembl_release=args.ensembl_release,
             min_padding=args.min_padding,
             max_padding=args.max_padding,
             padding_step=args.padding_step,
             lengths=tuple(map(int, args.lengths.split(","))),
-            predictor=args.predictor,
+            predictor=args.predictor or ("frozen" if canine else "mhcflurry"),
             junction_affinity_nm=args.junction_affinity_nm,
             linkers=tuple(dict.fromkeys(["", *args.linkers.split(",")])),
             beam_width=args.beam_width,
@@ -145,10 +182,15 @@ def handle(args):
             poly_a_length=args.poly_a_length,
             max_length_aa=args.max_length_aa,
             max_length_nt=args.max_length_nt,
-            codon_species=args.codon_species,
+            codon_species=args.codon_species or ("generic" if canine else "h_sapiens"),
         )
         config.validate()
         cohorts = json.loads(args.cancer_cohorts.read_text()) if args.cancer_cohorts else None
+        inputs = None
+        if canine:
+            from .canine_inputs import load_canine_vaccine_inputs
+
+            inputs = load_canine_vaccine_inputs(args.input_bundle)
         definitions = ["strict", "loose"] if args.cta_definition == "both" else [config.definition]
         failed = False
         reports = {}
@@ -161,6 +203,7 @@ def handle(args):
             try:
                 result = design_vaccine(
                     replace(config, definition=definition),
+                    inputs=inputs,
                     cohorts=cohorts,
                     auto_fetch=args.auto_fetch,
                     output_dir=out,
@@ -172,9 +215,18 @@ def handle(args):
                 continue
             design = result["design"]
             reports[definition] = out
-            print(
-                f"{definition}: {design['length_aa']} aa, {design['length_nt']} nt; audit: {out / 'report.md'}"
-            )
+            if canine and result["status"] in {
+                "insufficient_supported_targets",
+                "rejected_background_overlap",
+            }:
+                failed = True
+            if design:
+                status = f"; status: {result['status']}" if canine else ""
+                print(
+                    f"{definition}: {design['length_aa']} aa, {design['length_nt']} nt{status}; audit: {out / 'report.md'}"
+                )
+            else:
+                print(f"{definition}: {result['status']}; evidence: {out / 'report.md'}")
         if len(reports) > 1:
             from .vaccine_website import render_saved_reports
 

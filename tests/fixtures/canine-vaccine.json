@@ -1,0 +1,2494 @@
+{
+  "schema": "tsarina.canine.v1",
+  "taxon": 9615,
+  "reference": {
+    "taxon": 9615,
+    "assembly_accession": "SYNTHETIC-DOG-1",
+    "annotation_release": "synthetic-v1",
+    "source_version": "synthetic-offline-v1",
+    "asset_hashes": {
+      "assembly": "ec90e625a69c21e86b9f8e065d1fc4b47feb1651b7654b5445b9a21bda337832",
+      "annotation": "e9694f27e0aa49192674b27365eede690f3c5af8e312eca129713c9f03c4b151"
+    }
+  },
+  "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+  "background_complete": true,
+  "sources": {
+    "synthetic": {
+      "url": "https://github.com/pirl-unc/tsarina/blob/main/tests/fixtures/canine-vaccine.json",
+      "version": "synthetic-offline-v1",
+      "license": "Apache-2.0",
+      "sha256": "9e12300be0dc926273fe72a24b00881e245b837f9a71f466fe09d1bff8f5e186"
+    }
+  },
+  "restriction_policy": {
+    "name": "synthetic reproductive-restriction policy",
+    "version": "v1",
+    "normal_assessment_source": "synthetic",
+    "allowed_tissues": [
+      "testis",
+      "placenta"
+    ],
+    "definition": "strict",
+    "somatic_tpm_threshold": 1
+  },
+  "expression_policy": {
+    "threshold": 5,
+    "unit": "TPM"
+  },
+  "cohorts": {
+    "osteosarcoma": {
+      "histology": "osteosarcoma",
+      "description": "Synthetic independent-dog fixture; not canine prevalence evidence",
+      "population": "three invented dogs; repeated biopsies plus unresolved donor",
+      "quantification": "sequence-group disjoint TPM bounds"
+    }
+  },
+  "occurrences": [
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "occurrence_id": "cta1",
+      "gene_id": "g1",
+      "gene_symbol": "DOG_CTA1",
+      "transcript_id": "t1",
+      "protein_id": "p1",
+      "sequence": "ACDEFGHIKLMNPQRS",
+      "sequence_id": "a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e",
+      "complete": true,
+      "restriction_status": "admitted",
+      "restriction_reason": "synthetic reviewed reproductive restriction",
+      "normal_assessment": "assessed"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "occurrence_id": "cta2",
+      "gene_id": "g2",
+      "gene_symbol": "DOG_CTA2",
+      "transcript_id": "t2",
+      "protein_id": "p2",
+      "sequence": "TVWYHGFEDCAKLMNP",
+      "sequence_id": "db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667",
+      "complete": true,
+      "restriction_status": "admitted",
+      "restriction_reason": "synthetic reviewed reproductive restriction",
+      "normal_assessment": "assessed"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "occurrence_id": "cta3",
+      "gene_id": "g3",
+      "gene_symbol": "DOG_CTA3",
+      "transcript_id": "t3",
+      "protein_id": "p3",
+      "sequence": "RSTVYQANEFGCLHPK",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "complete": true,
+      "restriction_status": "admitted",
+      "restriction_reason": "synthetic reviewed reproductive restriction",
+      "normal_assessment": "assessed"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "occurrence_id": "heart_alias",
+      "gene_id": "g4",
+      "gene_symbol": "DOG_CTA3",
+      "transcript_id": "t4",
+      "protein_id": "p4",
+      "sequence": "RSTVYQANEFGCLHPK",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "complete": true,
+      "restriction_status": "rejected",
+      "restriction_reason": "independent adult-heart coding occurrence",
+      "normal_assessment": "assessed"
+    }
+  ],
+  "samples": [
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy1",
+      "donor": "dog1",
+      "study": "synthetic-study",
+      "specimen": "primary_tumor",
+      "preparation": "bulk",
+      "health": "tumor",
+      "histology": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "treatment": "untreated",
+      "pooling": "none",
+      "qc": "pass",
+      "quantification": "sequence-group disjoint TPM bounds",
+      "unit": "TPM",
+      "cohort": "osteosarcoma",
+      "tissue": "bone"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy2",
+      "donor": "dog1",
+      "study": "synthetic-study",
+      "specimen": "primary_tumor",
+      "preparation": "bulk",
+      "health": "tumor",
+      "histology": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "treatment": "untreated",
+      "pooling": "none",
+      "qc": "pass",
+      "quantification": "sequence-group disjoint TPM bounds",
+      "unit": "TPM",
+      "cohort": "osteosarcoma",
+      "tissue": "bone"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy3",
+      "donor": "dog2",
+      "study": "synthetic-study",
+      "specimen": "primary_tumor",
+      "preparation": "bulk",
+      "health": "tumor",
+      "histology": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "treatment": "untreated",
+      "pooling": "none",
+      "qc": "pass",
+      "quantification": "sequence-group disjoint TPM bounds",
+      "unit": "TPM",
+      "cohort": "osteosarcoma",
+      "tissue": "bone"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy4",
+      "donor": "dog3",
+      "study": "synthetic-study",
+      "specimen": "primary_tumor",
+      "preparation": "bulk",
+      "health": "tumor",
+      "histology": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "treatment": "untreated",
+      "pooling": "none",
+      "qc": "pass",
+      "quantification": "sequence-group disjoint TPM bounds",
+      "unit": "TPM",
+      "cohort": "osteosarcoma",
+      "tissue": "bone"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "unknown-donor",
+      "donor": null,
+      "study": "synthetic-study",
+      "specimen": "primary_tumor",
+      "preparation": "bulk",
+      "health": "tumor",
+      "histology": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "treatment": "untreated",
+      "pooling": "none",
+      "qc": "pass",
+      "quantification": "sequence-group disjoint TPM bounds",
+      "unit": "TPM",
+      "cohort": "osteosarcoma",
+      "tissue": "bone"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "heart",
+      "donor": "healthy-dog",
+      "study": "synthetic-study",
+      "specimen": "primary_tissue",
+      "preparation": "bulk",
+      "health": "healthy",
+      "histology": "none",
+      "breed": "synthetic mixed breed",
+      "treatment": "untreated",
+      "pooling": "none",
+      "qc": "pass",
+      "quantification": "sequence-group disjoint TPM bounds",
+      "unit": "TPM",
+      "cohort": null,
+      "tissue": "heart"
+    }
+  ],
+  "rna_bounds": [
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy1",
+      "sequence_id": "a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy2",
+      "sequence_id": "a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy3",
+      "sequence_id": "a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e",
+      "lower": 0,
+      "upper": 0,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "unknown-donor",
+      "sequence_id": "a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e",
+      "lower": 0,
+      "upper": 0,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy1",
+      "sequence_id": "db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667",
+      "lower": 0,
+      "upper": 0,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy2",
+      "sequence_id": "db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667",
+      "lower": 0,
+      "upper": 0,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy3",
+      "sequence_id": "db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy4",
+      "sequence_id": "db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667",
+      "lower": 0,
+      "upper": 0,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "unknown-donor",
+      "sequence_id": "db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667",
+      "lower": 0,
+      "upper": 0,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy1",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy2",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy3",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "biopsy4",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "unknown-donor",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "sample_id": "heart",
+      "sequence_id": "7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761",
+      "lower": 12,
+      "upper": 12,
+      "allocation_provenance": "synthetic disjoint sequence-group transcript allocations; not real RNA"
+    }
+  ],
+  "ms_hits": [
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "mono1",
+      "peptide": "ACDEFGHI",
+      "assay_method": "mass spectrometry",
+      "qualitative_measurement": "Positive",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9606,
+      "host_species": "Homo sapiens",
+      "sample_kind": "transfected_cell_line",
+      "sample_health": "unknown",
+      "sample_tissue": "cell line",
+      "restriction_kind": "monoallelic",
+      "sample_alleles": [
+        "DLA-88*001:01"
+      ],
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9606,
+      "sample_id": "synthetic-ms-mono1",
+      "is_ms_observation": true,
+      "ms_admission_reason": "synthetic reviewed positive class-I MS detection",
+      "assay_response": "synthetic ligand elution detection"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "typed1",
+      "peptide": "TVWYHGFE",
+      "assay_method": "mass spectrometry",
+      "qualitative_measurement": "Positive",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9615,
+      "host_species": "Canis lupus familiaris",
+      "sample_kind": "primary_tumor",
+      "sample_health": "tumor",
+      "sample_tissue": "bone",
+      "restriction_kind": "sample_genotype",
+      "sample_alleles": [
+        "DLA-88*501:01"
+      ],
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9615,
+      "sample_id": "synthetic-ms-bone-sample",
+      "is_ms_observation": true,
+      "ms_admission_reason": "synthetic reviewed positive class-I MS detection",
+      "assay_response": "synthetic ligand elution detection"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "long1",
+      "peptide": "TVWYHGFED",
+      "assay_method": "mass spectrometry",
+      "qualitative_measurement": "Positive",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9615,
+      "host_species": "Canis lupus familiaris",
+      "sample_kind": "primary_tumor",
+      "sample_health": "tumor",
+      "sample_tissue": "bone",
+      "restriction_kind": "sample_genotype",
+      "sample_alleles": [
+        "DLA-88*501:01"
+      ],
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9615,
+      "sample_id": "synthetic-ms-bone-sample",
+      "is_ms_observation": true,
+      "ms_admission_reason": "synthetic reviewed positive class-I MS detection",
+      "assay_response": "synthetic ligand elution detection"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "heart-ms",
+      "peptide": "WWKLMNPQRSYY",
+      "assay_method": "mass spectrometry",
+      "qualitative_measurement": "Positive",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9615,
+      "host_species": "Canis lupus familiaris",
+      "sample_kind": "primary_tissue",
+      "sample_health": "healthy",
+      "sample_tissue": "heart",
+      "restriction_kind": "untyped",
+      "sample_alleles": [],
+      "verified_normal": true,
+      "normal_verification_source": "synthetic verified healthy-primary donor evidence",
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9615,
+      "sample_id": "synthetic-ms-heart-ms",
+      "is_ms_observation": true,
+      "ms_admission_reason": "synthetic reviewed positive class-I MS detection",
+      "assay_response": "synthetic ligand elution detection"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "binding",
+      "peptide": "ACDEFGHI",
+      "assay_method": "fluorescence binding assay",
+      "qualitative_measurement": "Positive",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9606,
+      "host_species": "Homo sapiens",
+      "sample_kind": "transfected_cell_line",
+      "sample_health": "unknown",
+      "sample_tissue": "cell line",
+      "restriction_kind": "monoallelic",
+      "sample_alleles": [
+        "DLA-88*001:01"
+      ],
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9606,
+      "sample_id": "synthetic-ms-binding",
+      "is_ms_observation": false,
+      "ms_admission_reason": "synthetic non-MS, negative or unresolved assay result",
+      "assay_response": "synthetic control or unknown response"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "negative",
+      "peptide": "TVWYHGFE",
+      "assay_method": "mass spectrometry",
+      "qualitative_measurement": "Negative",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9615,
+      "host_species": "Canis lupus familiaris",
+      "sample_kind": "primary_tumor",
+      "sample_health": "tumor",
+      "sample_tissue": "bone",
+      "restriction_kind": "sample_genotype",
+      "sample_alleles": [
+        "DLA-88*501:01"
+      ],
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9615,
+      "sample_id": "synthetic-ms-bone-sample",
+      "is_ms_observation": false,
+      "ms_admission_reason": "synthetic non-MS, negative or unresolved assay result",
+      "assay_response": "synthetic control or unknown response"
+    },
+    {
+      "reference_key": "3c57c3e384f0568d67ad1ce55826a3a4cbb12e6ef89d9faae1991b8a8d536f23",
+      "taxon": 9615,
+      "source_id": "synthetic",
+      "observation_id": "unknown-result",
+      "peptide": "TVWYHGFE",
+      "assay_method": "mass spectrometry",
+      "qualitative_measurement": "unknown",
+      "mhc_taxon": 9615,
+      "peptide_source_taxon": 9615,
+      "host_species": "Canis lupus familiaris",
+      "sample_kind": "primary_tumor",
+      "sample_health": "tumor",
+      "sample_tissue": "bone",
+      "restriction_kind": "sample_genotype",
+      "sample_alleles": [
+        "DLA-88*501:01"
+      ],
+      "assay_context": "MHC_ligand_elution",
+      "mhc_class": "I",
+      "host_taxon": 9615,
+      "sample_id": "synthetic-ms-bone-sample",
+      "is_ms_observation": false,
+      "ms_admission_reason": "synthetic non-MS, negative or unresolved assay result",
+      "assay_response": "synthetic control or unknown response"
+    }
+  ],
+  "capabilities": [
+    {
+      "allele": "DLA-88*001:01",
+      "tier": "sequence_extrapolated",
+      "reason": "synthetic capability only",
+      "model": "synthetic-affinity",
+      "version": "v1",
+      "validation_source": "synthetic fixture; no empirical validation",
+      "weights_sha256": "42d789bffbaaa76e74e39e1af2a177443669b21da1e0d0ebefded6534e25678c",
+      "sequence_sha256": "5f89da009f474a4cf760fa3318539f009f9011641177114a9dd5ed31695c9f1e",
+      "lengths": [
+        8,
+        9
+      ]
+    },
+    {
+      "allele": "DLA-88*501:01",
+      "tier": "sequence_extrapolated",
+      "reason": "synthetic capability only",
+      "model": "synthetic-affinity",
+      "version": "v1",
+      "validation_source": "synthetic fixture; no empirical validation",
+      "weights_sha256": "42d789bffbaaa76e74e39e1af2a177443669b21da1e0d0ebefded6534e25678c",
+      "sequence_sha256": "52bbf08a8ca6a652d4f8471b59fe643a03e7a609157e87c46a844d00a6f67224",
+      "lengths": [
+        8,
+        9
+      ]
+    },
+    {
+      "allele": "DLA-88*003:02",
+      "tier": "unsupported",
+      "reason": "synthetic unsupported allele",
+      "lengths": []
+    }
+  ],
+  "panel": [
+    "DLA-88*001:01",
+    "DLA-88*501:01",
+    "DLA-88*003:02"
+  ],
+  "predictions": [
+    {
+      "peptide": "AAYACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYACDEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYACDEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYTVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYTVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYTVWYHG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AAYTVWYHG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ACDEFGHI",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 100
+    },
+    {
+      "peptide": "ACDEFGHI",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 100
+    },
+    {
+      "peptide": "ACDEFGHIA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ACDEFGHIA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ACDEFGHIK",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ACDEFGHIK",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ACDEFGHIT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ACDEFGHIT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ANEFGCLH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ANEFGCLH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ANEFGCLHP",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ANEFGCLHP",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYACDEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYACDEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYTVWYHG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYTVWYHG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYTVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "AYTVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIK",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIK",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIKA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIKA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIKL",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIKL",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIKT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIKT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHIT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHITV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "CDEFGHITV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DAAYACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DAAYACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DAAYACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DAAYACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DACDEFGHI",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DACDEFGHI",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DCAKLMNP",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DCAKLMNP",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKL",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKL",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKLM",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKLM",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKTV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHIKTV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHITV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHITV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHITVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "DEFGHITVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EAAYACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EAAYACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EAAYACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EAAYACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EACDEFGHI",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EACDEFGHI",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDAAYACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDAAYACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDAAYACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDAAYACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDACDEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDACDEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDCAKLMN",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDCAKLMN",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDCAKLMNP",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EDCAKLMNP",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGCLHPK",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGCLHPK",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIAAYT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIAAYT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKLM",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKLM",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKLMN",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKLMN",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKTV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKTV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKTVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHIKTVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHITVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHITVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHITVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "EFGHITVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEAAYACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEAAYACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEAAYACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEAAYACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEACDEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEACDEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDAAYAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDAAYAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDAAYACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDAAYACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDACDEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDACDEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDCAKLM",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDCAKLM",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDCAKLMN",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FEDCAKLMN",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIAAYT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIAAYT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIAAYTV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIAAYTV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKAAYT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKAAYT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKLMN",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKLMN",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKLMNP",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKLMNP",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKTVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKTVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKTVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHIKTVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHITVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHITVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHITVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "FGHITVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEAAYAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEAAYAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEAAYACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEAAYACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEACDEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEACDEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDAAYA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDAAYA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDAAYAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDAAYAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDCAKL",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDCAKL",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDCAKLM",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GFEDCAKLM",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIAAYTV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIAAYTV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIAAYTVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIAAYTVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKAAYT",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKAAYT",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKAAYTV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKAAYTV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKLMNP",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKLMNP",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKLMNPQ",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKLMNPQ",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKTVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKTVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKTVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHIKTVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHITVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHITVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHITVWYHG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "GHITVWYHG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEAAYA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEAAYA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEAAYAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEAAYAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEACDEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEACDEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDAAYA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDAAYA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDCAK",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDCAK",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDCAKL",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HGFEDCAKL",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIAAYTVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIAAYTVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIAAYTVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIAAYTVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKAAYTV",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKAAYTV",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKAAYTVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKAAYTVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKLMNPQ",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKLMNPQ",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKLMNPQR",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKLMNPQR",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKTVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKTVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKTVWYHG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HIKTVWYHG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HITVWYHG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HITVWYHG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HITVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "HITVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IAAYTVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IAAYTVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IAAYTVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IAAYTVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKAAYTVW",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKAAYTVW",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKAAYTVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKAAYTVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKLMNPQR",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKLMNPQR",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKLMNPQRS",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKLMNPQRS",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKTVWYHG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKTVWYHG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKTVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "IKTVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ITVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ITVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ITVWYHGFE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "ITVWYHGFE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KAAYTVWY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KAAYTVWY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KAAYTVWYH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KAAYTVWYH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KLMNPQRS",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KLMNPQRS",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KTVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KTVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KTVWYHGFE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "KTVWYHGFE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MACDEFGHI",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MACDEFGHI",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MTVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MTVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MTVWYHGFE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "MTVWYHGFE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "NEFGCLHP",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "NEFGCLHP",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "NEFGCLHPK",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "NEFGCLHPK",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "QANEFGCL",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "QANEFGCL",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "QANEFGCLH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "QANEFGCLH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "RSTVYQAN",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "RSTVYQAN",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "RSTVYQANE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "RSTVYQANE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "STVYQANE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "STVYQANE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "STVYQANEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "STVYQANEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "TVWYHGFE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 100
+    },
+    {
+      "peptide": "TVWYHGFE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 100
+    },
+    {
+      "peptide": "TVWYHGFEA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "TVWYHGFEA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "TVWYHGFED",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 100
+    },
+    {
+      "peptide": "TVWYHGFED",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 100
+    },
+    {
+      "peptide": "TVYQANEF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "TVYQANEF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "TVYQANEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "TVYQANEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFED",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFED",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEDA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEDA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEDC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VWYHGFEDC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VYQANEFG",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VYQANEFG",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VYQANEFGC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "VYQANEFGC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDCA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "WYHGFEDCA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YACDEFGH",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YACDEFGH",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YACDEFGHI",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YACDEFGHI",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEAAYA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEAAYA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEACDE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEACDE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDAA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDAA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDAAY",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDAAY",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDAC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDAC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDACD",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDACD",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDCA",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDCA",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDCAK",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YHGFEDCAK",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YQANEFGC",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YQANEFGC",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YQANEFGCL",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YQANEFGCL",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YTVWYHGF",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YTVWYHGF",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YTVWYHGFE",
+      "allele": "DLA-88*001:01",
+      "affinity_nm": 10000
+    },
+    {
+      "peptide": "YTVWYHGFE",
+      "allele": "DLA-88*501:01",
+      "affinity_nm": 10000
+    }
+  ],
+  "genotype_population": {
+    "name": "synthetic cohort",
+    "description": "Three invented matched genotypes; not a breed or global population estimate",
+    "missing_mass": 0.2,
+    "cohort": "osteosarcoma"
+  },
+  "tumor_genotype_pairs": [
+    {
+      "pair_id": "pair1",
+      "tumor_donor": "dog1",
+      "genotype_donor": "dog1",
+      "cohort": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "source_id": "synthetic",
+      "pairing": "observed",
+      "alleles": [
+        "DLA-88*001:01",
+        "DLA-88*501:01",
+        "DLA-88*003:02"
+      ],
+      "weight": 1
+    },
+    {
+      "pair_id": "pair2",
+      "tumor_donor": "dog2",
+      "genotype_donor": "dog2",
+      "cohort": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "source_id": "synthetic",
+      "pairing": "observed",
+      "alleles": [
+        "DLA-88*501:01"
+      ],
+      "weight": 1
+    },
+    {
+      "pair_id": "pair3",
+      "tumor_donor": "dog3",
+      "genotype_donor": "dog3",
+      "cohort": "osteosarcoma",
+      "breed": "synthetic mixed breed",
+      "source_id": "synthetic",
+      "pairing": "observed",
+      "alleles": [
+        "DLA-88*003:02"
+      ],
+      "weight": 1
+    }
+  ],
+  "prediction_capability_sha256": "a2a62c127c4e1b92606f880c7da82041c23d5f9bd2fe4659c3238a8c44e09210"
+}

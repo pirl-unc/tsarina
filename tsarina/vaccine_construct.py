@@ -48,11 +48,60 @@ class VaccineConfig:
     normal_ms_policy: str = "audit"
     normal_ms_atlas_dir: str | None = None
     normal_ms_min_donors: int = 1
+    species: str = "human"
+    canine_cohort: str | None = None
+    allow_exploratory_dla: bool = False
+
+    @classmethod
+    def for_canine(cls, cohort, **kwargs):
+        """Explicit dog defaults without changing the human constructor contract."""
+        values = {
+            "species": "canine",
+            "panel": "bundle",
+            "canine_cohort": cohort,
+            "ms_support_mode": "sample_affinity",
+            "normal_ms_policy": "exclude",
+            "codon_species": "generic",
+            "predictor": "frozen",
+        }
+        values.update(kwargs)
+        return cls(**values)
 
     def validate(self):
+        if self.species not in {"human", "canine"}:
+            raise ValueError("species must be human or canine")
+        if self.species == "canine":
+            if not self.canine_cohort:
+                raise ValueError("Canine design requires an explicit canine_cohort")
+            if self.panel != "bundle":
+                raise ValueError("Canine design requires the bundle DLA panel or explicit alleles")
+            if self.normal_ms_atlas_dir:
+                raise ValueError("Human Atlas inputs cannot supply canine normal evidence")
+            if self.ms_support_mode != "sample_affinity":
+                raise ValueError(
+                    "Canine MS support requires sample_affinity, not human percentiles"
+                )
+            if self.normal_ms_policy != "exclude":
+                raise ValueError("Canine mode requires verified healthy-primary MS exclusion")
+            if self.predictor != "frozen":
+                raise ValueError(
+                    "Canine design uses frozen affinity or explicit callbacks, not an implicit human predictor"
+                )
+            if self.include_utrs and any(
+                value.upper() in {"HBB", "HBB_FI"} for value in (self.utr_5p, self.utr_3p)
+            ):
+                raise ValueError("Canine UTRs require explicit sequences or none")
+            if self.require_clean_junctions:
+                raise ValueError(
+                    "Canine final assessment is unassessed; clean-junction certification unavailable"
+                )
         if self.normal_ms_policy not in {"audit", "exclude"}:
             raise ValueError("normal_ms_policy must be audit or exclude")
-        if self.normal_ms_policy == "exclude" and not self.normal_ms_atlas_dir:
+        if (
+            self.normal_ms_policy == "exclude"
+            and not self.normal_ms_atlas_dir
+            and self.species == "human"
+        ):
             raise ValueError(
                 "Normal-MS exclusion requires normal_ms_atlas_dir with verified Atlas tables"
             )
@@ -165,6 +214,10 @@ class PredictionAudit:
         missing_contexts = sorted(contexts - self.profiles.keys())
         if missing_contexts:
             if self.cleavage_fn is None:
+                if self.config.species == "canine":
+                    self.cleavage_model = {"name": "unassessed", "species": "canine"}
+                    self.profiles.update({c: [None] * len(c) for c in missing_contexts})
+                    return
                 from mhctools import Pepsickle
 
                 predictor = Pepsickle(human_only=True, isolate_subprocess=True)
@@ -204,12 +257,15 @@ class PredictionAudit:
                 }
             )
         bad = [r["affinity_nm"] for r in junctions if r["below_threshold"]]
+        assessed_cleavage = [
+            r["cleavage_probability"] for r in cleavage if r["cleavage_probability"] is not None
+        ]
         # Failures first; distance from threshold differentiates two equally
         # burdened joins. Cleavage is a secondary predictive design criterion.
         key = (
             len(bad),
             sum(math.log(self.config.junction_affinity_nm / a) for a in bad),
-            -sum(r["cleavage_probability"] for r in cleavage) / max(1, len(cleavage)),
+            -sum(assessed_cleavage) / max(1, len(assessed_cleavage)),
             sum(len(layer["sequence"]) for layer in layers if layer["kind"] == "linker"),
             -sum(len(layer["sequence"]) for layer in layers if layer["kind"] == "cta_segment"),
         )
@@ -252,7 +308,13 @@ def reserve_target_segments(segments, config):
 
 
 def optimize_construct(
-    segments, alleles, config, affinity_fn=None, cleavage_fn=None, on_progress=None
+    segments,
+    alleles,
+    config,
+    affinity_fn=None,
+    cleavage_fn=None,
+    on_progress=None,
+    background_fn=None,
 ):
     """Bounded beam of complete constructs, preserving every retained ligand.
 
@@ -356,6 +418,9 @@ def optimize_construct(
                 if feasible(trial) and (sig not in seen or trial in beam):
                     states[sig] = trial
         assemblies = [assemble_layers(state) for state in states.values()]
+        forbidden = (
+            background_fn([sequence for sequence, _ in assemblies]) if background_fn else set()
+        )
         if on_progress:
             on_progress(
                 f"Construct search round {round_index}: auditing {len(assemblies)} candidates"
@@ -364,6 +429,11 @@ def optimize_construct(
         scored = []
         for (sig, state), (sequence, layers) in zip(states.items(), assemblies):
             key, _, _ = audit.assess(sequence, layers)
+            if background_fn:
+                key = (
+                    sum(sequence[i : i + 8] in forbidden for i in range(len(sequence) - 7)),
+                    *key,
+                )
             scored.append((key, sig, state))
             seen.add(sig)
         scored.sort(key=lambda row: (row[0], row[1]))
@@ -376,7 +446,7 @@ def optimize_construct(
     # Reassess the complete final product, not just the pairwise joins.
     audit.prepare([(protein, layers)])
     key, junctions, cleavage = audit.assess(protein, layers)
-    return {
+    result = {
         "protein": protein,
         "layers": layers,
         "junctions": junctions,
@@ -392,15 +462,37 @@ def optimize_construct(
         "utr3": utr3,
         "poly_a": poly_a,
     }
+    if background_fn:
+        result["initial_background_overlap_windows"] = initial_key[0]
+        result["initial_objective"] = initial_key[1:]
+        for row in result["search_history"]:
+            row["background_overlap_windows"] = row["best_key"][0]
+            row["best_key"] = row["best_key"][1:]
+        forbidden = background_fn([protein])
+        result["background_overlaps"] = [
+            {"start": i, "end": i + 8, "peptide": protein[i : i + 8]}
+            for i in range(len(protein) - 7)
+            if protein[i : i + 8] in forbidden
+        ]
+        result["background_safe"] = not result["background_overlaps"]
+    return result
 
 
 def encode_construct(design, config):
-    """Use Vaxrank's human codon optimization; validate exact translation."""
+    """Apply the explicit coding policy and validate exact translation."""
     from Bio.Seq import Seq
 
     from .vaccine_elements import codon_optimize
 
-    dna = codon_optimize(design["protein"], species=config.codon_species).upper() + "TAA"
+    if config.codon_species == "generic":
+        from Bio.Data.CodonTable import unambiguous_dna_by_id
+
+        codons = {}
+        for codon, aa in sorted(unambiguous_dna_by_id[1].forward_table.items()):
+            codons.setdefault(aa, codon)
+        dna = "".join(codons[aa] for aa in design["protein"]) + "TAA"
+    else:
+        dna = codon_optimize(design["protein"], species=config.codon_species).upper() + "TAA"
     if not dna.startswith("ATG") or str(Seq(dna).translate()) != design["protein"] + "*":
         raise ValueError("Codon-optimized construct failed exact translation validation")
     full = design["utr5"] + dna + design["utr3"] + design["poly_a"]

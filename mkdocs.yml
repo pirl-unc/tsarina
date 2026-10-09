@@ -4,12 +4,19 @@ site_url: https://pirl-unc.github.io/tsarina/
 repo_url: https://github.com/pirl-unc/tsarina
 repo_name: pirl-unc/tsarina
 
+hooks:
+  - tsarina/docs_reports.py
+
+exclude_docs: |
+  **/report.md
+
 nav:
   - Home: index.md
   - Curation: curation.md
   - Vaccine design: vaccine-design.md
   - Vaccine validation: vaccine-validation.md
   - Coverage and MS evidence: vaccine-evidence-tradeoffs.md
+  - Canine evidence and DLA design: canine-vaccine.md
 
 theme:
   name: readthedocs

@@ -1,0 +1,3 @@
+step,name,length_aa,n_proteins,MS_observed_peptides,observed_monoallelic_peptides,inferred_only_peptides,n_pairs,missing_mass,unsupported_genotype_mass,joint_1_lower,joint_1_upper,joint_2_lower,joint_2_upper,expression_1_lower,expression_1_upper,expression_2_lower,expression_2_upper
+1,DOG_CTA1,9,1,1,1,0,3,0.2,0.5333333333333333,0.26666666666666666,0.7333333333333334,0,0.0,0.26666666666666666,0.7333333333333334,0,0.0
+2,DOG_CTA2,18,2,3,1,2,3,0.2,0.5333333333333333,0.5333333333333333,1.0,0,0.2,0.5333333333333333,1.0,0,0.2

@@ -9,6 +9,85 @@ import pandas as pd
 TIERS = ("monoallelic_ms", "sample_allele_ms", "unrestricted_ms")
 
 
+def paired_target_coverage(targets, pairs, supported_alleles, missing_mass=0.0):
+    """Joint expression/MHC evidence bounds on explicit tumor/genotype pairs.
+
+    Each target supplies ``expression[donor] = (lower, upper)`` and a set of
+    qualified ``alleles``. Weights describe the declared sampling frame, not
+    universal population frequencies. Full genotypes can include duplicated
+    loci. Unsupported alleles and missing individuals remain unknown mass.
+    This shared estimator is independent of human HWE/carrier assumptions.
+    """
+    if not math.isfinite(missing_mass) or not 0 <= missing_mass <= 1:
+        raise ValueError("Invalid missing population mass")
+    if len({p["pair_id"] for p in pairs}) != len(pairs):
+        raise ValueError("Duplicate tumor/genotype pair")
+    if any(not math.isfinite(p["weight"]) or p["weight"] <= 0 for p in pairs):
+        raise ValueError("Positive finite pair weights required")
+    if any(
+        p["pairing"] not in {"observed", "simulated_independent_cohorts"}
+        or (p["pairing"] == "observed" and p["tumor_donor"] != p["genotype_donor"])
+        for p in pairs
+    ):
+        raise ValueError("Explicit observed matching dogs or simulated pairing required")
+    if not pairs and missing_mass != 1:
+        raise ValueError("Empty pairs require fully missing population mass")
+    observed = [p["tumor_donor"] for p in pairs if p["pairing"] == "observed"]
+    if len(set(observed)) != len(observed):
+        raise ValueError("Repeated observed dogs cannot inflate coverage")
+    total = sum(p["weight"] for p in pairs)
+    scale = (1 - missing_mass) / total if total else 0.0
+    rows = []
+    for pair in pairs:
+        genotype = set(pair["alleles"])
+        unsupported = genotype - set(supported_alleles)
+        unknown_genotype = not genotype or bool(unsupported)
+        lower, upper, rna_lower, rna_upper = set(), set(), set(), set()
+        for key, target in targets.items():
+            lo, hi = target["expression"].get(pair["tumor_donor"], (0, 1))
+            if not 0 <= lo <= hi <= 1 or lo not in {0, 1} or hi not in {0, 1}:
+                raise ValueError("Pair expression requires binary lower/upper evidence bounds")
+            match = bool(genotype & set(target["alleles"]))
+            if lo:
+                rna_lower.add(key)
+            if hi:
+                rna_upper.add(key)
+            if lo and match:
+                lower.add(key)
+            if hi and (match or unknown_genotype):
+                upper.add(key)
+        rows.append(
+            {
+                "pair_id": pair["pair_id"],
+                "tumor_donor": pair["tumor_donor"],
+                "genotype_donor": pair["genotype_donor"],
+                "pairing": pair["pairing"],
+                "weight": pair["weight"] * scale,
+                "unsupported_alleles": ";".join(sorted(unsupported)),
+                "genotype_unassessed": unknown_genotype,
+                "qualified_targets_lower": len(lower),
+                "qualified_targets_upper": len(upper),
+                "expression_targets_lower": len(rna_lower),
+                "expression_targets_upper": len(rna_upper),
+            }
+        )
+    result = {
+        "n_pairs": len(pairs),
+        "missing_mass": missing_mass,
+        "unsupported_genotype_mass": sum(r["weight"] for r in rows if r["genotype_unassessed"]),
+        "pairing_modes": sorted({p["pairing"] for p in pairs}),
+        "pairs": rows,
+    }
+    for label, field in (("joint", "qualified"), ("expression", "expression")):
+        for count in (1, 2):
+            for bound in ("lower", "upper"):
+                value = sum(r["weight"] for r in rows if r[f"{field}_targets_{bound}"] >= count)
+                if bound == "upper" and len(targets) >= count:
+                    value += missing_mass
+                result[f"{label}_{count}_{bound}"] = value
+    return result
+
+
 def carrier_reach(alleles, frequencies):
     """HWE within locus, linkage equilibrium across loci; missing is explicit.
 

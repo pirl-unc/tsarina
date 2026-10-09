@@ -1,0 +1,10 @@
+proteoform_key,donor,expression_lower,expression_upper,complete,n_biopsies,sample_ids
+7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761,dog1,1,1,True,2,biopsy1;biopsy2
+7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761,dog2,1,1,True,1,biopsy3
+7c84e45f58cd51009a281b7244ef1d87f7dde7c55f4c1952c41a9db5e7c91761,dog3,1,1,True,1,biopsy4
+a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e,dog1,1,1,True,2,biopsy1;biopsy2
+a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e,dog2,0,0,True,1,biopsy3
+a4a229eb9bb5bfc978ca5e46dd19e6bfa62d72f4487a7ae741a86f70e52e323e,dog3,0,1,False,1,biopsy4
+db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667,dog1,0,0,True,2,biopsy1;biopsy2
+db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667,dog2,1,1,True,1,biopsy3
+db5f618a36743234dbfcaa21c9939fdf38c4ba0c8dc2feedaa73bbbd59735667,dog3,0,0,True,1,biopsy4
