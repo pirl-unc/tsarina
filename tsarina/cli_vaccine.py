@@ -9,7 +9,6 @@ from dataclasses import replace
 from pathlib import Path
 
 from .alleles import panel_names
-from .vaccine_construct import VaccineConfig
 from .vaccine_species import resolve_vaccine_species
 
 
@@ -148,6 +147,7 @@ def build_parser(sub):
 
 def handle(args):
     from .vaccine import design_vaccine
+    from .vaccine_construct import VaccineConfig
 
     try:
         canine = args.species == "canine"
