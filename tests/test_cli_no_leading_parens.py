@@ -51,7 +51,7 @@ def _offending(text: str) -> list[str]:
 
 @pytest.mark.parametrize("argv", _COMMANDS, ids=lambda a: " ".join(a))
 def test_no_cli_line_starts_with_paren(argv, monkeypatch, capsys, tmp_path):
-    monkeypatch.setenv("TSARINA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("HITLIST_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("COLUMNS", "80")  # deterministic help wrapping
     monkeypatch.setattr(sys, "argv", ["tsarina", *argv])
     # --help and error paths exit; we only care about the emitted text.
