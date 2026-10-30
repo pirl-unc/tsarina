@@ -420,6 +420,7 @@ def test_panel_requires_live_hitlist_ms_evidence(monkeypatch):
 
 def test_automatic_selection_hides_empty_ctas_by_default():
     df = spanning_pmhc_set(
+        exclude_non_magea4_mage_family=True,
         cta_count=4,
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
@@ -499,6 +500,7 @@ def test_automatic_selection_backfills_empty_ctas_by_default(monkeypatch):
 
 def test_include_empty_ctas_preserves_automatic_failures():
     df = spanning_pmhc_set(
+        exclude_non_magea4_mage_family=True,
         cta_count=4,
         alleles=["HLA-A*02:01"],
         max_percentile=10.0,
@@ -572,6 +574,7 @@ def test_min_restriction_confidence_filters_low():
 def test_min_restriction_confidence_none_admits_low():
     """Disabling confidence does not bypass oncoref membership or safety gates."""
     df = spanning_pmhc_set(
+        exclude_non_magea4_mage_family=True,
         cta_count=10,
         min_restriction_confidence=None,
         alleles=["HLA-A*02:01"],
@@ -609,9 +612,10 @@ def test_vital_tissue_gate_can_be_disabled():
     assert ctas == ["MAGEA1"]
 
 
-def test_default_mage_family_gate_allows_only_magea4():
+def test_explicit_mage_family_gate_allows_only_magea4():
     ctas = _resolve_ctas(
         ctas=None,
+        exclude_non_magea4_mage_family=True,
         cta_count=10,
         cta_rank_by="ms_cancer_peptide_count",
         min_restriction_confidence=None,
@@ -627,6 +631,7 @@ def test_default_mage_family_gate_allows_only_magea4():
 def test_mage_family_gate_allows_selection_allowlist():
     ctas = _resolve_ctas(
         ctas=None,
+        exclude_non_magea4_mage_family=True,
         cta_count=10,
         cta_rank_by="ms_cancer_peptide_count",
         min_restriction_confidence=None,
@@ -650,17 +655,29 @@ def test_default_vital_rna_gate_allows_sub_2_ntpm():
     assert "VITALRNA" in ctas
 
 
-def test_unique_vital_ms_gate_ignores_shared_family_peptide_evidence():
+def test_current_default_keeps_mage_members_before_downstream_ms_screening():
     ctas = _resolve_ctas(
         ctas=None,
         cta_count=10,
         cta_rank_by="ms_cancer_peptide_count",
-        min_restriction_confidence=("HIGH", "MODERATE"),
         restriction_levels=None,
         selection_allowlist=[],
     )
     assert "MAGEA4" in ctas
-    assert "MAGEA1" not in ctas
+    assert "MAGEA1" in ctas
+    assert "MAGEB2" in ctas
+    assert "PRAME" in ctas  # Legacy LOW confidence does not change current admission.
+
+
+def test_current_default_does_not_reapply_hpa_rna_cutoff(monkeypatch):
+    from tsarina.loader import cta_dataframe
+
+    frame = cta_dataframe().copy()
+    frame.loc[frame.Symbol.eq("VITALRNA"), "rna_brain_max_ntpm"] = 100.0
+    monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: frame)
+    assert "VITALRNA" in _resolve_ctas(
+        ctas=None, cta_count=10, selection_allowlist=[], cta_rank_by="ms_cancer_peptide_count"
+    )
 
 
 def test_vital_rna_gate_threshold_is_parameterizable():
@@ -899,7 +916,18 @@ def test_monoallelic_ms_tier_and_threshold(monkeypatch):
     assert blocked.empty
 
 
-def test_sample_allele_ms_requires_best_among_sample_alleles(monkeypatch):
+@pytest.mark.parametrize(
+    "provenance",
+    [
+        "sample_allele_match",
+        "peptide_locus_match",
+        "sample_locus_match",
+        "peptide_serotype_match",
+        "sample_serotype_match",
+        "haplotype_roster",
+    ],
+)
+def test_sample_allele_ms_requires_best_among_sample_alleles(monkeypatch, provenance):
     """Class-only rows with donor allele sets are deconvolved by prediction.
 
     The row's donor bag is not an HLA assignment by itself: only the best
@@ -909,7 +937,7 @@ def test_sample_allele_ms_requires_best_among_sample_alleles(monkeypatch):
         {
             "peptide": ["MAGEAPEP1"],
             "mhc_restriction": ["HLA class I"],
-            "mhc_allele_provenance": ["sample_allele_match"],
+            "mhc_allele_provenance": [provenance],
             "mhc_allele_set": ["HLA-A*02:01;HLA-B*07:02"],
             "is_monoallelic": [False],
             "pmid": ["222"],
@@ -1529,11 +1557,15 @@ def test_proteoform_registry_groups_loaded_beyond_the_anchors():
 
 
 def test_proteoform_groups_are_loaded_directly_from_oncoref():
-    from oncoref.proteoforms import proteoform_symbol_map
-
+    from tsarina import CTA_selection
     from tsarina.spanning import _load_proteoform_groups
 
-    assert _load_proteoform_groups() == proteoform_symbol_map(scope="cta")
+    expected = {}
+    for identities in CTA_selection(category="CTA").gene_identities:
+        symbols = tuple(sorted((item["symbol"] or item["gene_id"]) for item in identities))
+        if len(symbols) > 1:
+            expected["/".join(symbols)] = symbols
+    assert _load_proteoform_groups() == expected
 
 
 def test_automatic_backfill_counts_distinct_cta_pmhc_groups(monkeypatch):

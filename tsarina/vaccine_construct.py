@@ -19,7 +19,7 @@ class VaccineConfig:
     top_k: int = 10
     panel: str = "global54_abc"
     alleles: tuple[str, ...] | None = None
-    definition: str = "strict"
+    definition: str | None = None
     ensembl_release: int = 112
     shared_k: int = 8
     min_padding: int = 0
@@ -55,6 +55,10 @@ class VaccineConfig:
 
     def __post_init__(self):
         object.__setattr__(self, "species", resolve_vaccine_species(self.species))
+        if self.definition is None:
+            object.__setattr__(
+                self, "definition", "current" if self.species == "human" else "strict"
+            )
 
     @classmethod
     def for_canine(cls, cohort, **kwargs):
@@ -138,7 +142,12 @@ class VaccineConfig:
             raise ValueError("min_padding cannot exceed max_padding")
         if not self.lengths or any(type(k) is not int or not 8 <= k <= 15 for k in self.lengths):
             raise ValueError("Class-I ligand lengths must be in 8..15")
-        if self.definition not in {"strict", "loose"} or self.vaccine_type not in {"dna", "rna"}:
+        if self.species == "canine" and self.definition == "current":
+            raise ValueError("Current human CTA selection is unavailable for canine frozen inputs")
+        if self.definition not in {"current", "strict", "loose"} or self.vaccine_type not in {
+            "dna",
+            "rna",
+        }:
             raise ValueError("Invalid CTA definition or vaccine type")
         if not math.isfinite(self.junction_affinity_nm) or self.junction_affinity_nm <= 0:
             raise ValueError("junction_affinity_nm must be finite and positive")

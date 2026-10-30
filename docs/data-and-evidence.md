@@ -14,7 +14,7 @@ CTA membership comes from OncoRef.
 
 | Target category | Definition authority | Patient or panel context |
 |---|---|---|
-| CTA | oncoref membership, aliases, HPA restriction, and proteoform groups | Tumor expression or population cancer prevalence |
+| CTA | Current OncoRef decisions and member identities; historical HPA annotations | Tumor expression or population cancer prevalence |
 | Viral | Tsarina's supported oncogenic-virus proteomes | Tumor viral status |
 | Mutant | Tsarina's recurrent hotspot registry | Matching tumor mutation |
 

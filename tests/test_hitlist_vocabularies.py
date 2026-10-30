@@ -13,9 +13,15 @@ from hitlist.curation import ALLELE_RESOLUTION_ORDER
 from tsarina.cli_hits import _SUPPORTED_RESOLUTIONS
 from tsarina.spanning import _SAMPLE_NARROWED_PROVENANCES
 
-#: Provenance values that name no donor, so they carry no sample-narrowed
-#: allele bag: ``exact`` needs none, and the other two are study-wide pools.
-_NOT_SAMPLE_NARROWED = {"exact", "pmid_class_pool", "unmatched"}
+#: Exact restrictions need no candidate bag. Study pools and unmatched rows
+#: cannot establish a sample-specific restriction, including locus/serotype pools.
+_NOT_SAMPLE_NARROWED = {
+    "exact",
+    "pmid_class_pool",
+    "pmid_locus_pool",
+    "pmid_serotype_pool",
+    "unmatched",
+}
 
 
 def test_supported_resolutions_are_hitlist_order_most_specific_first():
@@ -35,9 +41,9 @@ def test_supported_resolutions_omit_only_the_catch_all_level():
 
 def test_sample_narrowed_provenances_partition_hitlist_vocabulary():
     """A new upstream provenance value has to be classified, not ignored."""
-    assert _SAMPLE_NARROWED_PROVENANCES.issubset(MHC_ALLELE_PROVENANCE_VALUES)
-    assert set(MHC_ALLELE_PROVENANCE_VALUES) - _SAMPLE_NARROWED_PROVENANCES == (
-        _NOT_SAMPLE_NARROWED
+    assert not (_SAMPLE_NARROWED_PROVENANCES & _NOT_SAMPLE_NARROWED)
+    assert set(MHC_ALLELE_PROVENANCE_VALUES) <= (
+        _SAMPLE_NARROWED_PROVENANCES | _NOT_SAMPLE_NARROWED
     )
 
 

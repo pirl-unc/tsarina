@@ -86,8 +86,8 @@ classification and the evidence model.
 ### Cancer-testis antigens
 
 CTAs are normally restricted to reproductive tissues but can be reactivated in
-tumors. Oncoref supplies the candidate universe and HPA-derived restriction
-axes. Tsarina adds tumor prevalence, public-MS safety evidence, peptide
+tumors. OncoRef supplies current protein-level selection decisions and historical
+HPA-derived restriction axes. Tsarina adds tumor prevalence, public-MS safety evidence, peptide
 enumeration, and HLA scoring after membership is known.
 
 ### Oncogenic viruses

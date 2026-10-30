@@ -249,29 +249,25 @@ def test_csv_has_no_runtime_ms_count_columns():
 
 
 def test_gene_names_delegate_to_current_oncoref():
-    from oncoref.cta import cta_gene_names
+    from tsarina import CTA_selection
 
-    assert CTA_gene_names() == cta_gene_names()
+    assert CTA_gene_names() == {
+        i["symbol"] or i["gene_id"]
+        for identities in CTA_selection(category="CTA").gene_identities
+        for i in identities
+    }
 
 
 def test_filtered_set_delegates_to_current_oncoref():
-    from oncoref.cta import cta_filtered_gene_names
-
-    assert CTA_filtered_gene_names() == cta_filtered_gene_names()
+    assert CTA_filtered_gene_names() == CTA_gene_names()
 
 
-def test_gage10_added_gage12b_excluded():
-    """Pin the two GAGE-audit decisions by identity (not just count; tsarina#108).
-
-    GAGE10 is a full-length GAGE paralog added to the universe and oncoref now
-    keeps it in the canonical default set. GAGE12B is deliberately excluded --
-    its Ensembl ID is a degenerate 117-bp fragment, not a GAGE protein -- so it
-    must be in neither.
-    """
+def test_current_policy_does_not_admit_gage10_or_gage12b():
+    """Current decisions supersede the earlier HPA GAGE membership audit."""
     filtered = CTA_filtered_gene_names()
     expressed = CTA_gene_names()
-    assert "GAGE10" in filtered
-    assert "GAGE10" in expressed
+    assert "GAGE10" not in filtered
+    assert "GAGE10" not in expressed
     assert "GAGE12B" not in filtered
     assert "GAGE12B" not in expressed
 

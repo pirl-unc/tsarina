@@ -162,10 +162,10 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--min-restriction-confidence",
         type=_split_csv,
-        default=["HIGH", "MODERATE"],
+        default=["ANY"],
         help=(
             "Allowed CTA restriction_confidence bins, comma-separated. "
-            "Defaults to 'HIGH,MODERATE'; pass 'ANY' to disable."
+            "Default 'ANY' uses the current OncoRef policy without a legacy HPA confidence gate."
         ),
     )
     p.add_argument(

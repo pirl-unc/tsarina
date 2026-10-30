@@ -97,6 +97,25 @@ def write_vaccine_report(result, output_dir):
     selected = result["ranking"].query("selected")
     names = set(selected.proteoform_key)
     cancer = result["cancer_summary"][result["cancer_summary"].proteoform_key.isin(names)]
+    current = result["config"]["definition"] == "current"
+    membership_method = (
+        "Current admission uses OncoRef's selected protein entities and member gene IDs. "
+        "Policy, reference and source receipts are preserved separately from the actual "
+        "sequence-reference release and digest. Unsafe, Neither, unassigned and absent "
+        "genes remain in the coding background. Historical HPA flags do not determine "
+        "admission. Representative-protein admission does not certify every gene isoform."
+        if current
+        else "Historical HPA selection: strict uses core reproductive tissues; loose uses "
+        "the extended reproductive RNA definition. These RNA/protein evidence gates have "
+        "curated exceptions and are not absolute absence rules."
+    ) + " Normal-tissue restriction does not establish target safety."
+    background_method = (
+        "Current selected member gene IDs define the CTA side of the sequence partition; "
+        "alternate haplotypes do not inherit membership by symbol. "
+        if current
+        else "Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary "
+        "gene's CTA identity, with resolutions in `background_cta_aliases.csv`. "
+    )
     lines = [
         "# Mortality-prioritized CTA vaccine design",
         "",
@@ -122,11 +141,13 @@ def write_vaccine_report(result, output_dir):
         "",
         "Each proteoform score sums `world mortality share * p95 prevalence` across distinct cancer categories. Prevalence is sample-count-weighted across the specified broad cohorts; each mortality share is counted once. This prioritization is additive across proteoforms and does not estimate distinct patients covered, clinical benefit, or preventable deaths. The observed cohort mixture is not worldwide patient prevalence. Missing measurements are visible, and incomplete scores must be compared cautiously. Global cancer incidence is reported separately; it is not multiplied into the ranking score.",
         "",
-        "Strict RNA numerator = OncoRef core reproductive tissues (testis, ovary, placenta). Loose adds cervix, endometrium, epididymis, fallopian tube, prostate, seminal vesicle and vagina. Neither RNA numerator adds breast or thymus. Thymus remains in the default fraction denominator but is excluded from somatic maxima and the reproductive protein flag; protein annotations use broader reproductive tissue conventions. These are curated RNA/protein evidence gates with exceptions, not absolute absence rules. Each definition has its own non-CTA background. Normal-tissue restriction does not establish target safety.",
+        membership_method,
         "",
-        f"Normal-MS policy: **{result['config'].get('normal_ms_policy', 'audit')}**. When exclusion is enabled, primary donor-resolved nonmalignant Atlas HLA-I observations in heart, brain and lung blacklist peptides at {result['config'].get('normal_ms_min_donors', 1)} distinct donor(s). All residues covered by their 8-mers are removed after non-CTA subtraction. `normal_ms_summary.csv` and `normal_ms_audit.csv` preserve donor counts and qualification/exclusion reasons. These tissues are outside both CTA scopes. Other tissue observations remain warnings. Atlas autopsy donors had no diagnosed malignancy but could have other disease; nonmalignant is not disease-free. Dataset completeness and lack of observed presentation do not establish safety.",
+        f"Normal-MS policy: **{result['config'].get('normal_ms_policy', 'audit')}**. When exclusion is enabled, primary donor-resolved nonmalignant Atlas HLA-I observations in heart, brain and lung blacklist peptides at {result['config'].get('normal_ms_min_donors', 1)} distinct donor(s). All residues covered by their 8-mers are removed after non-CTA subtraction. `normal_ms_summary.csv` and `normal_ms_audit.csv` preserve donor counts and qualification/exclusion reasons. These observations receive a separate peptide-level assessment. Other tissue observations remain warnings. Atlas autopsy donors had no diagnosed malignancy but could have other disease; nonmalignant is not disease-free. Dataset completeness and lack of observed presentation do not establish safety.",
         "",
-        "All translated non-CTA coding isoforms are screened. Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary gene's CTA identity, with exact resolutions in `background_cta_aliases.csv`; this does not change expression keys or admit independent non-CTA loci. Every residue covered by an independent non-CTA 8-mer is removed, including a full identical protein from another non-CTA gene. Native coordinates are zero-based, half-open. Each remaining contiguous interval must contain a qualifying panel MS ligand. In presentation mode, monoallelic evidence uses presentation percentile ≤2; sample-allele inference ≤1; unrestricted MS plus predicted assignment ≤0.5. Allele inference is labeled separately from measured restriction. Every qualifying ligand and repeated native occurrence is retained in the evidence tables.",
+        "All translated non-CTA coding isoforms are screened. "
+        + background_method
+        + "Every residue covered by an independent non-CTA 8-mer is removed, including a full identical protein from another non-CTA gene. Native coordinates are zero-based, half-open. Each remaining contiguous interval must contain a qualifying panel MS ligand. In presentation mode, monoallelic evidence uses presentation percentile ≤2; sample-allele inference ≤1; unrestricted MS plus predicted assignment ≤0.5. Allele inference is labeled separately from measured restriction. Every qualifying ligand and repeated native occurrence is retained in the evidence tables.",
         "",
         "Padding trims terminal context only. Construct search compares complete sequences under the configured beam/round budget, including order, independent N/C padding and linker changes. Its lexicographic objective minimizes the number of peptide/allele junction predictions below the affinity cutoff, then their log binding burden, then maximizes mean predicted boundary cleavage, then minimizes linker length and retains context. The heuristic does not guarantee a global optimum. Final audit includes the initiating methionine, linker-internal windows and windows crossing multiple boundaries.",
         "",

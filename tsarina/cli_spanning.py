@@ -41,7 +41,7 @@ _DEFAULT_PANEL = "global54_abc"
 _DEFAULT_LENGTHS = (8, 9, 10, 11)
 _DEFAULT_CTA_RANK_BY = "tumor_prevalence_panel_score"
 _DEFAULT_SELECTION_ALLOWLIST = "PRAME,CTAG1A/CTAG1B,MAGEA4"
-_DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
+_DEFAULT_VITAL_TISSUE_MAX_NTPM = None
 _DEFAULT_CANCER_RNA_THRESHOLD = 2.0
 _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
 
@@ -99,10 +99,10 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
     p.add_argument(
         "--min-restriction-confidence",
         type=_split_csv,
-        default=["HIGH", "MODERATE"],
+        default=["ANY"],
         help=(
             "Allowed restriction_confidence bins, comma-separated. "
-            "Defaults to 'HIGH,MODERATE'; pass 'ANY' to disable."
+            "Default 'ANY' uses the current OncoRef policy without a legacy HPA confidence gate."
         ),
     )
     p.add_argument(
@@ -130,9 +130,9 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action="store_false",
         help=(
             "Disable the automatic vital-tissue expression filter. By default, panel "
-            "excludes CTAs with RNA above --vital-tissue-max-ntpm or unique public "
+            "excludes CTAs with unique public "
             "healthy-MS observations in brain/CNS/cerebellum, heart, lung, liver, or "
-            "pancreas, unless allowlisted."
+            "pancreas, unless allowlisted. A vital-RNA cutoff is opt-in."
         ),
     )
     p.add_argument(
@@ -140,19 +140,25 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=float,
         default=_DEFAULT_VITAL_TISSUE_MAX_NTPM,
         help=(
-            "Maximum allowed RNA nTPM in vital tissues for automatic CTA selection "
-            f"(default {_DEFAULT_VITAL_TISSUE_MAX_NTPM})."
+            "Optional maximum RNA nTPM in vital tissues for automatic CTA selection "
+            "(disabled by default)."
         ),
     )
     p.add_argument(
         "--allow-non-magea4-mage-family",
         dest="exclude_non_magea4_mage_family",
         action="store_false",
+        default=False,
         help=(
             "Allow automatic panel selection to include MAGE-family CTAs other than "
-            "MAGE-A4. By default, non-MAGE-A4 MAGE-family CTAs are excluded unless "
-            "explicitly requested with --ctas or included in --selection-allowlist."
+            "MAGE-A4 (the default under current OncoRef selection)."
         ),
+    )
+    p.add_argument(
+        "--exclude-non-magea4-mage-family",
+        dest="exclude_non_magea4_mage_family",
+        action="store_true",
+        help="Apply the optional historical MAGE-family exclusion after current OncoRef admission.",
     )
     p.add_argument(
         "--alleles",

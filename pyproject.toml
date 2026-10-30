@@ -31,7 +31,7 @@ dependencies = [
     # MHC_ALLELE_PROVENANCE_VALUES as the provenance vocabulary.
     "hitlist>=1.58.1",
     "mhcgnomes>=3.20.0",
-    # Current reference release, including the extended CTA/proteoform API.
+    # Current protein selection decisions, member identities and reference receipts.
     "oncoref>=1.23.1",
     "pandas",
     "numpy",

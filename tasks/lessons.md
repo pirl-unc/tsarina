@@ -1,5 +1,10 @@
 # Lessons
 
+- A newer OncoRef package can expose both historical and current selection
+  products. When current-policy adoption is requested, migrate membership,
+  evidence joins, implicit filters, reference provenance and background
+  partitioning together; changing only the dependency version is insufficient.
+
 - Documentation should name the task or subject directly. Avoid "Start with
   your outcome", "Continue to" and similar coaching/navigation filler. Link
   descriptive headings to their guides; use a brief "See:" reference when a

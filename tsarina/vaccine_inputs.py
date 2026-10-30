@@ -83,7 +83,7 @@ def require_current_hitlist():
         )
 
 
-def resolve_background_cta_ids(proteins, cta_ids):
+def resolve_background_cta_ids(proteins, cta_ids, *, inherit_alternate_haplotypes=True):
     """Resolve same-gene alternate haplotypes without admitting unrelated loci.
 
     OncoRef curates primary gene IDs. Ensembl's HSCHR alternate haplotypes
@@ -93,6 +93,10 @@ def resolve_background_cta_ids(proteins, cta_ids):
     ordinary non-CTA loci, even with an identical sequence, remain background.
     This resolution never changes expression keys or adds prevalence values.
     """
+    if not inherit_alternate_haplotypes:
+        return set(cta_ids), pd.DataFrame(
+            columns=["gene_id", "gene_name", "contig", "cta_reference_gene_ids"]
+        )
     names = {}
     for protein in proteins:
         if protein.gene_id in cta_ids and not protein.contig.startswith("HSCHR"):
@@ -118,7 +122,7 @@ def resolve_background_cta_ids(proteins, cta_ids):
 
 
 def load_vaccine_inputs(
-    definition="strict", ensembl_release=112, cohorts=None, auto_fetch=False, on_progress=None
+    definition="current", ensembl_release=112, cohorts=None, auto_fetch=False, on_progress=None
 ):
     """Read OncoRef references and every translated Ensembl coding isoform.
 
@@ -127,14 +131,19 @@ def load_vaccine_inputs(
     active Ensembl release or repair scientific reference data silently.
     """
     import oncoref
-    from oncoref import cta, expression, proteoforms
+    from oncoref import cta, cta_selection, expression, proteoforms
     from pyensembl import EnsemblRelease
 
     require_current_hitlist()
 
-    if definition not in {"strict", "loose"}:
-        raise ValueError("CTA definition must be strict or loose")
-    ids = cta.cta_gene_ids() if definition == "strict" else cta.cta_extended_gene_ids()
+    if definition not in {"current", "strict", "loose"}:
+        raise ValueError("CTA definition must be current, strict or loose")
+    selection = cta_selection.results(species="human") if definition == "current" else None
+    if selection is not None:
+        selected = selection.loc[selection.category.eq("CTA")]
+        ids = {gene for genes in selected.gene_ids for gene in genes}
+    else:
+        ids = cta.cta_gene_ids() if definition == "strict" else cta.cta_extended_gene_ids()
     cohorts = DEFAULT_CANCER_COHORTS if cohorts is None else cohorts
     _validate_cohorts(cohorts)
     # The genome registry includes identical proteins omitted by the focused
@@ -184,7 +193,9 @@ def load_vaccine_inputs(
             )
     burden = oncoref.cancer_burden_df()
     tables = {
-        "cta_reference": cta.cta_df() if definition == "strict" else cta.cta_extended_df(),
+        "cta_reference": selection
+        if selection is not None
+        else (cta.cta_df() if definition == "strict" else cta.cta_extended_df()),
         "proteoform_reference": proteoforms.proteoform_groups(scope="genome"),
         "burden_reference": burden,
         "expression_availability": expression.cancer_reference_expression_availability(),
@@ -201,6 +212,18 @@ def load_vaccine_inputs(
             "oncoref_version": version("oncoref"),
             "hitlist_version": version("hitlist"),
             "ensembl_release": ensembl_release,
+            **(
+                {
+                    "cta_selection_policy_ids": sorted(selection.policy_id.dropna().unique()),
+                    "cta_selection_reference_ids": sorted(selection.reference_id.dropna().unique()),
+                    "cta_selection_source_snapshot_ids": sorted(
+                        selection.source_snapshot_id.dropna().unique()
+                    ),
+                    "background_policy": "tsarina.current-selection-other-genes.v1",
+                }
+                if selection is not None
+                else {}
+            ),
             "expression_scope": "genome",
             "expression_threshold": 0.95,
             "protein_reference_sha256": sha256(

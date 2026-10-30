@@ -2909,6 +2909,11 @@ new global54 panel and CLI/API defaults change. The release version is 1.32.0.
 
 # Upgrade to current OncoRef (2026-10-29)
 
+User scope update: adopt the new current selection policy. The original
+compatibility-only scope below is superseded by
+[current-oncoref-spec.md](current-oncoref-spec.md). PR #219 remains unmerged
+while default membership/evidence/background consumers are migrated.
+
 ## Specification
 
 Use the latest published stable OncoRef (verified live on PyPI: 1.23.1),
@@ -2940,8 +2945,8 @@ uses exact protein/RNA agreement. No upstream definitions or local work changed.
 Side-by-side evaluation of old/new synthesis over all 2,533 current HPA evidence
 rows changes 193 tissue scopes and 9 confidence labels. Recomputed scopes now
 match upstream throughout; no-MS confidence is also checked across every row.
-The separately versioned current protein-selection policy is documented but
-does not replace the existing HPA membership/background APIs in this release.
+The original dependency-only plan was superseded: current protein-selection
+decisions now drive default membership and the documented gene-based background.
 Version 1.36.0 reflects the required Python >=3.10 support change.
 
 Shared-environment audit: `pip check` passes before any changes, but installed
@@ -2959,3 +2964,26 @@ Verification: format/lint, strict MkDocs build and isolated `pip check` pass.
 two local Ensembl-reference checks and two optional NetMHCpan backends.
 Refreshed the checkout egg-info and isolated editable install; CLI, source and
 distribution metadata agree on 1.36.0. Final PR/CI/publication evidence follows.
+
+### CI follow-up plan
+
+The first CI run passed real models/lint/website but failed the Hitlist vocabulary
+partition assertion under current published dependencies. Audit the seven new
+provenance labels, keep unresolved restriction precision explicit, update the
+contract and exercise current Hitlist locally before repeating release gates.
+This is an additional compatibility repair, not a new evidence-admission policy.
+
+### Final current-policy review
+
+The superseding migration specification and full membership delta are in
+[current-oncoref-spec.md](current-oncoref-spec.md). All default human consumers
+now use current selection, including the evidence join, member grouping,
+background partition and vaccine configuration. Historical HPA annotations
+remain explicit and never determine default admission. Neither/unassigned
+remain distinct and in the sequence background.
+
+Final pre-merge checks: formatting/lint, strict documentation build and isolated
+`pip check` pass. Full real-model suite: 761 passed, 2 optional NetMHCpan skips,
+16 warnings, 86% coverage. Additional bugs are tracked in #220 and #221.
+[PR #219](https://github.com/pirl-unc/tsarina/pull/219) records the final CI,
+merge and PyPI deployment evidence after this pre-merge task snapshot.

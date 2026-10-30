@@ -55,10 +55,10 @@ def test_plot_confidence_vs_ms_restriction_stacks_to_the_row_total():
     import pandas as pd
 
     from tsarina.evidence import CTA_evidence
-    from tsarina.gene_sets import CTA_gene_names
+    from tsarina.gene_sets import CTA_gene_ids
 
     df = CTA_evidence()
-    df = df[df["Symbol"].isin(set(CTA_gene_names()))]
+    df = df[df["Ensembl_Gene_ID"].isin(CTA_gene_ids())]
     expected = df["restriction_confidence"].value_counts()
 
     _fig, ax = plot_confidence_vs_ms_restriction()
@@ -69,8 +69,9 @@ def test_plot_confidence_vs_ms_restriction_stacks_to_the_row_total():
         for i, patch in enumerate(container):
             totals[i] += patch.get_height()
     for i, label in enumerate(ax.get_xticklabels()):
-        tier = label.get_text().upper()
+        tier = label.get_text().upper().replace(" ", "_")
         assert totals[i] == expected.get(tier, 0)
+    assert totals.sum() == len(df)  # Missing HPA strata must remain visible.
 
 
 def test_plot_literature_support_distribution_is_log_scaled_and_nonempty():
@@ -153,13 +154,14 @@ def test_render_all_respects_an_explicit_gene_subset(tmp_path):
     df = CTA_evidence()
     some_genes = set(df["Symbol"].head(5))
     _fig, ax = plot_ms_restriction_distribution(genes=some_genes)
-    assert f"n={len(some_genes)}" in ax.get_xlabel()
+    expected_loci = df.loc[df.Symbol.isin(some_genes), "Ensembl_Gene_ID"].nunique()
+    assert f"n={expected_loci}" in ax.get_xlabel()
 
 
 def _cta_evidence_counts():
     from tsarina.evidence import CTA_evidence
-    from tsarina.gene_sets import CTA_gene_names
+    from tsarina.gene_sets import CTA_gene_ids
 
     df = CTA_evidence()
-    df = df[df["Symbol"].isin(set(CTA_gene_names()))]
+    df = df[df["Ensembl_Gene_ID"].isin(CTA_gene_ids())]
     return df["ms_restriction"].value_counts().to_dict()

@@ -62,14 +62,15 @@ tsarina panel \
 
 ### 2. Apply source-level safety gates
 
-Automatic selection keeps `HIGH` and `MODERATE` oncoref
-`restriction_confidence` by default. It also excludes:
+Automatic selection starts from OncoRef's current CTA decisions. Historical
+HPA confidence and vital-tissue RNA cutoffs, and the MAGE-family exclusion,
+are disabled by default. Explicit `--min-restriction-confidence`,
+`--vital-tissue-max-ntpm` and `--exclude-non-magea4-mage-family` options apply
+those additional filters when requested.
 
-- CTAs with RNA above 2.0 nTPM in brain/CNS/cerebellum, heart, lung, liver, or
-  pancreas;
-- CTAs with peptide evidence that maps uniquely to that CTA in those healthy
-  vital tissues; and
-- MAGE-family CTAs other than MAGEA4.
+The downstream healthy-MS screen still excludes CTAs with uniquely mapped
+peptide evidence in brain/CNS/cerebellum, heart, lung, liver, or pancreas,
+subject to the configured allowlist.
 
 `PRAME`, `CTAG1A/CTAG1B`, and `MAGEA4` are allowlisted by default. The
 allowlist is applied explicitly and its members are placed ahead of
@@ -287,7 +288,7 @@ clinical-grade population-genetics analysis.
 - `--selection-allowlist` replaces the automatic safety allowlist.
 - `--no-vital-tissue-filter` or `--vital-tissue-max-ntpm` changes the vital
   tissue gate.
-- `--allow-non-magea4-mage-family` permits other MAGE-family candidates during
+- `--exclude-non-magea4-mage-family` optionally excludes other MAGE-family candidates during
   automatic selection.
 
 ### Peptides and grouping
