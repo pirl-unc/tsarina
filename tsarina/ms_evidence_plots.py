@@ -12,10 +12,9 @@
 
 """Publication figures for tsarina's mass-spec evidence layer.
 
-oncoref decides CTA membership from HPA normal-tissue restriction alone --
-no mass-spec evidence enters that call (see ``oncoref.cta`` and
-``oncoref.cta_curation_plots``, which figure the *definition* funnel).  This
-module figures the layer tsarina adds on top: does public immunopeptidomics
+OncoRef's current protein-level policy decides CTA membership. This module
+plots member gene loci, preserving missing historical HPA annotations, and
+the layer Tsarina adds on top: does public immunopeptidomics
 mass spec (IEDB/CEDAR, via hitlist) actually corroborate a CTA's restriction,
 and what does the safety picture look like across the panel.
 
@@ -144,17 +143,21 @@ def _new_ax(ax, figsize: tuple[float, float]):
 def _cta_evidence_frame(genes: set[str] | list[str] | None = None) -> pd.DataFrame:
     """oncoref's default CTA set, joined with tsarina's MS overlay.
 
-    ``genes=None`` uses oncoref's default expressed CTA set
-    (:func:`tsarina.gene_sets.CTA_gene_names`) -- the set an evidence figure
+    ``genes=None`` uses current selected member gene IDs
+    (:func:`tsarina.gene_sets.CTA_gene_ids`) -- the set an evidence figure
     should describe, not the pre-filter candidate universe (that funnel is
     oncoref's to figure).
     """
     from .evidence import CTA_evidence
-    from .gene_sets import CTA_gene_names
+    from .gene_sets import CTA_gene_ids
 
     df = CTA_evidence()
-    wanted = set(genes) if genes is not None else set(CTA_gene_names())
-    return df[df["Symbol"].isin(wanted)].copy()
+    mask = (
+        df["Symbol"].isin(set(genes))
+        if genes is not None
+        else df["Ensembl_Gene_ID"].isin(CTA_gene_ids())
+    )
+    return df[mask].copy()
 
 
 def _pmid_count(series: pd.Series) -> pd.Series:
@@ -208,7 +211,7 @@ def plot_confidence_vs_ms_restriction(genes=None, ax=None, figsize=(5.0, 3.2)):
     """
     fig, ax = _new_ax(ax, figsize)
     df = _cta_evidence_frame(genes)
-    order = ["HIGH", "MODERATE", "LOW"]
+    order = ["HIGH", "MODERATE", "LOW", "NO_DATA"]
     present = [c for c in order if c in df["restriction_confidence"].unique()]
     cross = pd.crosstab(df["restriction_confidence"], df["ms_restriction"]).reindex(
         index=present, columns=MS_RESTRICTION_VALUES, fill_value=0

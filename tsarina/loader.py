@@ -20,6 +20,8 @@ from os.path import dirname, join
 import pandas as pd
 from oncoref.cta import cta_evidence as oncoref_cta_evidence
 
+from .cta_selection import selection_gene_table
+
 _DATA_DIR = join(dirname(__file__), "data")
 _MS_EVIDENCE_PATH = join(_DATA_DIR, "gene-ms-safety-evidence.csv")
 PASSES_FILTERS_COLUMN = "passes_filters"
@@ -64,8 +66,21 @@ def _local_ms_evidence() -> pd.DataFrame:
 
 
 def _oncoref_cta_dataframe() -> pd.DataFrame:
-    """Return oncoref's canonical CTA evidence frame."""
-    return oncoref_cta_evidence().copy()
+    """Current decisions with optional historical HPA annotations by gene ID."""
+    hpa = oncoref_cta_evidence().drop(columns="Symbol")
+    frame = selection_gene_table().merge(
+        hpa, on="Ensembl_Gene_ID", how="left", validate="one_to_one"
+    )
+    # Unmeasured historical axes stay absent. Empty text is the established
+    # no-data representation; numeric values and boolean evidence remain null.
+    text_columns = hpa.select_dtypes(include=["object", "string"]).columns
+    missing_hpa = ~frame.Ensembl_Gene_ID.isin(hpa.Ensembl_Gene_ID)
+    for column in text_columns:
+        if column != "Ensembl_Gene_ID":
+            frame.loc[missing_hpa, column] = ""
+    for column in ("restriction", "restriction_confidence"):
+        frame[column] = frame[column].replace("", "NO_DATA")
+    return frame
 
 
 def _attach_local_ms_evidence(df: pd.DataFrame, ms: pd.DataFrame) -> pd.DataFrame:

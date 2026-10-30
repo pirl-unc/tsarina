@@ -75,12 +75,22 @@ _DEFAULT_PEPTIDES_PER_CELL = 3
 #: hitlist's ``MHC_ALLELE_PROVENANCE_VALUES`` is the authoritative vocabulary
 #: (hitlist#419); the values it carries that are absent here are deliberately
 #: not sample-narrowed — ``exact`` needs no candidate bag, and
-#: ``pmid_class_pool`` / ``unmatched`` are study-wide pools naming no donor.
+#: ``pmid_class_pool`` / ``pmid_locus_pool`` / ``pmid_serotype_pool`` and
+#: ``unmatched`` do not identify a donor. Locus/serotype matches and
+#: ``haplotype_roster`` carry sample candidate sets, not observed restrictions.
 #: ``tests/test_hitlist_vocabularies.py`` fails if that partition drifts, so a
 #: new upstream provenance cannot be silently misclassified here.
 #: See pirl-unc/tsarina#62.
 _SAMPLE_NARROWED_PROVENANCES: frozenset[str] = frozenset(
-    {"sample_allele_match", "peptide_attribution"}
+    {
+        "sample_allele_match",
+        "peptide_attribution",
+        "peptide_locus_match",
+        "sample_locus_match",
+        "peptide_serotype_match",
+        "sample_serotype_match",
+        "haplotype_roster",
+    }
 )
 
 
@@ -134,7 +144,7 @@ _SSX4_ALIASES = {
 #: MAGEA2 (ENSG00000268606) and MAGEA2B (ENSG00000183305) likewise encode the
 #: identical 314-aa MAGE-A2 protein at distinct chrX loci.  ``MAGEA2A`` is an
 #: HGNC-listed alias of MAGEA2.  Grouped for the same pMHC-dedup reason; note the
-#: pair is also subject to the non-MAGEA4 MAGE-family default exclusion.
+#: pair is subject to the non-MAGEA4 MAGE-family exclusion only when requested.
 _MAGEA2_GROUP_LABEL = "MAGEA2/MAGEA2B"
 _MAGEA2_ALIASES = {
     "MAGEA2",
@@ -145,8 +155,8 @@ _MAGEA2_ALIASES = {
     "MAGEA2BMAGEA2",
 }
 _DEFAULT_SELECTION_ALLOWLIST = ("PRAME", _CTAG1_GROUP_LABEL, "MAGEA4")
-_DEFAULT_VITAL_TISSUE_MAX_NTPM = 2.0
-_DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = True
+_DEFAULT_VITAL_TISSUE_MAX_NTPM = None
+_DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY = False
 _DEFAULT_GROUP_IDENTICAL_CTA_PMHCS = True
 _DEFAULT_GROUP_IDENTICAL_CTA_PEPTIDE_SETS = True
 _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY = False
@@ -165,13 +175,13 @@ _ANCHOR_ALIASES: dict[str, str] = {
 def _load_proteoform_groups() -> dict[str, tuple[str, ...]]:
     """Identical-protein CGA groups (``{label: member symbols}``).
 
-    Loaded directly from oncoref's canonical CTA-scope proteoform registry.
+    Loaded from current OncoRef selected protein entities and their member genes.
     oncoref is a required dependency, so a local mirror/fallback would only
     create a second definition that can drift.
     """
-    from oncoref.proteoforms import proteoform_symbol_map
+    from .cta_selection import selection_proteoform_groups
 
-    return {label: tuple(symbols) for label, symbols in proteoform_symbol_map(scope="cta").items()}
+    return selection_proteoform_groups()
 
 
 @lru_cache(maxsize=1)
@@ -306,11 +316,11 @@ def spanning_pmhc_set(
     ctas: Iterable[str] | None = None,
     cancer_rna_threshold: float = _DEFAULT_CANCER_RNA_THRESHOLD,
     cancer_type_prevalence_floor: float = _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
-    min_restriction_confidence: Iterable[str] | None = ("HIGH", "MODERATE"),
+    min_restriction_confidence: Iterable[str] | None = None,
     restriction_levels: Iterable[str] | None = None,
     selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
     exclude_vital_tissue_expression: bool = True,
-    vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
+    vital_tissue_max_ntpm: float | None = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
     exclude_non_magea4_mage_family: bool = _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY,
     alleles: Iterable[str] | None = None,
     panel: str | None = _DEFAULT_PANEL,
@@ -371,8 +381,9 @@ def spanning_pmhc_set(
         breadth. Default 0.05 (5%).
     min_restriction_confidence
         Allowed ``restriction_confidence`` bins (e.g. ``("HIGH",
-        "MODERATE")``).  Pass ``None`` to disable.  Applied before
-        ranking. CTAs in ``selection_allowlist`` bypass this gate.
+        "MODERATE")``). Default ``None`` leaves current admission unchanged.
+        When requested, applied with live MS before final selection.
+        CTAs in ``selection_allowlist`` bypass this gate.
     restriction_levels
         Optional set of ``restriction`` values to keep (e.g.
         ``("TESTIS", "PLACENTAL")``).  ``None`` (default) keeps all.
@@ -387,10 +398,10 @@ def spanning_pmhc_set(
         observations in brain/CNS/cerebellum, heart, lung, liver, or pancreas,
         unless the CTA is in ``selection_allowlist``.
     vital_tissue_max_ntpm
-        Maximum allowed RNA nTPM in vital tissues for automatic CTA selection.
-        Default 2.0.
+        Optional maximum RNA nTPM in vital tissues. Default ``None`` disables
+        this historical HPA gate; the downstream healthy-MS screen remains.
     exclude_non_magea4_mage_family
-        If True (default), automatic CTA selection excludes MAGE-family targets
+        If True (default False), automatic CTA selection excludes MAGE-family targets
         other than ``MAGEA4`` unless the target is in ``selection_allowlist``.
         Explicit ``ctas`` always win and bypass this gate.
     alleles
@@ -585,6 +596,7 @@ def spanning_pmhc_set(
             input_cta_list=cta_candidates,
             empty_ctas=empty_ctas,
             include_empty_ctas=keep_empty_ctas,
+            ensembl_release=ensembl_release,
         )
 
     cutoffs = {
@@ -773,6 +785,7 @@ def spanning_pmhc_set(
         input_cta_list=processed_cta_list,
         empty_ctas=empty_ctas,
         cta_groups=cta_groups,
+        ensembl_release=ensembl_release,
     )
 
 
@@ -1400,11 +1413,11 @@ def _resolve_ctas(
     cta_rank_by: str,
     cancer_rna_threshold: float = _DEFAULT_CANCER_RNA_THRESHOLD,
     cancer_type_prevalence_floor: float = _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
-    min_restriction_confidence: Iterable[str] | None = ("HIGH", "MODERATE"),
+    min_restriction_confidence: Iterable[str] | None = None,
     restriction_levels: Iterable[str] | None = None,
     selection_allowlist: Iterable[str] | None = _DEFAULT_SELECTION_ALLOWLIST,
     exclude_vital_tissue_expression: bool = True,
-    vital_tissue_max_ntpm: float = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
+    vital_tissue_max_ntpm: float | None = _DEFAULT_VITAL_TISSUE_MAX_NTPM,
     exclude_non_magea4_mage_family: bool = _DEFAULT_EXCLUDE_NON_MAGEA4_MAGE_FAMILY,
 ) -> list[str]:
     """Pick the CTA gene set per the resolution order: explicit override
@@ -1539,7 +1552,9 @@ def _expand_cta_symbols(labels: Iterable[str]) -> list[str]:
     return expanded
 
 
-def _has_vital_tissue_rna_expression(row: pd.Series, max_ntpm: float) -> bool:
+def _has_vital_tissue_rna_expression(row: pd.Series, max_ntpm: float | None) -> bool:
+    if max_ntpm is None:
+        return False
     for column in _VITAL_TISSUE_RNA_COLUMNS:
         value = row.get(column)
         try:
@@ -2529,7 +2544,11 @@ def _attach_panel_attrs(
     input_cta_list: list[str] | None = None,
     empty_ctas: list[str] | None = None,
     cta_groups: list[dict[str, object]] | None = None,
+    ensembl_release: int = 112,
 ) -> pd.DataFrame:
+    from .cta_selection import selection_provenance
+
+    out.attrs.update(selection_provenance(ensembl_release=ensembl_release))
     out.attrs["cta_order"] = list(cta_list)
     out.attrs["input_cta_order"] = list(input_cta_list or cta_list)
     out.attrs["empty_ctas"] = list(empty_ctas or [])
@@ -2563,6 +2582,7 @@ def _empty_output(
     input_cta_list: list[str] | None = None,
     empty_ctas: list[str] | None = None,
     include_empty_ctas: bool = True,
+    ensembl_release: int = 112,
 ) -> pd.DataFrame:
     if output_format == "wide":
         wide = pd.DataFrame(index=cta_list, columns=allele_list, dtype=object)
@@ -2603,4 +2623,5 @@ def _empty_output(
         input_cta_list=input_cta_list,
         empty_ctas=empty_ctas,
         cta_groups=cta_groups,
+        ensembl_release=ensembl_release,
     )

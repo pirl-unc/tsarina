@@ -19,7 +19,7 @@ whole-exome discovery of private neoantigens.
 | Input | Required | Format | Effect |
 |---|---|---|---|
 | HLA class I alleles | Yes | HLA names such as `HLA-A*02:01` | Defines the presentation-scoring space |
-| CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed, restriction-qualified CTAs |
+| CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed current-policy CTAs |
 | Mutations | No | Supported labels such as `KRAS G12D` | Adds mutation-spanning shared neoantigens |
 | Viruses | No | Keys such as `hpv16` or `ebv` | Adds peptides from the corresponding viral proteome |
 | IEDB/CEDAR data | Recommended | Registered dataset or explicit path | Adds public cancer and healthy-tissue MS evidence |
@@ -79,8 +79,8 @@ targets = personalized_targets(
 
 The default selection applies these stages in order:
 
-1. **Choose tumor-relevant sources.** CTAs must have at least 2.0 TPM and
-   `HIGH` or `MODERATE` oncoref restriction confidence. Mutations and viruses
+1. **Choose tumor-relevant sources.** CTAs use current OncoRef admission and at least 2.0 TPM when a measurement
+   is supplied. Historical restriction-confidence filtering is optional. Mutations and viruses
    must match supported identifiers.
 2. **Enumerate source peptides.** The default lengths are 8, 9, 10, and 11
    amino acids.
@@ -137,7 +137,7 @@ allele.
 | `source` | CTA symbol, virus name, or mutation label |
 | `source_detail` | Ensembl gene ID, viral protein accession, or mutation string |
 | `source_tpm` | Patient tumor RNA expression for CTA rows |
-| `flag_reason` | Why oncoref excludes this gene from the strict CTA set, for `cta_flagged` rows only |
+| `flag_reason` | Why OncoRef does not admit this gene to the current CTA set, for `cta_flagged` rows only |
 | `ms_hit_count` | Number of aggregated public MS observations |
 | `ms_alleles`, `ms_allele_count` | Observed HLA restrictions and their count |
 | `ms_in_cancer` | Whether public cancer MS evidence exists |
@@ -154,8 +154,8 @@ allele.
 
 CTA definitions come directly from
 [oncoref](https://github.com/pirl-unc/oncoref). Tsarina does not maintain a
-second CTA list. The patient workflow starts from the canonical oncoref set,
-then applies expression, restriction-confidence, peptide-exclusivity, and
+second CTA list. The patient workflow starts from the current OncoRef selection,
+then applies expression, optional restriction-confidence, peptide-exclusivity, and
 downstream evidence gates.
 
 This gene-based workflow does not comprehensively cover HERV-K (HML-2)
@@ -163,28 +163,23 @@ Env/Rec/Np9 antigens. Neither `--cta` nor the supported `--virus` inputs ingest
 HERV locus-expression results; see the
 [endogenous-retrovirus coverage limits](curation.md#coverage-limits-endogenous-retrovirus-antigens).
 
-A `--cta` gene oncoref excludes from that strict set but still tracks as a
-known clinical target (CTAG2/LAGE-1 is the motivating example: excluded for a
-low-level HPA heart RNA signal, retained in oncoref's clinical-target tier)
-is not silently dropped. It
-appears with `category="cta_flagged"` and the exclusion reason in
-`flag_reason`, so a caller who named the gene explicitly sees it and its
-caveat. Its peptides are generated directly from the protein sequence and are
-not screened for overlap with other proteins the way a strict CTA's are — see
-`flag_reason`. Explicitly naming a clinical-only target enables this flagged
-path; it does not make the gene a strict CTA or establish normal-tissue safety.
+CTAG2/LAGE-1 is admitted by the current policy and follows the normal CTA
+peptide-specificity path. Historical HPA heart-RNA annotations remain visible;
+current admission does not establish normal-tissue safety.
 
-Restriction-confidence filtering applies to strict CTAs. A strict CTA rejected
-by that filter stays excluded even if it also has clinical references. The
-optional mTEC filter and minimum measured tumor TPM apply to both strict and
-flagged targets. Missing tumor TPM still means the user did not supply a
-measurement; missing mTEC evidence does not pass a requested mTEC filter.
+For an explicitly requested gene outside the current set, the existing
+historical clinical-target compatibility path remains available. Such a gene
+appears with `category="cta_flagged"` and the current decision rationale in
+`flag_reason`. Its peptides are generated directly from sequence without the
+CTA peptide-overlap screen; the flag states this limitation. A current CTA
+rejected by an optional confidence filter cannot re-enter through this path.
 
-Every gene dropped at these selection gates produces a warning naming the
-gene and the reason: an unrecognized symbol, upstream exclusion (with its
-curated rationale), the default normal-tissue expression floor, confidence,
-mTEC, or tumor TPM. These messages concern source selection; a selected gene
-can still produce no final rows after peptide or evidence filtering.
+The optional mTEC filter and minimum measured tumor TPM apply to both current
+and flagged targets. Missing tumor TPM means no measurement was supplied;
+missing mTEC evidence does not pass a requested mTEC filter. Selection
+warnings distinguish `Unsafe`, `Neither`, unassigned and unknown identities,
+using the current decision reasons rather than historical expression floors.
+A selected gene can still produce no final rows after downstream filtering.
 
 Clinical evidence must remain target-specific: NY-ESO-1-directed TCR trials
 are described by [Robbins et al.](https://pubmed.ncbi.nlm.nih.gov/21282551/).
@@ -197,7 +192,7 @@ CTAs that translate to a byte-identical protein are reported as one group
 by default, under oncoref's preferred symbol for it: CTAG1A + CTAG1B is
 reported as `NY-ESO-1`, XAGE1A + XAGE1B as `XAGE1A/B`, SSX2 + SSX2B as
 `SSX2/B`, and the SSX4, MAGEA2, MAGEA9, CT45A, CT47A and GAGE12 families
-the same way. Both halves come from oncoref: `proteoform_symbol_map` for
+the same way. Both halves come from oncoref: current selected entity identities for
 membership (the registry the panel workflow uses) and `proteoform_symbol`
 for the name, which is a curated alias where one exists and the
 prefix-contracted members otherwise. Neither is restated in tsarina.

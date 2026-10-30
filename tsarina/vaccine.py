@@ -107,7 +107,11 @@ def design_vaccine(
         ] = "non_positive_score"
     if eligible.empty or eligible.mortality_weighted_score.max() <= 0:
         raise ValueError("No positive mortality-weighted CTA prevalence is available")
-    background_cta_ids, aliases = resolve_background_cta_ids(inputs.proteins, inputs.cta_gene_ids)
+    background_cta_ids, aliases = resolve_background_cta_ids(
+        inputs.proteins,
+        inputs.cta_gene_ids,
+        inherit_alternate_haplotypes=config.definition != "current",
+    )
     from .vaccine_inputs import filter_ms_modality
     from .vaccine_tissues import tissue_map, verified_normal_ms
 
@@ -482,7 +486,16 @@ def design_vaccine(
             "\n".join(sorted(background_cta_ids)).encode()
         ).hexdigest(),
         "background_cta_alias_count": len(aliases),
-        "background_cta_identity": "curated IDs plus exact-symbol HSCHR alternate-haplotype annotations of the same gene",
+        "background_cta_identity": (
+            "current selected member gene IDs; no symbol-based identity inheritance"
+            if config.definition == "current"
+            else "curated IDs plus exact-symbol HSCHR alternate-haplotype annotations of the same gene"
+        ),
+        "background_policy": (
+            "tsarina.current-selection-other-genes.v1"
+            if config.definition == "current"
+            else "tsarina.hpa-selection-alternate-haplotypes.v1"
+        ),
         "ms_input_sha256": support.attrs.get("ms_input_sha256"),
         "ms_modality_policy": "positive MS assay method, curated MS-only supplement, or declared supplied modality; explicit non-MS rejected",
         "inspected_proteoforms": len(candidates),

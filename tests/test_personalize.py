@@ -917,7 +917,9 @@ def test_format_table_marks_flagged_rows_with_footnote():
 def test_proteoform_group_labels_come_from_oncoref():
     """Real-data pin: the group map is oncoref's canonical CTA proteoform
     registry, not a tsarina-local second definition."""
-    from oncoref.proteoforms import proteoform_symbol, proteoform_symbol_map
+    from oncoref.proteoforms import proteoform_symbol
+
+    from tsarina.cta_selection import selection_proteoform_groups
 
     labels = personalize_module._proteoform_group_labels()
     assert labels["CTAG1A"] == "NY-ESO-1"
@@ -926,7 +928,7 @@ def test_proteoform_group_labels_come_from_oncoref():
     assert labels["SSX2B"] == "SSX2/B"
     expected = {
         member: proteoform_symbol(label)
-        for label, members in proteoform_symbol_map(scope="cta").items()
+        for label, members in selection_proteoform_groups().items()
         for member in members
     }
     assert labels == expected

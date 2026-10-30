@@ -4,53 +4,71 @@ Tsarina consumes one executable cancer-testis antigen definition:
 [oncoref](https://github.com/pirl-unc/oncoref). Tsarina enriches that definition
 with target-selection evidence, but never maintains a second CTA universe.
 
-## Definition and evidence owners
+## Current selection and historical evidence
 
-| Question | Owner |
-|---|---|
-| Is this gene a CTA candidate, default, filtered, excluded, or low-expression member? | oncoref |
-| What is its canonical symbol or alias? | oncoref |
-| What do HPA RNA and protein data imply about its tissue restriction? | oncoref |
-| Which CTA proteoform group contains it? | oncoref |
-| How prevalent is it across cancer samples? | Tsarina downstream features |
-| Has a peptide or gene been observed by public MS in cancer or healthy tissue? | Tsarina/hitlist evidence |
-| Which pMHCs score best for a patient or HLA panel? | Tsarina runtime selection |
-
-An oncoref release defines the CTA rows. A Tsarina evidence join may add
-columns to those rows, but it cannot create a CTA.
-
-## Definition boundary
-
-Oncoref owns:
-
-- the CTA candidate universe and gene identities;
-- default, filtered, unfiltered, low-expression, and excluded membership;
-- symbols, aliases, source provenance, and specificity decisions;
-- HPA RNA and protein evidence, restriction axes, and confidence; and
-- CTA proteoform groups.
-
-Tsarina does not ship a CTA definition table or reproduce those decisions.
-Foundational helpers such as `CTA_gene_names`, `CTA_filtered_gene_ids`,
-`CTA_excluded_gene_names`, `CTA_testis_restricted_gene_names`, and
-`cta_symbol_for_alias` directly alias their `oncoref.cta` implementations.
-Proteoform grouping comes from
-`oncoref.proteoforms.proteoform_symbol_map(scope="cta")`.
-
-The boundary is executable:
+Tsarina 1.36 requires OncoRef >=1.23.1. Default human membership is the
+`CTA` category from `oncoref.cta_selection.results(species="human")`.
+This protein-level policy owns entity identities, member genes, categories,
+assessment status, evidence flags and policy/reference/source receipts.
+Tsarina does not reproduce its biological thresholds.
 
 ```python
-import oncoref.cta
-import tsarina.gene_sets
+from tsarina import CTA_selection, CTA_gene_ids, CTA_evidence, CTA_hpa_evidence
 
-assert tsarina.gene_sets.CTA_gene_names is oncoref.cta.cta_gene_names
-assert (
-    tsarina.gene_sets.CTA_filtered_gene_ids
-    is oncoref.cta.cta_filtered_gene_ids
-)
+selected = CTA_selection(category="CTA")  # Unmodified upstream protein decisions.
+assert CTA_gene_ids() == {g for members in selected.gene_ids for g in members}
+evidence = CTA_evidence()                # One row per current member gene.
+historical = CTA_hpa_evidence()          # Original oncoref.cta HPA table.
 ```
 
-`CTA_evidence()` starts from `oncoref.cta.cta_evidence()` and preserves its
-exact row universe and upstream columns.
+With OncoRef 1.23.1, the current selection contains 522 protein groups and 558
+gene loci, compared with 624 historical HPA default genes: 225 genes enter and
+291 leave. CTAG2 is admitted by the current policy. GAGE10 remains unassigned.
+These counts describe this release, not thresholds enforced by Tsarina.
+
+`CTA_evidence()` starts from **all current decisions**, projects protein
+entities onto member genes, and left-joins historical HPA annotations and
+Tsarina's MS overlay by Ensembl gene ID. The `selection_*` columns preserve
+the upstream decision; `is_current_cta` is true only for category `CTA`.
+Current member identities supply symbols, with stable gene IDs used when a
+symbol is missing. Missing HPA measurements stay missing, with empty text or
+`NO_DATA` for unavailable restriction axes; they do not become zero or pass
+an HPA filter. There are 92 selected genes absent from the historical table
+in OncoRef 1.23.1.
+
+`Unsafe`, `Neither`, and null/unassigned decisions remain distinct.
+`CTA_excluded_gene_ids/names()` returns only `Unsafe` members;
+`CTA_unfiltered_gene_ids/names()` returns the complete current decision
+universe. `CTA_filtered_gene_ids/names()` is a compatibility name for current
+CTA membership. Protein groups come from the current selected entities.
+
+Historical testis/placental/relaxed-reproductive, never-expressed and clinical
+helpers remain explicit `oncoref.cta` compatibility views. Historical flags
+such as `passes_filters`, `never_expressed` and `specificity_action` annotate
+evidence; they do not decide current membership. Clinical helpers can overlap
+current CTAs. The vaccine `strict`, `loose` and `both` modes remain available
+for historical comparisons; the human default is `current`.
+
+## Sequence background and provenance
+
+For gene-based peptide consumers, current selected member genes form the CTA
+set. Every other coding gene in the requested Ensembl sequence release remains
+in the non-CTA background, including `Unsafe`, `Neither`, unassigned and genes
+absent from the selection table. The compatibility partition field
+`cta_never_expressed` is empty. Neither or missing assessment does not justify
+removing a sequence from the background.
+
+This consumer policy is recorded as
+`tsarina.current-selection-other-genes.v1`. It is separate from OncoRef's
+independently versioned exact-protein background policy. Admission of a
+representative protein does not certify every isoform of its member genes.
+
+Outputs retain selection policy/reference/source IDs separately from the
+consumer's sequence release. OncoRef 1.23.1's selection reference describes
+its Ensembl-115 gene space; it is not the sequence asset used by Tsarina's
+default Ensembl-112 enumeration. Vaccine provenance also records the actual
+protein reference digest. See the
+[upstream selection contract](https://pirl-unc.github.io/oncoref/cta-selection/).
 
 ## Downstream evidence flow
 
@@ -85,7 +103,7 @@ specificity fields.
 
 ## Restriction axes and API behavior
 
-The static columns below come unchanged from oncoref:
+The historical columns below come from `oncoref.cta` where HPA rows exist:
 
 | Axis | Values or role |
 |---|---|
@@ -104,8 +122,10 @@ Tsarina's `ms_restriction` is an independent downstream safety axis:
 - `UNCLASSIFIED_MS`
 - `NO_MS_DATA`
 
-`CTA_by_axes()` queries oncoref's row universe and membership tiers. Its only
-Tsarina extension is the optional `ms_restriction` predicate:
+`CTA_by_axes()` applies explicit HPA/MS predicates to the current selected
+members. With `filtered_only=False`, it queries all current decisions. Default
+panel and personalized selection do not reapply historical HPA confidence,
+vital-RNA or MAGE-family exclusions; these remain optional user filters:
 
 ```python
 from tsarina import CTA_by_axes
@@ -123,7 +143,12 @@ high_confidence = CTA_by_axes(
 Live workflows can explicitly call `synthesize_restriction()` or
 `assign_all_axes()` to combine current IEDB/CEDAR MS evidence with the oncoref
 HPA axes. These helpers do not derive or modify the upstream protein and RNA
-classifications.
+classifications. The combined tissue scope comes directly from oncoref's union
+of the observed modalities: testis protein with somatic RNA remains `SOMATIC`,
+and testis protein with placental RNA becomes `REPRODUCTIVE`. Only matching
+protein/RNA labels receive an agreement bonus. Without MS evidence, both the
+scope and confidence are the upstream result; MS evidence contributes only to
+the explicitly requested confidence calculation.
 
 ## Coverage limits: endogenous retrovirus antigens
 
@@ -200,8 +225,8 @@ intermediate name does not update Tsarina's current reference data.
 
 | Older workflow | Current workflow |
 |---|---|
-| Import `cancerdata` or `oncodata` for CTA definitions | Import `oncoref.cta` |
-| Run `scripts/sync_proteoform_groups.py` to refresh a local mirror | Read `oncoref.proteoforms.proteoform_symbol_map(scope="cta")` directly |
+| Import `cancerdata` or `oncodata` for CTA definitions | Import `oncoref.cta_selection` for current membership |
+| Run `scripts/sync_proteoform_groups.py` to refresh a local mirror | Read current selected entity/member identities directly |
 | Skip registry integration checks when the source package is absent | Install the required `oncoref` dependency and run the integration tests |
 
 The sync script and mirrored registry have been removed. No manual sync is
@@ -228,7 +253,7 @@ oncoref data consumed by Tsarina: CGB2/3/5/7, PSG4/6/7, CT45A5, CSH1, and
 GAGE10 all retain their HPA v23 IHC evidence. Recomputing their protein columns
 from the pinned `normal_tissue` table reproduces the current values; regression
 tests cover all ten genes, including CGB2's expressed status. The corrected
-data is also present in Tsarina's minimum supported oncoref 1.8.150.
+data is also present in Tsarina's minimum supported oncoref 1.23.1.
 
 A protein restriction call is evidence, not an admission decision. For
 example, CGB3 has reproductive-tissue IHC, while oncoref still excludes it
@@ -253,5 +278,6 @@ locally.
 
 Tsarina's obsolete CTA regeneration and full reference-data commands have
 been removed. The remaining HPA cancer-prevalence features can be regenerated
-with `scripts/regenerate_hpa_cancer_prevalence.py`; that script takes its gene
-universe from `oncoref.cta.cta_evidence()`.
+with `scripts/regenerate_hpa_cancer_prevalence.py`; that script takes its historical HPA gene
+universe from `oncoref.cta.cta_evidence()`; new current members can therefore
+lack these cached ranking features.

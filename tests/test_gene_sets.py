@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from oncoref import cta as oncoref_cta
+from oncoref import cta_selection
 
 import tsarina.gene_sets as gene_sets
 from tsarina import (
@@ -12,12 +13,14 @@ from tsarina import (
     CTA_filtered_gene_names,
     CTA_gene_ids,
     CTA_gene_names,
+    CTA_hpa_evidence,
     CTA_never_expressed_gene_ids,
     CTA_never_expressed_gene_names,
     CTA_placental_restricted_gene_ids,
     CTA_placental_restricted_gene_names,
     CTA_relaxed_reproductive_gene_ids,
     CTA_relaxed_reproductive_gene_names,
+    CTA_selection,
     CTA_testis_restricted_gene_ids,
     CTA_testis_restricted_gene_names,
     CTA_unfiltered_gene_ids,
@@ -29,16 +32,8 @@ from tsarina.loader import _local_ms_evidence
 
 def test_foundational_cta_helpers_are_direct_oncoref_aliases():
     aliases = {
-        "CTA_gene_names": "cta_gene_names",
-        "CTA_gene_ids": "cta_gene_ids",
-        "CTA_filtered_gene_names": "cta_filtered_gene_names",
-        "CTA_filtered_gene_ids": "cta_filtered_gene_ids",
         "CTA_never_expressed_gene_names": "cta_never_expressed_gene_names",
         "CTA_never_expressed_gene_ids": "cta_never_expressed_gene_ids",
-        "CTA_unfiltered_gene_names": "cta_unfiltered_gene_names",
-        "CTA_unfiltered_gene_ids": "cta_unfiltered_gene_ids",
-        "CTA_excluded_gene_names": "cta_excluded_gene_names",
-        "CTA_excluded_gene_ids": "cta_excluded_gene_ids",
         "CTA_relaxed_reproductive_gene_names": "cta_relaxed_reproductive_gene_names",
         "CTA_relaxed_reproductive_gene_ids": "cta_relaxed_reproductive_gene_ids",
         "CTA_testis_restricted_gene_names": "cta_testis_restricted_gene_names",
@@ -47,58 +42,70 @@ def test_foundational_cta_helpers_are_direct_oncoref_aliases():
         "CTA_placental_restricted_gene_ids": "cta_placental_restricted_gene_ids",
         "CTA_clinical_target_gene_names": "cta_clinical_target_gene_names",
         "CTA_clinical_target_gene_ids": "cta_clinical_target_gene_ids",
-        "cta_symbol_for_alias": "cta_symbol_for_alias",
     }
     for tsarina_name, oncoref_name in aliases.items():
         assert getattr(gene_sets, tsarina_name) is getattr(oncoref_cta, oncoref_name)
 
 
-def test_ctag2_is_a_clinical_target_excluded_from_the_strict_set():
-    """Regression pin: CTAG2/LAGE-1 is oncoref's motivating example for
-    exclude_default_keep_clinical -- excluded from the strict CTA set for
-    a low-level HPA heart RNA signal, but retained as a known clinical
-    target given its NY-ESO-1-family therapeutic history."""
-    from tsarina import CTA_clinical_target_gene_names, CTA_gene_names
-
-    assert "CTAG2" in CTA_clinical_target_gene_names()
-    assert "CTAG2" not in CTA_gene_names()
+def test_ctag2_is_admitted_by_current_policy_with_historical_evidence_retained():
+    assert "CTAG2" in CTA_gene_names()
+    assert "CTAG2" not in oncoref_cta.cta_gene_names()
+    assert CTA_hpa_evidence is oncoref_cta.cta_evidence
+    assert CTA_selection is cta_selection.results
 
 
-def test_cta_set_relationships_are_oncoref_relationships():
-    assert CTA_gene_names() == oncoref_cta.cta_gene_names()
-    assert CTA_gene_ids() == oncoref_cta.cta_gene_ids()
-    assert CTA_filtered_gene_names() == oncoref_cta.cta_filtered_gene_names()
-    assert CTA_filtered_gene_ids() == oncoref_cta.cta_filtered_gene_ids()
-    assert CTA_never_expressed_gene_names() == CTA_filtered_gene_names() - CTA_gene_names()
-    assert CTA_never_expressed_gene_ids() == CTA_filtered_gene_ids() - CTA_gene_ids()
-    assert CTA_excluded_gene_names() == CTA_unfiltered_gene_names() - CTA_filtered_gene_names()
-    assert CTA_excluded_gene_ids() == CTA_unfiltered_gene_ids() - CTA_filtered_gene_ids()
+def test_current_membership_matches_every_upstream_member():
+    selected = CTA_selection(species="human", category="CTA")
+    assert CTA_gene_ids() == {gene for genes in selected.gene_ids for gene in genes}
+    assert CTA_gene_names() == {
+        (i["symbol"] or i["gene_id"]) for identities in selected.gene_identities for i in identities
+    }
+    assert CTA_filtered_gene_names() == CTA_gene_names()
+    assert CTA_filtered_gene_ids() == CTA_gene_ids()
+    unsafe = CTA_selection(category="Unsafe")
+    assert CTA_excluded_gene_ids() == {gene for genes in unsafe.gene_ids for gene in genes}
+    all_decisions = CTA_selection()
+    assert CTA_unfiltered_gene_ids() == {gene for genes in all_decisions.gene_ids for gene in genes}
+    assert CTA_never_expressed_gene_names() == oncoref_cta.cta_never_expressed_gene_names()
+    assert CTA_never_expressed_gene_ids() == oncoref_cta.cta_never_expressed_gene_ids()
 
 
-def test_evidence_row_universe_and_upstream_columns_match_oncoref_exactly():
-    actual = CTA_evidence().copy()
-    expected = oncoref_cta.cta_evidence().copy()
-
-    assert list(actual["Ensembl_Gene_ID"]) == list(expected["Ensembl_Gene_ID"])
-    assert list(actual["Symbol"]) == list(expected["Symbol"])
+def test_evidence_preserves_current_provenance_and_historical_hpa_measurements():
+    actual = CTA_evidence().set_index("Ensembl_Gene_ID")
+    expected = CTA_hpa_evidence().set_index("Ensembl_Gene_ID")
+    assert set(actual.index) == CTA_unfiltered_gene_ids()
+    common = sorted(set(actual.index) & set(expected.index))
+    columns = [c for c in expected if c != "Symbol"]
     pd.testing.assert_frame_equal(
-        actual[list(expected.columns)].reset_index(drop=True),
-        expected.reset_index(drop=True),
+        actual.loc[common, columns],
+        expected.loc[common, columns],
         check_dtype=False,
         check_column_type=False,
     )
+    for row in CTA_selection().itertuples(index=False):
+        members = actual.loc[list(row.gene_ids)]
+        for column in ("entity_id", "policy_id", "reference_id", "source_snapshot_id"):
+            assert members["selection_" + column].eq(getattr(row, column)).all()
+        if pd.isna(row.category):
+            assert members.selection_category.isna().all()
+        else:
+            assert members.selection_category.eq(row.category).all()
 
 
-def test_tsarina_evidence_adds_only_ms_columns_and_filtered_compatibility_alias():
+def test_new_selected_members_missing_hpa_are_preserved_as_unmeasured():
+    old_ids = set(CTA_hpa_evidence().Ensembl_Gene_ID)
+    new_ids = CTA_gene_ids() - old_ids
+    assert new_ids
+    rows = CTA_evidence().set_index("Ensembl_Gene_ID").loc[sorted(new_ids)]
+    assert rows.is_current_cta.all()
+    assert rows.rna_max_ntpm.isna().all()
+    assert rows.restriction_confidence.eq("NO_DATA").all()
+    assert rows.passes_filters.isna().all()
+    assert new_ids <= CTA_by_axes(column="Ensembl_Gene_ID")
+
+
+def test_tsarina_overlay_does_not_redefine_hpa_flags():
     actual = CTA_evidence()
-    expected_columns = set(oncoref_cta.cta_evidence().columns)
-    added = set(actual.columns) - expected_columns
-    assert added == {
-        "filtered",
-        "ms_restriction",
-        "ms_healthy_somatic_tissues",
-        "ms_pmids",
-    }
     assert actual["filtered"].equals(actual["passes_filters"])
     assert not any(column.startswith("ms_") and "count" in column for column in actual)
 
@@ -131,8 +138,10 @@ def test_non_cta_ms_evidence_does_not_expand_oncoref_cta_universe():
     # excludes it from the CTA universe. The left join must not reintroduce it.
     overlay = _local_ms_evidence().set_index("Ensembl_Gene_ID")
     assert overlay.loc["ENSG00000187475", "ms_restriction"] == "RECURRENT_HEALTHY"
-    assert "H1-6" not in set(CTA_evidence()["Symbol"])
-    assert "H1-6" not in CTA_unfiltered_gene_names()
+    assert "H1-6" not in CTA_gene_names()
+    row = CTA_evidence().set_index("Ensembl_Gene_ID").loc["ENSG00000187475"]
+    assert row["ms_restriction"] == "RECURRENT_HEALTHY"
+    assert not row["is_current_cta"]
 
 
 def test_missing_ms_overlay_rows_receive_explicit_defaults():
@@ -224,7 +233,13 @@ def test_by_axes_matches_oncoref_for_hpa_filters():
         {"restriction": "TESTIS", "column": "Ensembl_Gene_ID"},
     ]
     for kwargs in cases:
-        assert CTA_by_axes(**kwargs) == oncoref_cta.cta_by_axes(**kwargs)
+        column = kwargs.get("column", "Symbol")
+        evidence = CTA_evidence()
+        subset = evidence[evidence.is_current_cta]
+        for axis, value in kwargs.items():
+            if axis != "column":
+                subset = subset[subset[axis].eq(value)]
+        assert CTA_by_axes(**kwargs) == set(subset[column])
 
 
 def test_by_axes_adds_explicit_ms_filter_without_changing_membership():

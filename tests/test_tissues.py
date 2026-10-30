@@ -17,8 +17,9 @@ def test_extended_is_superset_of_core():
     assert CORE_REPRODUCTIVE_TISSUES < EXTENDED_REPRODUCTIVE_TISSUES
 
 
-def test_permissive_is_superset_of_extended():
-    assert EXTENDED_REPRODUCTIVE_TISSUES < PERMISSIVE_REPRODUCTIVE_TISSUES
+def test_permissive_aliases_extended_without_reclassifying_thymus():
+    assert PERMISSIVE_REPRODUCTIVE_TISSUES is EXTENDED_REPRODUCTIVE_TISSUES
+    assert "thymus" not in PERMISSIVE_REPRODUCTIVE_TISSUES
 
 
 def test_is_tissue_restricted_core():

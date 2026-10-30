@@ -19,21 +19,20 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # 1.58.1: hitlist owns artifact freshness (curation-YAML fingerprints in
     # observations_meta.json, mapping-artifact contract) and publishes
     # MHC_ALLELE_PROVENANCE_VALUES as the provenance vocabulary.
     "hitlist>=1.58.1",
     "mhcgnomes>=3.20.0",
-    # The base CTA/proteoform API; the vaccine extra needs the extended definition.
-    "oncoref>=1.8.150",
+    # Current protein selection decisions, member identities and reference receipts.
+    "oncoref>=1.23.1",
     "pandas",
     "numpy",
     "tqdm",
@@ -42,7 +41,6 @@ dependencies = [
 [project.optional-dependencies]
 vaccine = [
     "hitlist>=1.65.1",  # donor-resolved Atlas tissue blacklist API
-    "oncoref>=1.8.207",
     "pyensembl>=2.17.1",  # dog scientific-name aliases across Ensembl's rename
     "matplotlib",
     "mhcflurry>=2.3.0",

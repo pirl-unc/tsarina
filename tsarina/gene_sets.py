@@ -12,9 +12,8 @@
 
 """CTA helpers.
 
-All CTA membership, specificity, alias, and HPA-axis definitions are direct
-aliases of :mod:`oncoref.cta`. Tsarina adds only the optional ``ms_restriction``
-filter to ``CTA_by_axes`` over its downstream gene-level MS evidence.
+Default membership follows :mod:`oncoref.cta_selection`. Historical HPA-axis
+and low-expression helpers remain explicit compatibility views of oncoref.cta.
 """
 
 from __future__ import annotations
@@ -25,6 +24,7 @@ import pandas as pd
 from hitlist.proteome import ENSEMBL_CODING_GENE_BIOTYPES as _hitlist_coding_gene_biotypes
 from oncoref import cta as _oncoref_cta
 
+from .cta_selection import selection_gene_ids, selection_gene_names, selection_symbol_for_alias
 from .loader import cta_dataframe
 
 #: Ensembl biotypes whose genes tsarina treats as coding — the one definition of
@@ -62,33 +62,48 @@ def is_coding_transcript(transcript: object) -> bool:
     return str(getattr(transcript, "biotype", "")) in CODING_GENE_BIOTYPES
 
 
-# Direct aliases make ownership executable, not just documentary: the
-# foundational Tsarina API objects are the oncoref implementations themselves.
-CTA_gene_names = _oncoref_cta.cta_gene_names
-CTA_gene_ids = _oncoref_cta.cta_gene_ids
-CTA_filtered_gene_names = _oncoref_cta.cta_filtered_gene_names
-CTA_filtered_gene_ids = _oncoref_cta.cta_filtered_gene_ids
+# Current membership is projected from upstream decisions. Explicit HPA helpers
+# remain direct aliases for historical reproducibility.
+CTA_gene_names = selection_gene_names
+CTA_gene_ids = selection_gene_ids
+CTA_filtered_gene_names = selection_gene_names
+CTA_filtered_gene_ids = selection_gene_ids
 CTA_never_expressed_gene_names = _oncoref_cta.cta_never_expressed_gene_names
 CTA_never_expressed_gene_ids = _oncoref_cta.cta_never_expressed_gene_ids
-CTA_unfiltered_gene_names = _oncoref_cta.cta_unfiltered_gene_names
-CTA_unfiltered_gene_ids = _oncoref_cta.cta_unfiltered_gene_ids
-CTA_excluded_gene_names = _oncoref_cta.cta_excluded_gene_names
-CTA_excluded_gene_ids = _oncoref_cta.cta_excluded_gene_ids
+
+
+def CTA_unfiltered_gene_names():
+    return selection_gene_names(category=None)
+
+
+def CTA_unfiltered_gene_ids():
+    return selection_gene_ids(category=None)
+
+
+def CTA_excluded_gene_names():
+    """Genes classified Unsafe; Neither and unassigned remain distinct."""
+    return selection_gene_names(category="Unsafe")
+
+
+def CTA_excluded_gene_ids():
+    return selection_gene_ids(category="Unsafe")
+
+
 CTA_relaxed_reproductive_gene_names = _oncoref_cta.cta_relaxed_reproductive_gene_names
 CTA_relaxed_reproductive_gene_ids = _oncoref_cta.cta_relaxed_reproductive_gene_ids
 CTA_testis_restricted_gene_names = _oncoref_cta.cta_testis_restricted_gene_names
 CTA_testis_restricted_gene_ids = _oncoref_cta.cta_testis_restricted_gene_ids
 CTA_placental_restricted_gene_names = _oncoref_cta.cta_placental_restricted_gene_names
 CTA_placental_restricted_gene_ids = _oncoref_cta.cta_placental_restricted_gene_ids
-#: Genes oncoref excludes from the strict default CTA set (e.g. a low-level
-#: HPA normal-tissue RNA signal) but keeps as known clinical targets --
-#: CTAG2/LAGE-1 (excluded for a heart RNA signal, kept for its NY-ESO-1-
-#: family therapeutic history) is the motivating example. Disjoint from
-#: ``CTA_gene_names`` by construction upstream, but callers combining the
-#: two sets should still subtract rather than assume that.
+#: Historical clinical-target compatibility tier. It may overlap current CTA
+#: membership (for example CTAG2); subtract the current set when using a fallback.
 CTA_clinical_target_gene_names = _oncoref_cta.cta_clinical_target_gene_names
 CTA_clinical_target_gene_ids = _oncoref_cta.cta_clinical_target_gene_ids
-cta_symbol_for_alias = _oncoref_cta.cta_symbol_for_alias
+
+
+def cta_symbol_for_alias(name):
+    """Resolve current identities first, then historical clinical aliases."""
+    return selection_symbol_for_alias(name) or _oncoref_cta.cta_symbol_for_alias(name)
 
 
 def _filter_values(values: str | Iterable[str] | None) -> set[str] | None:
@@ -122,18 +137,15 @@ def CTA_by_axes(
 ) -> set[str]:
     """Return oncoref CTAs matching HPA axes and optional Tsarina MS evidence.
 
-    The row universe and canonical filtered tier come directly from oncoref.
-    Tsarina's only extension is the explicit ``ms_restriction`` predicate.
+    Current selected members are the default universe. ``filtered_only=False``
+    includes all current decisions. HPA/MS predicates are additional explicit
+    filters and never define upstream admission.
     """
     df = cta_dataframe().copy()
     if column not in df.columns or "Ensembl_Gene_ID" not in df.columns:
         return set()
 
-    allowed_ids = (
-        _oncoref_cta.cta_filtered_gene_ids()
-        if filtered_only
-        else _oncoref_cta.cta_unfiltered_gene_ids()
-    )
+    allowed_ids = CTA_gene_ids() if filtered_only else CTA_unfiltered_gene_ids()
     gene_ids = df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
     mask = gene_ids.isin(allowed_ids)
 

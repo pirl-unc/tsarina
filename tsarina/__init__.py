@@ -12,6 +12,8 @@
 
 """tsarina: personalized cancer immunotherapy target selection from curated shared antigen data."""
 
+from oncoref.cta import cta_evidence as CTA_hpa_evidence
+
 from .alleles import (
     IEDB27_AB,
     PANEL_DEFINITIONS,
@@ -23,6 +25,7 @@ from .cancer_expression import (
     hpa_cancer_ihc_prevalence,
     hpa_cancer_rna_prevalence,
 )
+from .cta_selection import CTA_selection
 from .evidence import CTA_detailed_evidence, CTA_evidence
 from .gene_sets import (
     CTA_by_axes,
@@ -97,12 +100,14 @@ __all__ = [
     "CTA_filtered_gene_names",
     "CTA_gene_ids",
     "CTA_gene_names",
+    "CTA_hpa_evidence",
     "CTA_never_expressed_gene_ids",
     "CTA_never_expressed_gene_names",
     "CTA_placental_restricted_gene_ids",
     "CTA_placental_restricted_gene_names",
     "CTA_relaxed_reproductive_gene_ids",
     "CTA_relaxed_reproductive_gene_names",
+    "CTA_selection",
     "CTA_testis_restricted_gene_ids",
     "CTA_testis_restricted_gene_names",
     "CTA_unfiltered_gene_ids",

@@ -24,6 +24,8 @@ See: [documentation](docs/index.md) — inputs, dataset setup and workflow detai
 
 ## Install
 
+Requires Python 3.10 or newer and OncoRef 1.23.1 or newer.
+
 ```bash
 pip install tsarina
 ```
@@ -62,13 +64,15 @@ for setup and interpretation.
 
 | Category | Candidate source | Tumor-specific context |
 |---|---|---|
-| CTA | The canonical [oncoref](https://github.com/pirl-unc/oncoref) CTA set | Tumor RNA expression and reproductive-tissue restriction |
+| CTA | The current-policy [oncoref](https://github.com/pirl-unc/oncoref) CTA set | Tumor RNA expression and reproductive-tissue restriction |
 | Viral | Proteomes from nine oncogenic viruses | Virus detected in the tumor |
 | Mutant | Nineteen recurrent hotspots across seven driver genes | Matching mutation detected in the tumor |
 
 Oncoref is the single authority for CTA membership, aliases, HPA restriction
 calls, and proteoform groups. Tsarina adds downstream evidence and scoring
-without maintaining a second CTA definition library. The exact boundary is
+without maintaining a second CTA definition library. Default human membership
+uses `oncoref.cta_selection.results()`; historical HPA annotations remain
+available through `CTA_hpa_evidence()`. The exact boundary is
 documented in [CTA ownership and downstream evidence](docs/curation.md).
 
 ## How ranking works
@@ -93,7 +97,7 @@ and thymus are treated as safety evidence.
 - [CTA panel design](docs/panel-design.md) — automatic selection, evidence
   tiers, HLA panels, and coverage
 - [CTA vaccine design](docs/vaccine-design.md) — mortality-weighted p95 selection,
-  strict/loose specificity, MS-supported stretches, construct search and full audit
+  current-policy selection, historical strict/loose comparisons, MS-supported stretches, construct search and full audit
 - [Canine evidence and DLA design](docs/canine-vaccine.md) — frozen dog inputs,
   independent-dog RNA prevalence, exact MS support and exploratory DLA constructs
 - [Data and evidence](docs/data-and-evidence.md) — data registry, observation

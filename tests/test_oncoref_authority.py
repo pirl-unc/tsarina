@@ -5,7 +5,7 @@ from oncoref import cta_tissues as oncoref_tissues
 
 import tsarina
 import tsarina.tissues as tissues
-from tsarina import CTA_unfiltered_gene_ids
+from tsarina import CTA_hpa_evidence
 
 
 def _package_data_dir() -> Path:
@@ -29,7 +29,7 @@ def test_cancer_prevalence_tables_are_features_not_cta_definitions():
         "restriction",
         "restriction_confidence",
     }
-    canonical_ids = CTA_unfiltered_gene_ids()
+    canonical_ids = set(CTA_hpa_evidence().Ensembl_Gene_ID)
 
     for filename in (
         "hpa-cancer-rna-prevalence.csv",

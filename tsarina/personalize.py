@@ -23,17 +23,10 @@ Guardrails applied by default:
    reach the candidate pool (via :func:`tsarina.peptides.cta_exclusive_peptides`).
 2. **Viral human-exclusivity** — viral k-mers that match the human proteome
    are dropped (via :func:`tsarina.viral.human_exclusive_viral_peptides`).
-3. **CTA restriction confidence** — CTAs are gated to the HIGH/MODERATE bins
-   of ``restriction_confidence``; LOW-confidence CTAs never contribute
-   peptides unless the caller explicitly opts in. A gene oncoref excludes
-   from the strict set entirely but still tracks as a known clinical
-   target (e.g. CTAG2/LAGE-1, excluded for a low-level HPA heart RNA
-   signal) is not simply dropped: it's included under
-   ``category="cta_flagged"`` with the exclusion reason in ``flag_reason``,
-   so a caller who named the gene explicitly sees it and its caveat rather
-   than silence. A ``--cta`` gene that is neither a recognized CTA nor a
-   known clinical target (a typo, or a gene with no CTA evidence at all)
-   is dropped with a warning naming it, rather than the same silence.
+3. **Current CTA admission** — default membership uses current OncoRef decisions.
+   Historical HPA confidence is an optional filter. An explicitly requested
+   historical clinical target outside the current set retains a flagged
+   compatibility path with current decision reasons and specificity caveats.
 4. **Tumor-specificity filter** — peptides observed by mass spec on healthy
    non-reproductive tissue are excluded entirely (not merely penalized).
 5. **Mandatory MHC scoring** — when ``score_presentation=True`` the scorer
@@ -108,19 +101,21 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
 def _proteoform_group_labels() -> dict[str, str]:
     """Member gene symbol -> the group's preferred display symbol.
 
-    Both halves come from oncoref: ``proteoform_symbol_map`` for group
-    membership (the same registry :mod:`tsarina.spanning` uses for the
+    Both halves come from oncoref: current selected entities for group
+    membership (the same decisions :mod:`tsarina.spanning` uses for the
     panel workflow) and ``proteoform_symbol`` for the name that survives
     the collapse -- a curated alias where one exists (``CTAG1A/CTAG1B``
     -> ``NY-ESO-1``), else the prefix-contracted members
     (``XAGE1A/XAGE1B`` -> ``XAGE1A/B``). Neither is restated here, so
     tsarina can't drift from the canonical naming.
     """
-    from oncoref.proteoforms import proteoform_symbol, proteoform_symbol_map
+    from oncoref.proteoforms import proteoform_symbol
+
+    from .cta_selection import selection_proteoform_groups
 
     return {
         member: proteoform_symbol(label)
-        for label, members in proteoform_symbol_map(scope="cta").items()
+        for label, members in selection_proteoform_groups().items()
         for member in members
     }
 
@@ -230,7 +225,7 @@ def format_table(df: pd.DataFrame) -> str:
     if has_flagged:
         lines.append("")
         lines.append(
-            "* flagged clinical-target CTA, excluded from the strict default CTA set -- "
+            "* flagged clinical-target CTA, outside the current CTA selection -- "
             "see flag_reason in --format csv for why."
         )
     return "\n".join(lines)
@@ -240,7 +235,7 @@ def _cta_flagged_gene_peptides(
     gene_names: Iterable[str], *, ensembl_release: int, lengths: tuple[int, ...]
 ) -> pd.DataFrame:
     """Generate peptides for a clinical-target CTA that oncoref excludes
-    from the strict CTA gene universe (CTAG2/LAGE-1's heart-signal
+    from the current CTA gene universe (historical clinical-target
     exclusion, for example).
 
     :func:`tsarina.peptides.cta_peptides` (and the ``_cta_gene_ids_for_names``
@@ -313,9 +308,7 @@ def _cta_flagged_gene_peptides(
 
 
 def _cta_flag_rationale(genes: dict[str, float]) -> dict[str, str]:
-    """oncoref's ``specificity_rationale`` for each flagged gene, for the
-    ``flag_reason`` column -- the actual reason a caller should read before
-    trusting a "cta_flagged" row, not just that one exists."""
+    """Current decision reasons, with historical rationale only as a fallback."""
     if not genes:
         return {}
     from oncoref import cta as _oncoref_cta
@@ -323,9 +316,18 @@ def _cta_flag_rationale(genes: dict[str, float]) -> dict[str, str]:
     df = _oncoref_cta.cta_df()
     rows = df[df["Symbol"].isin(genes) & df["specificity_rationale"].notna()]
     rationale = dict(zip(rows["Symbol"], rows["specificity_rationale"]))
+    from .cta_selection import selection_gene_table
+
+    for row in selection_gene_table().itertuples(index=False):
+        if row.Symbol in genes:
+            category = "unassigned" if pd.isna(row.selection_category) else row.selection_category
+            reasons = "; ".join(row.selection_reasons)
+            rationale[row.Symbol] = f"current OncoRef category: {category}" + (
+                f" ({reasons})" if reasons else ""
+            )
     return {
         gene: rationale.get(gene)
-        or "not in oncoref's strict default CTA set; no curated specificity rationale available"
+        or "not in OncoRef's current CTA selection; no curated rationale available"
         for gene in genes
     }
 
@@ -341,7 +343,7 @@ def personalized_targets(
     cedar_path: str | Path | None = None,
     mhc_class: str = "I",
     min_cta_tpm: float = 2.0,
-    min_restriction_confidence: Iterable[str] | None = ("HIGH", "MODERATE"),
+    min_restriction_confidence: Iterable[str] | None = None,
     mtec_matrix_path: str | Path | None = None,
     mtec_max_tpm: float = 1.0,
     require_human_exclusive_viral: bool = True,
@@ -393,11 +395,11 @@ def personalized_targets(
     mhc_class
         MHC class filter for IEDB/CEDAR scanning (default ``"I"``).
     min_cta_tpm
-        Minimum CTA expression in TPM (default 2.0 — matches the
-        ``never_expressed`` HPA cutoff).
+        Minimum measured tumor CTA expression in TPM (default 2.0).
+        This user-supplied tumor-expression gate is separate from admission.
     min_restriction_confidence
         Allowed ``restriction_confidence`` bins for CTAs.  Default
-        ``("HIGH", "MODERATE")``; pass ``None`` to disable this gate.
+        ``None`` leaves current admission unchanged; pass explicit bins to filter.
     mtec_matrix_path
         Path to an mTEC gene TPM matrix (TSV).  When provided, CTAs are
         restricted to genes with mean mTEC TPM <= ``mtec_max_tpm``.
@@ -479,7 +481,6 @@ def personalized_targets(
             CTA_clinical_target_gene_names,
             CTA_excluded_gene_names,
             CTA_gene_names,
-            CTA_never_expressed_gene_names,
             CTA_unfiltered_gene_names,
         )
         from .peptides import cta_exclusive_peptides
@@ -503,21 +504,16 @@ def personalized_targets(
         outside_panel = set(cta_expression) - strict_ctas - clinical_target_ctas
         if outside_panel:
             excluded = CTA_excluded_gene_names()
-            never_expressed = CTA_never_expressed_gene_names()
             known = CTA_unfiltered_gene_names()
-            rationale = _cta_flag_rationale(
-                {gene: cta_expression[gene] for gene in outside_panel & excluded}
-            )
+            rationale = _cta_flag_rationale({gene: cta_expression[gene] for gene in outside_panel})
             for gene in outside_panel:
                 if gene in excluded:
                     drop_reasons[gene] = (
-                        "excluded from oncoref's strict CTA set with no clinical-target "
+                        "excluded from OncoRef's current CTA set with no clinical-target "
                         f"override: {rationale[gene]}"
                     )
-                elif gene in never_expressed:
-                    drop_reasons[gene] = "below oncoref's default normal-tissue expression floor"
                 elif gene in known:
-                    drop_reasons[gene] = "not in oncoref's default expressed CTA set"
+                    drop_reasons[gene] = rationale[gene]
                 else:
                     drop_reasons[gene] = "not a recognized CTA symbol"
 
@@ -688,7 +684,9 @@ def personalized_targets(
                 )
 
     if not frames:
-        return pd.DataFrame(columns=list(_OUTPUT_COLUMNS))
+        return _with_selection_provenance(
+            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)), ensembl_release
+        )
 
     combined = pd.concat(frames, ignore_index=True)
     _report(f"Generated {len(combined)} candidate peptide rows.")
@@ -721,7 +719,9 @@ def personalized_targets(
         combined = combined[safe_mask].reset_index(drop=True)
 
     if combined.empty:
-        return pd.DataFrame(columns=list(_OUTPUT_COLUMNS))
+        return _with_selection_provenance(
+            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)), ensembl_release
+        )
 
     # ── Topiary presentation scoring ────────────────────────────────────
     if score_presentation and hla_alleles:
@@ -757,7 +757,14 @@ def personalized_targets(
         if col not in combined.columns:
             combined[col] = pd.NA
     _report(f"Done: {len(combined)} target row(s).")
-    return combined[list(_OUTPUT_COLUMNS)]
+    return _with_selection_provenance(combined[list(_OUTPUT_COLUMNS)], ensembl_release)
+
+
+def _with_selection_provenance(frame, ensembl_release):
+    from .cta_selection import selection_provenance
+
+    frame.attrs.update(selection_provenance(ensembl_release=ensembl_release))
+    return frame
 
 
 # Backward-compatible alias. ``personalized_targets`` is the canonical name (it's

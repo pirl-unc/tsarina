@@ -19,7 +19,7 @@ pyensembl install --release 112 --species human
 mhcflurry downloads fetch models_class1_presentation
 
 # Register MS data via tsarina data; build with tsarina build observations.
-tsarina vaccine --top-k 10 --cta-definition both --auto-fetch \
+tsarina vaccine --top-k 10 --cta-definition current --auto-fetch \
   --panel global54_abc --vaccine-type mrna \
   --include-utrs --utr-5p HBB --utr-3p HBB_FI --poly-a-length 120 \
   --max-length-aa 686 --max-length-nt 2500 -o vaccine-out
@@ -47,11 +47,18 @@ methionine and all linkers. A full 686-aa construct uses 2499 total nt.
 Custom UTR/polyA settings change this calculation; `--max-length-nt` always
 constrains the full nucleotide sequence.
 
-The vaccine extra needs OncoRef >=1.8.207 for loose CTAs. Current Vaxrank and
-PirlyGenes releases pin 1.8.206, so use a compatible separate environment
-until coordinated validation ([Vaxrank #579](https://github.com/openvax/vaxrank/issues/579),
-[PirlyGenes #632](https://github.com/pirl-unc/pirlygenes/issues/632)). The base
-Tsarina installation retains its existing reference minimum. OncoRef's
+Human designs default to `--cta-definition current`, using OncoRef's current
+protein decisions and member genes. `strict` and `loose` explicitly select the
+historical HPA definitions; `both` runs those two historical comparisons. Dog
+designs retain their separate frozen policy. Selection receipts are stored
+separately from the actual sequence-reference release and digest; all coding
+genes outside the selected member set remain in the specificity background.
+See [CTA selection and background](curation.md).
+
+Tsarina requires Python >=3.10 and OncoRef >=1.23.1.
+PirlyGenes 6.0.19 pins OncoRef 1.23.0, so use a separate environment until
+[coordinated validation](https://github.com/pirl-unc/pirlygenes/issues/658)
+permits 1.23.1. Vaxrank 3.48.0 already permits that release. OncoRef's
 genome-scope expression calculation can need complete per-sample matrices;
 `--auto-fetch` permits their download. Missing references fail explicitly.
 
@@ -152,26 +159,27 @@ second time. Requested references must be available or explicitly fetched.
 
 ## Definitions and the native sequence funnel
 
-Strict uses OncoRef's canonical core reproductive scope: **testis, ovary and
+Current uses the upstream `CTA` decisions without reapplying historical HPA
+filters. Explicit historical strict uses OncoRef's core reproductive scope: **testis, ovary and
 placenta**. Loose adds **cervix, endometrium, epididymis, fallopian tube,
 prostate, seminal vesicle and vagina** to the RNA numerator. Neither adds
 breast or thymus. Thymus remains in the default RNA fraction denominator but
 is excluded from somatic maxima and the reproductive protein flag; protein
 annotations use broader reproductive tissue conventions. These are curated
 RNA/protein restriction rules with exceptions, not absolute absence gates.
-It does not admit every nominated or warning-tier CTA. Each definition has
-its own non-CTA background and independent design under `strict/` or `loose/`.
+Historical loose does not admit every nominated or warning-tier CTA. Each
+definition has its own background; `--cta-definition both` writes independent
+historical designs under `strict/` and `loose/`.
 
 1. Collapse byte-identical longest translated proteins, preserving all gene,
    transcript and protein IDs. Ranked mode selects top-k before downstream
    filtering; supported mode explicitly backfills contributing targets.
-   For specificity, same-symbol Ensembl `HSCHR` alternate-haplotype annotations
-   inherit the curated primary gene's CTA membership; they are another
-   annotation of that gene, not an independent non-CTA locus. The exact
-   resolutions are in `background_cta_aliases.csv`
-   ([Tsarina #187](https://github.com/pirl-unc/tsarina/issues/187)). This does
-   not change expression identities, sum extra prevalence, or admit ordinary
-   non-CTA loci by symbol/sequence similarity.
+   Current mode uses only upstream selected member IDs for specificity; all
+   other coding loci remain background, including alternate haplotypes with
+   matching symbols. Historical strict/loose modes retain same-symbol `HSCHR`
+   inheritance, with resolutions in `background_cta_aliases.csv`
+   ([Tsarina #187](https://github.com/pirl-unc/tsarina/issues/187)). Neither
+   policy changes expression keys or sums extra prevalence.
 2. Screen every translated coding non-CTA isoform, including IG/TR germline
    coding segments. Remove the union of every residue covered by a shared
    8-mer; break at ambiguous residues. Retain complementary native stretches.
@@ -349,7 +357,7 @@ from tsarina.vaccine import design_vaccine
 from tsarina.vaccine_construct import VaccineConfig
 
 result = design_vaccine(
-    VaccineConfig(top_k=10, definition="strict", panel="global54_abc"),
+    VaccineConfig(top_k=10, definition="current", panel="global54_abc"),
     auto_fetch=True, output_dir="vaccine-audit",
 )
 ```

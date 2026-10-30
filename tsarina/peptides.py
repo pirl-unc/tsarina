@@ -159,9 +159,12 @@ def cta_peptides(
     from pyensembl import EnsemblRelease
 
     from .gene_sets import is_coding_transcript
+    from .loader import cta_dataframe
 
     ensembl = EnsemblRelease(ensembl_release)
     cta_ids = _cta_gene_ids_for_names(gene_names)
+    evidence = cta_dataframe()
+    symbols = dict(zip(evidence.Ensembl_Gene_ID, evidence.Symbol))
     _report_progress(
         on_progress,
         f"Generating CTA peptide candidates from {len(cta_ids)} CTA genes "
@@ -213,7 +216,7 @@ def cta_peptides(
                 c_flank = protein[i + k : i + k + flank_length]
                 rows.append(
                     {
-                        "gene_name": gene.name,
+                        "gene_name": symbols.get(gene_id) or gene.name or gene_id,
                         "gene_id": gene_id,
                         "transcript_id": best_transcript.id,
                         "peptide": pep,
@@ -226,6 +229,9 @@ def cta_peptides(
                 )
 
     out = pd.DataFrame(rows)
+    from .cta_selection import selection_provenance
+
+    out.attrs.update(selection_provenance(ensembl_release=ensembl_release))
     _report_progress(
         on_progress,
         f"Generated {len(out)} CTA peptide rows "

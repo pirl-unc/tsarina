@@ -12,9 +12,9 @@
 
 """CTA evidence table access with HPA tissue-restriction columns.
 
-The evidence table uses oncoref's CTA evidence and specificity decisions as the
-canonical source, then enriches that exact row universe with Tsarina's generic
-gene-level mass-spec safety columns.
+The row universe projects current OncoRef protein decisions onto member genes.
+Historical HPA annotations and Tsarina's generic gene-level MS safety columns
+are attached by gene ID; neither annotation source changes current admission.
 """
 
 from __future__ import annotations
@@ -28,6 +28,13 @@ from .loader import cta_dataframe
 
 def CTA_evidence() -> pd.DataFrame:
     """Return the full CTA evidence DataFrame with HPA tissue-restriction columns.
+
+    Current member identities supply Symbol and Ensembl_Gene_ID. ``selection_*``
+    fields retain the protein decision, category, status, flags and receipts;
+    ``is_current_cta`` is true only for category CTA. Unsafe, Neither and null
+    remain distinct. The other columns below are historical HPA annotations or
+    downstream MS evidence. Missing HPA rows have null measurements, not zeros.
+    ``CTA_hpa_evidence()`` exposes the original historical table separately.
 
     Columns
     -------
@@ -109,8 +116,7 @@ def CTA_evidence() -> pd.DataFrame:
     restriction_confidence : str
         oncoref's HPA confidence: ``HIGH`` / ``MODERATE`` / ``LOW`` / empty.
     specificity_status, specificity_action : str
-        oncoref specificity decision used by the default and filtered CTA set
-        helpers.
+        Historical HPA specificity decision; does not govern current membership.
     """
     return cta_dataframe()
 

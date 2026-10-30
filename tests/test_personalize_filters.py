@@ -17,13 +17,16 @@ def cta_selection(monkeypatch):
     )
     monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: {"STRICT"})
     monkeypatch.setattr("tsarina.gene_sets.CTA_excluded_gene_names", lambda: {"EXCLUDED"})
-    monkeypatch.setattr("tsarina.gene_sets.CTA_never_expressed_gene_names", lambda: {"SILENT"})
     monkeypatch.setattr(
         "tsarina.gene_sets.CTA_unfiltered_gene_names",
-        lambda: {"STRICT", "FLAGGED", "EXCLUDED", "SILENT"},
+        lambda: {"STRICT", "FLAGGED", "EXCLUDED", "UNASSIGNED"},
     )
     monkeypatch.setattr(
-        "tsarina.personalize._cta_flag_rationale", lambda genes: dict.fromkeys(genes, "kidney IHC")
+        "tsarina.personalize._cta_flag_rationale",
+        lambda genes: {
+            g: "current OncoRef category: unassigned" if g == "UNASSIGNED" else "kidney IHC"
+            for g in genes
+        },
     )
 
     def peptides(genes, category):
@@ -59,7 +62,7 @@ def select(expression, **kwargs):
 def test_confidence_rejection_cannot_turn_strict_cta_into_flagged(cta_selection, monkeypatch):
     monkeypatch.setattr("tsarina.gene_sets.CTA_by_axes", lambda **kw: set())
     with pytest.warns(UserWarning, match="STRICT.*restriction.confidence"):
-        result = select({"STRICT": 20.0})
+        result = select({"STRICT": 20.0}, min_restriction_confidence=("HIGH", "MODERATE"))
     assert result.empty
     assert cta_selection == {"strict": [], "flagged": []}
 
@@ -89,13 +92,13 @@ def test_mtec_pass_preserves_both_categories_and_flag_caveat(cta_selection, tmp_
     assert pd.isna(flagged.source_tpm)
 
 
-def test_upstream_exclusion_low_expression_and_unknown_have_distinct_warnings(cta_selection):
+def test_upstream_exclusion_unassigned_and_unknown_have_distinct_warnings(cta_selection):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = select({"EXCLUDED": 20.0, "SILENT": 20.0, "TYPO": 20.0})
+        result = select({"EXCLUDED": 20.0, "UNASSIGNED": 20.0, "TYPO": 20.0})
     messages = [str(w.message) for w in caught]
     assert any("EXCLUDED" in m and "kidney IHC" in m for m in messages)
-    assert any("SILENT" in m and "expression floor" in m for m in messages)
+    assert any("UNASSIGNED" in m and "unassigned" in m for m in messages)
     assert any("TYPO" in m and "not a recognized CTA symbol" in m for m in messages)
     assert result.empty
     assert cta_selection == {"strict": [], "flagged": []}

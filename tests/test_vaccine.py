@@ -68,6 +68,12 @@ def test_alternate_haplotypes_inherit_gene_identity_but_independent_loci_do_not(
     all_ids, _ = resolve_background_cta_ids([*proteins, independent], {"cta"})
     assert "normal" not in all_ids
     assert specific_intervals(sequence, shared_kmers([independent], all_ids, [sequence])) == []
+    # Current membership uses exact upstream member IDs, without symbol inheritance.
+    current_ids, current_aliases = resolve_background_cta_ids(
+        proteins, {"cta"}, inherit_alternate_haplotypes=False
+    )
+    assert current_ids == {"cta"} and current_aliases.empty
+    assert specific_intervals(sequence, shared_kmers(proteins, current_ids, [sequence])) == []
 
 
 @pytest.mark.parametrize("percentile", [float("nan"), float("inf"), -1, 101])
@@ -645,6 +651,10 @@ def test_full_pipeline_artifacts_and_dropout(inputs, ms_scores, codons, tmp_path
     assert replay["designs"]["custom"]["coverage"] == view["coverage"]
     assert manifest["provenance"]["synthetic"]
     assert manifest["provenance"]["ms_input_kind"] == "supplied_observations"
+    assert manifest["provenance"]["background_policy"] == "tsarina.current-selection-other-genes.v1"
+    report = (tmp_path / "report.md").read_text()
+    assert "Current admission uses OncoRef" in report
+    assert "alternate haplotypes do not inherit membership by symbol" in report
     assert "MS evidence source: **supplied observations**" in (tmp_path / "report.md").read_text()
     assert manifest["prediction_callbacks"] == {"affinity": True, "cleavage": True}
     assert manifest["cancer_summary"][0]["world_mortality_count"] is None
@@ -794,8 +804,11 @@ def test_vaccine_cli_both_definitions(monkeypatch, tmp_path):
     )
 
 
-def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(inputs, monkeypatch):
-    from oncoref import cta, expression, proteoforms
+@pytest.mark.parametrize("definition", ["current", "strict", "loose"])
+def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(
+    inputs, monkeypatch, definition
+):
+    from oncoref import cta, cta_selection, expression, proteoforms
 
     calls = []
     monkeypatch.setattr("tsarina.vaccine_inputs.require_current_hitlist", lambda: None)
@@ -807,6 +820,19 @@ def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(i
         )
 
     monkeypatch.setattr(cta, "cta_gene_ids", lambda: inputs.cta_gene_ids)
+    monkeypatch.setattr(cta, "cta_extended_gene_ids", lambda: inputs.cta_gene_ids)
+    selected = pd.DataFrame(
+        [
+            {
+                "category": "CTA",
+                "gene_ids": tuple(sorted(inputs.cta_gene_ids)),
+                "policy_id": "current-policy",
+                "reference_id": "selection-reference",
+                "source_snapshot_id": "current-snapshot",
+            }
+        ]
+    )
+    monkeypatch.setattr(cta_selection, "results", lambda **kwargs: selected.copy())
     monkeypatch.setattr(
         proteoforms,
         "proteoform_key",
@@ -829,7 +855,12 @@ def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(i
     monkeypatch.setattr(
         "pyensembl.EnsemblRelease", lambda release: SimpleNamespace(genes=lambda: genes)
     )
-    result = load_vaccine_inputs(cohorts=inputs.cohorts)
+    result = load_vaccine_inputs(definition=definition, cohorts=inputs.cohorts)
+    assert result.cta_gene_ids == inputs.cta_gene_ids
+    if definition == "current":
+        assert result.provenance["cta_selection_policy_ids"] == ["current-policy"]
+        assert result.provenance["cta_selection_reference_ids"] == ["selection-reference"]
+        pd.testing.assert_frame_equal(result.source_tables["cta_reference"], selected)
     assert all(c["scope"] == "genome" and c["threshold"] == 0.95 for c in calls)
     assert len(result.proteins) == len(inputs.proteins)
     assert {p.gene_id for p in result.proteins if p.protein_id == "shared_protein_id"} == {

@@ -10,7 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Three-way partition of all protein-coding genes into CTA / never-expressed / non-CTA.
+"""Current CTA member genes and all other coding genes in a sequence reference.
+
+The legacy never-expressed partition stays empty under the current policy.
+Neither/unassigned selection decisions remain in the non-CTA background.
 
 Requires the ``pyensembl`` package (install with ``pip install tsarina[partition]``).
 """
@@ -20,10 +23,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
-from oncoref.cta import cta_filtered_gene_ids, cta_gene_ids
 
 from .evidence import CTA_evidence
-from .gene_sets import is_coding_gene
+from .gene_sets import CTA_gene_ids, is_coding_gene
 
 
 @dataclass(frozen=True)
@@ -33,13 +35,12 @@ class CTAPartitionSets:
     Attributes
     ----------
     cta : set[str]
-        Expressed, reproductive-restricted CTAs.  Source of CTA pMHCs.
+        Current selected member genes. Source of CTA pMHCs.
     cta_never_expressed : set[str]
-        CTAs from source databases with no meaningful HPA expression
-        (no protein data + max RNA < 2 nTPM).
+        Empty compatibility field; current categories do not imply no expression.
     non_cta : set[str]
-        All other protein-coding genes, including CTAs that fail the
-        reproductive-tissue filter (somatic expression detected).
+        All other coding genes from the requested sequence reference, including
+        Unsafe, Neither, unassigned and genes outside the selection table.
     """
 
     cta: set
@@ -54,9 +55,9 @@ class CTAPartitionDataFrames:
     Attributes
     ----------
     cta : pd.DataFrame
-        Expressed, reproductive-restricted CTAs with full evidence columns.
+        Current selected members with full evidence columns.
     cta_never_expressed : pd.DataFrame
-        Never-expressed CTAs with full evidence columns.
+        Empty compatibility frame retaining the evidence columns.
     non_cta : pd.DataFrame
         All other protein-coding genes (Symbol, Ensembl_Gene_ID).
     """
@@ -77,9 +78,10 @@ def _build_partition(ensembl_release: int = 112):
     all_pc_ids = set(all_pc_genes.keys())
 
     evidence_ids = evidence_df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
-    filtered_mask = evidence_ids.isin(cta_filtered_gene_ids())
-    cta_mask = evidence_ids.isin(cta_gene_ids())
-    never_expressed_mask = filtered_mask & ~cta_mask
+    cta_mask = evidence_ids.isin(CTA_gene_ids())
+    # Current Neither includes diffuse expression; null means unassigned.
+    # Neither category justifies removing a gene from the sequence background.
+    never_expressed_mask = pd.Series(False, index=evidence_df.index)
 
     cta_ids = set(evidence_df.loc[cta_mask, "Ensembl_Gene_ID"])
     never_expressed_ids = set(evidence_df.loc[never_expressed_mask, "Ensembl_Gene_ID"])
@@ -100,8 +102,9 @@ def CTA_partition_gene_ids(ensembl_release: int = 112) -> CTAPartitionSets:
     """Partition all protein-coding genes into CTA / never-expressed / non-CTA
     as sets of Ensembl gene IDs.
 
-    CTAs that fail the reproductive-tissue filter (somatic expression)
-    are included in ``non_cta``.
+    All nonselected coding genes remain in ``non_cta``. The historical
+    ``cta_never_expressed`` field is empty; Neither/unassigned are not removed.
+    Selection reference receipts are distinct from ``ensembl_release``.
 
     Examples
     --------
@@ -123,8 +126,9 @@ def CTA_partition_gene_names(ensembl_release: int = 112) -> CTAPartitionSets:
     """Partition all protein-coding genes into CTA / never-expressed / non-CTA
     as sets of gene symbols.
 
-    CTAs that fail the reproductive-tissue filter (somatic expression)
-    are included in ``non_cta``.
+    All nonselected coding genes remain in ``non_cta``. The historical
+    ``cta_never_expressed`` field is empty; Neither/unassigned are not removed.
+    Selection reference receipts are distinct from ``ensembl_release``.
 
     Examples
     --------
@@ -134,14 +138,13 @@ def CTA_partition_gene_names(ensembl_release: int = 112) -> CTAPartitionSets:
     >>> "TP53" in p.non_cta
     True
     """
-    all_pc_genes, evidence_df, cta_mask, never_expressed_mask, _, _, _ = _build_partition(
+    all_pc_genes, evidence_df, cta_mask, never_expressed_mask, _, _, non_cta_ids = _build_partition(
         ensembl_release
     )
-    all_pc_names = set(all_pc_genes.values())
 
     cta_names = set(evidence_df.loc[cta_mask, "Symbol"])
     never_expressed_names = set(evidence_df.loc[never_expressed_mask, "Symbol"])
-    non_cta_names = all_pc_names - cta_names - never_expressed_names
+    non_cta_names = {all_pc_genes[gene_id] for gene_id in non_cta_ids}
 
     return CTAPartitionSets(
         cta=cta_names,
@@ -158,8 +161,9 @@ def CTA_partition_dataframes(ensembl_release: int = 112) -> CTAPartitionDataFram
     evidence columns.  The ``non_cta`` DataFrame has Symbol and
     Ensembl_Gene_ID columns.
 
-    CTAs that fail the reproductive-tissue filter (somatic expression)
-    are included in ``non_cta``.
+    All nonselected coding genes remain in ``non_cta``. The historical
+    ``cta_never_expressed`` field is empty; Neither/unassigned are not removed.
+    Selection reference receipts are distinct from ``ensembl_release``.
 
     Examples
     --------

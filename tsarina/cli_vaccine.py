@@ -89,7 +89,12 @@ def build_parser(sub):
         action="store_true",
         help="In sample-affinity mode, permit untyped MS with predicted panel binding",
     )
-    p.add_argument("--cta-definition", choices=["strict", "loose", "both"], default="strict")
+    p.add_argument(
+        "--cta-definition",
+        choices=["current", "strict", "loose", "both"],
+        default=None,
+        help="Human default: current OncoRef selection. strict/loose/both are historical HPA views.",
+    )
     p.add_argument("--panel", choices=[*panel_names(), "bundle"], default=None)
     p.add_argument(
         "--alleles",
