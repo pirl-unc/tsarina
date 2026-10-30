@@ -35,7 +35,7 @@ confidence value for target selection.
 
 **Synthesized**:
 
-- ``restriction``: best available tissue category from protein > RNA.
+- ``restriction``: oncoref's union of observed protein and RNA tissue scopes.
 - ``restriction_confidence``: HIGH / MODERATE / LOW based on modality
   agreement and quality.
 """
@@ -43,18 +43,13 @@ confidence value for target selection.
 from __future__ import annotations
 
 import pandas as pd
+from oncoref.cta import synthesize_restriction as _hpa_synthesize_restriction
 from oncoref.cta_tissues import SAFETY_TISSUE_GROUPS as SAFETY_TISSUE_GROUPS
-
-from .tissues import HPA_EXPRESSION_FLOOR_NTPM
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
 #: Tissue restriction categories (shared across protein, RNA, synthesis).
 RESTRICTION_VALUES: list[str] = ["TESTIS", "PLACENTAL", "REPRODUCTIVE", "SOMATIC"]
-
-#: The reproductive-tissue restriction categories. RNA's coarse "REPRODUCTIVE"
-#: call only *agrees* with a protein call that is itself reproductive.
-_REPRODUCTIVE_RESTRICTIONS: frozenset[str] = frozenset({"TESTIS", "PLACENTAL", "REPRODUCTIVE"})
 
 #: RNA restriction quality levels, ordered strictest → loosest.
 RNA_RESTRICTION_LEVELS: list[str] = ["STRICT", "MODERATE", "PERMISSIVE", "LEAKY"]
@@ -126,25 +121,20 @@ def confidence_rank(value: str | None) -> int:
 def synthesize_restriction(row: pd.Series) -> tuple[str, str]:
     """Synthesize restriction + confidence from all modalities.
 
-    Returns (restriction, restriction_confidence).
+    Returns (restriction, restriction_confidence). The tissue scope always
+    comes from oncoref. Without MS evidence, both values are upstream results.
     """
+    tissue, hpa_confidence = _hpa_synthesize_restriction(row)
+    ms_r = str(row.get("ms_restriction", "") or "")
+    if ms_r in ("NO_MS_DATA", "NO_DATA", ""):
+        return tissue, hpa_confidence
+
     protein_r = str(row.get("protein_restriction", "") or "")
     protein_rel = str(row.get("protein_reliability", "") or "")
     rna_r = str(row.get("rna_restriction", "") or "")
     rna_level = str(row.get("rna_restriction_level", "") or "")
-    ms_r = str(row.get("ms_restriction", "") or "")
-
-    # Best available tissue category: protein > RNA
-    # Skip NO_DATA values when choosing
     protein_has_data = protein_r and protein_r != "NO_DATA"
     rna_has_data = rna_r and rna_r != "NO_DATA"
-
-    if protein_has_data:
-        tissue = protein_r
-    elif rna_has_data:
-        tissue = rna_r
-    else:
-        tissue = "NO_DATA"
 
     # Confidence scoring
     score = 0.0
@@ -158,49 +148,27 @@ def synthesize_restriction(row: pd.Series) -> tuple[str, str]:
 
     if rna_has_data:
         sources += 1
-        # Credit RNA's coarse "REPRODUCTIVE" as agreeing with a finer protein
-        # call only when that call is itself reproductive (TESTIS/PLACENTAL).
-        # A SOMATIC protein call genuinely *disagrees* with reproductive RNA, so
-        # it must not earn the agreement bonus (which would otherwise inflate a
-        # least-safe SOMATIC call to HIGH confidence and pass the selection
-        # filter). This is a defensive gate against a future upstream
-        # evidence refresh producing one.
-        rna_agrees = rna_r == tissue or (
-            rna_r == "REPRODUCTIVE" and tissue in _REPRODUCTIVE_RESTRICTIONS
-        )
+        # Match oncoref's exact modality agreement: broader RNA cannot
+        # corroborate a narrower protein-only restriction claim.
+        rna_agrees = rna_r == (protein_r if protein_has_data else tissue)
         if rna_agrees:
             score += 1.0
             if rna_level == "STRICT":
                 score += 0.5
 
-    if ms_r and ms_r not in ("NO_MS_DATA", "NO_DATA", ""):
-        sources += 1
-        if ms_r in ("CANCER_ONLY", "EXPECTED_TISSUE"):
-            score += 1.0
-        elif ms_r == "SINGLETON_HEALTHY":
-            score += 0.5
-        # RECURRENT_HEALTHY contributes 0
+    sources += 1
+    if ms_r in ("CANCER_ONLY", "EXPECTED_TISSUE"):
+        score += 1.0
+    elif ms_r == "SINGLETON_HEALTHY":
+        score += 0.5
+    # RECURRENT_HEALTHY and UNCLASSIFIED_MS contribute 0.
 
-    if sources == 0:
-        confidence = "NO_DATA"
-    elif score / sources >= 1.2:
+    if score / sources >= 1.2:
         confidence = "HIGH"
     elif score / sources >= 0.8:
         confidence = "MODERATE"
     else:
         confidence = "LOW"
-
-    # tsarina#114: cap HIGH when the only evidence is RNA below the expression
-    # floor. The scorer credits any STRICT RNA equally regardless of level, so a
-    # gene expressed at ~1-2 nTPM (never_expressed, no protein, no MS) otherwise
-    # earns HIGH from near-noise RNA -- over-stating a restriction call built on
-    # weak evidence. Genes with protein or MS evidence are untouched: an MS
-    # peptide hit means real expression despite low RNA.
-    has_ms_evidence = bool(ms_r) and ms_r not in ("NO_MS_DATA", "NO_DATA", "")
-    if confidence == "HIGH" and not protein_has_data and not has_ms_evidence:
-        rna_max = pd.to_numeric(row.get("rna_max_ntpm"), errors="coerce")
-        if pd.notna(rna_max) and rna_max < HPA_EXPRESSION_FLOOR_NTPM:
-            confidence = "MODERATE"
 
     return (tissue, confidence)
 

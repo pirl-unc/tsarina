@@ -189,9 +189,10 @@ from tsarina.tissues import (
 )
 ```
 
-The sets progress from core reproductive tissues to broader definitions. The
-helper excludes thymus by default when deciding whether detected tissues are
-confined to the allowed set.
+The extended set broadens the core reproductive set. `PERMISSIVE_REPRODUCTIVE_TISSUES`
+is a compatibility alias of the extended set; neither includes thymus. The helper's
+separate `exclude_thymus=True` default ignores thymus when checking the allowed
+set, without classifying thymus as reproductive.
 
 These re-exports do not create an independent tissue definition. CTA
 restriction decisions and their underlying HPA evidence remain owned by

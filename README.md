@@ -24,6 +24,8 @@ See: [documentation](docs/index.md) — inputs, dataset setup and workflow detai
 
 ## Install
 
+Requires Python 3.10 or newer and OncoRef 1.23.1 or newer.
+
 ```bash
 pip install tsarina
 ```

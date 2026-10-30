@@ -2906,3 +2906,56 @@ contracts rather than being raised to whichever release happens to be installed.
 Real-model calibration and scoring passed against the 2.3.0 presentation bundle.
 All seven old panel memberships compare exactly equal to origin/main; only the
 new global54 panel and CLI/API defaults change. The release version is 1.32.0.
+
+# Upgrade to current OncoRef (2026-10-29)
+
+## Specification
+
+Use the latest published stable OncoRef (verified live on PyPI: 1.23.1),
+audit every consumed API and evidence contract, and repair demonstrated
+integration changes without reconstructing upstream biological policy.
+Raise the runtime minimum and Python support floor to the release's actual
+requirements (Python >=3.10), and keep packaging, CI and documentation aligned.
+Preserve the dirty sibling OncoRef checkout and unrelated shared-environment
+packages. Validate the published wheel in a repository-local environment.
+Record upstream gaps as issues rather than silently substituting data.
+
+## Plan
+
+- [x] Inspect repository instructions, lessons, dependency declarations and live release metadata.
+- [x] Create a feature branch and check in on the implementation plan.
+- [x] Install current stable OncoRef in the isolated release environment; run a baseline and audit API changes.
+- [x] Update dependencies, Python support, affected integrations, tests and documentation.
+- [x] Run `./format.sh`, `./lint.sh`, `./test.sh`, relevant integration tests and `pip check`.
+- [ ] Review the diff, bump the version, open and merge the PR, then deploy from clean main.
+- [ ] Verify published artifacts and inspect the next dependency-ordered issue block.
+
+## Review
+
+Issue: https://github.com/pirl-unc/tsarina/issues/218.
+Baseline with published OncoRef 1.23.1: 731 passed, 3 failed, 8 optional-model
+skips. The failures exposed stale modality synthesis and tissue-set assumptions.
+HPA tissue scope and no-MS confidence now delegate upstream; MS confidence
+uses exact protein/RNA agreement. No upstream definitions or local work changed.
+Side-by-side evaluation of old/new synthesis over all 2,533 current HPA evidence
+rows changes 193 tissue scopes and 9 confidence labels. Recomputed scopes now
+match upstream throughout; no-MS confidence is also checked across every row.
+The separately versioned current protein-selection policy is documented but
+does not replace the existing HPA membership/background APIs in this release.
+Version 1.36.0 reflects the required Python >=3.10 support change.
+
+Shared-environment audit: `pip check` passes before any changes, but installed
+Pirlygenes 6.0.18 and Vaxrank 3.47.2 pin OncoRef 1.19.2. Current Vaxrank 3.48.0
+permits 1.23.1; current Pirlygenes 6.0.19 still pins exactly 1.23.0. Therefore
+the shared environment cannot take 1.23.1 as a mutually compatible published
+stack. It is preserved; release validation uses `.venv-vaccine` with OncoRef
+1.23.1 and Datacache 1.29.3, where `pip check` passes.
+The coordinated shared-environment blocker is already tracked in
+[Pirlygenes #658](https://github.com/pirl-unc/pirlygenes/issues/658).
+
+Verification: format/lint, strict MkDocs build and isolated `pip check` pass.
+`./test.sh --run-mhcflurry`: 744 passed, 4 optional integration skips, 19 warnings,
+85% coverage. The real MHCflurry/Pepsickle/codon tests passed. The skips cover
+two local Ensembl-reference checks and two optional NetMHCpan backends.
+Refreshed the checkout egg-info and isolated editable install; CLI, source and
+distribution metadata agree on 1.36.0. Final PR/CI/publication evidence follows.

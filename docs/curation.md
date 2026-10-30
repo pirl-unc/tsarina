@@ -19,6 +19,14 @@ with target-selection evidence, but never maintains a second CTA universe.
 An oncoref release defines the CTA rows. A Tsarina evidence join may add
 columns to those rows, but it cannot create a CTA.
 
+Tsarina 1.36 requires OncoRef >=1.23.1 and retains the `oncoref.cta`
+HPA-based membership API, including the strict/loose vaccine definitions.
+OncoRef's newer `cta_selection.results()` exposes a separately versioned
+protein-level policy with reference identities, evidence flags and unassigned
+categories. Adopting that policy requires a coordinated evidence-table and
+sequence-background migration; its counts should be reported separately from
+the HPA membership used here. See the [upstream selection contract](https://pirl-unc.github.io/oncoref/cta-selection/).
+
 ## Definition boundary
 
 Oncoref owns:
@@ -123,7 +131,12 @@ high_confidence = CTA_by_axes(
 Live workflows can explicitly call `synthesize_restriction()` or
 `assign_all_axes()` to combine current IEDB/CEDAR MS evidence with the oncoref
 HPA axes. These helpers do not derive or modify the upstream protein and RNA
-classifications.
+classifications. The combined tissue scope comes directly from oncoref's union
+of the observed modalities: testis protein with somatic RNA remains `SOMATIC`,
+and testis protein with placental RNA becomes `REPRODUCTIVE`. Only matching
+protein/RNA labels receive an agreement bonus. Without MS evidence, both the
+scope and confidence are the upstream result; MS evidence contributes only to
+the explicitly requested confidence calculation.
 
 ## Coverage limits: endogenous retrovirus antigens
 
@@ -228,7 +241,7 @@ oncoref data consumed by Tsarina: CGB2/3/5/7, PSG4/6/7, CT45A5, CSH1, and
 GAGE10 all retain their HPA v23 IHC evidence. Recomputing their protein columns
 from the pinned `normal_tissue` table reproduces the current values; regression
 tests cover all ten genes, including CGB2's expressed status. The corrected
-data is also present in Tsarina's minimum supported oncoref 1.8.150.
+data is also present in Tsarina's minimum supported oncoref 1.23.1.
 
 A protein restriction call is evidence, not an admission decision. For
 example, CGB3 has reproductive-tissue IHC, while oncoref still excludes it

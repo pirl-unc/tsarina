@@ -47,11 +47,10 @@ methionine and all linkers. A full 686-aa construct uses 2499 total nt.
 Custom UTR/polyA settings change this calculation; `--max-length-nt` always
 constrains the full nucleotide sequence.
 
-The vaccine extra needs OncoRef >=1.8.207 for loose CTAs. Current Vaxrank and
-PirlyGenes releases pin 1.8.206, so use a compatible separate environment
-until coordinated validation ([Vaxrank #579](https://github.com/openvax/vaxrank/issues/579),
-[PirlyGenes #632](https://github.com/pirl-unc/pirlygenes/issues/632)). The base
-Tsarina installation retains its existing reference minimum. OncoRef's
+Tsarina requires Python >=3.10 and OncoRef >=1.23.1, including loose CTAs.
+PirlyGenes 6.0.19 pins OncoRef 1.23.0, so use a separate environment until
+[coordinated validation](https://github.com/pirl-unc/pirlygenes/issues/658)
+permits 1.23.1. Vaxrank 3.48.0 already permits that release. OncoRef's
 genome-scope expression calculation can need complete per-sample matrices;
 `--auto-fetch` permits their download. Missing references fail explicitly.
 

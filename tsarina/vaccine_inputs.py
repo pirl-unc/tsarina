@@ -134,10 +134,6 @@ def load_vaccine_inputs(
 
     if definition not in {"strict", "loose"}:
         raise ValueError("CTA definition must be strict or loose")
-    if definition == "loose" and not hasattr(cta, "cta_extended_gene_ids"):
-        raise ImportError(
-            "Loose CTAs require OncoRef >=1.8.207; install tsarina[vaccine] in a compatible environment"
-        )
     ids = cta.cta_gene_ids() if definition == "strict" else cta.cta_extended_gene_ids()
     cohorts = DEFAULT_CANCER_COHORTS if cohorts is None else cohorts
     _validate_cohorts(cohorts)
