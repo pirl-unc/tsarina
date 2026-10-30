@@ -85,13 +85,17 @@ def test_list_flags_missing_registered_file_and_emits_json(tmp_path):
     ).items()
 
 
-def test_info_reports_whether_file_exists(tmp_path):
+def test_info_reports_datacache_file_status(tmp_path):
     f = tmp_path / "ligands.csv"
     f.write_text("a,b\n1,2\n")
     _run("data", "register", "iedb", str(f), cache_dir=tmp_path)
-    assert json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)["exists"] is True
+    assert json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)["status"] == (
+        "installed"
+    )
     f.unlink()
-    assert json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)["exists"] is False
+    assert json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)["status"] == (
+        "missing"
+    )
 
 
 def test_remove_delete_names_the_file(tmp_path):

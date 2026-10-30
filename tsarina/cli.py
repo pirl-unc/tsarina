@@ -37,7 +37,6 @@ import functools
 import json
 import shutil
 import sys
-from pathlib import Path
 
 from hitlist.cli_help import ColorArgumentParser
 
@@ -104,11 +103,15 @@ def _guarded(handler):
 
 
 def _registered_entry(name: str, meta: dict) -> dict:
-    """One registered dataset as a plain dict, with a ``missing`` file check."""
+    """One registered dataset as a plain dict.
+
+    ``status`` is datacache's file state (via hitlist's ``info``): ``installed``,
+    ``missing``, ``corrupt`` or ``inaccessible``.
+    """
     path = meta.get("path")
     return {
         "name": name,
-        "status": "missing" if path and not Path(path).exists() else "installed",
+        "status": info(name)["status"],
         "size_bytes": meta.get("size_bytes", 0),
         "source": "registered" if meta.get("source") == "registered" else "fetched",
         "path": path,
@@ -142,10 +145,11 @@ def _data_list(args: argparse.Namespace) -> None:
             f"{e['name']:<12} {e['status']:<10} {_format_size(e['size_bytes']):>10}  "
             f"{e['source']:<11} {e['description']}"
         )
-    if any(e["status"] == "missing" for e in entries):
+    if any(e["status"] != "installed" for e in entries):
         print(
-            "\n'missing': the registered file is gone. Re-register it with "
-            "`tsarina data register`, or `tsarina data fetch <name>` to download it again."
+            "\nA status other than 'installed' means the registered file is unusable. "
+            "Re-register it with `tsarina data register`, or run "
+            "`tsarina data fetch <name>` to download it again."
         )
     print(f"\nData directory: {data_dir()}")
     print("`tsarina data available` shows the full catalog.")
@@ -182,6 +186,7 @@ def _fetch_preview(name: str) -> None:
     if name in FETCHABLE_DATASETS:
         ds = FETCHABLE_DATASETS[name]
         dest = data_dir() / ds["filename"]
+        # Stopgap until datacache provides a read-only fetch plan (openvax/datacache#135).
         free = shutil.disk_usage(data_dir()).free
         registered = list_datasets().get(name)
         print(f"Dataset:     {name} ({ds['description']})")
@@ -190,8 +195,8 @@ def _fetch_preview(name: str) -> None:
         print(f"Free space:  {_format_size(free)} on the data directory's volume")
         if dest.exists():
             print("Status:      already downloaded; `fetch` would reuse it (--force re-downloads)")
-        elif registered and _registered_entry(name, registered)["status"] == "missing":
-            print(f"Status:      registered file {registered['path']} is missing; would download")
+        elif registered and (state := _registered_entry(name, registered)["status"]) != "installed":
+            print(f"Status:      registered file {registered['path']} is {state}; would download")
         else:
             print("Status:      not downloaded; would download")
     elif name in MANUAL_DATASETS:
@@ -208,9 +213,9 @@ def _data_fetch(args: argparse.Namespace) -> None:
         _fetch_preview(args.name)
         return
     registered = list_datasets().get(args.name)
-    if registered and _registered_entry(args.name, registered)["status"] == "missing":
+    if registered and (state := _registered_entry(args.name, registered)["status"]) != "installed":
         print(
-            f"Note: registered file {registered['path']} is missing; downloading a replacement.",
+            f"Note: registered file {registered['path']} is {state}; downloading a replacement.",
             file=sys.stderr,
         )
     print(f"Ready: {fetch(args.name, force=args.force)}")
@@ -247,10 +252,7 @@ def _data_refresh(args: argparse.Namespace) -> None:
 @_guarded
 def _data_info(args: argparse.Namespace) -> None:
     _require_known(args.name)
-    details = info(args.name)
-    if isinstance(details, dict) and details.get("path"):
-        details = {**details, "exists": Path(details["path"]).exists()}
-    print(json.dumps(details, indent=2, default=str))
+    print(json.dumps(info(args.name), indent=2, default=str))
 
 
 @_guarded
