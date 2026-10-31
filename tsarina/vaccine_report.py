@@ -101,7 +101,7 @@ def write_vaccine_report(result, output_dir):
     membership_method = (
         "Current admission uses OncoRef's selected protein entities and member gene IDs. "
         "Policy, reference and source receipts are preserved separately from the actual "
-        "sequence-reference release and digest. Unsafe, Neither, unassigned and absent "
+        "sequence-reference release and digest. Unsafe, Other, unassigned and absent "
         "genes remain in the coding background. Historical HPA flags do not determine "
         "admission. Representative-protein admission does not certify every gene isoform."
         if current

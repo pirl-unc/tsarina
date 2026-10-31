@@ -31,7 +31,7 @@ def CTA_evidence() -> pd.DataFrame:
 
     Current member identities supply Symbol and Ensembl_Gene_ID. ``selection_*``
     fields retain the protein decision, category, status, flags and receipts;
-    ``is_current_cta`` is true only for category CTA. Unsafe, Neither and null
+    ``is_current_cta`` is true only for category CTA. Unsafe, Other and null
     remain distinct. The other columns below are historical HPA annotations or
     downstream MS evidence. Missing HPA rows have null measurements, not zeros.
     ``CTA_hpa_evidence()`` exposes the original historical table separately.
