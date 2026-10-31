@@ -26,6 +26,7 @@ def _selection_gene_table() -> pd.DataFrame:
                             "label",
                             "gene_ids",
                             "category",
+                            "subtype",
                             "assessment_status",
                             "identity_status",
                             "policy_id",

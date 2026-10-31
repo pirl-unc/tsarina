@@ -177,7 +177,7 @@ rejected by an optional confidence filter cannot re-enter through this path.
 The optional mTEC filter and minimum measured tumor TPM apply to both current
 and flagged targets. Missing tumor TPM means no measurement was supplied;
 missing mTEC evidence does not pass a requested mTEC filter. Selection
-warnings distinguish `Unsafe`, `Neither`, unassigned and unknown identities,
+warnings distinguish `Unsafe`, `Other`, unassigned and unknown identities,
 using the current decision reasons rather than historical expression floors.
 A selected gene can still produce no final rows after downstream filtering.
 
