@@ -199,3 +199,8 @@
 - Distinguish a species-scoped design pipeline from a curated biological CTA
   catalogue. State who supplies candidate admission, which data and tissue policy
   define it, and whether the published example uses real or synthetic proteins.
+
+- Never probe a CLI with a mutating subcommand (`data fetch`, `register`, `remove`)
+  against the real data directory. Use `--help` or `--dry-run`, and isolate CLI
+  tests with `HITLIST_DATA_DIR` (hitlist reads that variable; `TSARINA_DATA_DIR`
+  is read by nothing).

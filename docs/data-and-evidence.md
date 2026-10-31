@@ -89,6 +89,11 @@ tsarina data fetch hpv16
 tsarina data fetch ebv
 ```
 
+`tsarina data fetch <name> --dry-run` shows the source, destination and free disk space
+without downloading. `data list` reports each registered file's state (`installed`, `missing`, `corrupt` or
+`inaccessible`);
+`data list --json` and `data available --json` give machine-readable output.
+
 IEDB and CEDAR exports must be downloaded under their source terms, then
 registered:
 

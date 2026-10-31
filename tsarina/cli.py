@@ -32,12 +32,17 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import difflib
+import functools
 import json
+import shutil
 import sys
 
 from hitlist.cli_help import ColorArgumentParser
 
 from .downloads import (
+    FETCHABLE_DATASETS,
+    MANUAL_DATASETS,
     available_datasets,
     data_dir,
     fetch,
@@ -53,6 +58,67 @@ from .downloads import (
 # ── data subcommands ────────────────────────────────────────────────────────
 
 
+def _fail(message: str) -> None:
+    """Print ``Error: <message>`` to stderr and exit 1 (no traceback)."""
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _format_size(size: int) -> str:
+    for unit, scale in (("GB", 1e9), ("MB", 1e6), ("KB", 1e3)):
+        if size >= scale:
+            return f"{size / scale:.1f} {unit}"
+    return f"{size} B"
+
+
+def _unknown_dataset(name: str) -> None:
+    """Exit 1 with the closest catalog matches for an unknown dataset name."""
+    close = difflib.get_close_matches(name, available_datasets(), n=5, cutoff=0.5)
+    suggestion = f" Did you mean: {', '.join(close)}?" if close else ""
+    _fail(
+        f"unknown dataset '{name}'.{suggestion}\n"
+        "  See `tsarina data available`; fetch with `tsarina data fetch <name>` "
+        "or register a local file with `tsarina data register <name> <path>`."
+    )
+
+
+def _require_known(name: str) -> None:
+    if name not in available_datasets():
+        _unknown_dataset(name)
+
+
+def _guarded(handler):
+    """Run a ``data`` handler so every failure is one ``Error:`` line, exit 1."""
+
+    @functools.wraps(handler)
+    def run(args: argparse.Namespace) -> None:
+        try:
+            handler(args)
+        except KeyError as e:
+            _unknown_dataset(str(e.args[0]) if e.args else "")
+        except (ValueError, OSError, RuntimeError) as e:
+            _fail(str(e))
+
+    return run
+
+
+def _registered_entry(name: str, meta: dict) -> dict:
+    """One registered dataset as a plain dict.
+
+    ``status`` is datacache's file state (via hitlist's ``info``): ``installed``,
+    ``missing``, ``corrupt`` or ``inaccessible``.
+    """
+    path = meta.get("path")
+    return {
+        "name": name,
+        "status": info(name)["status"],
+        "size_bytes": meta.get("size_bytes", 0),
+        "source": "registered" if meta.get("source") == "registered" else "fetched",
+        "path": path,
+        "description": meta.get("description", ""),
+    }
+
+
 def _data_list(args: argparse.Namespace) -> None:
     if getattr(args, "all", False):
         # `--all` is deprecated in favor of the `available` subcommand, matching
@@ -63,115 +129,133 @@ def _data_list(args: argparse.Namespace) -> None:
         )
         _data_available(args)
         return
-    datasets = list_datasets()
-    if not datasets:
+    entries = [_registered_entry(n, m) for n, m in sorted(list_datasets().items())]
+    if getattr(args, "json", False):
+        print(json.dumps(entries, indent=2))
+        return
+    if not entries:
         print("No datasets registered.")
         print(f"Data directory: {data_dir()}")
         print("Run 'tsarina data available' to see known datasets.")
         return
-    print(f"{'Name':<12} {'Size':>12}  {'Source':<14} Description")
+    print(f"{'Name':<12} {'Status':<10} {'Size':>10}  {'Source':<11} Description")
     print("-" * 72)
-    for name, meta in sorted(datasets.items()):
-        size = meta.get("size_bytes", 0)
-        if size > 1_000_000_000:
-            size_str = f"{size / 1e9:.1f} GB"
-        elif size > 1_000_000:
-            size_str = f"{size / 1e6:.1f} MB"
-        elif size > 1_000:
-            size_str = f"{size / 1e3:.1f} KB"
-        else:
-            size_str = f"{size} B"
-        source = meta.get("source", "")
-        source_label = "registered" if source == "registered" else "fetched"
-        desc = meta.get("description", "")
-        print(f"{name:<12} {size_str:>12}  {source_label:<14} {desc}")
+    for e in entries:
+        print(
+            f"{e['name']:<12} {e['status']:<10} {_format_size(e['size_bytes']):>10}  "
+            f"{e['source']:<11} {e['description']}"
+        )
+    if any(e["status"] != "installed" for e in entries):
+        print(
+            "\nA status other than 'installed' means the registered file is unusable. "
+            "Re-register it with `tsarina data register`, or run "
+            "`tsarina data fetch <name>` to download it again."
+        )
     print(f"\nData directory: {data_dir()}")
     print("`tsarina data available` shows the full catalog.")
 
 
 def _data_available(args: argparse.Namespace) -> None:
-    datasets = available_datasets()
-    registered = set(list_datasets().keys())
-    print(f"{'Name':<12} {'Status':<12} Description")
+    registered = {n: _registered_entry(n, m) for n, m in list_datasets().items()}
+    entries = [
+        {
+            "name": name,
+            "status": registered[name]["status"] if name in registered else "not installed",
+            "description": desc,
+        }
+        for name, desc in sorted(available_datasets().items())
+    ]
+    if getattr(args, "json", False):
+        print(json.dumps(entries, indent=2))
+        return
+    print(f"{'Name':<12} {'Status':<14} Description")
     print("-" * 72)
-    for name, desc in sorted(datasets.items()):
-        status = "installed" if name in registered else ""
-        print(f"{name:<12} {status:<12} {desc}")
+    for e in entries:
+        status = "" if e["status"] == "not installed" else e["status"]
+        print(f"{e['name']:<12} {status:<14} {e['description']}")
 
 
+@_guarded
 def _data_register(args: argparse.Namespace) -> None:
-    try:
-        p = register(args.name, args.path, description=args.description)
-        print(f"Registered '{args.name}' -> {p}")
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    p = register(args.name, args.path, description=args.description)
+    print(f"Registered '{args.name}' -> {p}")
 
 
+def _fetch_preview(name: str) -> None:
+    """Describe what ``fetch`` would do, without downloading."""
+    if name in FETCHABLE_DATASETS:
+        ds = FETCHABLE_DATASETS[name]
+        dest = data_dir() / ds["filename"]
+        # Stopgap until datacache provides a read-only fetch plan (openvax/datacache#135).
+        free = shutil.disk_usage(data_dir()).free
+        registered = list_datasets().get(name)
+        print(f"Dataset:     {name} ({ds['description']})")
+        print(f"Source:      {ds['url']}")
+        print(f"Destination: {dest}")
+        print(f"Free space:  {_format_size(free)} on the data directory's volume")
+        if dest.exists():
+            print("Status:      already downloaded; `fetch` would reuse it (--force re-downloads)")
+        elif registered and (state := _registered_entry(name, registered)["status"]) != "installed":
+            print(f"Status:      registered file {registered['path']} is {state}; would download")
+        else:
+            print("Status:      not downloaded; would download")
+    elif name in MANUAL_DATASETS:
+        print(f"'{name}' is a manual download: {MANUAL_DATASETS[name]['download_url']}")
+        print(f"Register it with: tsarina data register {name} <path>")
+    else:
+        print(f"'{name}' is a mirrored asset or built dataset; no preview is available.")
+
+
+@_guarded
 def _data_fetch(args: argparse.Namespace) -> None:
-    try:
-        p = fetch(args.name, force=args.force)
-        print(f"Ready: {p}")
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    _require_known(args.name)
+    if args.dry_run:
+        _fetch_preview(args.name)
+        return
+    registered = list_datasets().get(args.name)
+    if registered and (state := _registered_entry(args.name, registered)["status"]) != "installed":
+        print(
+            f"Note: registered file {registered['path']} is {state}; downloading a replacement.",
+            file=sys.stderr,
+        )
+    print(f"Ready: {fetch(args.name, force=args.force)}")
 
 
-def _unknown_dataset(name: str) -> None:
-    """Print a friendly 'unknown dataset' error (lists the catalog) and exit 1.
-
-    Keeps data-command failures concise instead of leaking a KeyError repr.
-    """
-    known = ", ".join(sorted(available_datasets())) or "(none)"
-    print(
-        f"Error: unknown dataset '{name}'. Known: {known}.\n"
-        f"  See `tsarina data available`; fetch with `tsarina data fetch {name}` "
-        f"or register a local file with `tsarina data register {name} <path>`.",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-
+@_guarded
 def _data_path(args: argparse.Namespace) -> None:
-    try:
-        p = get_path(args.name)
-        print(str(p))
-    except KeyError:
-        _unknown_dataset(args.name)
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    _require_known(args.name)
+    print(str(get_path(args.name)))
 
 
+@_guarded
 def _data_remove(args: argparse.Namespace) -> None:
-    if not remove(args.name, delete_file=getattr(args, "delete", False)):
-        print(f"No dataset '{args.name}' was registered (nothing to do).", file=sys.stderr)
-        sys.exit(1)
-    if getattr(args, "delete", False):
+    delete = getattr(args, "delete", False)
+    meta = list_datasets().get(args.name)
+    if meta and delete:
+        path = meta.get("path")
+        size = _format_size(meta.get("size_bytes", 0))
+        print(f"Deleting {path} ({size}); other projects may still use this file.", file=sys.stderr)
+    if not remove(args.name, delete_file=delete):
+        _fail(f"no dataset '{args.name}' was registered (nothing to do).")
+    if delete:
         print(f"Unregistered and deleted '{args.name}'.")
     else:
         print(f"Unregistered '{args.name}' (file kept on disk).")
 
 
+@_guarded
 def _data_refresh(args: argparse.Namespace) -> None:
-    try:
-        p = refresh(args.name)
-        print(f"Refreshed: {p}")
-    except (ValueError, KeyError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    _require_known(args.name)
+    print(f"Refreshed: {refresh(args.name)}")
 
 
+@_guarded
 def _data_info(args: argparse.Namespace) -> None:
-    try:
-        print(json.dumps(info(args.name), indent=2, default=str))
-    except KeyError:
-        _unknown_dataset(args.name)
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    _require_known(args.name)
+    print(json.dumps(info(args.name), indent=2, default=str))
 
 
+@_guarded
 def _data_fetch_all(args: argparse.Namespace) -> None:
     paths = fetch_all_data_assets(force=args.force)
     print(f"Fetched {len(paths)} data-asset file(s).")
@@ -203,8 +287,10 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_list.add_argument(
         "--all", action="store_true", help="Deprecated: use `tsarina data available`."
     )
+    p_list.add_argument("--json", action="store_true", help="Machine-readable output")
 
-    data_sub.add_parser("available", help="Show all known datasets (installed or not)")
+    p_avail = data_sub.add_parser("available", help="Show all known datasets (installed or not)")
+    p_avail.add_argument("--json", action="store_true", help="Machine-readable output")
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar)")
@@ -214,6 +300,11 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_fetch = data_sub.add_parser("fetch", help="Download a fetchable dataset")
     p_fetch.add_argument("name", help="Dataset name (e.g. iedb, hpv16, ebv)")
     p_fetch.add_argument("--force", "-f", action="store_true", help="Re-download")
+    p_fetch.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show source, destination and free disk space; download nothing",
+    )
 
     p_refresh = data_sub.add_parser("refresh", help="Re-download a fetchable dataset")
     p_refresh.add_argument("name", help="Dataset name")
