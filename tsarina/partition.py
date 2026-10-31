@@ -13,7 +13,7 @@
 """Current CTA member genes and all other coding genes in a sequence reference.
 
 The legacy never-expressed partition stays empty under the current policy.
-Neither/unassigned selection decisions remain in the non-CTA background.
+Other/unassigned selection decisions remain in the non-CTA background.
 
 Requires the ``pyensembl`` package (install with ``pip install tsarina[partition]``).
 """
@@ -40,7 +40,7 @@ class CTAPartitionSets:
         Empty compatibility field; current categories do not imply no expression.
     non_cta : set[str]
         All other coding genes from the requested sequence reference, including
-        Unsafe, Neither, unassigned and genes outside the selection table.
+        Unsafe, Other, unassigned and genes outside the selection table.
     """
 
     cta: set
@@ -79,8 +79,8 @@ def _build_partition(ensembl_release: int = 112):
 
     evidence_ids = evidence_df["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
     cta_mask = evidence_ids.isin(CTA_gene_ids())
-    # Current Neither includes diffuse expression; null means unassigned.
-    # Neither category justifies removing a gene from the sequence background.
+    # Current Other includes diffuse expression; null means unassigned.
+    # Other category justifies removing a gene from the sequence background.
     never_expressed_mask = pd.Series(False, index=evidence_df.index)
 
     cta_ids = set(evidence_df.loc[cta_mask, "Ensembl_Gene_ID"])
@@ -103,7 +103,7 @@ def CTA_partition_gene_ids(ensembl_release: int = 112) -> CTAPartitionSets:
     as sets of Ensembl gene IDs.
 
     All nonselected coding genes remain in ``non_cta``. The historical
-    ``cta_never_expressed`` field is empty; Neither/unassigned are not removed.
+    ``cta_never_expressed`` field is empty; Other/unassigned are not removed.
     Selection reference receipts are distinct from ``ensembl_release``.
 
     Examples
@@ -127,7 +127,7 @@ def CTA_partition_gene_names(ensembl_release: int = 112) -> CTAPartitionSets:
     as sets of gene symbols.
 
     All nonselected coding genes remain in ``non_cta``. The historical
-    ``cta_never_expressed`` field is empty; Neither/unassigned are not removed.
+    ``cta_never_expressed`` field is empty; Other/unassigned are not removed.
     Selection reference receipts are distinct from ``ensembl_release``.
 
     Examples
@@ -162,7 +162,7 @@ def CTA_partition_dataframes(ensembl_release: int = 112) -> CTAPartitionDataFram
     Ensembl_Gene_ID columns.
 
     All nonselected coding genes remain in ``non_cta``. The historical
-    ``cta_never_expressed`` field is empty; Neither/unassigned are not removed.
+    ``cta_never_expressed`` field is empty; Other/unassigned are not removed.
     Selection reference receipts are distinct from ``ensembl_release``.
 
     Examples

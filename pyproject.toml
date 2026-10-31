@@ -32,7 +32,7 @@ dependencies = [
     "hitlist>=1.58.1",
     "mhcgnomes>=3.20.0",
     # Current protein selection decisions, member identities and reference receipts.
-    "oncoref>=1.23.1",
+    "oncoref>=1.25.0",
     "pandas",
     "numpy",
     "tqdm",

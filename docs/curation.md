@@ -36,7 +36,7 @@ symbol is missing. Missing HPA measurements stay missing, with empty text or
 an HPA filter. There are 92 selected genes absent from the historical table
 in OncoRef 1.23.1.
 
-`Unsafe`, `Neither`, and null/unassigned decisions remain distinct.
+`Unsafe`, `Other`, and null/unassigned decisions remain distinct.
 `CTA_excluded_gene_ids/names()` returns only `Unsafe` members;
 `CTA_unfiltered_gene_ids/names()` returns the complete current decision
 universe. `CTA_filtered_gene_ids/names()` is a compatibility name for current
@@ -53,9 +53,9 @@ for historical comparisons; the human default is `current`.
 
 For gene-based peptide consumers, current selected member genes form the CTA
 set. Every other coding gene in the requested Ensembl sequence release remains
-in the non-CTA background, including `Unsafe`, `Neither`, unassigned and genes
+in the non-CTA background, including `Unsafe`, `Other`, unassigned and genes
 absent from the selection table. The compatibility partition field
-`cta_never_expressed` is empty. Neither or missing assessment does not justify
+`cta_never_expressed` is empty. Other or missing assessment does not justify
 removing a sequence from the background.
 
 This consumer policy is recorded as

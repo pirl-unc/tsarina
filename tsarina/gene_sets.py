@@ -81,7 +81,7 @@ def CTA_unfiltered_gene_ids():
 
 
 def CTA_excluded_gene_names():
-    """Genes classified Unsafe; Neither and unassigned remain distinct."""
+    """Genes classified Unsafe; Other and unassigned remain distinct."""
     return selection_gene_names(category="Unsafe")
 
 
