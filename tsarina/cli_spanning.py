@@ -352,7 +352,10 @@ def handle(args: argparse.Namespace) -> None:
     from .spanning import spanning_pmhc_set
 
     if getattr(args, "deprecated_spanning", False):
-        print("Warning: `tsarina spanning` is deprecated; use `tsarina panel`.", file=sys.stderr)
+        print(
+            "Warning: `tsarina spanning` is deprecated and will be removed in tsarina 2.0; use `tsarina panel`.",
+            file=sys.stderr,
+        )
 
     min_restriction_confidence: tuple[str, ...] | None
     if any(v.upper() == "ANY" for v in args.min_restriction_confidence):

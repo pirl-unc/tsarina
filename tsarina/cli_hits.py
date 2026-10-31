@@ -28,8 +28,7 @@ from __future__ import annotations
 import argparse
 import functools
 import sys
-
-import pandas as pd
+from typing import TYPE_CHECKING
 
 from .cli_common import (
     add_iedb_cedar_args,
@@ -44,6 +43,9 @@ from .cli_common import (
 from .cli_common import (
     warn_ignored_flags as _warn_ignored_flags,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 _SUPPORTED_FORMATS = ("peptides", "pmhc", "refs", "raw")
 # Allele-resolution levels, most specific first.  Mirrors the leading prefix of
@@ -290,6 +292,8 @@ def _enumerate_gene_peptides(
                         "c_flank": seq[i + L : i + L + 5],
                     }
                 )
+    import pandas as pd
+
     return pd.DataFrame(rows)
 
 
@@ -595,6 +599,8 @@ def handle(args: argparse.Namespace) -> None:
             f"(check the spelling; try --include-binding-assays or --skip-ms-evidence).",
             file=sys.stderr,
         )
+        import pandas as pd
+
         _write(args.output, pd.DataFrame({"peptide": pd.Series(dtype=str)}))
         return
 

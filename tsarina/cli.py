@@ -124,7 +124,8 @@ def _data_list(args: argparse.Namespace) -> None:
         # `--all` is deprecated in favor of the `available` subcommand, matching
         # hitlist's `data list` / `data available` split.
         print(
-            "Note: `tsarina data list --all` is deprecated; use `tsarina data available`.",
+            "Note: `tsarina data list --all` is deprecated and will be removed in tsarina 2.0; "
+            "use `tsarina data available`.",
             file=sys.stderr,
         )
         _data_available(args)
@@ -271,7 +272,8 @@ def _build_observations(args: argparse.Namespace) -> None:
 def _data_build(args: argparse.Namespace) -> None:
     # Deprecated: mirror hitlist's `data build` -> `build observations` move.
     print(
-        "Note: `tsarina data build` is deprecated; use `tsarina build observations`.",
+        "Note: `tsarina data build` is deprecated and will be removed in tsarina 2.0; "
+        "use `tsarina build observations`.",
         file=sys.stderr,
     )
     _build_observations(args)
@@ -279,7 +281,8 @@ def _data_build(args: argparse.Namespace) -> None:
 
 def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     data_parser = sub.add_parser(
-        "data", help="MS evidence datasets (IEDB/CEDAR/viral) + observations index"
+        "data",
+        help="Datasets: list/fetch/register IEDB, CEDAR, viral proteomes, HPA/DepMap and mirrored assets",
     )
     data_sub = data_parser.add_subparsers(dest="data_command")
 
@@ -293,8 +296,11 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_avail.add_argument("--json", action="store_true", help="Machine-readable output")
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
-    p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar)")
-    p_reg.add_argument("path", help="Path to the file")
+    p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar; see `data available`)")
+    p_reg.add_argument(
+        "path",
+        help="Path to the downloaded file (IEDB/CEDAR: the MHC ligand full CSV export)",
+    )
     p_reg.add_argument("--description", "-d", help="Optional description")
 
     p_fetch = data_sub.add_parser("fetch", help="Download a fetchable dataset")
@@ -329,21 +335,23 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
 
 
+_DATA_HANDLERS = {
+    "list": _data_list,
+    "available": _data_available,
+    "register": _data_register,
+    "fetch": _data_fetch,
+    "refresh": _data_refresh,
+    "fetch-all": _data_fetch_all,
+    "info": _data_info,
+    "path": _data_path,
+    "remove": _data_remove,
+    "build": _data_build,
+}
+
+
 def _handle_data(args: argparse.Namespace) -> None:
-    handlers = {
-        "list": _data_list,
-        "available": _data_available,
-        "register": _data_register,
-        "fetch": _data_fetch,
-        "refresh": _data_refresh,
-        "fetch-all": _data_fetch_all,
-        "info": _data_info,
-        "path": _data_path,
-        "remove": _data_remove,
-        "build": _data_build,
-    }
     # Bare `tsarina data` defaults to listing.
-    handlers[getattr(args, "data_command", None) or "list"](args)
+    _DATA_HANDLERS[getattr(args, "data_command", None) or "list"](args)
 
 
 def _build_build_parser(sub: argparse._SubParsersAction) -> None:
@@ -358,13 +366,15 @@ def _build_build_parser(sub: argparse._SubParsersAction) -> None:
     p_obs.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
 
 
+_BUILD_HANDLERS = {"observations": _build_observations}
+
+
 def _handle_build(args: argparse.Namespace) -> None:
-    handlers = {"observations": _build_observations}
     cmd = getattr(args, "build_command", None)
     if cmd is None:
         print("Usage: tsarina build observations [--force]", file=sys.stderr)
         sys.exit(2)
-    handlers[cmd](args)
+    _BUILD_HANDLERS[cmd](args)
 
 
 # ── Main entry point ────────────────────────────────────────────────────────
@@ -402,20 +412,16 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    if args.command == "data":
-        _handle_data(args)
-    elif args.command == "build":
-        _handle_build(args)
-    elif args.command == "personalize":
-        cli_personalize.handle(args)
-    elif args.command == "hits":
-        cli_hits.handle(args)
-    elif args.command == "panel":
-        cli_spanning.handle(args)
-    elif args.command == "vaccine":
-        cli_vaccine.handle(args)
-    elif args.command == "vaccine-report":
-        cli_vaccine.handle_report(args)
+    handlers = {
+        "data": _handle_data,
+        "build": _handle_build,
+        "personalize": cli_personalize.handle,
+        "hits": cli_hits.handle,
+        "panel": cli_spanning.handle,
+        "vaccine": cli_vaccine.handle,
+        "vaccine-report": cli_vaccine.handle_report,
+    }
+    handlers[args.command](args)
 
 
 if __name__ == "__main__":
