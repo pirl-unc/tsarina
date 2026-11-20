@@ -173,9 +173,65 @@ def test_resolve_cta_alternate_haplotype_ids_excludes_primary_unnamed_and_cross_
     assert by_id.loc["ENSG_CAT_ALT", "resolution_basis"] == "oncoref_alternate_id"
 
 
+def test_partition_excludes_hschr_alternate_haplotypes_from_non_cta(monkeypatch):
+    """tsarina#187: CTA_partition_gene_ids excludes audited HSCHR* alternate
+    haplotypes from non_cta while keeping partition.cta equal to CTA_gene_ids()."""
+    import tsarina.partition as partition
+
+    frame = pd.DataFrame(
+        {
+            "Ensembl_Gene_ID": ["ENSG_PRAME", "ENSG_OTHER"],
+            "Symbol": ["PRAME", "OTHER"],
+            "selection_category": ["CTA", "Other"],
+        }
+    )
+    genes = [
+        SimpleNamespace(
+            gene_id="ENSG_PRAME", gene_name="PRAME", contig="22", biotype="protein_coding"
+        ),
+        SimpleNamespace(
+            gene_id="ENSG_PRAME_ALT",
+            gene_name="PRAME",
+            contig="HSCHR22_1_CTG3",
+            biotype="protein_coding",
+        ),
+        SimpleNamespace(
+            gene_id="ENSG_PRAME_PRIMARY_BG",
+            gene_name="PRAME",
+            contig="1",
+            biotype="protein_coding",
+        ),
+        SimpleNamespace(
+            gene_id="ENSG_OTHER", gene_name="OTHER", contig="2", biotype="protein_coding"
+        ),
+    ]
+    monkeypatch.setattr(partition, "CTA_evidence", lambda: frame)
+    monkeypatch.setattr(partition, "CTA_gene_ids", lambda: {"ENSG_PRAME"})
+    monkeypatch.setattr(partition, "_oncoref_alternate_id_to_canonical", lambda: {})
+    monkeypatch.setattr(
+        "pyensembl.EnsemblRelease", lambda release: SimpleNamespace(genes=lambda: genes)
+    )
+
+    result = partition.CTA_partition_gene_ids(ensembl_release=112)
+    aliases = partition.CTA_partition_alternate_haplotype_aliases(ensembl_release=112)
+    assert result.cta == {"ENSG_PRAME"}
+    assert result.cta_alternate_haplotypes == {"ENSG_PRAME_ALT"}
+    assert result.non_cta == {"ENSG_PRAME_PRIMARY_BG", "ENSG_OTHER"}
+    assert list(aliases["gene_id"]) == ["ENSG_PRAME_ALT"]
+
+
 def test_ensembl_112_partition_resolves_prame_and_magea6_alternate_haplotypes():
     """tsarina#187: real Ensembl 112 partition resolves PRAME and MAGEA6 HSCHR*
     alternate haplotypes so they do not self-veto their primary CTAs."""
+    import pytest
+
+    try:
+        from pyensembl import EnsemblRelease
+
+        EnsemblRelease(112).gene_by_id("ENSG00000185686")
+    except Exception as exc:
+        pytest.skip(f"pyensembl release 112 data unavailable: {exc}")
+
     from tsarina.partition import (
         CTA_partition_alternate_haplotype_aliases,
         CTA_partition_gene_ids,
