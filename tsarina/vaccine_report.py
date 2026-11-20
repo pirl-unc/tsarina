@@ -228,13 +228,15 @@ def write_vaccine_report(result, output_dir):
     if design:
         bad = [r for r in design["junctions"] if r["below_threshold"]]
         overlaps = design.get("background_overlaps", [])
+        stop_reason = design.get("search_stop_reason", "")
+        stop_note = f" Search stop reason: **{stop_reason}**." if stop_reason else ""
         lines.extend(
             [
                 "## Construct and junction audit",
                 "",
-                f"Protein: **{design['length_aa']} aa**. Full {result['config']['vaccine_type'].upper()}: **{design['length_nt']} nt**. Whole-product background {result['config']['shared_k']}-mer overlaps (including initiating methionine, linkers and cross-layer joins): **{len(overlaps)}** (`background_safe={design.get('background_safe', True)}`). Junction affinity cutoff: **{result['config']['junction_affinity_nm']:g} nM**. Unresolved peptide/allele/window predictions: **{len(bad)}**.",
+                f"Protein: **{design['length_aa']} aa**. Full {result['config']['vaccine_type'].upper()}: **{design['length_nt']} nt**. Whole-product background {result['config']['shared_k']}-mer overlaps (including initiating methionine, linkers and cross-layer joins): **{len(overlaps)}** (`background_safe={design.get('background_safe', True)}`). Junction affinity cutoff: **{result['config']['junction_affinity_nm']:g} nM**. Unresolved peptide/allele/window predictions: **{len(bad)}**.{stop_note}",
                 "",
-                "Whole-product background audit results (non-CTA coding isoforms and, when exclusion is enabled, the full verified normal-MS blacklist) are in `background_overlaps.csv`; any remaining overlap rejects the construct with status `rejected_background_overlap`. All predictions, including nonbinding windows, are in `junctions.csv`. Boundary cleavage probabilities are in `cleavage.csv`. `layers.csv` maps native source coordinates to assembled coordinates; `excluded_segments.csv` records whole-piece exclusions. A design with unresolved binders requires review; `--require-clean-junctions` makes that condition fail the command after writing the audit.",
+                "Whole-product background audit results (non-CTA coding isoforms and, when exclusion is enabled, the full verified normal-MS blacklist) are in `background_overlaps.csv`; any remaining overlap rejects the construct with status `rejected_background_overlap`. Target-specific HLA support and peptide redundancy are in `target_hla_support.csv` (and leave-one-out removal / same-budget replacement effects in `allocation_justification.csv` for budget mode). All predictions, including nonbinding windows, are in `junctions.csv`. Boundary cleavage probabilities are in `cleavage.csv`. `layers.csv` maps native source coordinates to assembled coordinates; `excluded_segments.csv` records whole-piece exclusions. A design with unresolved binders requires review; `--require-clean-junctions` makes that condition fail the command after writing the audit.",
                 "",
             ]
         )

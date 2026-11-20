@@ -3220,3 +3220,31 @@ Plan:
       dog/DLA, and transgenic contexts.
 - [x] Bump version `1.39.2` -> `1.40.0`; run `./format.sh`, `./lint.sh`,
       `./test.sh`; PR, CI, merge, and deploy to PyPI.
+
+## Vaccine search continuation (#191), clean-junction backfill (#192), & target-specific budget objectives (#201, #202) (2026-11-20)
+
+Issues: `#191`, `#192`, `#201`, `#202` (release `1.41.0`).
+
+Specification:
+
+- `#191`: Report explicit `search_stop_reason` (`clean`, `converged`,
+  `budget_exhausted_improving`, `budget_exhausted_plateau`) and `search_progress`
+  from `optimize_construct`, and support fingerprint-verified JSON checkpoint
+  save/resume (`checkpoint_in`/`checkpoint_out`, CLI `--resume-from` / `--save-checkpoint`)
+  reusing cached beam, seen states, and affinity/cleavage predictions.
+- `#192`: When `selection_mode == "supported"` and `require_clean_junctions=True`,
+  boundedly backfill alternative supported `K`-target panels (preserving `K`
+  targets, exclusions, specificity, MS support, and length caps) up to
+  `panel_backfill_budget`, recording every attempt in `panel_search_audit.csv`.
+- `#201`/`#202`: Add `target_specific` and `evidence_tradeoff` (`min_mortality_gain_pp`)
+  allocation objectives to `select_budget_segments`, plus `target_hla_support_table`,
+  `allocation_justification_table` (leave-one-out removal & same-budget replacement),
+  and `compare_allocation_tradeoffs`.
+
+Plan:
+
+- [x] Implement `#191` in `vaccine_construct.py`, `vaccine.py`, `vaccine_report.py`, `cli_vaccine.py`.
+- [x] Implement `#192` in `vaccine.py`, `vaccine_construct.py`, `cli_vaccine.py`.
+- [x] Implement `#201` and `#202` in `vaccine_budget.py`, `vaccine.py`, `vaccine_report.py`, `cli_vaccine.py`.
+- [x] Add regression tests in `tests/test_vaccine_optimization_and_budget.py`.
+- [x] Bump version `1.40.0` -> `1.41.0`; run `./format.sh`, `./lint.sh`, `./test.sh`; PR, CI, merge, and deploy to PyPI.
