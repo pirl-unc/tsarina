@@ -443,8 +443,9 @@ def optimize_construct(
         for (sig, state), (sequence, layers) in zip(states.items(), assemblies):
             key, _, _ = audit.assess(sequence, layers)
             if background_fn:
+                k = config.shared_k
                 key = (
-                    sum(sequence[i : i + 8] in forbidden for i in range(len(sequence) - 7)),
+                    sum(sequence[i : i + k] in forbidden for i in range(len(sequence) - k + 1)),
                     *key,
                 )
             scored.append((key, sig, state))
@@ -482,10 +483,11 @@ def optimize_construct(
             row["background_overlap_windows"] = row["best_key"][0]
             row["best_key"] = row["best_key"][1:]
         forbidden = background_fn([protein])
+        k = config.shared_k
         result["background_overlaps"] = [
-            {"start": i, "end": i + 8, "peptide": protein[i : i + 8]}
-            for i in range(len(protein) - 7)
-            if protein[i : i + 8] in forbidden
+            {"start": i, "end": i + k, "peptide": protein[i : i + k]}
+            for i in range(len(protein) - k + 1)
+            if protein[i : i + k] in forbidden
         ]
         result["background_safe"] = not result["background_overlaps"]
     return result

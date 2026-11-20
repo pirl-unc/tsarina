@@ -307,3 +307,143 @@ def test_vital_organ_matcher_false(tissue):
     from tsarina.ms_evidence import _is_vital_organ_tissue
 
     assert _is_vital_organ_tissue(tissue) is False
+
+
+def test_filter_positive_ms_observations_separates_ms_binding_and_other():
+    """tsarina#199: generic positive-MS admission rejects structural, unknown,
+    conflicting, negative, and binding rows by default, and keeps binding
+    separate from other/structural/unknown rows."""
+    from tsarina.ms_evidence import filter_positive_ms_observations
+
+    raw = pd.DataFrame(
+        [
+            {
+                "peptide": "MSPOS0001",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "response_measured": "ligand presentation",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+                "is_binding_assay": False,
+            },
+            {
+                "peptide": "MSLEGACY1",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "response_measured": "ligand presentation",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+                "is_binding_assay": True,
+            },
+            {
+                "peptide": "SUPPL0001",
+                "assay_method": "",
+                "response_measured": "",
+                "qualitative_measurement": "",
+                "source": "supplement",
+                "is_binding_assay": False,
+            },
+            {
+                "peptide": "GVYDGREHTV",
+                "assay_method": "x-ray crystallography",
+                "response_measured": "3D structure",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+                "is_binding_assay": False,
+            },
+            {
+                "peptide": "MSUNK0001",
+                "assay_method": "mass spectrometry",
+                "response_measured": "ligand presentation",
+                "qualitative_measurement": "unknown",
+                "source": "iedb",
+                "is_binding_assay": False,
+            },
+            {
+                "peptide": "MSNEG0001",
+                "assay_method": "mass spectrometry",
+                "response_measured": "ligand presentation",
+                "qualitative_measurement": "Negative",
+                "source": "iedb",
+                "is_binding_assay": False,
+            },
+            {
+                "peptide": "BIND00001",
+                "assay_method": "purified MHC/direct/fluorescence",
+                "response_measured": "dissociation constant KD",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+                "is_binding_assay": True,
+            },
+        ]
+    )
+
+    ms_only = filter_positive_ms_observations(raw)
+    assert set(ms_only["peptide"]) == {"MSPOS0001", "MSLEGACY1", "SUPPL0001"}
+
+    ms_and_binding = filter_positive_ms_observations(raw, include_binding=True)
+    assert set(ms_and_binding["peptide"]) == {"MSPOS0001", "MSLEGACY1", "SUPPL0001", "BIND00001"}
+    assert "GVYDGREHTV" not in set(ms_and_binding["peptide"])
+    assert "MSUNK0001" not in set(ms_and_binding["peptide"])
+    assert "MSNEG0001" not in set(ms_and_binding["peptide"])
+
+    ms_and_other = filter_positive_ms_observations(raw, include_other=True)
+    assert set(ms_and_other["peptide"]) == {
+        "MSPOS0001",
+        "MSLEGACY1",
+        "SUPPL0001",
+        "GVYDGREHTV",
+        "MSUNK0001",
+        "MSNEG0001",
+    }
+    assert "BIND00001" not in set(ms_and_other["peptide"])
+
+    all_rows = filter_positive_ms_observations(raw, include_binding=True, include_other=True)
+    assert set(all_rows["peptide"]) == set(raw["peptide"])
+
+
+def test_load_public_ms_hits_raw_path_uses_positive_ms_admission(monkeypatch):
+    from tsarina.ms_evidence import load_public_ms_hits
+
+    raw = pd.DataFrame(
+        [
+            {
+                "peptide": "MSPOS0001",
+                "assay_method": "mass spectrometry",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+            },
+            {
+                "peptide": "GVYDGREHTV",
+                "assay_method": "x-ray crystallography",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+            },
+            {
+                "peptide": "BIND00001",
+                "assay_method": "purified MHC/direct/fluorescence",
+                "response_measured": "half maximal inhibitory concentration (IC50)",
+                "qualitative_measurement": "Positive",
+                "source": "iedb",
+            },
+        ]
+    )
+    monkeypatch.setattr("tsarina.iedb.scan_public_ms", lambda **kwargs: raw.copy())
+
+    default_hits = load_public_ms_hits(
+        peptides={"MSPOS0001", "GVYDGREHTV", "BIND00001"},
+        iedb_path="/tmp/fake.csv",
+    )
+    assert list(default_hits["peptide"]) == ["MSPOS0001"]
+
+    with_binding = load_public_ms_hits(
+        peptides={"MSPOS0001", "GVYDGREHTV", "BIND00001"},
+        iedb_path="/tmp/fake.csv",
+        drop_binding_assays=False,
+    )
+    assert set(with_binding["peptide"]) == {"MSPOS0001", "BIND00001"}
+
+    with_other = load_public_ms_hits(
+        peptides={"MSPOS0001", "GVYDGREHTV", "BIND00001"},
+        iedb_path="/tmp/fake.csv",
+        include_other_assays=True,
+    )
+    assert set(with_other["peptide"]) == {"MSPOS0001", "GVYDGREHTV"}

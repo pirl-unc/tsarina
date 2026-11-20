@@ -43,6 +43,7 @@ def scan_public_ms(
     mhc_class: str | None = None,
     classify_source: bool = False,
     min_allele_resolution: str | None = None,
+    positive_ms_only: bool = True,
 ) -> pd.DataFrame:
     """Scan IEDB/CEDAR MHC ligand exports for matching peptides.
 
@@ -68,6 +69,10 @@ def scan_public_ms(
     min_allele_resolution
         One of ``"four_digit"``, ``"two_digit"``, ``"serological"``,
         ``"class_only"``.  Rows with coarser resolution are dropped.
+    positive_ms_only
+        If True (default), keep only positive MS observations using Hitlist's
+        ``is_ms_observation`` contract (excluding binding, structural, unknown,
+        and negative-MS assays). Set ``False`` to retain all scanned modalities.
 
     Returns
     -------
@@ -76,7 +81,7 @@ def scan_public_ms(
     """
     if iedb_path is None and cedar_path is None:
         return pd.DataFrame()
-    return _hitlist_scan(
+    df = _hitlist_scan(
         peptides=peptides,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
@@ -85,6 +90,11 @@ def scan_public_ms(
         classify_source=classify_source,
         min_allele_resolution=min_allele_resolution,
     )
+    if positive_ms_only and not df.empty:
+        from .ms_evidence import filter_positive_ms_observations
+
+        df = filter_positive_ms_observations(df).reset_index(drop=True)
+    return df
 
 
 def profile_dataset(

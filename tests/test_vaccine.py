@@ -134,6 +134,7 @@ def inputs():
                     "is_monoallelic": True,
                     "pmid": "123",
                     "assay_modality": "mass_spectrometry",
+                    "qualitative_measurement": "Positive",
                 }
             ]
         ),
@@ -268,6 +269,7 @@ def test_ms_assignment_separates_measured_and_inferred_restrictions(ms_scores):
         ]
     )
     hits["assay_modality"] = "mass_spectrometry"
+    hits["qualitative_measurement"] = "Positive"
     result = panel_ms_support(set(hits.peptide), [ALLELE, other], hits)
     assert set(result.query("peptide == 'ACDEFGHIK'").allele) == {ALLELE}
     assert result.query("peptide == 'ACDEFGHIK'").iloc[0].evidence_tier == "monoallelic_ms"
@@ -277,24 +279,51 @@ def test_ms_assignment_separates_measured_and_inferred_restrictions(ms_scores):
 def test_positive_ms_modality_rejects_nonbinding_fluorescence_and_structures():
     hits = pd.DataFrame(
         [
-            {"peptide": "a", "assay_method": "cellular MHC/mass spectrometry"},
+            {
+                "peptide": "a",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "qualitative_measurement": "Positive",
+            },
             {"peptide": "b", "assay_method": "", "source": "supplement"},
-            {"peptide": "c", "assay_modality": "mass_spectrometry"},
+            {
+                "peptide": "c",
+                "assay_modality": "mass_spectrometry",
+                "qualitative_measurement": "Positive",
+            },
             {
                 "peptide": "d",
                 "assay_method": "cellular MHC/direct/fluorescence",
                 "assay_modality": "mass_spectrometry",
+                "qualitative_measurement": "Positive",
                 "is_binding_assay": False,
             },
             {"peptide": "e", "assay_method": "x-ray crystallography", "is_binding_assay": False},
             {"peptide": "f", "assay_method": "purified MHC/direct/fluorescence"},
             {"peptide": "g"},
+            {
+                "peptide": "h",
+                "assay_method": "mass spectrometry",
+                "qualitative_measurement": "unknown",
+            },
+            {"peptide": "i", "assay_method": "mass spectrometry", "qualitative_measurement": ""},
+            {"peptide": "j", "assay_modality": "mass_spectrometry"},
+            {
+                "peptide": "k",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "response_measured": "half maximal inhibitory concentration (IC50)",
+                "qualitative_measurement": "Positive",
+            },
         ]
     )
     accepted, rejected = filter_ms_modality(hits)
     assert set(accepted.peptide) == {"a", "b", "c"}
-    assert set(rejected.peptide) == {"d", "e", "f", "g"}
-    assert rejected.set_index("peptide").loc["g", "rejection_reason"] == "unknown_assay_modality"
+    assert set(rejected.peptide) == {"d", "e", "f", "g", "h", "i", "j", "k"}
+    reasons = rejected.set_index("peptide")["rejection_reason"]
+    assert reasons["g"] == "unknown_assay_modality"
+    assert reasons["h"] == "unestablished_ms_outcome"
+    assert reasons["i"] == "unestablished_ms_outcome"
+    assert reasons["j"] == "unestablished_ms_outcome"
+    assert reasons["k"] == "conflicting_assay_fields"
 
 
 def test_sample_affinity_accepts_every_binding_sample_allele_without_percentile_gate(monkeypatch):
@@ -320,6 +349,7 @@ def test_sample_affinity_accepts_every_binding_sample_allele_without_percentile_
             {
                 "peptide": "ACDEFGHIK",
                 "assay_method": "mass spectrometry",
+                "qualitative_measurement": "Positive",
                 "mhc_allele_provenance": "sample_allele_match",
                 "mhc_allele_set": f"{ALLELE};{b}",
                 "provenance_id": "sample:1",
@@ -345,6 +375,7 @@ def test_untyped_sample_affinity_is_explicit_and_study_pool_is_not_sample_typing
             {
                 "peptide": "ACDEFGHIK",
                 "assay_method": "mass spectrometry",
+                "qualitative_measurement": "Positive",
                 "mhc_allele_provenance": "pmid_class_pool",
                 "mhc_allele_set": ALLELE,
             }
@@ -651,11 +682,17 @@ def test_full_pipeline_artifacts_and_dropout(inputs, ms_scores, codons, tmp_path
     assert replay["designs"]["custom"]["coverage"] == view["coverage"]
     assert manifest["provenance"]["synthetic"]
     assert manifest["provenance"]["ms_input_kind"] == "supplied_observations"
-    assert manifest["provenance"]["background_policy"] == "tsarina.current-selection-other-genes.v1"
+    assert (
+        manifest["provenance"]["background_policy"]
+        == "tsarina.current-selection-alternate-haplotypes.v1"
+    )
+    assert manifest["provenance"]["assembled_background_safe"] is True
+    assert manifest["provenance"]["assembled_background_overlap_count"] == 0
     report = (tmp_path / "report.md").read_text()
     assert "Current admission uses OncoRef" in report
-    assert "alternate haplotypes do not inherit membership by symbol" in report
-    assert "MS evidence source: **supplied observations**" in (tmp_path / "report.md").read_text()
+    assert "HSCHR alternate-haplotype annotations" in report
+    assert "Primary-contig non-CTA loci never inherit membership" in report
+    assert "MS evidence source: **supplied observations**" in report
     assert manifest["prediction_callbacks"] == {"affinity": True, "cleavage": True}
     assert manifest["cancer_summary"][0]["world_mortality_count"] is None
     assert {
@@ -889,3 +926,315 @@ def test_both_continues_after_one_definition_fails(monkeypatch, tmp_path):
         main()
     assert error.value.code == 1
     assert definitions == ["strict", "loose"]
+
+
+def test_filter_ms_modality_rejects_unknown_and_preserves_positive_repro_209():
+    """tsarina#209 exact reproduction: unknown MS outcomes are rejected while
+    explicit Positive MS observations are admitted."""
+    hits = pd.DataFrame(
+        [
+            {
+                "peptide": "ACDEFGHI",
+                "assay_method": "mass spectrometry",
+                "qualitative_measurement": "unknown",
+            },
+            {
+                "peptide": "TVWYHGFE",
+                "assay_method": "mass spectrometry",
+                "qualitative_measurement": "Positive",
+            },
+            {
+                "peptide": "KLMNPQRS",
+                "assay_method": "",
+                "source": "supplement",
+                "qualitative_measurement": "Negative",
+            },
+            {
+                "peptide": "QRSTVWYA",
+                "assay_method": "",
+                "source": "supplement",
+                "qualitative_measurement": "unknown",
+            },
+        ]
+    )
+    accepted, rejected = filter_ms_modality(hits)
+    assert accepted[["peptide", "qualitative_measurement"]].to_dict("records") == [
+        {"peptide": "TVWYHGFE", "qualitative_measurement": "Positive"}
+    ]
+    reasons = rejected.set_index("peptide")["rejection_reason"].to_dict()
+    assert reasons == {
+        "ACDEFGHI": "unestablished_ms_outcome",
+        "KLMNPQRS": "negative_assay_result",
+        "QRSTVWYA": "unestablished_ms_outcome",
+    }
+
+
+def test_current_vaccine_resolves_hschr_alternate_haplotype_without_self_veto(
+    inputs, ms_scores, codons, tmp_path
+):
+    """tsarina#187: an HSCHR* alternate-haplotype copy of a current CTA does not
+    self-veto its primary gene, while a primary-contig non-CTA copy still does."""
+    seq = inputs.proteins[0].sequence
+    inputs.proteins[0] = Protein("g1", "CTA1", "p1", seq, contig="22")
+    inputs.proteins[1] = Protein("g2", "CTA2", "p2", seq, contig="22")
+    inputs.proteins.append(Protein("g1_alt", "CTA1", "p1_alt", seq, contig="HSCHR22_1_CTG3"))
+
+    cfg = VaccineConfig(definition="current", top_k=1, alleles=(ALLELE,), max_padding=0)
+    result = design_vaccine(
+        cfg, inputs, output_dir=tmp_path, affinity_fn=affinity, cleavage_fn=cleavage
+    )
+    assert result["status"] == "designed"
+    aliases = result["source_tables"]["background_cta_aliases"]
+    assert list(aliases["gene_id"]) == ["g1_alt"]
+    assert aliases.iloc[0]["cta_reference_gene_ids"] == "g1"
+
+
+def test_assembled_construct_rejects_initiating_methionine_background_overlap_210(
+    ms_scores, codons, tmp_path
+):
+    """tsarina#210 exact reproduction: native 8-mer subtraction passes, but
+    initiating methionine creates a non-CTA 8-mer MACDEFGH that must reject the
+    assembled human construct even with clean junction affinities."""
+    from tsarina.vaccine_construct import NoFeasibleConstruct
+
+    repro_inputs = VaccineInputs(
+        proteins=[
+            Protein("cta1", "CTA1", "p_cta", "ACDEFGHI", contig="22"),
+            Protein("bg1", "NONCTA", "p_bg", "MACDEFGH", contig="1"),
+        ],
+        cta_gene_ids={"cta1"},
+        gene_keys={"cta1": "cta1"},
+        prevalence=pd.DataFrame(
+            [
+                {
+                    "proteoform_key": "cta1",
+                    "cancer_code": "L1",
+                    "prevalence_p95": 0.8,
+                    "n_samples": 10,
+                }
+            ]
+        ),
+        burden=pd.DataFrame(
+            [
+                {
+                    "burden_category": "lung",
+                    "world_mortality_pct": 20.0,
+                    "world_incidence_pct": 10.0,
+                    "world_mortality_count": float("nan"),
+                }
+            ]
+        ),
+        cohorts={"lung": ["L1"]},
+        ms_hits=pd.DataFrame(
+            [
+                {
+                    "peptide": "ACDEFGHI",
+                    "mhc_restriction": ALLELE,
+                    "is_monoallelic": True,
+                    "assay_method": "cellular MHC/mass spectrometry",
+                    "qualitative_measurement": "Positive",
+                }
+            ]
+        ),
+        provenance={"synthetic": True},
+    )
+    cfg = VaccineConfig(
+        top_k=1,
+        alleles=(ALLELE,),
+        max_padding=0,
+        linkers=("",),
+        require_clean_junctions=True,
+    )
+    with pytest.raises(NoFeasibleConstruct, match="MACDEFGH"):
+        design_vaccine(
+            cfg,
+            repro_inputs,
+            output_dir=tmp_path,
+            affinity_fn=affinity,
+            cleavage_fn=cleavage,
+        )
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["status"] == "rejected_background_overlap"
+    assert manifest["design"]["protein"] == "MACDEFGHI"
+    assert manifest["design"]["clean_junctions"] is True
+    assert manifest["design"]["background_safe"] is False
+    assert manifest["design"]["background_overlaps"] == [
+        {
+            "start": 0,
+            "end": 8,
+            "peptide": "MACDEFGH",
+            "non_cta_protein_match": True,
+            "normal_ms_match": False,
+        }
+    ]
+    overlaps_csv = pd.read_csv(tmp_path / "background_overlaps.csv")
+    assert list(overlaps_csv["peptide"]) == ["MACDEFGH"]
+    assert bool(overlaps_csv.iloc[0]["non_cta_protein_match"]) is True
+    assert bool(overlaps_csv.iloc[0]["normal_ms_match"]) is False
+    assert "rejected_background_overlap" in (tmp_path / "report.md").read_text()
+
+
+def test_assembled_construct_rejects_novel_normal_ms_8mer_absent_from_native_cta_210(
+    ms_scores, codons, monkeypatch, tmp_path
+):
+    """tsarina#210: assembled human construct audit consults the full verified
+    normal-MS blacklist, not only k-mers present in candidate native CTAs."""
+    from tsarina.vaccine_construct import NoFeasibleConstruct
+
+    atlas_rows = pd.DataFrame(
+        [
+            {
+                "peptide": "MACDEFGH",
+                "donor_id": "AUT01-DN11",
+                "donor_status": "resolved",
+                "source_tissue": "Heart",
+                "tissue_status": "nonmalignant",
+                "assay_modality": "mass_spectrometry",
+                "is_cell_line": False,
+                "source_record_id": "atlas:1",
+                "mhc_class": "I",
+                "sample_alleles": "A*02:01",
+                "pmid": 33858848,
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        "hitlist.tissue_blacklist.load_atlas_tissue_evidence",
+        lambda path: (atlas_rows.copy(), {"source": "synthetic_atlas"}),
+    )
+    repro_inputs = VaccineInputs(
+        proteins=[Protein("cta1", "CTA1", "p_cta", "ACDEFGHI", contig="22")],
+        cta_gene_ids={"cta1"},
+        gene_keys={"cta1": "cta1"},
+        prevalence=pd.DataFrame(
+            [
+                {
+                    "proteoform_key": "cta1",
+                    "cancer_code": "L1",
+                    "prevalence_p95": 0.8,
+                    "n_samples": 10,
+                }
+            ]
+        ),
+        burden=pd.DataFrame(
+            [
+                {
+                    "burden_category": "lung",
+                    "world_mortality_pct": 20.0,
+                    "world_incidence_pct": 10.0,
+                    "world_mortality_count": float("nan"),
+                }
+            ]
+        ),
+        cohorts={"lung": ["L1"]},
+        ms_hits=pd.DataFrame(
+            [
+                {
+                    "peptide": "ACDEFGHI",
+                    "mhc_restriction": ALLELE,
+                    "is_monoallelic": True,
+                    "assay_method": "cellular MHC/mass spectrometry",
+                    "qualitative_measurement": "Positive",
+                }
+            ]
+        ),
+        provenance={"synthetic": True},
+    )
+    cfg = VaccineConfig(
+        top_k=1,
+        alleles=(ALLELE,),
+        max_padding=0,
+        linkers=("",),
+        normal_ms_policy="exclude",
+        normal_ms_atlas_dir="synthetic-atlas",
+        normal_ms_min_donors=1,
+    )
+    with pytest.raises(NoFeasibleConstruct, match="MACDEFGH"):
+        design_vaccine(
+            cfg,
+            repro_inputs,
+            output_dir=tmp_path,
+            affinity_fn=affinity,
+            cleavage_fn=cleavage,
+        )
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["status"] == "rejected_background_overlap"
+    assert manifest["design"]["background_overlaps"] == [
+        {
+            "start": 0,
+            "end": 8,
+            "peptide": "MACDEFGH",
+            "non_cta_protein_match": False,
+            "normal_ms_match": True,
+        }
+    ]
+
+
+def test_assembled_construct_optimizer_avoids_join_background_overlap_with_linker_210(
+    ms_scores, codons
+):
+    """tsarina#210: when a direct join creates a non-CTA 8-mer, the optimizer
+    selects an alternative order or linker that avoids background overlap."""
+    repro_inputs = VaccineInputs(
+        proteins=[
+            Protein("cta1", "CTA1", "p1", "ACDEFGHI", contig="22"),
+            Protein("cta2", "CTA2", "p2", "KLMNPQRS", contig="X"),
+            # Direct join CTA1+CTA2 creates FGHIKLMN; CTA2+CTA1 creates PQRSACDE.
+            Protein("bg1", "NONCTA1", "pb1", "FGHIKLMN", contig="1"),
+            Protein("bg2", "NONCTA2", "pb2", "PQRSACDE", contig="2"),
+        ],
+        cta_gene_ids={"cta1", "cta2"},
+        gene_keys={"cta1": "cta1", "cta2": "cta2"},
+        prevalence=pd.DataFrame(
+            [
+                {
+                    "proteoform_key": "cta1",
+                    "cancer_code": "L1",
+                    "prevalence_p95": 0.9,
+                    "n_samples": 10,
+                },
+                {
+                    "proteoform_key": "cta2",
+                    "cancer_code": "L1",
+                    "prevalence_p95": 0.8,
+                    "n_samples": 10,
+                },
+            ]
+        ),
+        burden=pd.DataFrame(
+            [
+                {
+                    "burden_category": "lung",
+                    "world_mortality_pct": 20.0,
+                    "world_incidence_pct": 10.0,
+                    "world_mortality_count": float("nan"),
+                }
+            ]
+        ),
+        cohorts={"lung": ["L1"]},
+        ms_hits=pd.DataFrame(
+            [
+                {
+                    "peptide": p,
+                    "mhc_restriction": ALLELE,
+                    "is_monoallelic": True,
+                    "assay_method": "cellular MHC/mass spectrometry",
+                    "qualitative_measurement": "Positive",
+                }
+                for p in ("ACDEFGHI", "KLMNPQRS")
+            ]
+        ),
+        provenance={"synthetic": True},
+    )
+    cfg = VaccineConfig(
+        top_k=2,
+        alleles=(ALLELE,),
+        max_padding=0,
+        linkers=("", "AAY"),
+        optimization_rounds=2,
+    )
+    result = design_vaccine(cfg, repro_inputs, affinity_fn=affinity, cleavage_fn=cleavage)
+    assert result["status"] == "designed"
+    assert result["design"]["background_safe"] is True
+    assert result["design"]["background_overlaps"] == []
+    assert "AAY" in result["design"]["protein"]

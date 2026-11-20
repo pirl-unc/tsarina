@@ -79,6 +79,54 @@ def _individual_alleles(values) -> set[str]:
     return alleles
 
 
+def filter_positive_ms_observations(
+    hits: pd.DataFrame,
+    *,
+    include_binding: bool = False,
+    include_other: bool = False,
+) -> pd.DataFrame:
+    """Filter raw or cached observations using Hitlist's positive-MS contract (#199).
+
+    Uses ``is_ms_observation`` when present, otherwise recomputes admission
+    through :func:`hitlist.assays.annotate_assays` when assay metadata columns
+    are available. Structural, unknown, conflicting, and negative-MS records
+    are excluded from MS-only queries rather than admitted by the complement
+    of ``is_binding_assay``. Binding inclusion stays separate from other
+    non-MS modalities.
+    """
+    if hits.empty or (include_binding and include_other):
+        return hits
+
+    from hitlist.assays import ASSAY_COLUMNS, annotate_assays
+
+    has_assay_cols = bool(set(ASSAY_COLUMNS) & set(hits.columns))
+    annotated = annotate_assays(hits.reindex(columns=ASSAY_COLUMNS)) if has_assay_cols else None
+
+    if "is_ms_observation" in hits.columns:
+        ms_mask = hits["is_ms_observation"].fillna(False).astype(bool)
+    elif annotated is not None:
+        ms_mask = annotated["is_ms_observation"].astype(bool)
+    elif "is_binding_assay" in hits.columns:
+        ms_mask = ~hits["is_binding_assay"].fillna(False).astype(bool)
+    else:
+        ms_mask = pd.Series(True, index=hits.index)
+
+    if annotated is not None:
+        binding_mask = annotated["is_binding_assay"].astype(bool)
+    elif "is_binding_assay" in hits.columns:
+        binding_mask = hits["is_binding_assay"].fillna(False).astype(bool)
+    else:
+        binding_mask = pd.Series(False, index=hits.index)
+
+    if include_binding:
+        keep = ms_mask | binding_mask
+    elif include_other:
+        keep = ms_mask | ~binding_mask
+    else:
+        keep = ms_mask
+    return hits[keep].copy()
+
+
 def load_public_ms_hits(
     peptides: set[str] | list[str] | tuple[str, ...],
     *,
@@ -90,6 +138,7 @@ def load_public_ms_hits(
     classify_source: bool = True,
     min_allele_resolution: str | None = None,
     drop_binding_assays: bool = True,
+    include_other_assays: bool = False,
 ) -> pd.DataFrame:
     """Load public MS evidence for peptides from the canonical tsarina path.
 
@@ -97,8 +146,8 @@ def load_public_ms_hits(
     (via *evidence_package* or ``TSARINA_EVIDENCE_PACKAGE`` /
     ``HITLIST_EVIDENCE_PACKAGE``) or hitlist's cached observations parquet.
     Explicit ``iedb_path`` or ``cedar_path`` switches to the raw scanner for
-    ad-hoc snapshots while preserving the same species/class and binding-assay
-    policy.
+    ad-hoc snapshots while enforcing Hitlist's positive-MS admission contract
+    (excluding binding, structural, unknown, and negative-MS assays by default).
     """
     peptide_set = _peptide_set(peptides)
     if iedb_path is not None or cedar_path is not None:
@@ -110,15 +159,18 @@ def load_public_ms_hits(
             cedar_path,
             require_iedb=iedb_path is not None,
         )
-        hits = scan_public_ms(
-            peptides=peptide_set,
-            iedb_path=resolved_iedb,
-            cedar_path=resolved_cedar,
-            mhc_species=mhc_species,
-            mhc_class=mhc_class,
-            classify_source=classify_source,
-            min_allele_resolution=min_allele_resolution,
-        )
+        scan_kwargs = {
+            "peptides": peptide_set,
+            "iedb_path": resolved_iedb,
+            "cedar_path": resolved_cedar,
+            "mhc_species": mhc_species,
+            "mhc_class": mhc_class,
+            "classify_source": classify_source,
+            "min_allele_resolution": min_allele_resolution,
+        }
+        if not drop_binding_assays or include_other_assays:
+            scan_kwargs["positive_ms_only"] = False
+        hits = scan_public_ms(**scan_kwargs)
     else:
         from .indexing import load_ms_evidence
 
@@ -133,8 +185,11 @@ def load_public_ms_hits(
         hits = load_ms_evidence(**load_kwargs)
 
     attrs = dict(hits.attrs)
-    if drop_binding_assays and "is_binding_assay" in hits.columns:
-        hits = hits[~hits["is_binding_assay"]].copy()
+    hits = filter_positive_ms_observations(
+        hits,
+        include_binding=not drop_binding_assays,
+        include_other=include_other_assays,
+    )
     out = hits.reset_index(drop=True)
     out.attrs.update(attrs)
     return out

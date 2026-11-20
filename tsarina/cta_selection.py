@@ -307,6 +307,6 @@ def selection_provenance(*, ensembl_release: int | None = None) -> dict:
         ),
         "cta_selection_release_ready": bool(meta.get("release_ready", False)),
         "cta_selection_open_reviews": list(meta.get("open_reviews", ())),
-        "background_policy": "tsarina.current-selection-other-genes.v1",
+        "background_policy": "tsarina.current-selection-alternate-haplotypes.v1",
         **({"ensembl_release": ensembl_release} if ensembl_release is not None else {}),
     }

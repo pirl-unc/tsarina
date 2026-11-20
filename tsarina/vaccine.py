@@ -110,10 +110,14 @@ def design_vaccine(
     background_cta_ids, aliases = resolve_background_cta_ids(
         inputs.proteins,
         inputs.cta_gene_ids,
-        inherit_alternate_haplotypes=config.definition != "current",
+        inherit_alternate_haplotypes=True,
     )
     from .vaccine_inputs import filter_ms_modality
-    from .vaccine_tissues import tissue_map, verified_normal_ms
+    from .vaccine_tissues import (
+        tissue_map,
+        verified_normal_ms,
+        verified_normal_ms_blacklist_kmers,
+    )
 
     full_peptides = {
         row.sequence[i : i + k]
@@ -138,14 +142,33 @@ def design_vaccine(
         pd.DataFrame(),
         {},
     )
+    assembled_normal_kmers = set()
     if config.normal_ms_atlas_dir:
+        from hitlist.tissue_blacklist import load_atlas_tissue_evidence
+
+        preloaded_atlas = load_atlas_tissue_evidence(config.normal_ms_atlas_dir)
         normal_exclusions, verified_hits, normal_summary, normal_audit, normal_provenance = (
             verified_normal_ms(
-                config.normal_ms_atlas_dir, full_peptides, config.normal_ms_min_donors
+                config.normal_ms_atlas_dir,
+                full_peptides,
+                config.normal_ms_min_donors,
+                k=config.shared_k,
+                preloaded=preloaded_atlas,
             )
         )
+        if config.normal_ms_policy == "exclude":
+            assembled_normal_kmers = verified_normal_ms_blacklist_kmers(
+                config.normal_ms_atlas_dir,
+                min_donors=config.normal_ms_min_donors,
+                k=config.shared_k,
+                preloaded=preloaded_atlas,
+            )
     normal_kmers = (
-        {p[i : i + 8] for p in normal_exclusions.get("peptide", []) for i in range(len(p) - 7)}
+        {
+            p[i : i + config.shared_k]
+            for p in normal_exclusions.get("peptide", [])
+            for i in range(len(p) - config.shared_k + 1)
+        }
         if config.normal_ms_policy == "exclude"
         else set()
     )
@@ -278,6 +301,13 @@ def design_vaccine(
         on_progress(
             f"Selected {len(selected)} proteoforms after screening {len(candidates)} candidates"
         )
+
+    def background_check(sequences):
+        return (
+            shared_kmers(inputs.proteins, background_cta_ids, sequences, config.shared_k)
+            | assembled_normal_kmers
+        )
+
     design = None
     constraint_error = None
     if segments:
@@ -289,10 +319,18 @@ def design_vaccine(
                 affinity_fn,
                 cleavage_fn,
                 on_progress,
+                background_fn=background_check,
             )
         except NoFeasibleConstruct as error:
             constraint_error = str(error)
     if design:
+        non_cta_hits = shared_kmers(
+            inputs.proteins, background_cta_ids, [design["protein"]], config.shared_k
+        )
+        for overlap in design["background_overlaps"]:
+            peptide = overlap["peptide"]
+            overlap["non_cta_protein_match"] = peptide in non_cta_hits
+            overlap["normal_ms_match"] = peptide in assembled_normal_kmers
         if allocation_ids is not None:
             design["excluded_segments"].extend(
                 {"segment_id": s.segment_id, "reason": "budget_allocation"}
@@ -436,6 +474,10 @@ def design_vaccine(
     if config.selection_mode == "budget":
         source_tables["budget_allocation"] = pd.DataFrame(allocation_history)
     source_tables["background_cta_aliases"] = aliases
+    source_tables["background_overlaps"] = pd.DataFrame(
+        design["background_overlaps"] if design else [],
+        columns=["start", "end", "peptide", "non_cta_protein_match", "normal_ms_match"],
+    )
     source_tables["selection_screen"] = ranking[
         ["rank", "proteoform_key", "name", "eligible", "selected", "selection_reason"]
     ].copy()
@@ -487,17 +529,29 @@ def design_vaccine(
         ).hexdigest(),
         "background_cta_alias_count": len(aliases),
         "background_cta_identity": (
-            "current selected member gene IDs; no symbol-based identity inheritance"
-            if config.definition == "current"
-            else "curated IDs plus exact-symbol HSCHR alternate-haplotype annotations of the same gene"
+            "curated member gene IDs plus audited same-chromosome HSCHR alternate-haplotype "
+            "annotations (OncoRef alternate IDs or exact non-empty symbol); primary-contig "
+            "loci never inherit membership"
         ),
         "background_policy": (
-            "tsarina.current-selection-other-genes.v1"
+            "tsarina.current-selection-alternate-haplotypes.v1"
             if config.definition == "current"
             else "tsarina.hpa-selection-alternate-haplotypes.v1"
         ),
         "ms_input_sha256": support.attrs.get("ms_input_sha256"),
-        "ms_modality_policy": "positive MS assay method, curated MS-only supplement, or declared supplied modality; explicit non-MS rejected",
+        "ms_modality_policy": (
+            "Hitlist positive-MS admission: established positive MS outcome or curated MS-only "
+            "supplement; explicit non-MS, negative, conflicting and unknown outcomes rejected"
+        ),
+        "assembled_background_audit": (
+            "all non-CTA coding isoforms plus verified normal-MS blacklist"
+            if config.normal_ms_policy == "exclude"
+            else "all non-CTA coding isoforms"
+        ),
+        "assembled_background_safe": bool(design["background_safe"]) if design else None,
+        "assembled_background_overlap_count": (
+            len(design["background_overlaps"]) if design else None
+        ),
         "inspected_proteoforms": len(candidates),
         "selected_proteoforms": len(selected),
         "background_translated_occurrences": sum(
@@ -522,6 +576,8 @@ def design_vaccine(
     status = (
         "insufficient_supported_proteoforms"
         if target_count_error
+        else "rejected_background_overlap"
+        if design and not design["background_safe"]
         else "junction_review_required"
         if design and not design["clean_junctions"]
         else "designed"
@@ -609,6 +665,13 @@ def design_vaccine(
             raise NoFeasibleConstruct(constraint_error + "; see the evidence report")
         raise ValueError(
             "No selected CTA retains panel MS-supported sequence; see the evidence report"
+        )
+    if not design["background_safe"]:
+        overlaps = design["background_overlaps"]
+        preview = ", ".join(dict.fromkeys(row["peptide"] for row in overlaps[:5]))
+        raise NoFeasibleConstruct(
+            f"Final construct has {len(overlaps)} background {config.shared_k}-mer overlap(s) "
+            f"({preview}); see background_overlaps.csv and report.md"
         )
     if config.require_clean_junctions and not design["clean_junctions"]:
         raise ValueError(

@@ -54,7 +54,7 @@ def sample_group(row):
     return "unknown_or_other"
 
 
-def verified_normal_ms(atlas_dir, peptides, min_donors=1):
+def verified_normal_ms(atlas_dir, peptides, min_donors=1, *, k=8, preloaded=None):
     """Use primary donor-resolved Atlas HLA-I evidence, not IEDB tissue flags.
 
     Atlas tissues are nonmalignant primary autopsy tissue, not necessarily
@@ -67,14 +67,17 @@ def verified_normal_ms(atlas_dir, peptides, min_donors=1):
     except ImportError as error:
         raise ImportError("Verified normal-MS evidence requires Hitlist >=1.65.1") from error
 
-    observations, provenance = load_atlas_tissue_evidence(atlas_dir)
-    query_kmers = {p[i : i + 8] for p in peptides for i in range(len(p) - 7)}
+    if preloaded is None:
+        observations, provenance = load_atlas_tissue_evidence(atlas_dir)
+    else:
+        observations, provenance = preloaded[0], dict(preloaded[1])
+    query_kmers = {p[i : i + k] for p in peptides for i in range(len(p) - k + 1)}
     # A longer normal ligand need not occur intact in a CTA to veto its shared
-    # 8-mer. Search every source ligand length before applying the donor gate.
+    # k-mer. Search every source ligand length before applying the donor gate.
     matched = {
         p
         for p in observations.loc[observations.mhc_class.eq("I"), "peptide"].unique()
-        if any(p[i : i + 8] in query_kmers for i in range(len(p) - 7))
+        if any(p[i : i + k] in query_kmers for i in range(len(p) - k + 1))
     }
     observations = observations[
         observations.mhc_class.eq("I") & observations.peptide.isin(matched)
@@ -99,12 +102,37 @@ def verified_normal_ms(atlas_dir, peptides, min_donors=1):
             "min_donors": min_donors,
             "class": "I",
             "n_query_peptides": len(peptides),
-            "query_match": "any shared 8-mer, including longer source ligands",
+            "query_match": f"any shared {k}-mer, including longer source ligands",
             "n_qualifying_observations": len(qualified),
             "n_blacklisted_peptides": int(summary.blacklisted.sum()),
         }
     )
     return excluded, qualified, summary, audit, provenance
+
+
+def verified_normal_ms_blacklist_kmers(atlas_dir, *, min_donors=1, k=8, preloaded=None):
+    """Return every verified normal-MS HLA-I blacklisted k-mer across the full Atlas (#210).
+
+    Unlike ``verified_normal_ms``, this does not restrict to k-mers already
+    present in candidate native CTA proteins, so assembled-construct audits
+    catch novel normal-MS overlaps created by initiating methionine, linkers,
+    or cross-layer joins.
+    """
+    try:
+        from hitlist.tissue_blacklist import build_tissue_blacklist, load_atlas_tissue_evidence
+    except ImportError as error:
+        raise ImportError("Verified normal-MS evidence requires Hitlist >=1.65.1") from error
+
+    if preloaded is None:
+        observations, _ = load_atlas_tissue_evidence(atlas_dir)
+    else:
+        observations = preloaded[0]
+    class_i = observations[observations.mhc_class.eq("I")].copy()
+    if class_i.empty:
+        return set()
+    summary, _ = build_tissue_blacklist(class_i, min_donors=min_donors)
+    blacklisted = summary.loc[summary.blacklisted, "peptide"]
+    return {p[i : i + k] for p in blacklisted for i in range(len(p) - k + 1)}
 
 
 def tissue_map(proteins, observations, intervals, layers, assignments=None):
