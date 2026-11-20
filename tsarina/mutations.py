@@ -282,64 +282,60 @@ def mutant_peptides(
     ensembl_release: int = 112,
     flank_length: int = 15,
     require_human_exclusive: bool = True,
+    *,
+    host_species: str = "human",
+    host_proteins: dict[str, str] | list[str] | None = None,
 ) -> pd.DataFrame:
     """Generate mutant-spanning peptides from recurrent cancer hotspot mutations.
 
-    For each mutation, retrieves the wildtype protein sequence from Ensembl,
-    introduces the point mutation, and generates all k-mer peptides that
-    span the mutated position.  Only peptides that differ from the wildtype
-    (i.e., contain the mutant residue) are returned. By default, peptides
-    appearing in any reference-human coding protein are also removed: a
-    sequence changed in one gene can still be wild type in another gene.
+    For each mutation, retrieves the wildtype protein sequence from Ensembl
+    (or uses ``mut["wt_sequence"]`` when provided for offline/non-human
+    references), introduces the point mutation, and generates all k-mer
+    peptides that span the mutated position. By default, peptides appearing
+    in any coding protein of *host_species* (or *host_proteins*) are removed.
 
-    Requires ``pyensembl`` (install with ``pip install tsarina[peptides]``).
-
-    Parameters
-    ----------
-    mutations
-        List of mutation dicts (see :data:`HOTSPOT_MUTATIONS`).
-        If None, uses all hotspot mutations.
-    lengths
-        Peptide lengths to generate (default 8-11).
-    ensembl_release
-        Ensembl release for protein sequences (default 112).
-    flank_length
-        Flanking residues to include (default 15).
-    require_human_exclusive
-        Exclude peptides found in any coding human reference transcript,
-        including germline IG/TR segments (default True). Set False only for
-        raw mutation-spanning enumeration; those rows are not screened for
-        reference-human overlap. Personalized and unified target selection
-        always use the screened default.
-
-    Returns
-    -------
-    pd.DataFrame
-        Columns: ``label``, ``gene``, ``gene_id``, ``mutation``,
-        ``ref_aa``, ``alt_aa``, ``protein_position``, ``peptide``,
-        ``wildtype_peptide``, ``length``, ``start``, ``end``,
-        ``n_flank``, ``c_flank``, ``mutation_offset`` (0-based position
-        of the mutant residue within the peptide).
+    Refuses to silently apply human :data:`HOTSPOT_MUTATIONS` coordinates to a
+    non-human host species (#217); pass explicit species-scoped *mutations*.
     """
-    from pyensembl import EnsemblRelease
+    from .species import resolve_species_context
+
+    ctx = resolve_species_context(host_species, ensembl_release=ensembl_release)
 
     if mutations is None:
+        if not ctx.is_human_host:
+            raise ValueError(
+                f"Human HOTSPOT_MUTATIONS cannot be silently applied to host_species="
+                f"{ctx.host_species!r}; pass explicit species-scoped mutations instead."
+            )
         mutations = HOTSPOT_MUTATIONS
 
-    ensembl = EnsemblRelease(ensembl_release)
+    ensembl = None
+    needs_ensembl = any("wt_sequence" not in mut for mut in mutations)
+    if needs_ensembl:
+        from pyensembl import EnsemblRelease
+
+        ensembl = (
+            EnsemblRelease(ensembl_release)
+            if ctx.is_human_host
+            else EnsemblRelease(ensembl_release, species=ctx.pyensembl_species)
+        )
     rows: list[dict] = []
 
     for mut in mutations:
-        transcript_id = mut["transcript_id"]
         pos = mut["protein_position"]  # 1-based
         ref_aa = mut["ref_aa"]
         alt_aa = mut["alt_aa"]
 
-        try:
-            transcript = ensembl.transcript_by_id(transcript_id)
-            wt_protein = transcript.protein_sequence
-        except Exception:
-            continue
+        if mut.get("wt_sequence"):
+            wt_protein = str(mut["wt_sequence"])
+        else:
+            transcript_id = mut["transcript_id"]
+            try:
+                assert ensembl is not None
+                transcript = ensembl.transcript_by_id(transcript_id)
+                wt_protein = transcript.protein_sequence
+            except Exception:
+                continue
 
         if not wt_protein:
             continue
@@ -369,7 +365,7 @@ def mutant_peptides(
                     {
                         "label": mut["label"],
                         "gene": mut["gene"],
-                        "gene_id": mut["gene_id"],
+                        "gene_id": mut.get("gene_id", ""),
                         "mutation": f"{ref_aa}{pos}{alt_aa}",
                         "ref_aa": ref_aa,
                         "alt_aa": alt_aa,
@@ -387,14 +383,31 @@ def mutant_peptides(
 
     out = pd.DataFrame(rows)
     if require_human_exclusive and not out.empty:
-        from .peptides import _reference_overlapping_peptides
+        if host_proteins is not None:
+            from .viral import _proteome_kmers_from_sequences
 
-        human_peptides = _reference_overlapping_peptides(
-            set(out["peptide"]),
-            ensembl_release=ensembl_release,
-            lengths=lengths,
-        )
-        out = out[~out["peptide"].isin(human_peptides)].reset_index(drop=True)
+            host_peptides = _proteome_kmers_from_sequences(host_proteins, tuple(lengths))
+            out = out[~out["peptide"].isin(host_peptides)].reset_index(drop=True)
+        elif ctx.is_human_host:
+            from .peptides import _reference_overlapping_peptides
+
+            human_peptides = _reference_overlapping_peptides(
+                set(out["peptide"]),
+                ensembl_release=ensembl_release,
+                lengths=lengths,
+            )
+            out = out[~out["peptide"].isin(human_peptides)].reset_index(drop=True)
+        else:
+            from hitlist.proteome import proteome_kmer_set
+
+            host_peptides = proteome_kmer_set(
+                release=ensembl_release,
+                lengths=tuple(lengths),
+                gene_ids=None,
+                species=ctx.pyensembl_species,
+            )
+            out = out[~out["peptide"].isin(host_peptides)].reset_index(drop=True)
+    out.attrs["species_context"] = ctx.to_provenance()
     return out
 
 
@@ -405,57 +418,84 @@ def mutant_iedb_overlap(
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     mhc_class: str | None = "I",
+    *,
+    host_species: str = "human",
+    mhc_species: str | None = None,
+    requested_alleles: list[str] | tuple[str, ...] | None = None,
+    evidence_scope: str = "all",
+    observations: pd.DataFrame | None = None,
+    host_proteins: dict[str, str] | list[str] | None = None,
 ) -> pd.DataFrame:
     """Find mutant-spanning peptides with public IEDB/CEDAR mass spec support.
 
-    Parameters
-    ----------
-    mutations
-        List of mutation dicts. If None, uses all hotspot mutations.
-    lengths
-        Peptide lengths (default 8-11).
-    ensembl_release
-        Ensembl release (default 112).
-    iedb_path
-        Path to IEDB MHC ligand export.
-    cedar_path
-        Path to CEDAR MHC ligand export.
-    mhc_class
-        MHC class filter (default ``"I"``).
-
-    Returns
-    -------
-    pd.DataFrame
-        Mutant peptide DataFrame with ``has_iedb_hit``, ``iedb_alleles``,
-        ``iedb_hit_count`` columns.
+    Supports species-scoped references (#217) and multi-tier MS attribution
+    (#216) when *requested_alleles* or *observations* are provided.
     """
     from .ms_evidence import aggregate_ms_hits_for_iedb_columns, load_public_ms_hits
+    from .species import resolve_species_context
+
+    ctx = resolve_species_context(
+        host_species,
+        mhc_species=mhc_species,
+        ensembl_release=ensembl_release,
+    )
 
     mdf = mutant_peptides(
         mutations=mutations,
         lengths=lengths,
         ensembl_release=ensembl_release,
+        host_species=host_species,
+        host_proteins=host_proteins,
     )
     if mdf.empty:
         mdf["has_iedb_hit"] = pd.Series(dtype=bool)
         mdf["iedb_alleles"] = pd.Series(dtype=str)
         mdf["iedb_hit_count"] = pd.Series(dtype=int)
+        mdf.attrs["species_context"] = ctx.to_provenance()
         return mdf
 
     unique_peptides = set(mdf["peptide"].unique())
-    hits = load_public_ms_hits(
-        peptides=unique_peptides,
-        iedb_path=iedb_path,
-        cedar_path=cedar_path,
-        mhc_class=mhc_class,
-        classify_source=False,
-        drop_binding_assays=True,
-    )
+    if observations is not None:
+        hits = observations.copy()
+    else:
+        hits = load_public_ms_hits(
+            peptides=unique_peptides,
+            iedb_path=iedb_path,
+            cedar_path=cedar_path,
+            mhc_class=mhc_class,
+            mhc_species=ctx.mhc_species,
+            classify_source=False,
+            drop_binding_assays=True,
+        )
+
+    if requested_alleles is not None or evidence_scope != "all" or observations is not None:
+        from .ms_attribution import attribute_ms_evidence, summarize_ms_attribution
+
+        attributed = attribute_ms_evidence(
+            mdf[["peptide"]].drop_duplicates(),
+            hits,
+            requested_alleles=requested_alleles,
+            species_context=ctx,
+            evidence_scope=evidence_scope,
+            evidence_loaded=True,
+        )
+        summary = summarize_ms_attribution(attributed, group_cols=("peptide",))
+        mdf = mdf.merge(summary, on="peptide", how="left")
+        mdf["iedb_hit_count"] = (
+            pd.to_numeric(mdf["ms_hit_count"], errors="coerce").fillna(0).astype(int)
+        )
+        mdf["iedb_alleles"] = mdf["ms_alleles"].fillna("")
+        mdf["has_iedb_hit"] = mdf["iedb_hit_count"] > 0
+        if evidence_scope != "all":
+            mdf = mdf[mdf["has_iedb_hit"]].reset_index(drop=True)
+        mdf.attrs["species_context"] = ctx.to_provenance()
+        return mdf
 
     if hits.empty:
         mdf["has_iedb_hit"] = False
         mdf["iedb_alleles"] = ""
         mdf["iedb_hit_count"] = 0
+        mdf.attrs["species_context"] = ctx.to_provenance()
         return mdf
 
     hit_summary = aggregate_ms_hits_for_iedb_columns(hits)
@@ -464,4 +504,5 @@ def mutant_iedb_overlap(
     mdf["has_iedb_hit"] = mdf["iedb_hit_count"].notna() & (mdf["iedb_hit_count"] > 0)
     mdf["iedb_hit_count"] = mdf["iedb_hit_count"].fillna(0).astype(int)
     mdf["iedb_alleles"] = mdf["iedb_alleles"].fillna("")
+    mdf.attrs["species_context"] = ctx.to_provenance()
     return mdf

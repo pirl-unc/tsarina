@@ -252,6 +252,17 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--ms-evidence-scope",
+        choices=("all", "requested_mhc", "any_mhc"),
+        default="all",
+        help=(
+            "Control MHC restriction attribution when --allele is provided: "
+            "'all' (default), 'requested_mhc' (retain exact/donor-set matches "
+            "to requested --allele), or 'any_mhc' (keep all exact-peptide MS "
+            "observations while annotating restriction tier in raw output)."
+        ),
+    )
+    p.add_argument(
         "-o",
         "--output",
         default=None,
@@ -627,8 +638,32 @@ def handle(args: argparse.Namespace) -> None:
             hits = hits[hits["peptide"].str.len().isin(resolved_lengths)].copy()
         hits = _apply_min_resolution(hits, args.min_resolution)
 
+    ms_evidence_scope = getattr(args, "ms_evidence_scope", "all")
     try:
-        hits = _filter_by_allele(hits, args.allele)
+        if ms_evidence_scope == "any_mhc" and args.allele:
+            from .ms_attribution import attribute_ms_evidence
+
+            hits = attribute_ms_evidence(
+                hits[["peptide"]].drop_duplicates(),
+                hits,
+                requested_alleles=args.allele,
+                evidence_scope="any_mhc",
+                evidence_loaded=True,
+            )
+        elif ms_evidence_scope == "requested_mhc":
+            if not args.allele:
+                raise ValueError("--ms-evidence-scope requested_mhc requires --allele")
+            from .ms_attribution import attribute_ms_evidence
+
+            hits = attribute_ms_evidence(
+                hits[["peptide"]].drop_duplicates(),
+                hits,
+                requested_alleles=args.allele,
+                evidence_scope="requested_mhc",
+                evidence_loaded=True,
+            )
+        else:
+            hits = _filter_by_allele(hits, args.allele)
         hits = _filter_by_serotype(hits, args.serotype)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

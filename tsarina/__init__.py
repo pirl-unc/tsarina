@@ -58,10 +58,16 @@ if TYPE_CHECKING:
         CTA_unfiltered_gene_names,
         cta_symbol_for_alias,
     )
+    from .ms_attribution import attribute_ms_evidence, summarize_ms_attribution
     from .ms_evidence import cta_healthy_tissue_ms_hits
     from .mutations import HOTSPOT_MUTATIONS, mutant_peptides
     from .personalize import personalized_targets
     from .scoring import score_affinity, score_presentation
+    from .species import (
+        SpeciesContext,
+        allele_prediction_capability,
+        resolve_species_context,
+    )
     from .targets import target_peptides
     from .tiers import (
         CONFIDENCE_VALUES,
@@ -127,7 +133,10 @@ _LAZY = {
     "RESTRICTION_VALUES": (".tiers", "RESTRICTION_VALUES"),
     "RNA_RESTRICTION_LEVELS": (".tiers", "RNA_RESTRICTION_LEVELS"),
     "SAFETY_TISSUE_GROUPS": (".tiers", "SAFETY_TISSUE_GROUPS"),
+    "SpeciesContext": (".species", "SpeciesContext"),
     "VITAL_TISSUE_MS_NAMES": (".tiers", "VITAL_TISSUE_MS_NAMES"),
+    "allele_prediction_capability": (".species", "allele_prediction_capability"),
+    "attribute_ms_evidence": (".ms_attribution", "attribute_ms_evidence"),
     "cta_cancer_expression_features": (".cancer_expression", "cta_cancer_expression_features"),
     "cta_healthy_tissue_ms_hits": (".ms_evidence", "cta_healthy_tissue_ms_hits"),
     "cta_symbol_for_alias": (".gene_sets", "cta_symbol_for_alias"),
@@ -139,8 +148,10 @@ _LAZY = {
     "mutant_peptides": (".mutations", "mutant_peptides"),
     "panel_names": (".alleles", "panel_names"),
     "personalized_targets": (".personalize", "personalized_targets"),
+    "resolve_species_context": (".species", "resolve_species_context"),
     "score_affinity": (".scoring", "score_affinity"),
     "score_presentation": (".scoring", "score_presentation"),
+    "summarize_ms_attribution": (".ms_attribution", "summarize_ms_attribution"),
     "target_peptides": (".targets", "target_peptides"),
     "viral_peptides": (".viral", "viral_peptides"),
 }
@@ -209,7 +220,10 @@ __all__ = [
     "CTA_testis_restricted_gene_names",
     "CTA_unfiltered_gene_ids",
     "CTA_unfiltered_gene_names",
+    "SpeciesContext",
     "__version__",
+    "allele_prediction_capability",
+    "attribute_ms_evidence",
     "cta_cancer_expression_features",
     "cta_healthy_tissue_ms_hits",
     "cta_symbol_for_alias",
@@ -221,8 +235,10 @@ __all__ = [
     "mutant_peptides",
     "panel_names",
     "personalized_targets",
+    "resolve_species_context",
     "score_affinity",
     "score_presentation",
+    "summarize_ms_attribution",
     "target_peptides",
     "viral_peptides",
 ]

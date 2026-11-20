@@ -3185,5 +3185,38 @@ Plan:
 
 - [x] Update `pyproject.toml`, `.github/workflows/tests.yml`, `AGENTS.md`,
       `tsarina/qc.py` (`UP035`), and bump `tsarina/version.py` to `1.39.2`.
-- [ ] Run `./format.sh`, `./lint.sh`, `./test.sh`; open PR referencing `#215`
+- [x] Run `./format.sh`, `./lint.sh`, `./test.sh`; open PR referencing `#215`
       and verify CI across Python 3.11–3.14; merge and deploy `1.39.2` to PyPI.
+
+## Reusable restriction-aware MS attribution (#216) & species-scoped workflows (#217) (2026-11-20)
+
+Issues: `#216`, `#217` (release `1.40.0`).
+
+Specification:
+
+- Add `tsarina/species.py` (`SpeciesContext`, `resolve_species_context`,
+  `validate_alleles_for_species`, `allele_prediction_capability`) separating
+  host species, antigen-source species, and restricting MHC species via
+  PyEnsembl, OncoRef, and MHCgnomes.
+- Add `tsarina/ms_attribution.py` (`attribute_ms_evidence`, `summarize_ms_attribution`)
+  providing one reusable restriction-aware positive-MS contract across CTA,
+  viral, recurrent-mutation, `personalized_targets`, `target_peptides`, and
+  `tsarina hits` with explicit disjoint tiers (`exact_requested_mhc`,
+  `donor_set_ambiguous`, `predicted_restriction`, `class_or_serotype_only`,
+  `any_mhc_peptide`, `no_ms_match`, `evidence_unavailable`), exact-peptide-only
+  matching (no nested-ligand transfer), and full provenance.
+- Propagate species/reference context and MS evidence scope into `viral.py`,
+  `mutations.py`, `targets.py`, `personalize.py`, `cli_personalize.py`, and
+  `cli_hits.py`, explicitly refusing silent human CTA/hotspot catalog transfer
+  to mouse or dog.
+
+Plan:
+
+- [x] Implement `tsarina/species.py` and `tsarina/ms_attribution.py`.
+- [x] Wire into `viral.py`, `mutations.py`, `targets.py`, `personalize.py`,
+      `cli_personalize.py`, `cli_hits.py`, and `tsarina/__init__.py`.
+- [x] Add comprehensive offline tests for `#216` (`tests/test_ms_attribution.py`)
+      and `#217` (`tests/test_species_workflows.py`) covering human, mouse/H-2,
+      dog/DLA, and transgenic contexts.
+- [x] Bump version `1.39.2` -> `1.40.0`; run `./format.sh`, `./lint.sh`,
+      `./test.sh`; PR, CI, merge, and deploy to PyPI.

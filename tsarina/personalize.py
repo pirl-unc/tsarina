@@ -82,7 +82,11 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "source_detail",
     "source_tpm",
     "flag_reason",
+    "ms_evidence_status",
+    "ms_attribution_tier",
     "ms_hit_count",
+    "ms_exact_mhc_hits",
+    "ms_donor_set_hits",
     "ms_alleles",
     "ms_allele_count",
     "ms_in_cancer",
@@ -361,6 +365,14 @@ def personalized_targets(
     drop_weak_tier: bool = True,
     show_progress: bool = True,
     proteoform_rollup: bool = True,
+    *,
+    host_species: str = "human",
+    mhc_species: str | None = None,
+    ms_evidence_scope: str = "all",
+    ms_observations: pd.DataFrame | None = None,
+    custom_targets: pd.DataFrame | None = None,
+    host_proteins: dict[str, str] | list[str] | None = None,
+    capability_table: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Build a personalized, tier-ranked target list for a single patient.
 
@@ -465,7 +477,62 @@ def personalized_targets(
         If ``score_presentation=True`` but the scoring backend (topiary +
         mhctools + the chosen predictor) is not installed.
     """
+    from .ms_attribution import VALID_EVIDENCE_SCOPES
+    from .species import (
+        allele_prediction_capability,
+        resolve_species_context,
+        validate_alleles_for_species,
+    )
+
+    if ms_evidence_scope not in VALID_EVIDENCE_SCOPES:
+        raise ValueError(
+            f"ms_evidence_scope must be one of {sorted(VALID_EVIDENCE_SCOPES)}, "
+            f"got {ms_evidence_scope!r}"
+        )
+
+    ctx = resolve_species_context(
+        host_species,
+        mhc_species=mhc_species,
+        ensembl_release=ensembl_release,
+    )
+    if hla_alleles:
+        validate_alleles_for_species(hla_alleles, ctx.mhc_species)
+    allele_caps = allele_prediction_capability(
+        hla_alleles,
+        predictor=predictor,
+        mhc_species=ctx.mhc_species,
+        capability_table=capability_table,
+    )
+
+    if not ctx.is_human_host:
+        if cta_expression:
+            raise ValueError(
+                f"Human OncoRef CTA expression catalog cannot be silently transferred to "
+                f"host_species={ctx.host_species!r}; pass species-scoped custom_targets instead."
+            )
+        if mutations:
+            raise ValueError(
+                f"Human HOTSPOT_MUTATIONS cannot be silently transferred to "
+                f"host_species={ctx.host_species!r}; pass species-scoped custom_targets instead."
+            )
+
     frames: list[pd.DataFrame] = []
+
+    if custom_targets is not None and not custom_targets.empty:
+        req_cols = {"peptide", "category", "source"}
+        missing = req_cols - set(custom_targets.columns)
+        if missing:
+            raise ValueError(f"custom_targets missing required columns: {sorted(missing)}")
+        ct = custom_targets.copy()
+        if "length" not in ct.columns:
+            ct["length"] = ct["peptide"].astype(str).str.len()
+        if "source_detail" not in ct.columns:
+            ct["source_detail"] = ""
+        if "source_tpm" not in ct.columns:
+            ct["source_tpm"] = float("nan")
+        frames.append(
+            ct[["peptide", "length", "category", "source", "source_detail", "source_tpm"]]
+        )
 
     def _report(message: str) -> None:
         if show_progress:
@@ -666,14 +733,26 @@ def personalized_targets(
     # ── Viral peptides ──────────────────────────────────────────────────
     if viruses:
         if require_human_exclusive_viral:
-            from .viral import human_exclusive_viral_peptides as _viral_peps
+            if ctx.is_human_host and host_proteins is None:
+                from .viral import human_exclusive_viral_peptides as _viral_peps
+            else:
+                from .viral import host_exclusive_viral_peptides as _viral_peps
         else:
             from .viral import viral_peptides as _viral_peps
 
         for vk in viruses:
             _report(f"Generating viral peptides for {vk}...")
             if require_human_exclusive_viral:
-                vdf = _viral_peps(virus=vk, lengths=lengths, ensembl_release=ensembl_release)
+                if ctx.is_human_host and host_proteins is None:
+                    vdf = _viral_peps(virus=vk, lengths=lengths, ensembl_release=ensembl_release)
+                else:
+                    vdf = _viral_peps(
+                        virus=vk,
+                        lengths=lengths,
+                        ensembl_release=ensembl_release,
+                        host_species=host_species,
+                        host_proteins=host_proteins,
+                    )
             else:
                 vdf = _viral_peps(virus=vk, lengths=lengths)
             if not vdf.empty:
@@ -692,13 +771,17 @@ def personalized_targets(
 
     if not frames:
         return _with_selection_provenance(
-            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)), ensembl_release
+            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
+            ensembl_release,
+            species_context=ctx,
+            allele_capabilities=allele_caps,
+            ms_evidence_scope=ms_evidence_scope,
         )
 
     combined = pd.concat(frames, ignore_index=True)
     _report(f"Generated {len(combined)} candidate peptide rows.")
 
-    if proteoform_rollup:
+    if proteoform_rollup and ctx.is_human_host:
         before = len(combined)
         combined = _apply_proteoform_rollup(combined)
         if len(combined) != before:
@@ -713,13 +796,17 @@ def personalized_targets(
             f"Looking up public MS evidence for {combined['peptide'].nunique()} "
             "unique peptide(s)..."
         )
-    combined = _attach_ms_evidence(
+    combined, raw_ms_hits = _attach_ms_evidence(
         combined,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
         evidence_package=evidence_package,
         mhc_class=mhc_class,
         skip_ms_evidence=skip_ms_evidence,
+        requested_alleles=hla_alleles,
+        species_context=ctx,
+        ms_evidence_scope=ms_evidence_scope,
+        observations=ms_observations,
     )
 
     if enforce_tumor_specificity and "ms_in_healthy_tissue" in combined.columns:
@@ -728,7 +815,11 @@ def personalized_targets(
 
     if combined.empty:
         return _with_selection_provenance(
-            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)), ensembl_release
+            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
+            ensembl_release,
+            species_context=ctx,
+            allele_capabilities=allele_caps,
+            ms_evidence_scope=ms_evidence_scope,
         )
 
     # ── Topiary presentation scoring ────────────────────────────────────
@@ -742,6 +833,17 @@ def personalized_targets(
         )
         scores = _score(peptides=unique_peps, alleles=hla_alleles, predictor=predictor)
         combined = _merge_best_allele(combined, scores)
+        # Re-attribute predicted restriction explicitly only for positive MS rows
+        # without measured exact or donor-set restriction, keeping prediction
+        # separate from measured MHC restriction (#216).
+        if not skip_ms_evidence and raw_ms_hits is not None and not raw_ms_hits.empty:
+            combined = _apply_predicted_restriction_attribution(
+                combined,
+                raw_ms_hits,
+                requested_alleles=hla_alleles,
+                species_context=ctx,
+                ms_evidence_scope=ms_evidence_scope,
+            )
     else:
         for col in ("best_allele", "presentation_percentile", "presentation_score", "affinity_nm"):
             if col not in combined.columns:
@@ -765,13 +867,34 @@ def personalized_targets(
         if col not in combined.columns:
             combined[col] = pd.NA
     _report(f"Done: {len(combined)} target row(s).")
-    return _with_selection_provenance(combined[list(_OUTPUT_COLUMNS)], ensembl_release)
+    return _with_selection_provenance(
+        combined[list(_OUTPUT_COLUMNS)],
+        ensembl_release,
+        species_context=ctx,
+        allele_capabilities=allele_caps,
+        ms_evidence_scope=ms_evidence_scope,
+    )
 
 
-def _with_selection_provenance(frame, ensembl_release):
+def _with_selection_provenance(
+    frame,
+    ensembl_release,
+    *,
+    species_context=None,
+    allele_capabilities=None,
+    ms_evidence_scope: str = "all",
+):
     from .cta_selection import selection_provenance
 
-    frame.attrs.update(selection_provenance(ensembl_release=ensembl_release))
+    if species_context is None or species_context.is_human_host:
+        frame.attrs.update(selection_provenance(ensembl_release=ensembl_release))
+    else:
+        frame.attrs["ensembl_release"] = ensembl_release
+    if species_context is not None:
+        frame.attrs["species_context"] = species_context.to_provenance()
+    if allele_capabilities is not None:
+        frame.attrs["allele_prediction_capability"] = allele_capabilities
+    frame.attrs["ms_evidence_scope"] = ms_evidence_scope
     return frame
 
 
@@ -790,10 +913,25 @@ def _attach_ms_evidence(
     mhc_class: str,
     skip_ms_evidence: bool,
     evidence_package: str | Path | None = None,
-) -> pd.DataFrame:
-    """Join MS-aggregated columns onto the candidate frame."""
+    requested_alleles: list[str] | None = None,
+    species_context=None,
+    ms_evidence_scope: str = "all",
+    observations: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """Join restriction-aware MS attribution columns onto the candidate frame (#216)."""
+    from .ms_attribution import (
+        EVIDENCE_UNAVAILABLE,
+        NO_MS_MATCH,
+        attribute_ms_evidence,
+        summarize_ms_attribution,
+    )
+
     defaults: dict[str, object] = {
+        "ms_evidence_status": "not_loaded" if skip_ms_evidence else "no_match",
+        "ms_attribution_tier": EVIDENCE_UNAVAILABLE if skip_ms_evidence else NO_MS_MATCH,
         "ms_hit_count": 0,
+        "ms_exact_mhc_hits": 0,
+        "ms_donor_set_hits": 0,
         "ms_alleles": "",
         "ms_allele_count": 0,
         "ms_in_cancer": False,
@@ -803,40 +941,55 @@ def _attach_ms_evidence(
     if skip_ms_evidence:
         for col, default in defaults.items():
             combined[col] = default
-        return combined
+        return combined, None
 
-    from .ms_evidence import aggregate_ms_hits_by_peptide, load_public_ms_hits
+    if observations is not None:
+        hits = observations.copy()
+    else:
+        from .ms_evidence import load_public_ms_hits
 
-    hit_kwargs = {
-        "peptides": set(combined["peptide"].unique()),
-        "iedb_path": iedb_path,
-        "cedar_path": cedar_path,
-        "mhc_class": mhc_class,
-        "classify_source": True,
-        "drop_binding_assays": True,
-    }
-    if evidence_package is not None:
-        hit_kwargs["evidence_package"] = evidence_package
-    hits = load_public_ms_hits(**hit_kwargs)
+        hit_kwargs = {
+            "peptides": set(combined["peptide"].unique()),
+            "iedb_path": iedb_path,
+            "cedar_path": cedar_path,
+            "mhc_class": mhc_class,
+            "classify_source": True,
+            "drop_binding_assays": True,
+        }
+        if (species_context is not None and not species_context.is_human_host) or (
+            species_context is not None and species_context.is_cross_species_mhc
+        ):
+            hit_kwargs["mhc_species"] = species_context.mhc_species
+        if evidence_package is not None:
+            hit_kwargs["evidence_package"] = evidence_package
+        hits = load_public_ms_hits(**hit_kwargs)
 
-    if hits.empty:
-        for col, default in defaults.items():
-            combined[col] = default
-        return combined
-
-    hit_agg = aggregate_ms_hits_by_peptide(
+    attributed = attribute_ms_evidence(
+        combined[["peptide"]].drop_duplicates(),
         hits,
-        source_flag_outputs={
-            "src_cancer": "ms_in_cancer",
-            "src_healthy_tissue": "ms_in_healthy_tissue",
-        },
-        cell_line_output=None,
+        requested_alleles=requested_alleles,
+        species_context=species_context,
+        evidence_scope="all",
+        evidence_loaded=True,
     )
-    # validate="m:1": hit_agg is one row per peptide; fail loudly rather than
+    summary = summarize_ms_attribution(attributed, group_cols=("peptide",))
+    merge_cols = [
+        "peptide",
+        "ms_evidence_status",
+        "ms_attribution_tier",
+        "ms_hit_count",
+        "ms_exact_mhc_hits",
+        "ms_donor_set_hits",
+        "ms_alleles",
+        "ms_allele_count",
+        "ms_in_cancer",
+        "ms_in_healthy_tissue",
+    ]
+    # validate="m:1": summary is one row per peptide; fail loudly rather than
     # silently multiply candidate rows if that invariant ever breaks.
-    combined = combined.merge(hit_agg, on="peptide", how="left", validate="m:1")
+    combined = combined.merge(summary[merge_cols], on="peptide", how="left", validate="m:1")
 
-    int_cols = {"ms_hit_count", "ms_allele_count"}
+    int_cols = {"ms_hit_count", "ms_exact_mhc_hits", "ms_donor_set_hits", "ms_allele_count"}
     bool_cols = {"ms_in_cancer", "ms_in_healthy_tissue"}
     for col, default in defaults.items():
         if col not in combined.columns:
@@ -850,6 +1003,67 @@ def _attach_ms_evidence(
             combined[col] = combined[col].where(combined[col].notna(), default).astype(bool)
         else:
             combined[col] = combined[col].where(combined[col].notna(), default).astype(str)
+
+    if ms_evidence_scope == "any_mhc":
+        combined = combined[combined["ms_hit_count"] > 0].reset_index(drop=True)
+    elif ms_evidence_scope == "requested_mhc":
+        combined = combined[
+            combined["ms_attribution_tier"].isin(
+                {"exact_requested_mhc", "donor_set_ambiguous", "predicted_restriction"}
+            )
+        ].reset_index(drop=True)
+    return combined, hits
+
+
+def _apply_predicted_restriction_attribution(
+    combined: pd.DataFrame,
+    raw_hits: pd.DataFrame,
+    *,
+    requested_alleles: list[str],
+    species_context,
+    ms_evidence_scope: str,
+) -> pd.DataFrame:
+    """Upgrade unresolved positive-MS rows to ``predicted_restriction`` when scored."""
+    from .ms_attribution import (
+        ANY_MHC_PEPTIDE,
+        CLASS_OR_SEROTYPE_ONLY,
+        attribute_ms_evidence,
+        summarize_ms_attribution,
+    )
+
+    t3_cut = PRESENTATION_PERCENTILE_THRESHOLDS[2]
+    pct = pd.to_numeric(combined.get("presentation_percentile"), errors="coerce")
+    pred_rows = combined.loc[
+        pct.le(t3_cut)
+        & combined["best_allele"].notna()
+        & combined["ms_attribution_tier"].isin({ANY_MHC_PEPTIDE, CLASS_OR_SEROTYPE_ONLY}),
+        ["peptide", "best_allele"],
+    ].drop_duplicates()
+    if pred_rows.empty:
+        return combined
+
+    attributed = attribute_ms_evidence(
+        pred_rows[["peptide"]].drop_duplicates(),
+        raw_hits,
+        requested_alleles=requested_alleles,
+        predicted_assignments=pred_rows,
+        species_context=species_context,
+        evidence_scope="all",
+        evidence_loaded=True,
+    )
+    summary = summarize_ms_attribution(attributed, group_cols=("peptide",))
+    tier_map = dict(zip(summary["peptide"], summary["ms_attribution_tier"]))
+    combined = combined.copy()
+    mask = combined["peptide"].isin(tier_map) & combined["ms_attribution_tier"].isin(
+        {ANY_MHC_PEPTIDE, CLASS_OR_SEROTYPE_ONLY}
+    )
+    combined.loc[mask, "ms_attribution_tier"] = combined.loc[mask, "peptide"].map(tier_map)
+    if ms_evidence_scope == "requested_mhc":
+        combined = combined[
+            combined["ms_attribution_tier"].isin(
+                {"exact_requested_mhc", "donor_set_ambiguous", "predicted_restriction"}
+            )
+        ].reset_index(drop=True)
     return combined
 
 
