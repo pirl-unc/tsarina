@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from os.path import dirname, join
 
@@ -24,6 +25,7 @@ from .cta_selection import selection_gene_table
 
 _DATA_DIR = join(dirname(__file__), "data")
 _MS_EVIDENCE_PATH = join(_DATA_DIR, "gene-ms-safety-evidence.csv")
+_MS_EVIDENCE_META_PATH = join(_DATA_DIR, "gene-ms-safety-evidence.meta.json")
 PASSES_FILTERS_COLUMN = "passes_filters"
 LEGACY_FILTERED_COLUMN = "filtered"
 
@@ -63,6 +65,17 @@ def _local_ms_evidence() -> pd.DataFrame:
             f"gene-ms-safety-evidence.csv has duplicate Ensembl gene IDs: {sorted(set(duplicates))}"
         )
     return df
+
+
+def ms_evidence_provenance() -> dict:
+    """Selection, MS corpus and sequence reference the MS overlay was computed from.
+
+    The overlay only describes genes that were searched when it was generated.
+    Compare ``cta_selection_source_snapshot_ids`` with the installed selection
+    before reading a member gene's ``NO_MS_DATA`` as "searched, never observed".
+    """
+    with open(_MS_EVIDENCE_META_PATH) as f:
+        return json.load(f)
 
 
 def _oncoref_cta_dataframe() -> pd.DataFrame:

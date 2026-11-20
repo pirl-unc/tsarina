@@ -320,7 +320,13 @@ def _cta_flag_rationale(genes: dict[str, float]) -> dict[str, str]:
 
     for row in selection_gene_table().itertuples(index=False):
         if row.Symbol in genes:
-            category = "unassigned" if pd.isna(row.selection_category) else row.selection_category
+            classification = getattr(row, "selection_classification", None)
+            if pd.isna(classification) or not classification:
+                category = (
+                    "unassigned" if pd.isna(row.selection_category) else row.selection_category
+                )
+            else:
+                category = str(classification)
             reasons = "; ".join(row.selection_reasons)
             rationale[row.Symbol] = f"current OncoRef category: {category}" + (
                 f" ({reasons})" if reasons else ""
@@ -341,6 +347,7 @@ def personalized_targets(
     ensembl_release: int = 112,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
+    evidence_package: str | Path | None = None,
     mhc_class: str = "I",
     min_cta_tpm: float = 2.0,
     min_restriction_confidence: Iterable[str] | None = None,
@@ -710,6 +717,7 @@ def personalized_targets(
         combined,
         iedb_path=iedb_path,
         cedar_path=cedar_path,
+        evidence_package=evidence_package,
         mhc_class=mhc_class,
         skip_ms_evidence=skip_ms_evidence,
     )
@@ -781,6 +789,7 @@ def _attach_ms_evidence(
     cedar_path: str | Path | None,
     mhc_class: str,
     skip_ms_evidence: bool,
+    evidence_package: str | Path | None = None,
 ) -> pd.DataFrame:
     """Join MS-aggregated columns onto the candidate frame."""
     defaults: dict[str, object] = {
@@ -798,14 +807,17 @@ def _attach_ms_evidence(
 
     from .ms_evidence import aggregate_ms_hits_by_peptide, load_public_ms_hits
 
-    hits = load_public_ms_hits(
-        peptides=set(combined["peptide"].unique()),
-        iedb_path=iedb_path,
-        cedar_path=cedar_path,
-        mhc_class=mhc_class,
-        classify_source=True,
-        drop_binding_assays=True,
-    )
+    hit_kwargs = {
+        "peptides": set(combined["peptide"].unique()),
+        "iedb_path": iedb_path,
+        "cedar_path": cedar_path,
+        "mhc_class": mhc_class,
+        "classify_source": True,
+        "drop_binding_assays": True,
+    }
+    if evidence_package is not None:
+        hit_kwargs["evidence_package"] = evidence_package
+    hits = load_public_ms_hits(**hit_kwargs)
 
     if hits.empty:
         for col, default in defaults.items():

@@ -126,6 +126,7 @@ def CTA_detailed_evidence(
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     genes: set[str] | list[str] | None = None,
+    evidence_package: str | Path | None = None,
 ) -> pd.DataFrame:
     """Return CTA evidence with full per-tissue breakdown and MS safety.
 
@@ -192,7 +193,13 @@ def CTA_detailed_evidence(
     from .datasources import DatasetNotRegisteredError
 
     with contextlib.suppress(ImportError, DatasetNotRegisteredError, FileNotFoundError):
-        df = _compute_ms_restriction(df, iedb_path, cedar_path, genes=genes)
+        df = _compute_ms_restriction(
+            df,
+            iedb_path,
+            cedar_path,
+            genes=genes,
+            evidence_package=evidence_package,
+        )
 
     return df
 
@@ -247,6 +254,7 @@ def _compute_ms_restriction(
     iedb_path: str | Path | None,
     cedar_path: str | Path | None,
     genes: set[str] | list[str] | None = None,
+    evidence_package: str | Path | None = None,
 ) -> pd.DataFrame:
     """Compute per-gene MS restriction from public MHC-ligand MS evidence."""
     from .peptides import cta_exclusive_peptides, cta_peptides
@@ -267,14 +275,17 @@ def _compute_ms_restriction(
 
     from .ms_evidence import load_public_ms_hits
 
-    hits = load_public_ms_hits(
-        peptides=peptide_set,
-        iedb_path=iedb_path,
-        cedar_path=cedar_path,
-        mhc_class="I",
-        classify_source=True,
-        drop_binding_assays=True,
-    )
+    hit_kwargs = {
+        "peptides": peptide_set,
+        "iedb_path": iedb_path,
+        "cedar_path": cedar_path,
+        "mhc_class": "I",
+        "classify_source": True,
+        "drop_binding_assays": True,
+    }
+    if evidence_package is not None:
+        hit_kwargs["evidence_package"] = evidence_package
+    hits = load_public_ms_hits(**hit_kwargs)
 
     if hits.empty:
         return df

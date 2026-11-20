@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 from oncoref import cta as oncoref_cta
-from oncoref import cta_selection
+from oncoref import target_selection as oncoref_target_selection
 
 import tsarina.gene_sets as gene_sets
 from tsarina import (
@@ -47,11 +47,19 @@ def test_foundational_cta_helpers_are_direct_oncoref_aliases():
         assert getattr(gene_sets, tsarina_name) is getattr(oncoref_cta, oncoref_name)
 
 
-def test_ctag2_is_admitted_by_current_policy_with_historical_evidence_retained():
-    assert "CTAG2" in CTA_gene_names()
-    assert "CTAG2" not in oncoref_cta.cta_gene_names()
+def test_rebuilt_target_selection_governs_current_policy_with_historical_evidence_retained():
+    # Under OncoRef's rebuilt target_selection policy, MAGEC2 is admitted as CTA
+    # while CTAG2 and GAGE10 are held in Other:Review pending review.
+    assert "MAGEC2" in CTA_gene_names()
+    assert "CTAG2" not in CTA_gene_names()
+    assert "CTAG2" not in CTA_excluded_gene_names()
+    assert (
+        CTA_evidence().set_index("Symbol").loc["CTAG2", "selection_classification"]
+        == "Other:Review"
+    )
     assert CTA_hpa_evidence is oncoref_cta.cta_evidence
-    assert CTA_selection is cta_selection.results
+    assert set(CTA_selection()["entity_id"]) == set(oncoref_target_selection.results()["entity_id"])
+    assert set(CTA_selection()["policy_id"].unique()) == {oncoref_target_selection.POLICY_ID}
 
 
 def test_current_membership_matches_every_upstream_member():
@@ -133,6 +141,30 @@ def test_ms_overlay_is_gene_evidence_not_a_second_cta_definition():
     ).all()
 
 
+def test_ms_overlay_was_computed_for_the_installed_selection():
+    from tsarina.cta_selection import selection_provenance
+    from tsarina.loader import ms_evidence_provenance
+
+    meta = ms_evidence_provenance()
+    installed = selection_provenance()
+    keys = ("cta_selection_policy_ids", "cta_selection_source_snapshot_ids")
+    if any(meta[key] != installed[key] for key in keys):
+        pytest.skip(
+            "MS overlay predates the installed OncoRef selection; members admitted since "
+            "read NO_MS_DATA unsearched. Run scripts/regenerate_gene_ms_safety_evidence.py."
+        )
+    counts = meta["counts"]
+    assert counts["member_genes"] == len(CTA_gene_ids())
+    if "candidate_genes" in counts:
+        from tsarina import CTA_target_candidate_gene_ids
+
+        assert counts["candidate_genes"] == len(CTA_target_candidate_gene_ids())
+    overlay = _local_ms_evidence()
+    observed = overlay.loc[overlay["Ensembl_Gene_ID"].isin(CTA_gene_ids())]
+    assert len(observed) == counts["member_genes_observed"]
+    assert len(overlay) - len(observed) == counts["non_member_genes_observed"]
+
+
 def test_non_cta_ms_evidence_does_not_expand_oncoref_cta_universe():
     # H1-6 retains generic safety evidence, but oncoref's histone-family rule
     # excludes it from the CTA universe. The left join must not reintroduce it.
@@ -145,10 +177,12 @@ def test_non_cta_ms_evidence_does_not_expand_oncoref_cta_universe():
 
 
 def test_missing_ms_overlay_rows_receive_explicit_defaults():
-    df = CTA_evidence().set_index("Symbol")
-    assert df.loc["SUN5", "ms_restriction"] == "NO_MS_DATA"
-    assert df.loc["SUN5", "ms_healthy_somatic_tissues"] == ""
-    assert df.loc["SUN5", "ms_pmids"] == ""
+    df = CTA_evidence()
+    missing = df.loc[~df["Ensembl_Gene_ID"].isin(_local_ms_evidence()["Ensembl_Gene_ID"])]
+    assert missing["is_current_cta"].any()
+    assert missing["ms_restriction"].eq("NO_MS_DATA").all()
+    assert missing["ms_healthy_somatic_tissues"].eq("").all()
+    assert missing["ms_pmids"].eq("").all()
 
 
 @pytest.mark.parametrize(
@@ -177,22 +211,23 @@ def test_historical_rna_only_additions_retain_hpa_v23_ihc(symbol, tissues, relia
 
 
 @pytest.mark.parametrize(
-    "symbol, gene_id, protein_restriction, selected",
+    "symbol, gene_id, protein_restriction, category, excluded",
     [
-        ("SUN5", "ENSG00000167098", "TESTIS", True),
-        ("SUN3", "ENSG00000164744", "SOMATIC", False),
+        ("SUN5", "ENSG00000167098", "TESTIS", "Reproductive Antigen only", False),
+        ("SUN3", "ENSG00000164744", "SOMATIC", "Unsafe", True),
     ],
 )
 def test_sun_candidates_preserve_discordant_rna_and_protein_evidence(
-    symbol, gene_id, protein_restriction, selected
+    symbol, gene_id, protein_restriction, category, excluded
 ):
     row = CTA_evidence().set_index("Symbol").loc[symbol]
     assert row["Ensembl_Gene_ID"] == gene_id
     assert row["rna_restriction"] == "TESTIS"
     assert row["protein_restriction"] == protein_restriction
+    assert row["selection_category"] == category
     assert symbol in CTA_unfiltered_gene_names()
-    assert (symbol in CTA_gene_names()) == selected
-    assert (symbol in CTA_excluded_gene_names()) != selected
+    assert (symbol in CTA_excluded_gene_names()) == excluded
+    assert symbol not in CTA_gene_names()
 
 
 @pytest.mark.parametrize("symbol", ["SUN1", "SUN2", "SPAG4"])

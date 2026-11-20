@@ -2,6 +2,7 @@ include LICENSE
 include README.md
 include develop.sh
 include scripts/develop.py
+include scripts/regenerate_gene_ms_safety_evidence.py
 include scripts/regenerate_hpa_cancer_prevalence.py
 include docs/vaccine-design.md
 include docs/vaccine-validation.md

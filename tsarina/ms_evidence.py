@@ -84,6 +84,7 @@ def load_public_ms_hits(
     *,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
+    evidence_package: str | Path | None = None,
     mhc_class: str | None = "I",
     mhc_species: str | None = "Homo sapiens",
     classify_source: bool = True,
@@ -92,9 +93,12 @@ def load_public_ms_hits(
 ) -> pd.DataFrame:
     """Load public MS evidence for peptides from the canonical tsarina path.
 
-    The default path uses hitlist's cached observations parquet.  Explicit
-    ``iedb_path`` or ``cedar_path`` switches to the raw scanner for ad-hoc
-    snapshots while preserving the same species/class and binding-assay policy.
+    The default path uses a configured Hitlist 2.x ``EvidenceStore`` package
+    (via *evidence_package* or ``TSARINA_EVIDENCE_PACKAGE`` /
+    ``HITLIST_EVIDENCE_PACKAGE``) or hitlist's cached observations parquet.
+    Explicit ``iedb_path`` or ``cedar_path`` switches to the raw scanner for
+    ad-hoc snapshots while preserving the same species/class and binding-assay
+    policy.
     """
     peptide_set = _peptide_set(peptides)
     if iedb_path is not None or cedar_path is not None:
@@ -118,16 +122,22 @@ def load_public_ms_hits(
     else:
         from .indexing import load_ms_evidence
 
-        hits = load_ms_evidence(
-            peptides=peptide_set,
-            mhc_class=mhc_class,
-            mhc_species=mhc_species,
-            drop_binding_assays=drop_binding_assays,
-        )
+        load_kwargs = {
+            "peptides": peptide_set,
+            "mhc_class": mhc_class,
+            "mhc_species": mhc_species,
+            "drop_binding_assays": drop_binding_assays,
+        }
+        if evidence_package is not None:
+            load_kwargs["evidence_package"] = evidence_package
+        hits = load_ms_evidence(**load_kwargs)
 
+    attrs = dict(hits.attrs)
     if drop_binding_assays and "is_binding_assay" in hits.columns:
         hits = hits[~hits["is_binding_assay"]].copy()
-    return hits.reset_index(drop=True)
+    out = hits.reset_index(drop=True)
+    out.attrs.update(attrs)
+    return out
 
 
 def aggregate_ms_hits_by_peptide(
@@ -294,6 +304,7 @@ def cta_healthy_tissue_ms_hits(
     *,
     mhc_class: str | None = "I",
     mhc_species: str | None = "Homo sapiens",
+    evidence_package: str | Path | None = None,
 ) -> pd.DataFrame:
     """Per-peptide healthy *somatic*-tissue MS hits for a CTA gene.
 
@@ -309,7 +320,7 @@ def cta_healthy_tissue_ms_hits(
     ----------
     gene
         Gene symbol (or alias — resolved via the hitlist peptide mappings).
-    mhc_class, mhc_species
+    mhc_class, mhc_species, evidence_package
         Passed through to :func:`tsarina.indexing.load_ms_evidence`.
 
     Returns
@@ -324,7 +335,10 @@ def cta_healthy_tissue_ms_hits(
     """
     from .indexing import load_ms_evidence
 
-    df = load_ms_evidence(gene_name=gene, mhc_class=mhc_class, mhc_species=mhc_species)
+    load_kwargs = {"gene_name": gene, "mhc_class": mhc_class, "mhc_species": mhc_species}
+    if evidence_package is not None:
+        load_kwargs["evidence_package"] = evidence_package
+    df = load_ms_evidence(**load_kwargs)
     if df.empty or "src_healthy_tissue" not in df.columns:
         return pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
 

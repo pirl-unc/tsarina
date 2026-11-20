@@ -19,28 +19,31 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    # 1.58.1: hitlist owns artifact freshness (curation-YAML fingerprints in
-    # observations_meta.json, mapping-artifact contract) and publishes
-    # MHC_ALLELE_PROVENANCE_VALUES as the provenance vocabulary.
-    "hitlist>=1.58.1",
+    # hitlist owns artifact freshness (curation-YAML fingerprints in
+    # observations_meta.json, mapping-artifact contract), publishes
+    # MHC_ALLELE_PROVENANCE_VALUES, and exposes verified EvidenceStore packages.
+    # 2.1.22: Hitlist 2.x release (requires Python >=3.11 and pandas >=3) used
+    # for runtime EvidenceStore queries and the bundled gene-level MS overlay.
+    "hitlist>=2.1.22",
     "mhcgnomes>=3.20.0",
-    # Current protein selection decisions, member identities and reference receipts.
-    "oncoref>=1.25.0",
-    "pandas",
+    # Rebuilt set-based target selection catalog, gene identities and receipts.
+    # 1.43.0: target_selection policy oncoref.target-selection.2026-11-19.4
+    # (CTA with cta_tier, Cancer Antigen only, Reproductive Antigen only, Other, Unsafe).
+    "oncoref>=1.43.0",
+    "pandas>=3",
     "numpy",
     "tqdm",
 ]
 
 [project.optional-dependencies]
 vaccine = [
-    "hitlist>=1.65.1",  # donor-resolved Atlas tissue blacklist API
+    "hitlist>=2.1.22",  # donor-resolved Atlas tissue blacklist API (1.65.1); base floor
     "pyensembl>=2.17.1",  # dog scientific-name aliases across Ensembl's rename
     "matplotlib",
     "mhcflurry>=2.3.0",
@@ -93,7 +96,7 @@ include = ["tsarina*"]
 # Explicit globs keep package ownership visible: a narrow gene-level MS overlay
 # and downstream HPA cancer-prevalence features, never a CTA definition table.
 [tool.setuptools.package-data]
-tsarina = ["data/gene-ms-safety-evidence.csv", "data/hpa-*.csv", "data/vaccine-website/*", "data/vaccine-website/fonts/*"]
+tsarina = ["data/gene-ms-safety-evidence.csv", "data/gene-ms-safety-evidence.meta.json", "data/hpa-*.csv", "data/vaccine-website/*", "data/vaccine-website/fonts/*"]
 
 [tool.ruff]
 target-version = "py39"

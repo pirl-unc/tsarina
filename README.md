@@ -24,7 +24,7 @@ See: [documentation](docs/index.md) — inputs, dataset setup and workflow detai
 
 ## Install
 
-Requires Python 3.10 or newer and OncoRef 1.23.1 or newer.
+Requires Python 3.11 or newer, OncoRef 1.43.0 or newer and Hitlist 2.1.22 or newer.
 
 ```bash
 pip install tsarina
@@ -71,7 +71,7 @@ for setup and interpretation.
 Oncoref is the single authority for CTA membership, aliases, HPA restriction
 calls, and proteoform groups. Tsarina adds downstream evidence and scoring
 without maintaining a second CTA definition library. Default human membership
-uses `oncoref.cta_selection.results()`; historical HPA annotations remain
+uses `oncoref.target_selection.results()`; historical HPA annotations remain
 available through `CTA_hpa_evidence()`. The exact boundary is
 documented in [CTA ownership and downstream evidence](docs/curation.md).
 
@@ -122,7 +122,7 @@ that checkout or use a separate virtualenv; the refused install leaves the
 installed packages unchanged. Missing siblings use their released packages.
 
 Real MHCflurry model integration tests run in a separate CI job. To run them
-locally (Python 3.10+):
+locally (Python 3.11+):
 
 ```bash
 pip install -e ".[test-mhcflurry]"

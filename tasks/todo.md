@@ -2987,3 +2987,79 @@ Final pre-merge checks: formatting/lint, strict documentation build and isolated
 16 warnings, 86% coverage. Additional bugs are tracked in #220 and #221.
 [PR #219](https://github.com/pirl-unc/tsarina/pull/219) records the final CI,
 merge and PyPI deployment evidence after this pre-merge task snapshot.
+
+## Adopt OncoRef 1.43.0 rebuilt target_selection and Hitlist 2.1.22 MS / EvidenceStore (2026-11-20)
+
+Specification: [oncoref-1.43-target-selection-hitlist-2-spec.md](oncoref-1.43-target-selection-hitlist-2-spec.md).
+
+Request: update the CTA definition to OncoRef 1.43.0's rebuilt `target_selection` /
+`antigen_sets` catalog and update available MS data + runtime MS layer to Hitlist
+2.1.22 (including verified `EvidenceStore` packages).
+
+Findings:
+
+- OncoRef 1.43.0 exposes both the rebuilt set-based catalog
+  (`oncoref.target_selection`, policy `oncoref.target-selection.2026-11-19.4`:
+  327 CTA / 358 genes with `cta_tier`, 70 Cancer Antigen only, 128 Reproductive
+  Antigen only, 1,118 Other, 18,250 Unsafe; `release_ready=False` with 3 open
+  reviews) and the pinned 1.36.0 snapshot (`oncoref.cta_selection`, 607 CTA /
+  655 genes). Adopting the rebuilt catalog requires migrating `cta_selection.py`
+  and `vaccine_inputs.py` from `oncoref.cta_selection` to `oncoref.target_selection`.
+- Hitlist 2.1.22 requires Python >=3.11 and pandas >=3, and ships verified
+  `EvidenceStore` packages (`mhc_positive_ms`, `mhc_binding`, `mhc_other`,
+  `assay_context`, manifest-verified `native/observations.parquet`).
+- The previous uncommitted draft still read `oncoref.cta_selection` (missing 14
+  rebuilt CTA genes in its MS search) and kept `requires-python >= 3.10`.
+
+Plan:
+
+- [x] Migrate `tsarina/cta_selection.py`, `gene_sets.py`, `personalize.py`, and
+      `vaccine_inputs.py` to OncoRef 1.43.0's rebuilt `target_selection` catalog,
+      preserving multi-species fallback, `selection_*` schema, `cta_tier` / CA / RA
+      accessors, and `release_ready` provenance.
+- [x] Add `tsarina/evidence_store.py` for Hitlist 2.0 verified `EvidenceStore`
+      MS queries and wire `evidence_package` / `--evidence-package` through
+      `indexing.py`, `ms_evidence.py`, `evidence.py`, `personalize.py`,
+      `spanning.py`, `targets.py`, and CLI commands.
+- [x] Update `scripts/regenerate_gene_ms_safety_evidence.py` for `target_selection`
+      (`CTA` + `CA|RA` + tracked genes) and `--evidence-package`, rebuild an
+      isolated Hitlist 2.1.22 observations index, and regenerate
+      `gene-ms-safety-evidence.csv` + `.meta.json` + migration JSON.
+- [x] Raise `requires-python >= 3.11`, `oncoref >= 1.43.0`, `hitlist >= 2.1.22`
+      in `pyproject.toml` and `.github/workflows/tests.yml`; add the regen script
+      to `lint.sh`, `format.sh`, `MANIFEST.in`, and CI; update docs and tests.
+- [x] Bump version to `1.39.0`; run `./format.sh`, `./lint.sh`,
+      `./test.sh` + `--run-mhcflurry`, strict MkDocs, website checks, and
+      build/twine checks.
+- [ ] Commit, push, PR, CI, merge, and deploy to PyPI.
+
+Review:
+
+- OncoRef 1.43.0 rebuilt `target_selection` (`oncoref.target-selection.2026-11-19.4`,
+  `data_sha256: 5c9246de...`, `release_ready=False` with 3 open scientific reviews)
+  now governs default human CTA membership: 327 CTA protein groups / 358 member genes
+  (`core`: 236, `core_with_extended_exposure`: 101, `extended_only`: 21), 70 Cancer
+  Antigen only (432 CA genes), 128 Reproductive Antigen only (488 RA genes; 562 CA|RA
+  candidates), 1,118 Other (`Review`, `Expression`, `Unscreened tissue`, `Sequence`),
+  and 18,250 Unsafe (18,407 genes). Non-human `CTA_selection(species=...)` continues
+  to delegate to `oncoref.cta_selection.results()`.
+- `tsarina/evidence_store.py` adds verified Hitlist 2.0 `EvidenceStore` support
+  (both full multi-modality `EvidenceStore.open()` packages and standalone MHC
+  `write_mhc_evidence_package()` packages verified via `verify_mhc_evidence_package`),
+  with Arrow pushdown on `mhc_positive_ms` (and optional `mhc_binding`/`mhc_other`),
+  lossless row-group enrichment from manifest-verified `native/` parquets, gene
+  lookups via `native/peptide_mappings.parquet`, CLI `--evidence-package` /
+  `TSARINA_EVIDENCE_PACKAGE` routing, cryptographic `df.attrs` provenance, and
+  tamper-detection tests.
+- Isolated Hitlist 2.1.22 observations index built under `/tmp/tsarina-hitlist-2.1.22`
+  (4,507,466 rows / 1,330,197 peptides, artifact version 10; `~/.hitlist` untouched)
+  and used to regenerate `gene-ms-safety-evidence.csv` (625 rows) + `.meta.json`:
+  766 genes searched (358/358 CTA members with reference peptides, 282 observed:
+  132 CANCER_ONLY, 8 EXPECTED_TISSUE, 54 RECURRENT_HEALTHY, 51 SINGLETON_HEALTHY,
+  37 UNCLASSIFIED_MS; 562/562 CA|RA candidates searched, 421 observed).
+- Verification: `./format.sh` and `./lint.sh` pass across all 117 files;
+  `mkdocs build --strict` passes; `npm run test:website` passes; wheel/sdist
+  offline build + `twine check` pass with `gene-ms-safety-evidence.meta.json`,
+  `evidence_store.py`, and `scripts/regenerate_gene_ms_safety_evidence.py` packaged
+  and no `regen.csv` leak; all 4 real MHCflurry integration tests pass; full
+  `./test.sh` passes.

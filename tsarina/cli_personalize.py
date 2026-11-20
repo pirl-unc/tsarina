@@ -276,6 +276,7 @@ def handle(args: argparse.Namespace) -> None:
             ensembl_release=args.ensembl_release,
             iedb_path=args.iedb_path,
             cedar_path=args.cedar_path,
+            evidence_package=getattr(args, "evidence_package", None),
             mhc_class=args.mhc_class,
             min_cta_tpm=args.min_cta_tpm,
             min_restriction_confidence=min_restriction_confidence,

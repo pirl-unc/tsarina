@@ -12,8 +12,9 @@
 
 """CTA helpers.
 
-Default membership follows :mod:`oncoref.cta_selection`. Historical HPA-axis
-and low-expression helpers remain explicit compatibility views of oncoref.cta.
+Default membership follows OncoRef's rebuilt :mod:`oncoref.target_selection`
+catalog via :mod:`tsarina.cta_selection`. Historical HPA-axis and
+low-expression helpers remain explicit compatibility views of ``oncoref.cta``.
 """
 
 from __future__ import annotations
@@ -24,7 +25,13 @@ import pandas as pd
 from hitlist.proteome import ENSEMBL_CODING_GENE_BIOTYPES as _hitlist_coding_gene_biotypes
 from oncoref import cta as _oncoref_cta
 
-from .cta_selection import selection_gene_ids, selection_gene_names, selection_symbol_for_alias
+from .cta_selection import (
+    selection_flag_gene_ids,
+    selection_flag_gene_names,
+    selection_gene_ids,
+    selection_gene_names,
+    selection_symbol_for_alias,
+)
 from .loader import cta_dataframe
 
 #: Ensembl biotypes whose genes tsarina treats as coding — the one definition of
@@ -81,12 +88,55 @@ def CTA_unfiltered_gene_ids():
 
 
 def CTA_excluded_gene_names():
-    """Genes classified Unsafe; Other and unassigned remain distinct."""
+    """Genes classified Unsafe; CA-only, RA-only, Other and unassigned stay distinct."""
     return selection_gene_names(category="Unsafe")
 
 
 def CTA_excluded_gene_ids():
     return selection_gene_ids(category="Unsafe")
+
+
+def CTA_by_tier(tier: str | Iterable[str], *, column: str = "Symbol") -> set[str]:
+    """Return current CTA genes belonging to one or more OncoRef ``cta_tier`` values.
+
+    Valid tiers are :data:`CTA_TIERS` (``core``, ``core_with_extended_exposure``,
+    ``extended_only``).
+    """
+    if column == "Symbol":
+        return selection_gene_names(category="CTA", cta_tier=tier)
+    if column == "Ensembl_Gene_ID":
+        return selection_gene_ids(category="CTA", cta_tier=tier)
+    raise ValueError(f"Unsupported column {column!r}; expected 'Symbol' or 'Ensembl_Gene_ID'")
+
+
+def CTA_cancer_antigen_gene_names() -> set[str]:
+    """All Cancer Antigen member gene symbols (CTA + Cancer Antigen only)."""
+    return selection_flag_gene_names("selection_is_cancer_antigen")
+
+
+def CTA_cancer_antigen_gene_ids() -> set[str]:
+    """All Cancer Antigen member Ensembl gene IDs (CTA + Cancer Antigen only)."""
+    return selection_flag_gene_ids("selection_is_cancer_antigen")
+
+
+def CTA_reproductive_antigen_gene_names() -> set[str]:
+    """All Reproductive Antigen member gene symbols (CTA + Reproductive Antigen only)."""
+    return selection_flag_gene_names("selection_is_reproductive_antigen")
+
+
+def CTA_reproductive_antigen_gene_ids() -> set[str]:
+    """All Reproductive Antigen member Ensembl gene IDs (CTA + Reproductive Antigen only)."""
+    return selection_flag_gene_ids("selection_is_reproductive_antigen")
+
+
+def CTA_target_candidate_gene_names() -> set[str]:
+    """All candidate antigen member gene symbols (CA | RA union)."""
+    return selection_flag_gene_names("selection_is_target_candidate")
+
+
+def CTA_target_candidate_gene_ids() -> set[str]:
+    """All candidate antigen member Ensembl gene IDs (CA | RA union)."""
+    return selection_flag_gene_ids("selection_is_target_candidate")
 
 
 CTA_relaxed_reproductive_gene_names = _oncoref_cta.cta_relaxed_reproductive_gene_names

@@ -1,0 +1,3361 @@
+{
+ "from": {
+  "oncoref_api": "oncoref.cta_selection (1.36.0 compatibility snapshot)",
+  "policy_ids": [
+   "oncoref.cta-selection.2026-11-08.1"
+  ],
+  "cta_protein_groups": 607,
+  "cta_member_genes": 655
+ },
+ "to": {
+  "oncoref": "1.43.0",
+  "oncoref_api": "oncoref.target_selection",
+  "policy_ids": [
+   "oncoref.target-selection.2026-11-19.4"
+  ],
+  "source_snapshot_id": "sha256:5c9246deddaf0f4588fb07c17046dc1388ebdea8e69a2422be12ef0f90d31f5b",
+  "release_ready": false,
+  "cta_protein_groups": 327,
+  "cta_member_genes": 358
+ },
+ "counts": {
+  "added_member_genes": 18,
+  "removed_member_genes": 315,
+  "retained_member_genes": 340
+ },
+ "added": [
+  {
+   "gene_id": "ENSG00000046774",
+   "symbol": "MAGEC2",
+   "new_cta_tier": "core",
+   "previous_category": "Other",
+   "previous_subtype": "Held",
+   "previous_reasons": [
+    "Reviewed normal-cell knowledge"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000124227",
+   "symbol": "ANKRD60",
+   "new_cta_tier": "core",
+   "previous_category": "Other",
+   "previous_subtype": "Nonreproductive",
+   "previous_reasons": [
+    "Reproductive / embryonic association"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000133980",
+   "symbol": "VRTN",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000138892",
+   "symbol": "TTLL8",
+   "new_cta_tier": "core",
+   "previous_category": "Other",
+   "previous_subtype": "Nonreproductive",
+   "previous_reasons": [
+    "Reproductive / embryonic association"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000141371",
+   "symbol": "CHCT1",
+   "new_cta_tier": "core_with_extended_exposure",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000163530",
+   "symbol": "DPPA2",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression",
+    "Rare Protected-cell expression review"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000164113",
+   "symbol": "ADAD1",
+   "new_cta_tier": "core_with_extended_exposure",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000164871",
+   "symbol": "SPAG11B",
+   "new_cta_tier": "extended_only",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000165805",
+   "symbol": "C12orf50",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000168619",
+   "symbol": "ADAM18",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000176979",
+   "symbol": "TRIM60",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000178287",
+   "symbol": "SPAG11A",
+   "new_cta_tier": "extended_only",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185775",
+   "symbol": "SPATA31A6",
+   "new_cta_tier": "core",
+   "previous_category": "Other",
+   "previous_subtype": "Nonreproductive",
+   "previous_reasons": [
+    "Reproductive / embryonic association"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000198930",
+   "symbol": "CSAG1",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204193",
+   "symbol": "TXNDC8",
+   "new_cta_tier": "core",
+   "previous_category": "Other",
+   "previous_subtype": "Held",
+   "previous_reasons": [
+    "Rare Protected-cell expression review"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000231989",
+   "symbol": "PPP1R2B",
+   "new_cta_tier": "core",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000232030",
+   "symbol": "MAGEB6B",
+   "new_cta_tier": "core",
+   "previous_category": "Other",
+   "previous_subtype": "Nonreproductive",
+   "previous_reasons": [
+    "Reproductive / embryonic association"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000274391",
+   "symbol": "TPTE",
+   "new_cta_tier": "core_with_extended_exposure",
+   "previous_category": "Unsafe",
+   "previous_subtype": null,
+   "previous_reasons": [
+    "Rare vital-tissue cell expression"
+   ]
+  }
+ ],
+ "removed": [
+  {
+   "gene_id": "ENSG00000061492",
+   "symbol": "WNT8A",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000063515",
+   "symbol": "GSC2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000069206",
+   "symbol": "ADAM7",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000073598",
+   "symbol": "FNDC8",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000088782",
+   "symbol": "DEFB127",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000092345",
+   "symbol": "DAZL",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000105549",
+   "symbol": "SPMAP2",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000106038",
+   "symbol": "EVX1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000106304",
+   "symbol": "SPAM1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000112761",
+   "symbol": "CCN6",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000120094",
+   "symbol": "HOXB1",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000120440",
+   "symbol": "TTLL2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000121446",
+   "symbol": "RGSL1",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000122136",
+   "symbol": "OBP2A",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000122145",
+   "symbol": "TBX22",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000123569",
+   "symbol": "H2BW1",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000123594",
+   "symbol": "ATXN3L",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000125815",
+   "symbol": "CST8",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000125823",
+   "symbol": "CSTL1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000125831",
+   "symbol": "CST11",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000125975",
+   "symbol": "C20orf173",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000126890",
+   "symbol": "CTAG2",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000128276",
+   "symbol": "RFPL3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000129873",
+   "symbol": "CDY2B",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000130385",
+   "symbol": "BMP15",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000130943",
+   "symbol": "PKDREJ",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000131264",
+   "symbol": "CDX4",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000132297",
+   "symbol": "HHLA1",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000132631",
+   "symbol": "SCP2D1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000134249",
+   "symbol": "ADAM30",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000134588",
+   "symbol": "USP26",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000134940",
+   "symbol": "ACRV1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000137674",
+   "symbol": "MMP20",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000138068",
+   "symbol": "SULT6B1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000138813",
+   "symbol": "C4orf17",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000141316",
+   "symbol": "SPACA3",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000141437",
+   "symbol": "SLC25A52",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000141946",
+   "symbol": "ZIM3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000142698",
+   "symbol": "C1orf94",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000143512",
+   "symbol": "HHIPL2",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000145309",
+   "symbol": "CABS1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000147183",
+   "symbol": "CPXCR1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000149651",
+   "symbol": "SPINT4",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000150676",
+   "symbol": "CCDC83",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000151005",
+   "symbol": "TKTL2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000151962",
+   "symbol": "RBM46",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000152430",
+   "symbol": "BOLL",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000153684",
+   "symbol": "GOLGA8F",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000154007",
+   "symbol": "ASB17",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000154438",
+   "symbol": "ASZ1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000158077",
+   "symbol": "NLRP14",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000158553",
+   "symbol": "POM121L2",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000158901",
+   "symbol": "WFDC8",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000161594",
+   "symbol": "KLHL10",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000161652",
+   "symbol": "IZUMO2",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000163012",
+   "symbol": "ZSWIM2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000163114",
+   "symbol": "PDHA2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000163357",
+   "symbol": "DCST1",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000163645",
+   "symbol": "ERICH6",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000164256",
+   "symbol": "PRDM9",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000164304",
+   "symbol": "CAGE1",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000164334",
+   "symbol": "FAM170A",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000164729",
+   "symbol": "SLC35G3",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000165120",
+   "symbol": "SSMEM1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000165583",
+   "symbol": "SSX5",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000165837",
+   "symbol": "ERICH6B",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000166069",
+   "symbol": "TMCO5A",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000166152",
+   "symbol": "C16orf78",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000167098",
+   "symbol": "SUN5",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000167195",
+   "symbol": "GOLGA6C",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000168515",
+   "symbol": "SCGB1D1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000168634",
+   "symbol": "WFDC13",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000169154",
+   "symbol": "GOT1L1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000169208",
+   "symbol": "OR10G3",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000169214",
+   "symbol": "OR6F1",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is olfactory epithelium, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000169548",
+   "symbol": "ZNF280A",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000169777",
+   "symbol": "TAS2R1",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000170255",
+   "symbol": "MRGPRX1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000170374",
+   "symbol": "SP7",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000170516",
+   "symbol": "COX7B2",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000170613",
+   "symbol": "GARIN3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000171060",
+   "symbol": "C8orf74",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000171505",
+   "symbol": "OR1N1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive enrichment qualifies. Cancer admission lacks coverage of olfactory epithelium."
+   ]
+  },
+  {
+   "gene_id": "ENSG00000172288",
+   "symbol": "CDY1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000172352",
+   "symbol": "CDY1B",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000172538",
+   "symbol": "FAM170B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000172680",
+   "symbol": "MOS",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000173389",
+   "symbol": "IQCF1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000173572",
+   "symbol": "NLRP13",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000173769",
+   "symbol": "TOPAZ1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000174016",
+   "symbol": "TENT5D",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000174225",
+   "symbol": "ARL13A",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000174279",
+   "symbol": "EVX2",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000175018",
+   "symbol": "TEX36",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000175202",
+   "symbol": "HIGD2B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000175513",
+   "symbol": "TSGA10IP",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000175699",
+   "symbol": "CCDC197",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000175718",
+   "symbol": "RBMXL3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000176294",
+   "symbol": "OR4N2",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000176299",
+   "symbol": "OR4M1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000176782",
+   "symbol": "DEFB104A",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000177023",
+   "symbol": "DEFB104B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000177684",
+   "symbol": "DEFB114",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000177689",
+   "symbol": "MAGEB10",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000177710",
+   "symbol": "SLC35G5",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000178279",
+   "symbol": "TNP2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000178804",
+   "symbol": "H1-8",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000179213",
+   "symbol": "SIGLECL1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000179938",
+   "symbol": "GOLGA8J",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000180042",
+   "symbol": "OR1R1P",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000180205",
+   "symbol": "WFDC9",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000181323",
+   "symbol": "SPEM1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000182035",
+   "symbol": "ADIG",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000182111",
+   "symbol": "ZNF716",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000182308",
+   "symbol": "DCAF4L1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000182415",
+   "symbol": "CDY2A",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000182645",
+   "symbol": "CCDC172",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000182791",
+   "symbol": "CCDC87",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183035",
+   "symbol": "CYLC1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183128",
+   "symbol": "CALHM3",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183145",
+   "symbol": "RIPPLY3",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183206",
+   "symbol": "POTEC",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183629",
+   "symbol": "GOLGA8G",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183632",
+   "symbol": "TP53TG3",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183753",
+   "symbol": "BPY2",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000183795",
+   "symbol": "BPY2B",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000184478",
+   "symbol": "OR56A3",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is olfactory epithelium, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000184698",
+   "symbol": "OR51M1",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is olfactory epithelium, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000184814",
+   "symbol": "PRR23B",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000184895",
+   "symbol": "SRY",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185056",
+   "symbol": "C5orf47",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185294",
+   "symbol": "SPPL2C",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185523",
+   "symbol": "SPATA45",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185662",
+   "symbol": "SMIM23",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185894",
+   "symbol": "BPY2C",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000185982",
+   "symbol": "DEFB128",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000186458",
+   "symbol": "DEFB132",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000186572",
+   "symbol": "DEFB107A",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000186579",
+   "symbol": "DEFB106A",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000186919",
+   "symbol": "ZACN",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000187026",
+   "symbol": "KRTAP21-2",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is hair follicle, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000187066",
+   "symbol": "TMEM262",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000187082",
+   "symbol": "DEFB106B",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000187658",
+   "symbol": "C5orf52",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000187959",
+   "symbol": "CPSF4L",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000188386",
+   "symbol": "PPP3R2",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000188408",
+   "symbol": "MAGEB5",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000188425",
+   "symbol": "NANOS2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000188694",
+   "symbol": "KRTAP24-1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Target maximum or Disposable cap fails"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000188782",
+   "symbol": "CATSPER4",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000188800",
+   "symbol": "TMCO2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000189132",
+   "symbol": "FAM47B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000189186",
+   "symbol": "DCAF8L2",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000189299",
+   "symbol": "FOXR2",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000189357",
+   "symbol": "SPATA31D4",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000189375",
+   "symbol": "TBC1D28",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196184",
+   "symbol": "OR10J1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive enrichment qualifies. Cancer admission lacks coverage of olfactory epithelium."
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196289",
+   "symbol": "BECN2",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Published normal-tissue expression"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196570",
+   "symbol": "PFN3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196860",
+   "symbol": "TOMM20L",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196862",
+   "symbol": "RGPD4",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196900",
+   "symbol": "SPMIP10",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000196946",
+   "symbol": "ZNF705A",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000197487",
+   "symbol": "GALP",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000197768",
+   "symbol": "STPG3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000197849",
+   "symbol": "OR8G1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000198129",
+   "symbol": "DEFB107B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000198471",
+   "symbol": "RTP2",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000198798",
+   "symbol": "MAGEB3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000203730",
+   "symbol": "TEDDM1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000203795",
+   "symbol": "FAM24A",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000203942",
+   "symbol": "C10orf62",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000203970",
+   "symbol": "DEFB110",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204006",
+   "symbol": "C1orf185",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204007",
+   "symbol": "GLT6D1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204022",
+   "symbol": "LIPJ",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204363",
+   "symbol": "SPANXN5",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204479",
+   "symbol": "PRAMEF17",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204480",
+   "symbol": "PRAMEF19",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204548",
+   "symbol": "DEFB121",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204659",
+   "symbol": "CBY3",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204669",
+   "symbol": "C9orf57",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204688",
+   "symbol": "OR2H1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204694",
+   "symbol": "OR11A1",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is olfactory epithelium, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204701",
+   "symbol": "OR2J3",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is olfactory epithelium, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204849",
+   "symbol": "SPATA31A1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204918",
+   "symbol": "PRR20B",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204919",
+   "symbol": "PRR20A",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000204952",
+   "symbol": "FBXO47",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205022",
+   "symbol": "PABPN1L",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205108",
+   "symbol": "SPATA31F1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205301",
+   "symbol": "MGAT4D",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205359",
+   "symbol": "SLCO6A1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205456",
+   "symbol": "TP53TG3D",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205457",
+   "symbol": "TP53TG3C",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205642",
+   "symbol": "VCX3B",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205693",
+   "symbol": "MANSC4",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205858",
+   "symbol": "LRRC72",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000205884",
+   "symbol": "DEFB136",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000206026",
+   "symbol": "SMIM21",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000206043",
+   "symbol": "C18orf63",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000206150",
+   "symbol": "RNASE13",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000206260",
+   "symbol": "PRR23A",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000212122",
+   "symbol": "TSSK1B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000213265",
+   "symbol": "TSGA13",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000213973",
+   "symbol": "ZNF99",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214102",
+   "symbol": "WEE2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214237",
+   "symbol": "MINDY4B",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214360",
+   "symbol": "EFCAB9",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214414",
+   "symbol": "TRIM77",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214513",
+   "symbol": "NOTO",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214642",
+   "symbol": "DEFB113",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214700",
+   "symbol": "C12orf71",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000214819",
+   "symbol": "CDRT15L2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000215186",
+   "symbol": "GOLGA6B",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000215203",
+   "symbol": "GRXCR1",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000215274",
+   "symbol": "GAGE10",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000215372",
+   "symbol": "ZNF705G",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000215568",
+   "symbol": "GAB4",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000221826",
+   "symbol": "PSG3",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000221878",
+   "symbol": "PSG7",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000221900",
+   "symbol": "POM121L12",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000223614",
+   "symbol": "ZNF735",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000224107",
+   "symbol": "ETDB",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000224586",
+   "symbol": "GPX5",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000224960",
+   "symbol": "PPP4R3C",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000226372",
+   "symbol": "DCAF8L1",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000226650",
+   "symbol": "KIF4B",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000226784",
+   "symbol": "PGAM4",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000227151",
+   "symbol": "PRR20D",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000227717",
+   "symbol": "GOLGA6L25",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000227868",
+   "symbol": "TEX46",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000229665",
+   "symbol": "PRR20C",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000231192",
+   "symbol": "OR5H1",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000232113",
+   "symbol": "TEX50",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000232948",
+   "symbol": "DEFB130A",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000233050",
+   "symbol": "DEFB130B",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000233381",
+   "symbol": "AK4P3",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000234278",
+   "symbol": "PRR20E",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000234469",
+   "symbol": "CLDN34",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000235118",
+   "symbol": "FAM237A",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000236980",
+   "symbol": "CIMIP7",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000237378",
+   "symbol": "ENSG00000237378",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000237521",
+   "symbol": "OR7E24",
+   "new_category": "Other",
+   "new_subtype": "Unscreened tissue",
+   "new_classification": "Other:Unscreened tissue",
+   "new_reasons": [
+    "Normal home is olfactory epithelium, without sufficient locus-specific normal coverage for cancer admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000237524",
+   "symbol": "TEX51",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000237850",
+   "symbol": "GOLGA6L24",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000238074",
+   "symbol": "TSPY9",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000238210",
+   "symbol": "ETDA",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000239620",
+   "symbol": "PRR20G",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000239810",
+   "symbol": "PRAMEF11",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000241128",
+   "symbol": "OR14A2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000241690",
+   "symbol": "ENSG00000241690",
+   "new_category": "Other",
+   "new_subtype": "Sequence",
+   "new_classification": "Other:Sequence",
+   "new_reasons": [
+    "Nested, read-through or Unsafe-contained sequence"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000242389",
+   "symbol": "RBMY1E",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000242875",
+   "symbol": "RBMY1B",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000243130",
+   "symbol": "PSG11",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000244395",
+   "symbol": "RBMY1D",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000249139",
+   "symbol": "EPPIN-WFDC6",
+   "new_category": "Other",
+   "new_subtype": "Sequence",
+   "new_classification": "Other:Sequence",
+   "new_reasons": [
+    "Nested, read-through or Unsafe-contained sequence"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000249156",
+   "symbol": "TAF11L12",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000249467",
+   "symbol": "H2AL1Q",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000249931",
+   "symbol": "GOLGA8K",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000250374",
+   "symbol": "TRIM75",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000250719",
+   "symbol": "P3R3URF",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000250782",
+   "symbol": "TAF11L14",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000250821",
+   "symbol": "EXOC1L",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000251154",
+   "symbol": "PTTG1IP2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000255393",
+   "symbol": "OOSP4B",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000257446",
+   "symbol": "ZNF878",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000258417",
+   "symbol": "ENSG00000258417",
+   "new_category": "Other",
+   "new_subtype": "Sequence",
+   "new_classification": "Other:Sequence",
+   "new_reasons": [
+    "Nested, read-through or Unsafe-contained sequence"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000260734",
+   "symbol": "TLE7",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000261247",
+   "symbol": "GOLGA8T",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000261509",
+   "symbol": "TP53TG3B",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000263201",
+   "symbol": "DPEP2NB",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000266265",
+   "symbol": "KLF14",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000266826",
+   "symbol": "IGBP1C",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000267281",
+   "symbol": "ATF7-NPFF",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission | Nested, read-through or Unsafe-contained sequence"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000268235",
+   "symbol": "TCP11X1",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000268629",
+   "symbol": "TEX13A",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000268902",
+   "symbol": "CSAG2",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000268916",
+   "symbol": "CSAG3",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000268988",
+   "symbol": "SPANXN2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000271079",
+   "symbol": "CTAGE15",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000273155",
+   "symbol": "ENSG00000273155",
+   "new_category": "Other",
+   "new_subtype": "Sequence",
+   "new_classification": "Other:Sequence",
+   "new_reasons": [
+    "Nested, read-through or Unsafe-contained sequence"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000274102",
+   "symbol": "OR4M2",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive enrichment qualifies. Cancer admission lacks coverage of olfactory epithelium."
+   ]
+  },
+  {
+   "gene_id": "ENSG00000274386",
+   "symbol": "TMEM269",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000274944",
+   "symbol": "ENSG00000274944",
+   "new_category": "Other",
+   "new_subtype": "Sequence",
+   "new_classification": "Other:Sequence",
+   "new_reasons": [
+    "Nested, read-through or Unsafe-contained sequence"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000275034",
+   "symbol": "TP53TG3E",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000275591",
+   "symbol": "XKR5",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000275722",
+   "symbol": "LYZL6",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000276950",
+   "symbol": "GSTT4",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000277322",
+   "symbol": "GOLGA6L6",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000277535",
+   "symbol": "CT47C1",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000277865",
+   "symbol": "GOLGA6L22",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000278522",
+   "symbol": "POTEB3",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000278848",
+   "symbol": "TP53TG3F",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000279169",
+   "symbol": "PRAMEF13",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000279804",
+   "symbol": "PRAMEF18",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000282757",
+   "symbol": "DUXB",
+   "new_category": "Unsafe",
+   "new_subtype": null,
+   "new_classification": "Unsafe",
+   "new_reasons": [
+    "Established rare normal-cell RNA"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283247",
+   "symbol": "CCDC201",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283324",
+   "symbol": "CTXND2",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283439",
+   "symbol": "SPEM3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283463",
+   "symbol": "HSFX4",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283516",
+   "symbol": "LITAFD",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283567",
+   "symbol": "C19orf85",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283697",
+   "symbol": "HSFX3",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283740",
+   "symbol": "TAF11L11",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283755",
+   "symbol": "CPHXL",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283758",
+   "symbol": "PMIS2",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000283776",
+   "symbol": "TAF11L13",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000284609",
+   "symbol": "OR8B3",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000284680",
+   "symbol": "OR8B2",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000284934",
+   "symbol": "ENSG00000284934",
+   "new_category": "Cancer Antigen only",
+   "new_subtype": null,
+   "new_classification": "Cancer Antigen only",
+   "new_reasons": [
+    "Cancer tenfold evidence qualifies; reproductive tenfold evidence does not qualify"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000285891",
+   "symbol": "MSANTD5",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000286135",
+   "symbol": "SPADH",
+   "new_category": "Reproductive Antigen only",
+   "new_subtype": null,
+   "new_classification": "Reproductive Antigen only",
+   "new_reasons": [
+    "Reproductive/developmental evidence qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000287363",
+   "symbol": "CIMIP3",
+   "new_category": "Other",
+   "new_subtype": "Review",
+   "new_classification": "Other:Review",
+   "new_reasons": [
+    "Normal-expression evidence blocks admission"
+   ]
+  },
+  {
+   "gene_id": "ENSG00000289809",
+   "symbol": "ENSG00000289809",
+   "new_category": "Other",
+   "new_subtype": "Expression",
+   "new_classification": "Other:Expression",
+   "new_reasons": [
+    "Neither tenfold compartment qualifies; No tumor sample reaches 10 x the non-reproductive normal maximum; No reproductive sample reaches 10 x the non-reproductive normal maximum"
+   ]
+  }
+ ]
+}

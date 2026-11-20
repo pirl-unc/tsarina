@@ -1,0 +1,51 @@
+{
+  "corpus": {
+    "evidence_backend": "hitlist_observations",
+    "hitlist_version": "2.1.22",
+    "mhcgnomes_version": "3.70.3",
+    "observation_peptides": 1330197,
+    "observation_rows": 4507466,
+    "observations_artifact_version": 10,
+    "raw_exports": {
+      "cedar": {
+        "size": 6945931753
+      },
+      "iedb": {
+        "size": 7773476136
+      }
+    }
+  },
+  "counts": {
+    "candidate_genes": 562,
+    "candidate_genes_observed": 421,
+    "candidate_genes_with_reference_peptides": 562,
+    "genes_searched": 766,
+    "member_genes": 358,
+    "member_genes_observed": 282,
+    "member_genes_with_reference_peptides": 358,
+    "member_ms_restriction": {
+      "CANCER_ONLY": 132,
+      "EXPECTED_TISSUE": 8,
+      "RECURRENT_HEALTHY": 54,
+      "SINGLETON_HEALTHY": 51,
+      "UNCLASSIFIED_MS": 37
+    },
+    "non_member_genes_observed": 343,
+    "peptides_observed": 3912,
+    "reference_peptides_searched": 991093
+  },
+  "cta_selection_policy_ids": [
+    "oncoref.target-selection.2026-11-19.4"
+  ],
+  "cta_selection_reference_ids": [
+    "homo_sapiens:GRCh38:Ensembl:115"
+  ],
+  "cta_selection_release_ready": false,
+  "cta_selection_source_snapshot_ids": [
+    "sha256:5c9246deddaf0f4588fb07c17046dc1388ebdea8e69a2422be12ef0f90d31f5b"
+  ],
+  "mhc_class": "I",
+  "mhc_species": "Homo sapiens",
+  "oncoref_version": "1.43.0",
+  "sequence_ensembl_release": 112
+}

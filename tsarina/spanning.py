@@ -340,6 +340,7 @@ def spanning_pmhc_set(
     annotate_netmhcpan_affinity: bool = _DEFAULT_ANNOTATE_NETMHCPAN_AFFINITY,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
+    evidence_package: str | Path | None = None,
     output_format: str = "wide",
     proteoform_labels: str = "symbol",
     include_empty_ctas: bool | None = None,
@@ -628,6 +629,7 @@ def spanning_pmhc_set(
             require_cta_exclusive=require_cta_exclusive,
             iedb_path=iedb_path,
             cedar_path=cedar_path,
+            evidence_package=evidence_package,
             predictor=predictor,
             cutoffs=cutoffs,
             include_predicted_only=include_predicted_only,
@@ -1148,6 +1150,7 @@ def _select_cta_batch(
     progress_bar: bool = False,
     score_chunk_size: int | None = None,
     progress_file: TextIO | None = None,
+    evidence_package: str | Path | None = None,
 ) -> pd.DataFrame:
     if not cta_list:
         return _empty_selected_frame()
@@ -1186,13 +1189,15 @@ def _select_cta_batch(
     )
     _report_progress(on_progress, "Loading public MS evidence for enumerated peptides...")
     try:
-        hits = load_public_ms_hits(
-            unique_peptides,
-            iedb_path=iedb_path,
-            cedar_path=cedar_path,
-            mhc_class="I",
-            mhc_species="Homo sapiens",
-        )
+        hit_kwargs = {
+            "iedb_path": iedb_path,
+            "cedar_path": cedar_path,
+            "mhc_class": "I",
+            "mhc_species": "Homo sapiens",
+        }
+        if evidence_package is not None:
+            hit_kwargs["evidence_package"] = evidence_package
+        hits = load_public_ms_hits(unique_peptides, **hit_kwargs)
     except Exception as e:
         raise RuntimeError(
             "tsarina panel requires the hitlist observations index for public-MS "

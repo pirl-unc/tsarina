@@ -519,64 +519,74 @@ def handle(args: argparse.Namespace) -> None:
         if not args.include_binding_assays and "is_binding_assay" in hits.columns:
             hits = hits[~hits["is_binding_assay"]].copy()
     else:
-        # Fast path: direct gene_name pushdown through hitlist's mappings sidecar.
-        from .indexing import ensure_index_built
+        from .evidence_store import load_evidence_store_ms_hits, resolve_evidence_package
 
-        ensure_index_built()
-
-        # hitlist 1.15.1+ length_min/length_max pushdown.  Applied when
-        # lengths were explicitly given OR a class was specified (in
-        # which case _resolve_lengths picked a class-appropriate window).
-        # When neither was set resolved_lengths is None and no bounds
-        # are pushed, preserving the "load everything" behavior so
-        # unqualified queries don't silently drop off-window rows.
-        # Non-contiguous --lengths are restored to exact-set semantics
-        # by the post-filter below.
+        resolved_package = resolve_evidence_package(getattr(args, "evidence_package", None))
         length_min = min(resolved_lengths) if resolved_lengths else None
         length_max = max(resolved_lengths) if resolved_lengths else None
 
-        if args.include_binding_assays:
-            # hitlist 1.10.0+ exposes load_all_evidence() — UNION of MS
-            # observations + binding-assay rows, tagged with evidence_kind.
-            from hitlist.observations import load_all_evidence
-
-            hits = load_all_evidence(
+        if resolved_package is not None:
+            hits = load_evidence_store_ms_hits(
+                resolved_package,
                 gene_name=gene,
                 mhc_class=args.mhc_class,
-                species=mhc_species,
+                mhc_species=mhc_species,
+                drop_binding_assays=not args.include_binding_assays,
+                include_binding=args.include_binding_assays,
                 length_min=length_min,
                 length_max=length_max,
             )
         else:
-            from hitlist.observations import load_observations
+            # Fast path: direct gene_name pushdown through hitlist's mappings sidecar.
+            from .indexing import ensure_index_built
 
-            hits = load_observations(
-                gene_name=gene,
-                mhc_class=args.mhc_class,
-                species=mhc_species,
-                length_min=length_min,
-                length_max=length_max,
-            )
-        # hitlist 1.30.46 split gene_names / gene_ids / protein_ids out of
-        # observations.parquet (#238) — they're now derived on demand from
-        # the peptide_mappings sidecar.  No-projection loads don't get them
-        # back automatically, so re-attach here using hitlist's own
-        # aggregator so downstream gene_ident_cols logic keeps working on
-        # both pre- and post-1.30.46 parquets.
-        #
-        # Test note: any test that mocks ``hitlist.observations.load_observations``
-        # (or ``load_all_evidence``) with a non-empty frame lacking
-        # ``gene_names`` must also mock ``hitlist.mappings.load_peptide_mappings``
-        # — otherwise the real loader raises ``FileNotFoundError`` against
-        # a CI environment without a built sidecar.
-        if not hits.empty and "gene_names" not in hits.columns:
-            from hitlist.mappings import annotate_observations_with_genes, load_peptide_mappings
+            ensure_index_built()
 
-            mappings = load_peptide_mappings(
-                peptide=hits["peptide"].unique().tolist(),
-                columns=["peptide", "gene_name", "gene_id", "protein_id"],
-            )
-            hits = annotate_observations_with_genes(hits, mappings)
+            if args.include_binding_assays:
+                # hitlist 1.10.0+ exposes load_all_evidence() — UNION of MS
+                # observations + binding-assay rows, tagged with evidence_kind.
+                from hitlist.observations import load_all_evidence
+
+                hits = load_all_evidence(
+                    gene_name=gene,
+                    mhc_class=args.mhc_class,
+                    species=mhc_species,
+                    length_min=length_min,
+                    length_max=length_max,
+                )
+            else:
+                from hitlist.observations import load_observations
+
+                hits = load_observations(
+                    gene_name=gene,
+                    mhc_class=args.mhc_class,
+                    species=mhc_species,
+                    length_min=length_min,
+                    length_max=length_max,
+                )
+            # hitlist 1.30.46 split gene_names / gene_ids / protein_ids out of
+            # observations.parquet (#238) — they're now derived on demand from
+            # the peptide_mappings sidecar.  No-projection loads don't get them
+            # back automatically, so re-attach here using hitlist's own
+            # aggregator so downstream gene_ident_cols logic keeps working on
+            # both pre- and post-1.30.46 parquets.
+            #
+            # Test note: any test that mocks ``hitlist.observations.load_observations``
+            # (or ``load_all_evidence``) with a non-empty frame lacking
+            # ``gene_names`` must also mock ``hitlist.mappings.load_peptide_mappings``
+            # — otherwise the real loader raises ``FileNotFoundError`` against
+            # a CI environment without a built sidecar.
+            if not hits.empty and "gene_names" not in hits.columns:
+                from hitlist.mappings import (
+                    annotate_observations_with_genes,
+                    load_peptide_mappings,
+                )
+
+                mappings = load_peptide_mappings(
+                    peptide=hits["peptide"].unique().tolist(),
+                    columns=["peptide", "gene_name", "gene_id", "protein_id"],
+                )
+                hits = annotate_observations_with_genes(hits, mappings)
         if resolved_lengths and not hits.empty:
             hits = hits[hits["peptide"].str.len().isin(resolved_lengths)].copy()
         hits = _apply_min_resolution(hits, args.min_resolution)
