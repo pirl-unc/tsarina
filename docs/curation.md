@@ -89,7 +89,13 @@ for historical comparisons; the human default is `current`.
 ## Sequence background and provenance
 
 For gene-based peptide consumers, current selected CTA member genes form the
-CTA set. Every other coding gene in the requested Ensembl sequence release
+CTA set. Audited same-chromosome `HSCHR*` alternate-haplotype annotations of
+those curated CTAs (resolved via OncoRef's `alternate_ensembl_gene_ids` or
+exact non-empty symbol on the matching chromosome) are excluded from the
+non-CTA background and recorded separately (`CTA_partition_alternate_haplotype_aliases()`
+and `background_cta_aliases.csv`) so an alternate-contig copy of a CTA does not
+self-veto its primary gene. Primary-contig non-CTA loci never inherit CTA
+membership. Every other coding gene in the requested Ensembl sequence release
 remains in the non-CTA background, including `Unsafe`, `Other`,
 `Cancer Antigen only`, `Reproductive Antigen only`, unassigned and genes
 absent from the selection table. The compatibility partition field
@@ -97,7 +103,7 @@ absent from the selection table. The compatibility partition field
 removing a sequence from the background.
 
 This consumer policy is recorded as
-`tsarina.current-selection-other-genes.v1`. It is separate from OncoRef's
+`tsarina.current-selection-alternate-haplotypes.v1`. It is separate from OncoRef's
 independently versioned exact-protein background policy. Admission of a
 representative protein does not certify every isoform of its member genes.
 

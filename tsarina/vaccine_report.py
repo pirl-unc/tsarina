@@ -110,11 +110,10 @@ def write_vaccine_report(result, output_dir):
         "curated exceptions and are not absolute absence rules."
     ) + " Normal-tissue restriction does not establish target safety."
     background_method = (
-        "Current selected member gene IDs define the CTA side of the sequence partition; "
-        "alternate haplotypes do not inherit membership by symbol. "
-        if current
-        else "Same-symbol HSCHR alternate-haplotype annotations inherit their curated primary "
-        "gene's CTA identity, with resolutions in `background_cta_aliases.csv`. "
+        "Audited same-chromosome HSCHR alternate-haplotype annotations (OncoRef alternate gene IDs "
+        "or exact non-empty symbol matches of curated primary CTAs) inherit their curated gene's "
+        "CTA identity, with resolutions recorded in `background_cta_aliases.csv`. Primary-contig "
+        "non-CTA loci never inherit membership. "
     )
     lines = [
         "# Mortality-prioritized CTA vaccine design",
@@ -133,7 +132,7 @@ def write_vaccine_report(result, output_dir):
         "",
         f"MS evidence source: **{result['provenance']['ms_input_kind'].replace('_', ' ')}**. Observation hashes and any supplied source snapshots/provenance are in `manifest.json` and the copied source tables.",
         "",
-        "MS modality is positively established by the structured assay method, curated MS-only supplementary source, or declared supplied MS modality when no method is reported. Explicit non-MS and unknown-method records are excluded; `rejected_ms_observations.csv` preserves the source rows and reasons. Nonbinding is not equivalent to MS (Hitlist #644).",
+        "MS modality and positive detection are established through Hitlist's assay classifier (positive MS assay method/outcome or curated MS-only supplementary source). Explicit non-MS, binding, negative, conflicting and unknown/unestablished outcome records are excluded; `rejected_ms_observations.csv` preserves the source rows and reasons. Nonbinding is not equivalent to MS (Hitlist #644).",
         "",
         f"MS support mode: **{result['config']['ms_support_mode']}**. Sample-affinity mode retains the exact observed peptide with every typed sample allele predicted below {result['config']['ms_affinity_nm']:g} nM; it does not require best-of-haplotype or presentation-percentile selection. Untyped sample support by panel prediction: {result['config']['allow_untyped_ms']}. Study-wide allele pools are not sample genotypes. `ms_assignments.csv`, when present, links each observation to its measured or predicted assignment; `hla_support_counts.csv` reports distinct retained peptide counts by allele and evidence tier. Presentation mode uses the tier-percentile policy below. Neither mode infers a nested unobserved peptide from a longer observed sequence.",
         "",
@@ -228,13 +227,14 @@ def write_vaccine_report(result, output_dir):
         ]
     if design:
         bad = [r for r in design["junctions"] if r["below_threshold"]]
+        overlaps = design.get("background_overlaps", [])
         lines.extend(
             [
                 "## Construct and junction audit",
                 "",
-                f"Protein: **{design['length_aa']} aa**. Full {result['config']['vaccine_type'].upper()}: **{design['length_nt']} nt**. Junction affinity cutoff: **{result['config']['junction_affinity_nm']:g} nM**. Unresolved peptide/allele/window predictions: **{len(bad)}**.",
+                f"Protein: **{design['length_aa']} aa**. Full {result['config']['vaccine_type'].upper()}: **{design['length_nt']} nt**. Whole-product background {result['config']['shared_k']}-mer overlaps (including initiating methionine, linkers and cross-layer joins): **{len(overlaps)}** (`background_safe={design.get('background_safe', True)}`). Junction affinity cutoff: **{result['config']['junction_affinity_nm']:g} nM**. Unresolved peptide/allele/window predictions: **{len(bad)}**.",
                 "",
-                "All predictions, including nonbinding windows, are in `junctions.csv`. Boundary cleavage probabilities are in `cleavage.csv`. `layers.csv` maps native source coordinates to assembled coordinates; `excluded_segments.csv` records whole-piece exclusions. A design with unresolved binders requires review; `--require-clean-junctions` makes that condition fail the command after writing the audit.",
+                "Whole-product background audit results (non-CTA coding isoforms and, when exclusion is enabled, the full verified normal-MS blacklist) are in `background_overlaps.csv`; any remaining overlap rejects the construct with status `rejected_background_overlap`. All predictions, including nonbinding windows, are in `junctions.csv`. Boundary cleavage probabilities are in `cleavage.csv`. `layers.csv` maps native source coordinates to assembled coordinates; `excluded_segments.csv` records whole-piece exclusions. A design with unresolved binders requires review; `--require-clean-junctions` makes that condition fail the command after writing the audit.",
                 "",
             ]
         )

@@ -17,16 +17,29 @@ def test_live_ms_gate_recovers_ms_from_both_legacy_partitions():
     from tsarina.vaccine_inputs import filter_ms_modality
 
     ms = pd.DataFrame(
-        [{"peptide": "ACDEFGHIK", "assay_method": "mass spectrometry", "is_binding_assay": False}]
+        [
+            {
+                "peptide": "ACDEFGHIK",
+                "assay_method": "mass spectrometry",
+                "qualitative_measurement": "Positive",
+                "is_binding_assay": False,
+            }
+        ]
     )
     binding = pd.DataFrame(
         [
             {
                 "peptide": "KRFSLDFNL",
                 "assay_method": "cellular MHC/mass spectrometry",
+                "qualitative_measurement": "Positive",
                 "is_binding_assay": True,
             },
-            {"peptide": "AAAAAAAAA", "assay_method": "fluorescence", "is_binding_assay": True},
+            {
+                "peptide": "AAAAAAAAA",
+                "assay_method": "fluorescence",
+                "qualitative_measurement": "Positive",
+                "is_binding_assay": True,
+            },
         ]
     )
     with (

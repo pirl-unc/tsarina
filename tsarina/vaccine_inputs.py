@@ -84,41 +84,23 @@ def require_current_hitlist():
 
 
 def resolve_background_cta_ids(proteins, cta_ids, *, inherit_alternate_haplotypes=True):
-    """Resolve same-gene alternate haplotypes without admitting unrelated loci.
+    """Resolve same-gene alternate haplotypes without admitting unrelated loci (#187).
 
     OncoRef curates primary gene IDs. Ensembl's HSCHR alternate haplotypes
-    can annotate the same gene with another ID (PRAME, MAGEA3, MAGEA6).
-    Those are CTA gene occurrences, not independent somatic sources. Only
-    an exact symbol match to a curated non-HSCHR occurrence is inherited;
-    ordinary non-CTA loci, even with an identical sequence, remain background.
-    This resolution never changes expression keys or adds prevalence values.
+    can annotate the same gene with another ID (for example PRAME and MAGEA6).
+    Those are CTA gene occurrences, not independent somatic sources. Only an
+    ``HSCHR*`` locus listed in OncoRef's ``alternate_ensembl_gene_ids`` for a
+    curated CTA gene or matching a non-empty exact symbol of a curated
+    non-HSCHR occurrence is inherited; ordinary non-CTA loci on primary
+    chromosomes and unnamed genes (empty symbol) remain background. This
+    resolution never changes expression keys or adds prevalence values.
     """
+    from .partition import ALIAS_COLUMNS, resolve_cta_alternate_haplotype_ids
+
     if not inherit_alternate_haplotypes:
-        return set(cta_ids), pd.DataFrame(
-            columns=["gene_id", "gene_name", "contig", "cta_reference_gene_ids"]
-        )
-    names = {}
-    for protein in proteins:
-        if protein.gene_id in cta_ids and not protein.contig.startswith("HSCHR"):
-            names.setdefault(protein.gene_name, set()).add(protein.gene_id)
-    aliases = {}
-    for protein in proteins:
-        if (
-            protein.gene_id not in cta_ids
-            and protein.contig.startswith("HSCHR")
-            and protein.gene_name in names
-        ):
-            aliases[protein.gene_id] = {
-                "gene_id": protein.gene_id,
-                "gene_name": protein.gene_name,
-                "contig": protein.contig,
-                "cta_reference_gene_ids": ";".join(sorted(names[protein.gene_name])),
-            }
-    table = pd.DataFrame(
-        [aliases[key] for key in sorted(aliases)],
-        columns=["gene_id", "gene_name", "contig", "cta_reference_gene_ids"],
-    )
-    return set(cta_ids) | aliases.keys(), table
+        return set(cta_ids), pd.DataFrame(columns=list(ALIAS_COLUMNS))
+    alt_ids, table = resolve_cta_alternate_haplotype_ids(proteins, set(cta_ids))
+    return set(cta_ids) | alt_ids, table
 
 
 def load_vaccine_inputs(
@@ -226,7 +208,7 @@ def load_vaccine_inputs(
                     "cta_selection_release_ready": bool(
                         (selection_meta or {}).get("release_ready", False)
                     ),
-                    "background_policy": "tsarina.current-selection-other-genes.v1",
+                    "background_policy": "tsarina.current-selection-alternate-haplotypes.v1",
                 }
                 if selection is not None
                 else {}
@@ -401,39 +383,106 @@ def rank_proteoforms(inputs: VaccineInputs):
 
 
 def filter_ms_modality(hits):
-    """Require positive MS modality, retaining non-MS/unknown records for audit.
+    """Require established positive MS modality, retaining rejected rows for audit (#209).
 
-    Hitlist #644: nonbinding does not imply MS. Curated supplement adapters
-    publish MS-only rows; supplied observations may declare assay_modality when
-    no structured method exists. Explicit non-MS methods always take precedence.
+    Follows Hitlist's structured assay-modality and outcome-polarity contract
+    (:func:`hitlist.assays.annotate_assays`):
+
+    - An explicit mass-spectrometry assay method with a compatible ligand
+      response requires an established positive qualitative outcome
+      (``Positive``, ``Positive-High``, ``Positive-Intermediate``, or
+      ``Positive-Low``). Blank, ``unknown``, or negative outcomes are rejected.
+      Structured MS method + positive outcome still takes precedence over a
+      legacy ``is_binding_assay`` flag.
+    - Curated ``source="supplement"`` MS tables without an explicit method are
+      accepted unless marked negative or non-positive/unknown.
+    - Portable supplied rows with no ``assay_method`` / ``response_measured``
+      that declare ``assay_modality`` as ``ms`` / ``mass_spectrometry`` still
+      require an established positive qualitative measurement or explicit
+      ``ms_outcome_status`` in ``{"positive_result", "curated_ligand_table"}``.
+    - Conflicting method/response pairs, binding assays, structural/non-MS
+      methods, unknown modalities, negative outcomes, and unestablished MS
+      outcomes are rejected with distinct ``rejection_reason`` values.
     """
+    from hitlist.assays import ASSAY_COLUMNS, annotate_assays
+
     from .spanning import _is_truthy
 
+    if hits.empty:
+        rejected = hits.copy()
+        rejected["rejection_reason"] = pd.Series(dtype=str)
+        return hits.copy(), rejected
+
+    annotated = annotate_assays(hits.reindex(columns=ASSAY_COLUMNS))
     method = hits.get("assay_method", pd.Series("", index=hits.index)).fillna("").astype(str)
     method = method.str.strip().str.lower()
-    modality = hits.get("assay_modality", pd.Series("", index=hits.index)).fillna("").astype(str)
-    source = hits.get("source", pd.Series("", index=hits.index)).fillna("").astype(str)
-    accepted = method.str.contains("mass spectrometry", regex=False) | (
-        method.eq("") & (modality.eq("mass_spectrometry") | source.eq("supplement"))
+    response = hits.get("response_measured", pd.Series("", index=hits.index)).fillna("").astype(str)
+    response = response.str.strip().str.lower()
+    declared_modality = (
+        hits.get("assay_modality", pd.Series("", index=hits.index))
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.lower()
     )
-    if "is_binding_assay" in hits:
-        # Legacy Hitlist flags can classify explicit MS as binding based on
-        # qualitative result labels. Structured MS method takes precedence.
-        accepted &= method.str.contains(
-            "mass spectrometry", regex=False
-        ) | ~hits.is_binding_assay.map(_is_truthy)
-    qualitative = hits.get("qualitative_measurement", pd.Series("", index=hits.index))
-    negative = qualitative.fillna("").astype(str).str.strip().str.lower().str.startswith("negative")
-    accepted &= ~negative
-    rejected = hits[~accepted].copy()
-    rejected["rejection_reason"] = method[~accepted].map(
-        lambda m: "explicit_non_ms_assay" if m else "unknown_assay_modality"
+    supplied_outcome = (
+        hits.get("ms_outcome_status", pd.Series("", index=hits.index))
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.lower()
     )
-    if "is_binding_assay" in rejected:
-        rejected.loc[rejected.is_binding_assay.map(_is_truthy), "rejection_reason"] = (
-            "binding_assay"
-        )
-    rejected.loc[negative[~accepted], "rejection_reason"] = "negative_assay_result"
+    legacy_binding = (
+        hits["is_binding_assay"].map(_is_truthy)
+        if "is_binding_assay" in hits.columns
+        else pd.Series(False, index=hits.index)
+    )
+
+    ann_modality = annotated["assay_modality"].astype(str)
+    ann_basis = annotated["assay_modality_source"].astype(str)
+    ann_outcome = annotated["ms_outcome_status"].astype(str)
+
+    # Structured positive MS (Hitlist contract): structured MS method + positive
+    # qualitative result, or curated MS-only supplement with blank/positive result.
+    accepted = annotated["is_ms_observation"].astype(bool).copy()
+
+    # Portable supplied rows that omit assay_method/response_measured and declare
+    # MS modality explicitly still require an established positive outcome.
+    declared_ms_only = (
+        method.eq("")
+        & response.eq("")
+        & declared_modality.isin({"ms", "mass_spectrometry"})
+        & ~legacy_binding
+    )
+    established_positive = ann_outcome.eq("positive_result") | (
+        ann_outcome.eq("unestablished")
+        & supplied_outcome.isin({"positive_result", "curated_ligand_table"})
+    )
+    accepted |= declared_ms_only & established_positive
+
+    rejected_mask = ~accepted
+    rejected = hits[rejected_mask].copy()
+    rej_mod = ann_modality[rejected_mask]
+    rej_basis = ann_basis[rejected_mask]
+    rej_outcome = ann_outcome[rejected_mask]
+    rej_method = method[rejected_mask]
+    rej_response = response[rejected_mask]
+    rej_declared_ms = declared_ms_only[rejected_mask]
+    rej_legacy_binding = legacy_binding[rejected_mask]
+
+    reasons = pd.Series("unknown_assay_modality", index=rejected.index, dtype=object)
+    reasons.loc[
+        rej_method.ne("")
+        | rej_response.ne("")
+        | rej_mod.isin({"structural", "non_ms_ligand", "other"})
+    ] = "explicit_non_ms_assay"
+    reasons.loc[rej_mod.eq("binding") | rej_legacy_binding] = "binding_assay"
+    reasons.loc[rej_mod.eq("ms") | rej_declared_ms] = "unestablished_ms_outcome"
+    reasons.loc[rej_basis.eq("conflicting_fields")] = "conflicting_assay_fields"
+    reasons.loc[(rej_mod.eq("ms") | rej_declared_ms) & rej_outcome.eq("negative")] = (
+        "negative_assay_result"
+    )
+    rejected["rejection_reason"] = reasons
     return hits[accepted].copy(), rejected
 
 

@@ -3063,3 +3063,106 @@ Review:
   `evidence_store.py`, and `scripts/regenerate_gene_ms_safety_evidence.py` packaged
   and no `regen.csv` leak; all 4 real MHCflurry integration tests pass; full
   `./test.sh` passes.
+
+## Foundational MS admission (#199, #209) & background/assembled-product audit (#187, #210) (2026-11-20)
+
+Issues: `#199`, `#209`, `#187`, `#210` (release `1.39.1`). Python 3.11–3.14 CI
+alignment (`#215`) follows in its own PR (`1.39.2`) so 3.13/3.14 wheel checks
+do not block these four scientific correctness fixes.
+
+Specification:
+
+1. **#199 (Generic positive-MS admission)**:
+   - Replace `~hits["is_binding_assay"]` complement predicates in
+     `tsarina/ms_evidence.py::load_public_ms_hits`, `tsarina/iedb.py::scan_public_ms`,
+     and `tsarina/cli_hits.py` raw scan branch with Hitlist's positive-MS contract
+     (`is_ms_observation`, or `hitlist.assays.positive_ms_mask` when assay columns
+     are supplied without precomputed `is_ms_observation`).
+   - Keep binding-assay inclusion (`--include-binding-assays`: `is_ms_observation |
+     is_binding_assay`) strictly separate from structural/unknown/negative-MS
+     inclusion (explicit `--include-other-assays`).
+   - Verify raw/cached/EvidenceStore parity across positive-MS, structural
+     (X-ray crystallography), unknown/conflicting, negative-MS, and binding rows.
+2. **#209 (Vaccine MS modality & outcome gate)**:
+   - Update `tsarina/vaccine_inputs.py::filter_ms_modality` to enforce Hitlist's
+     structured positive-MS contract (`hitlist.assays.annotate_assays` +
+     `ms_outcome_status in {"positive_result", "curated_ligand_table"}`), rejecting
+     blank/unknown outcomes (`unestablished_ms_outcome`), conflicting method/response
+     pairs (`conflicting_assay_fields`), negative results (`negative_assay_result`),
+     binding assays (`binding_assay`), structural/non-MS (`explicit_non_ms_assay`),
+     and missing modality (`unknown_assay_modality`), while retaining structured-MS
+     precedence over legacy `is_binding_assay=True`.
+   - Portable rows declaring `assay_modality in {"ms", "mass_spectrometry"}` with
+     no `assay_method`/`response_measured` still require an established positive
+     outcome (`Positive*` or `ms_outcome_status in {"positive_result", "curated_ligand_table"}`).
+3. **#187 (Coordinated HSCHR alternate-haplotype CTA resolution)**:
+   - Add `resolve_cta_alternate_haplotype_ids` in `tsarina/partition.py`: resolve
+     non-CTA coding annotations on `HSCHR*` alternate-haplotype contigs only when
+     explicitly listed in OncoRef's `gene_identity_catalog().alternate_ensembl_gene_ids`
+     for a curated CTA gene OR matching the exact non-empty symbol of a curated
+     primary-contig CTA gene. Never exempt primary-contig non-CTA loci or match
+     empty symbols (`""`).
+   - Apply this policy in `partition._build_partition` (`non_cta` excludes curated
+     CTA IDs and resolved `HSCHR*` alternate-haplotype CTA IDs while keeping
+     `partition.cta == CTA_gene_ids()`), `vaccine_inputs.resolve_background_cta_ids`
+     (fixing the empty-symbol `""` match bug and incorporating OncoRef alternate IDs),
+     and `vaccine.py` (enabling alternate-haplotype resolution for `definition="current"`
+     too so PRAME/MAGEA6 on `HSCHR*` contigs do not self-veto in Ensembl 112).
+4. **#210 (Assembled human vaccine whole-product background & normal-MS audit)**:
+   - Generalize `vaccine_construct.optimize_construct`'s `background_fn` window
+     length from hardcoded `8` to `config.shared_k`.
+   - Add `verified_normal_ms_blacklist_kmers` in `tsarina/vaccine_tissues.py` (all
+     donor-qualified class-I Atlas 8-mers, not restricted to native CTA peptides).
+   - Wire `background_fn` (combining all non-CTA coding occurrences and full
+     verified normal-MS blacklist 8-mers) into human `vaccine.py::design_vaccine`
+     for every assembled candidate and final product (including initiation `M`,
+     linkers, and cross-layer joins).
+   - Record `background_overlaps` source table and provenance, set
+     `status="rejected_background_overlap"`, write the audit report, and raise
+     `NoFeasibleConstruct` if any final assembled window hits background/normal-MS.
+
+Plan:
+
+- [x] Implement `#199` in `tsarina/ms_evidence.py`, `tsarina/iedb.py`, `tsarina/cli_hits.py`.
+- [x] Implement `#209` in `tsarina/vaccine_inputs.py`.
+- [x] Implement `#187` in `tsarina/partition.py`, `tsarina/vaccine_inputs.py`, `tsarina/vaccine.py`.
+- [x] Implement `#210` in `tsarina/vaccine_construct.py`, `tsarina/vaccine_tissues.py`,
+      `tsarina/vaccine.py`, `tsarina/vaccine_report.py`.
+- [x] Add comprehensive unit/integration tests covering all four issues and update
+      affected test fixtures.
+- [x] Bump version `1.39.0` -> `1.39.1`; run `./format.sh`, `./lint.sh`, `./test.sh`,
+      and real MHCflurry tests; PR, CI, merge, and deploy to PyPI.
+
+Review:
+
+- `#199`: `filter_positive_ms_observations` in `tsarina/ms_evidence.py`,
+  `tsarina/iedb.py::scan_public_ms`, and `tsarina/cli_hits.py` now route raw
+  and generic queries through Hitlist's `is_ms_observation` / `annotate_assays`
+  contract (with structured MS overriding legacy `is_binding_assay=True`),
+  excluding structural, unknown, conflicting, and negative-MS records by default
+  and keeping `--include-binding-assays` separate from `--include-other-assays`.
+- `#209`: `tsarina/vaccine_inputs.py::filter_ms_modality` enforces Hitlist's
+  structured positive-MS outcome contract (`positive_result` / `curated_ligand_table`),
+  rejecting blank/unknown outcomes (`unestablished_ms_outcome`), conflicting
+  method/response fields (`conflicting_assay_fields`), negative MS outcomes
+  (`negative_assay_result`), binding assays (`binding_assay`), non-MS/structural
+  assays (`explicit_non_ms_assay`), and missing modality (`unknown_assay_modality`).
+- `#187`: `tsarina/partition.py::resolve_cta_alternate_haplotype_ids` coordinates
+  same-chromosome `HSCHR*` alternate-haplotype resolution (via OncoRef
+  `alternate_ensembl_gene_ids` or exact non-empty symbol on the matching
+  chromosome) across `CTA_partition_gene_ids()`, `CTA_partition_alternate_haplotype_aliases()`,
+  `resolve_background_cta_ids()`, and `vaccine.py` (`background_policy =
+  tsarina.current-selection-alternate-haplotypes.v1`). Fixes the empty-symbol
+  `""` match bug and restores 27 real Ensembl 112 CTA alternate-haplotype
+  resolutions (including PRAME `ENSG00000275013` and MAGEA6 `ENSG00000292195`,
+  recovering PRAME exclusive peptides like `SLLQHLIGL`).
+- `#210`: `vaccine_construct.py`, `vaccine_tissues.py::verified_normal_ms_blacklist_kmers`,
+  `vaccine.py`, and `vaccine_report.py` now audit every assembled human vaccine
+  candidate and final product (including initiating `M`, linkers, and cross-layer
+  joins) against all non-CTA coding isoforms and the full verified normal-MS
+  blacklist, writing `background_overlaps.csv` / `status = "rejected_background_overlap"`
+  and raising `NoFeasibleConstruct` if any overlap remains.
+- Verification: `./format.sh` and `./lint.sh` pass across all 117 files;
+  `mkdocs build --strict` passes; full `TEST_SH_MAX=2 ./test.sh` passes
+  **787 passed, 7 skipped, 85% coverage**; real MHCflurry model tests pass
+  **4/4**.

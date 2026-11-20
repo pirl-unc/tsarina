@@ -185,10 +185,20 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--include-binding-assays",
         action="store_true",
         help=(
-            "Include IEDB/CEDAR binding-assay rows in addition to MS "
-            "observations (default: MS only).  On the cached-index path this "
-            "routes through hitlist's load_all_evidence() union; rows are "
-            "tagged with an evidence_kind column ('ms' vs 'binding')."
+            "Include IEDB/CEDAR binding-assay rows in addition to positive MS "
+            "observations (default: positive MS only).  On the cached-index path "
+            "this routes through hitlist's load_all_evidence() union; rows are "
+            "tagged with an evidence_kind column ('ms' vs 'binding'). Does not "
+            "admit structural, unknown, or negative-MS assays."
+        ),
+    )
+    p.add_argument(
+        "--include-other-assays",
+        action="store_true",
+        help=(
+            "Include structural, non-MS ligand, unknown, and negative-MS assays "
+            "in addition to positive MS observations (kept separate from "
+            "--include-binding-assays)."
         ),
     )
     p.add_argument(
@@ -516,14 +526,20 @@ def handle(args: argparse.Namespace) -> None:
             classify_source=True,
             min_allele_resolution=args.min_resolution,
         )
-        if not args.include_binding_assays and "is_binding_assay" in hits.columns:
-            hits = hits[~hits["is_binding_assay"]].copy()
+        from .ms_evidence import filter_positive_ms_observations
+
+        hits = filter_positive_ms_observations(
+            hits,
+            include_binding=args.include_binding_assays,
+            include_other=getattr(args, "include_other_assays", False),
+        )
     else:
         from .evidence_store import load_evidence_store_ms_hits, resolve_evidence_package
 
         resolved_package = resolve_evidence_package(getattr(args, "evidence_package", None))
         length_min = min(resolved_lengths) if resolved_lengths else None
         length_max = max(resolved_lengths) if resolved_lengths else None
+        include_other = getattr(args, "include_other_assays", False)
 
         if resolved_package is not None:
             hits = load_evidence_store_ms_hits(
@@ -533,6 +549,7 @@ def handle(args: argparse.Namespace) -> None:
                 mhc_species=mhc_species,
                 drop_binding_assays=not args.include_binding_assays,
                 include_binding=args.include_binding_assays,
+                include_other=include_other,
                 length_min=length_min,
                 length_max=length_max,
             )
@@ -564,6 +581,25 @@ def handle(args: argparse.Namespace) -> None:
                     length_min=length_min,
                     length_max=length_max,
                 )
+            if include_other:
+                import pandas as pd
+                from hitlist.observations import load_other_assays
+
+                other = load_other_assays(
+                    gene_name=gene,
+                    mhc_class=args.mhc_class,
+                    species=mhc_species,
+                    length_min=length_min,
+                    length_max=length_max,
+                )
+                if not other.empty:
+                    other = other.copy()
+                    if "evidence_kind" not in other.columns:
+                        other["evidence_kind"] = "other"
+                    if "evidence_kind" not in hits.columns and not hits.empty:
+                        hits = hits.copy()
+                        hits["evidence_kind"] = "ms"
+                    hits = pd.concat([hits, other], ignore_index=True)
             # hitlist 1.30.46 split gene_names / gene_ids / protein_ids out of
             # observations.parquet (#238) — they're now derived on demand from
             # the peptide_mappings sidecar.  No-projection loads don't get them

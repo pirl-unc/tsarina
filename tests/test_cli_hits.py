@@ -582,3 +582,96 @@ def test_healthy_tissue_flag_handles_no_hits(tmp_path):
     empty = pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
     with patch("tsarina.ms_evidence.cta_healthy_tissue_ms_hits", return_value=empty):
         cli_hits.handle(args)  # must not raise
+
+
+def test_hits_raw_scan_excludes_structural_and_unknown_unless_include_other_assays(tmp_path):
+    """tsarina#199: raw scan path uses Hitlist positive-MS admission instead of
+    ~is_binding_assay, keeping --include-binding-assays separate from
+    --include-other-assays."""
+    from tsarina import cli_hits
+
+    raw = pd.DataFrame(
+        [
+            {
+                "peptide": "MSPOS0001",
+                "mhc_restriction": "HLA-A*02:01",
+                "mhc_class": "I",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "response_measured": "ligand presentation",
+                "qualitative_measurement": "Positive",
+                "is_binding_assay": False,
+                "source": "iedb",
+            },
+            {
+                "peptide": "GVYDGREHTV",
+                "mhc_restriction": "HLA-A*02:01",
+                "mhc_class": "I",
+                "assay_method": "x-ray crystallography",
+                "response_measured": "3D structure",
+                "qualitative_measurement": "Positive",
+                "is_binding_assay": False,
+                "source": "iedb",
+            },
+            {
+                "peptide": "BIND00001",
+                "mhc_restriction": "HLA-A*02:01",
+                "mhc_class": "I",
+                "assay_method": "purified MHC/direct/fluorescence",
+                "response_measured": "dissociation constant KD",
+                "qualitative_measurement": "Positive",
+                "is_binding_assay": True,
+                "source": "iedb",
+            },
+            {
+                "peptide": "MSUNK0001",
+                "mhc_restriction": "HLA-A*02:01",
+                "mhc_class": "I",
+                "assay_method": "mass spectrometry",
+                "response_measured": "ligand presentation",
+                "qualitative_measurement": "unknown",
+                "is_binding_assay": False,
+                "source": "iedb",
+            },
+        ]
+    )
+    peps_df = pd.DataFrame(
+        {
+            "peptide": list(raw["peptide"]),
+            "gene_name": ["PRAME"] * len(raw),
+            "gene_id": ["ENSG00000185686"] * len(raw),
+            "protein_id": ["ENSP00000381848"] * len(raw),
+            "position": list(range(len(raw))),
+            "n_flank": ["AAA"] * len(raw),
+            "c_flank": ["CCC"] * len(raw),
+            "length": [9, 10, 9, 9],
+        }
+    )
+
+    fake_iedb = tmp_path / "iedb.csv"
+    fake_iedb.write_text("dummy\n")
+
+    def _run_raw(include_binding: bool, include_other: bool, name: str):
+        args = _base_cached_args(tmp_path, lengths=None)
+        args.iedb_path = str(fake_iedb)
+        args.cedar_path = None
+        args.include_binding_assays = include_binding
+        args.include_other_assays = include_other
+        args.format = "raw"
+        args.output = str(tmp_path / name)
+        with (
+            patch("tsarina.cli_hits._enumerate_gene_peptides", return_value=peps_df),
+            patch("hitlist.scanner.scan", return_value=raw.copy()),
+        ):
+            cli_hits.handle(args)
+        return set(pd.read_csv(tmp_path / name)["peptide"])
+
+    assert _run_raw(False, False, "ms.csv") == {"MSPOS0001"}
+    assert _run_raw(True, False, "ms_binding.csv") == {"MSPOS0001", "BIND00001"}
+    assert _run_raw(False, True, "ms_other.csv") == {"MSPOS0001", "GVYDGREHTV", "MSUNK0001"}
+    assert _run_raw(True, True, "ms_all.csv") == set(raw["peptide"])
+
+
+def test_hits_help_advertises_include_other_assays():
+    r = _run_cli("hits", "--help")
+    assert r.returncode == 0
+    assert "--include-other-assays" in r.stdout

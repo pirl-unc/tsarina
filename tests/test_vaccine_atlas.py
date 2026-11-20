@@ -124,6 +124,7 @@ def test_explicit_ms_method_overrides_legacy_binding_flag():
             {
                 "peptide": "ACDEFGHIK",
                 "assay_method": "cellular MHC/mass spectrometry",
+                "qualitative_measurement": "Positive",
                 "is_binding_assay": True,
             },
             {"peptide": "AAAAAAAAA", "assay_method": "fluorescence", "is_binding_assay": False},
@@ -133,12 +134,22 @@ def test_explicit_ms_method_overrides_legacy_binding_flag():
                 "qualitative_measurement": "Negative",
                 "is_binding_assay": False,
             },
+            {
+                "peptide": "TVWYACDEF",
+                "assay_method": "cellular MHC/mass spectrometry",
+                "qualitative_measurement": "unknown",
+                "is_binding_assay": False,
+            },
         ]
     )
     accepted, rejected = filter_ms_modality(hits)
     assert accepted.peptide.tolist() == ["ACDEFGHIK"]
-    assert rejected.peptide.tolist() == ["AAAAAAAAA", "KRFSLDFNL"]
-    assert rejected.rejection_reason.tolist() == ["explicit_non_ms_assay", "negative_assay_result"]
+    assert rejected.peptide.tolist() == ["AAAAAAAAA", "KRFSLDFNL", "TVWYACDEF"]
+    assert rejected.rejection_reason.tolist() == [
+        "explicit_non_ms_assay",
+        "negative_assay_result",
+        "unestablished_ms_outcome",
+    ]
 
 
 def test_budget_has_no_protein_cap_and_recomputes_marginal_gain():
