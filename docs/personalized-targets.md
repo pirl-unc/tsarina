@@ -163,9 +163,10 @@ Env/Rec/Np9 antigens. Neither `--cta` nor the supported `--virus` inputs ingest
 HERV locus-expression results; see the
 [endogenous-retrovirus coverage limits](curation.md#coverage-limits-endogenous-retrovirus-antigens).
 
-CTAG2/LAGE-1 is admitted by the current policy and follows the normal CTA
-peptide-specificity path. Historical HPA heart-RNA annotations remain visible;
-current admission does not establish normal-tissue safety.
+Under OncoRef's rebuilt `target_selection` policy, CTAG2/LAGE-1 is classified
+`Other:Review` rather than `CTA`; when explicitly requested, it follows the
+flagged clinical-target compatibility path with visible decision rationale and
+historical HPA annotations rather than the default CTA exclusivity path.
 
 For an explicitly requested gene outside the current set, the existing
 historical clinical-target compatibility path remains available. Such a gene

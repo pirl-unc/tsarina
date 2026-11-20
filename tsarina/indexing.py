@@ -139,12 +139,16 @@ def load_ms_evidence(
     auto_build: bool = True,
     drop_binding_assays: bool = True,
     include_binding: bool = False,
+    evidence_package: str | Path | None = None,
 ) -> pd.DataFrame:
-    """Load MS evidence rows from the hitlist observations index.
+    """Load MS evidence rows from a Hitlist 2.x ``EvidenceStore`` or observations index.
 
-    Ensures the index exists (building if needed) and runs a pushdown-filtered
-    parquet read for ``mhc_class``, ``mhc_species``, ``gene_name``, and the
-    peptide set.
+    When *evidence_package* (or ``TSARINA_EVIDENCE_PACKAGE`` /
+    ``HITLIST_EVIDENCE_PACKAGE``) is configured, reads from the verified
+    Hitlist 2.x package via :func:`tsarina.evidence_store.load_evidence_store_ms_hits`.
+    Otherwise ensures the hitlist observations parquet exists (building if
+    needed) and runs a pushdown-filtered parquet read for ``mhc_class``,
+    ``mhc_species``, ``gene_name``, and the peptide set.
 
     Parameters
     ----------
@@ -170,11 +174,31 @@ def load_ms_evidence(
         Also read the separate binding partition with identical pushdown
         filters. Use with ``drop_binding_assays=False`` and an explicit
         assay-method/result gate to recover legacy misclassified MS rows.
+    evidence_package
+        Optional path to a verified Hitlist 2.x ``EvidenceStore`` package
+        directory. Overrides the observations parquet index when supplied (or
+        when ``TSARINA_EVIDENCE_PACKAGE`` / ``HITLIST_EVIDENCE_PACKAGE`` is
+        set).
 
     Returns
     -------
     pd.DataFrame
     """
+    from .evidence_store import load_evidence_store_ms_hits, resolve_evidence_package
+
+    resolved_package = resolve_evidence_package(evidence_package)
+    if resolved_package is not None:
+        return load_evidence_store_ms_hits(
+            resolved_package,
+            peptides=peptides,
+            mhc_class=mhc_class,
+            mhc_species=mhc_species,
+            gene_name=gene_name,
+            columns=columns,
+            drop_binding_assays=drop_binding_assays,
+            include_binding=include_binding,
+        )
+
     from hitlist.observations import load_observations
 
     # One policy for every read: hitlist decides whether either artifact needs

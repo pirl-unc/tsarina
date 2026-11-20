@@ -55,7 +55,7 @@ def parse_lengths(value: str) -> tuple[int, ...]:
 
 
 def add_iedb_cedar_args(parser: argparse.ArgumentParser) -> None:
-    """Add the IEDB/CEDAR path overrides, spelled the same on every subcommand."""
+    """Add the IEDB/CEDAR/EvidenceStore path overrides, spelled the same on every subcommand."""
     parser.add_argument(
         "--iedb",
         dest="iedb_path",
@@ -67,6 +67,15 @@ def add_iedb_cedar_args(parser: argparse.ArgumentParser) -> None:
         dest="cedar_path",
         default=None,
         help="Explicit CEDAR ligand CSV path (default: hitlist data registry).",
+    )
+    parser.add_argument(
+        "--evidence-package",
+        dest="evidence_package",
+        default=None,
+        help=(
+            "Path to a verified Hitlist 2.x EvidenceStore package directory "
+            "(also configurable via TSARINA_EVIDENCE_PACKAGE)."
+        ),
     )
 
 

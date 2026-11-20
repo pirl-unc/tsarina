@@ -404,6 +404,7 @@ def handle(args: argparse.Namespace) -> None:
         annotate_netmhcpan_affinity=args.annotate_netmhcpan_affinity,
         iedb_path=args.iedb_path,
         cedar_path=args.cedar_path,
+        evidence_package=getattr(args, "evidence_package", None),
         output_format=output_format,
         proteoform_labels=args.proteoform_labels,
         include_empty_ctas=True if args.ctas is not None else args.show_empty_ctas,

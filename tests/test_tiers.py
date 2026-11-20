@@ -262,16 +262,18 @@ def test_filtered_set_delegates_to_current_oncoref():
     assert CTA_filtered_gene_names() == CTA_gene_names()
 
 
-def test_current_policy_admits_gage10_but_not_the_gage12b_stub():
-    """Current decisions supersede the earlier HPA GAGE membership audit.
+def test_current_policy_holds_gage10_in_review_and_excludes_gage12b_stub():
+    """Rebuilt target_selection keeps GAGE10 in Other:Review and omits the GAGE12B stub.
 
-    GAGE10 encodes a full-length paralog protein; GAGE12B is a 7-aa gene-model stub
-    (tsarina#108).
+    GAGE12B is a 7-aa gene-model stub (tsarina#108); GAGE10 is held in
+    Other:Review pending review rather than classified Unsafe.
     """
     filtered = CTA_filtered_gene_names()
     expressed = CTA_gene_names()
-    assert "GAGE10" in filtered
-    assert "GAGE10" in expressed
+    row = CTA_evidence().set_index("Symbol").loc["GAGE10"]
+    assert row["selection_classification"] == "Other:Review"
+    assert "GAGE10" not in filtered
+    assert "GAGE10" not in expressed
     assert "GAGE12B" not in filtered
     assert "GAGE12B" not in expressed
 

@@ -55,10 +55,11 @@ separately from the actual sequence-reference release and digest; all coding
 genes outside the selected member set remain in the specificity background.
 See [CTA selection and background](curation.md).
 
-Tsarina requires Python >=3.10 and OncoRef >=1.23.1.
-PirlyGenes 6.0.19 pins OncoRef 1.23.0, so use a separate environment until
+Tsarina requires Python >=3.11, OncoRef >=1.43.0 and Hitlist >=2.1.22.
+PirlyGenes 6.1.0 and Vaxrank 3.48.3 cap OncoRef at 1.24.0, so use a separate
+environment until
 [coordinated validation](https://github.com/pirl-unc/pirlygenes/issues/658)
-permits 1.23.1. Vaxrank 3.48.0 already permits that release. OncoRef's
+permits the current release. OncoRef's
 genome-scope expression calculation can need complete per-sample matrices;
 `--auto-fetch` permits their download. Missing references fail explicitly.
 

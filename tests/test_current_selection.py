@@ -2,19 +2,69 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from tsarina import CTA_evidence, CTA_excluded_gene_ids, CTA_gene_ids, CTA_gene_names, CTA_selection
+from tsarina import (
+    CTA_TIERS,
+    CTA_by_tier,
+    CTA_cancer_antigen_gene_ids,
+    CTA_cancer_antigen_gene_names,
+    CTA_evidence,
+    CTA_excluded_gene_ids,
+    CTA_gene_ids,
+    CTA_gene_names,
+    CTA_reproductive_antigen_gene_ids,
+    CTA_reproductive_antigen_gene_names,
+    CTA_selection,
+    CTA_target_candidate_gene_ids,
+    CTA_target_candidate_gene_names,
+)
 from tsarina.vaccine_construct import VaccineConfig
 
 
-def test_other_and_unassigned_are_not_relabelled_unsafe_or_selected():
+def test_non_cta_and_unassigned_categories_are_not_relabelled_unsafe_or_selected():
     rows = CTA_evidence()
     other = rows.loc[rows.selection_category.eq("Other")]
+    ca_only = rows.loc[rows.selection_category.eq("Cancer Antigen only")]
+    ra_only = rows.loc[rows.selection_category.eq("Reproductive Antigen only")]
+    # The rebuilt target_selection policy classifies every protein, so real data
+    # may hold no unassigned rows. A null category must still never read as Unsafe or CTA.
     unassigned = rows.loc[rows.selection_category.isna()]
-    assert not other.empty and not unassigned.empty
-    for subset in (other, unassigned):
+    assert not other.empty
+    assert not ca_only.empty
+    assert not ra_only.empty
+    for subset in (other, ca_only, ra_only, unassigned):
         assert not subset.is_current_cta.any()
         assert set(subset.Ensembl_Gene_ID).isdisjoint(CTA_excluded_gene_ids())
         assert set(subset.Ensembl_Gene_ID).isdisjoint(CTA_gene_ids())
+
+
+def test_rebuilt_target_selection_sets_and_cta_tiers_are_consistent():
+    cta_ids = CTA_gene_ids()
+    ca_ids = CTA_cancer_antigen_gene_ids()
+    ra_ids = CTA_reproductive_antigen_gene_ids()
+    cand_ids = CTA_target_candidate_gene_ids()
+
+    assert cta_ids == ca_ids & ra_ids
+    assert cand_ids == ca_ids | ra_ids
+    assert (
+        CTA_gene_names() == CTA_cancer_antigen_gene_names() & CTA_reproductive_antigen_gene_names()
+    )
+    assert CTA_target_candidate_gene_names() == (
+        CTA_cancer_antigen_gene_names() | CTA_reproductive_antigen_gene_names()
+    )
+
+    tier_sets = [CTA_by_tier(tier, column="Ensembl_Gene_ID") for tier in CTA_TIERS]
+    assert all(tier_sets)
+    assert set().union(*tier_sets) == cta_ids
+    assert sum(len(s) for s in tier_sets) == len(cta_ids)
+    assert "PRAME" in CTA_by_tier("core_with_extended_exposure")
+    assert "MAGEA4" in CTA_by_tier("core")
+    assert "MAGEC2" in CTA_by_tier("core")
+
+
+def test_nonhuman_cta_selection_delegates_to_species_catalog():
+    canine = CTA_selection(species="dog")
+    assert not canine.empty
+    assert set(canine["species"].dropna().unique()) == {"dog"}
 
 
 def test_current_partition_retains_every_nonselected_category_in_background(monkeypatch):
@@ -73,16 +123,16 @@ def test_default_panel_source_candidates_preserve_every_current_member():
     assert {gene for label in labels for gene in _cta_member_symbols(label)} == CTA_gene_names()
 
 
-def test_unassigned_personalized_target_reports_current_reason_and_provenance():
+def test_other_personalized_target_reports_current_reason_and_provenance():
     import pytest
 
     from tsarina import personalized_targets
 
-    unassigned = CTA_evidence().query(
-        "selection_category.isna() and Symbol.str.fullmatch('[A-Z0-9]+')"
+    other = CTA_evidence().query(
+        "selection_category == 'Other' and Symbol.str.fullmatch('[A-Z0-9]+')"
     )
-    symbol = unassigned.Symbol.sort_values().iloc[0]
-    with pytest.warns(UserWarning, match=f"{symbol}.*unassigned"):
+    symbol = other.Symbol.sort_values().iloc[0]
+    with pytest.warns(UserWarning, match=f"{symbol}.*current OncoRef category: Other"):
         result = personalized_targets(
             hla_alleles=[],
             cta_expression={symbol: None},

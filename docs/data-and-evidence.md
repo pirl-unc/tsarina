@@ -133,6 +133,30 @@ on stderr.
 An index copied in without its IEDB/CEDAR exports cannot be validated — hitlist
 needs the sources to fingerprint — so it is used as found.
 
+### Verified Hitlist 2.x EvidenceStore packages
+
+Hitlist 2.x also ships hash-verified `EvidenceStore` packages (both standalone
+MHC packages written by `hitlist.write_mhc_evidence_package()` and full
+multi-modality packages opened through `hitlist.EvidenceStore.open()`). Pass a
+verified package path via `--evidence-package <dir>` on `tsarina hits`,
+`tsarina personalize`, or `tsarina panel`, via `evidence_package=...` in the
+Python API (`load_ms_evidence`, `load_public_ms_hits`,
+`cta_healthy_tissue_ms_hits`, `CTA_detailed_evidence`,
+`personalized_targets`), or via `TSARINA_EVIDENCE_PACKAGE` /
+`HITLIST_EVIDENCE_PACKAGE`. Tsarina verifies the package manifest before
+serving rows, queries typed `mhc_positive_ms` (plus `mhc_binding` when
+requested), enriches matched rows from the package's verified `native/`
+parquets, and records the package manifest SHA256 in `df.attrs`.
+
+The bundled `tsarina/data/gene-ms-safety-evidence.csv` overlay and its
+`gene-ms-safety-evidence.meta.json` provenance sidecar can be regenerated from
+either the Hitlist observations index or a verified `EvidenceStore` package:
+
+```bash
+python scripts/regenerate_gene_ms_safety_evidence.py
+python scripts/regenerate_gene_ms_safety_evidence.py --evidence-package /path/to/pkg
+```
+
 ### Data sources
 
 | Dataset | Upstream source | Acquisition |

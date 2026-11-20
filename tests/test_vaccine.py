@@ -808,7 +808,9 @@ def test_vaccine_cli_both_definitions(monkeypatch, tmp_path):
 def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(
     inputs, monkeypatch, definition
 ):
-    from oncoref import cta, cta_selection, expression, proteoforms
+    from oncoref import cta, expression, proteoforms
+
+    import tsarina.cta_selection as tsarina_cta_selection
 
     calls = []
     monkeypatch.setattr("tsarina.vaccine_inputs.require_current_hitlist", lambda: None)
@@ -832,7 +834,7 @@ def test_loader_collapses_genome_before_percentiles_and_keeps_repeated_sources(
             }
         ]
     )
-    monkeypatch.setattr(cta_selection, "results", lambda **kwargs: selected.copy())
+    monkeypatch.setattr(tsarina_cta_selection, "CTA_selection", lambda **kwargs: selected.copy())
     monkeypatch.setattr(
         proteoforms,
         "proteoform_key",

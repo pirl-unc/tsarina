@@ -131,19 +131,23 @@ def load_vaccine_inputs(
     active Ensembl release or repair scientific reference data silently.
     """
     import oncoref
-    from oncoref import cta, cta_selection, expression, proteoforms
+    from oncoref import cta, expression, proteoforms, target_selection
     from pyensembl import EnsemblRelease
+
+    from .cta_selection import CTA_selection
 
     require_current_hitlist()
 
     if definition not in {"current", "strict", "loose"}:
         raise ValueError("CTA definition must be current, strict or loose")
-    selection = cta_selection.results(species="human") if definition == "current" else None
+    selection = CTA_selection(species="human") if definition == "current" else None
     if selection is not None:
         selected = selection.loc[selection.category.eq("CTA")]
         ids = {gene for genes in selected.gene_ids for gene in genes}
+        selection_meta = target_selection.metadata()
     else:
         ids = cta.cta_gene_ids() if definition == "strict" else cta.cta_extended_gene_ids()
+        selection_meta = None
     cohorts = DEFAULT_CANCER_COHORTS if cohorts is None else cohorts
     _validate_cohorts(cohorts)
     # The genome registry includes identical proteins omitted by the focused
@@ -218,6 +222,9 @@ def load_vaccine_inputs(
                     "cta_selection_reference_ids": sorted(selection.reference_id.dropna().unique()),
                     "cta_selection_source_snapshot_ids": sorted(
                         selection.source_snapshot_id.dropna().unique()
+                    ),
+                    "cta_selection_release_ready": bool(
+                        (selection_meta or {}).get("release_ready", False)
                     ),
                     "background_policy": "tsarina.current-selection-other-genes.v1",
                 }

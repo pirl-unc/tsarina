@@ -120,41 +120,23 @@ def _cta_gene_ids(ensembl_release: int) -> frozenset[str]:
     return frozenset(CTA_partition_gene_ids(ensembl_release).cta)
 
 
-def cta_peptides(
+def gene_peptides(
+    gene_ids: Iterable[str],
     ensembl_release: int = 112,
     lengths: tuple[int, ...] = DEFAULT_PEPTIDE_LENGTHS,
     flank_length: int = 15,
-    gene_names: Iterable[str] | None = None,
-    on_progress: Callable[[str], None] | None = None,
     progress_bar: bool = False,
     progress_file: TextIO | None = None,
+    progress_desc: str = "Genes",
 ) -> pd.DataFrame:
-    """Generate all peptides from expressed CTA canonical protein sequences.
+    """Generate all peptides from the longest coding protein of each gene.
 
-    Parameters
-    ----------
-    ensembl_release
-        Ensembl release for protein sequences (default 112).
-    lengths
-        Peptide lengths to generate (default 8, 9, 10, 11).
-    flank_length
-        Number of flanking residues to include for processing prediction
-        (default 15).
-    gene_names
-        Optional CTA gene symbols to enumerate. Defaults to all expressed CTAs.
-    on_progress
-        Optional progress callback.
-    progress_bar
-        If True, show a tqdm bar while walking CTA genes.
-    progress_file
-        File handle for tqdm output. Defaults to ``sys.stderr``.
+    Membership-agnostic counterpart of :func:`cta_peptides`: the caller names
+    the genes, so evidence can be computed for genes outside the current CTA
+    selection without implying they are CTAs. Genes absent from the release or
+    without a coding protein contribute no rows.
 
-    Returns
-    -------
-    pd.DataFrame
-        Columns: ``gene_name``, ``gene_id``, ``transcript_id``,
-        ``peptide``, ``length``, ``start`` (1-based), ``end``,
-        ``n_flank``, ``c_flank``.
+    Returns the same columns as :func:`cta_peptides`.
     """
     from pyensembl import EnsemblRelease
 
@@ -162,19 +144,13 @@ def cta_peptides(
     from .loader import cta_dataframe
 
     ensembl = EnsemblRelease(ensembl_release)
-    cta_ids = _cta_gene_ids_for_names(gene_names)
     evidence = cta_dataframe()
     symbols = dict(zip(evidence.Ensembl_Gene_ID, evidence.Symbol))
-    _report_progress(
-        on_progress,
-        f"Generating CTA peptide candidates from {len(cta_ids)} CTA genes "
-        f"(Ensembl {ensembl_release})...",
-    )
 
     rows: list[dict] = []
     for gene_id in _progress_iter(
-        cta_ids,
-        desc="CTA genes",
+        list(gene_ids),
+        desc=progress_desc,
         progress_bar=progress_bar,
         progress_file=progress_file,
     ):
@@ -228,7 +204,60 @@ def cta_peptides(
                     }
                 )
 
-    out = pd.DataFrame(rows)
+    return pd.DataFrame(rows)
+
+
+def cta_peptides(
+    ensembl_release: int = 112,
+    lengths: tuple[int, ...] = DEFAULT_PEPTIDE_LENGTHS,
+    flank_length: int = 15,
+    gene_names: Iterable[str] | None = None,
+    on_progress: Callable[[str], None] | None = None,
+    progress_bar: bool = False,
+    progress_file: TextIO | None = None,
+) -> pd.DataFrame:
+    """Generate all peptides from expressed CTA canonical protein sequences.
+
+    Parameters
+    ----------
+    ensembl_release
+        Ensembl release for protein sequences (default 112).
+    lengths
+        Peptide lengths to generate (default 8, 9, 10, 11).
+    flank_length
+        Number of flanking residues to include for processing prediction
+        (default 15).
+    gene_names
+        Optional CTA gene symbols to enumerate. Defaults to all expressed CTAs.
+    on_progress
+        Optional progress callback.
+    progress_bar
+        If True, show a tqdm bar while walking CTA genes.
+    progress_file
+        File handle for tqdm output. Defaults to ``sys.stderr``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``gene_name``, ``gene_id``, ``transcript_id``,
+        ``peptide``, ``length``, ``start`` (1-based), ``end``,
+        ``n_flank``, ``c_flank``.
+    """
+    cta_ids = _cta_gene_ids_for_names(gene_names)
+    _report_progress(
+        on_progress,
+        f"Generating CTA peptide candidates from {len(cta_ids)} CTA genes "
+        f"(Ensembl {ensembl_release})...",
+    )
+    out = gene_peptides(
+        cta_ids,
+        ensembl_release=ensembl_release,
+        lengths=lengths,
+        flank_length=flank_length,
+        progress_bar=progress_bar,
+        progress_file=progress_file,
+        progress_desc="CTA genes",
+    )
     from .cta_selection import selection_provenance
 
     out.attrs.update(selection_provenance(ensembl_release=ensembl_release))
