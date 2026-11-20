@@ -34,7 +34,7 @@ testable without pyensembl reference data, which CI does not download.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 

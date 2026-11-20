@@ -3166,3 +3166,24 @@ Review:
   `mkdocs build --strict` passes; full `TEST_SH_MAX=2 ./test.sh` passes
   **787 passed, 7 skipped, 85% coverage**; real MHCflurry model tests pass
   **4/4**.
+
+## Python 3.11–3.14 baseline & CI matrix alignment (#215) (2026-11-20)
+
+Issue: `#215` (release `1.39.2`).
+
+Specification:
+
+- Align `pyproject.toml` classifiers (`3.11`, `3.12`, `3.13`, `3.14`),
+  `[tool.ruff] target-version = "py311"`, `AGENTS.md` target Python version,
+  and `.github/workflows/tests.yml` CI matrix (`["3.11", "3.12", "3.13", "3.14"]`,
+  `fail-fast: false`).
+- Keep `requires-python = ">=3.11"` with no upper bound and explicitly document
+  the dependency constraint preventing Python 3.10 support (`hitlist>=2.1.22` and
+  `pandas>=3` both require Python `>=3.11`).
+
+Plan:
+
+- [x] Update `pyproject.toml`, `.github/workflows/tests.yml`, `AGENTS.md`,
+      `tsarina/qc.py` (`UP035`), and bump `tsarina/version.py` to `1.39.2`.
+- [ ] Run `./format.sh`, `./lint.sh`, `./test.sh`; open PR referencing `#215`
+      and verify CI across Python 3.11–3.14; merge and deploy `1.39.2` to PyPI.
