@@ -242,6 +242,67 @@ def viral_peptides(
     return pd.DataFrame(rows)
 
 
+def _proteome_kmers_from_sequences(
+    sequences: dict[str, str] | list[str] | tuple[str, ...],
+    lengths: tuple[int, ...],
+) -> frozenset[str]:
+    values = sequences.values() if isinstance(sequences, dict) else sequences
+    kmers: set[str] = set()
+    for seq in values:
+        if not seq:
+            continue
+        seq_str = str(seq)
+        n = len(seq_str)
+        for k in lengths:
+            for i in range(n - k + 1):
+                kmers.add(seq_str[i : i + k])
+    return frozenset(kmers)
+
+
+def host_exclusive_viral_peptides(
+    virus: str | None = None,
+    fasta_path: str | Path | None = None,
+    proteins: dict[str, str] | None = None,
+    lengths: tuple[int, ...] = DEFAULT_PEPTIDE_LENGTHS,
+    ensembl_release: int = 112,
+    *,
+    host_species: str = "human",
+    host_proteins: dict[str, str] | list[str] | None = None,
+) -> pd.DataFrame:
+    """Return viral peptides NOT found in any protein of *host_species* (#217).
+
+    Generates all k-mer peptides from the viral proteome and removes any that
+    appear as a substring of any protein-coding sequence in the host proteome
+    (from *host_proteins* if supplied, else ``hitlist.proteome.proteome_kmer_set``
+    scoped to *host_species* and *ensembl_release*).
+    """
+    from .species import resolve_species_context
+
+    ctx = resolve_species_context(
+        host_species,
+        antigen_source_species=virus or "viral",
+        ensembl_release=ensembl_release,
+    )
+    vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
+    if vdf.empty:
+        vdf.attrs["species_context"] = ctx.to_provenance()
+        return vdf
+
+    if host_proteins is not None:
+        host_kmers = _proteome_kmers_from_sequences(host_proteins, tuple(lengths))
+    else:
+        from hitlist.proteome import proteome_kmer_set
+
+        kmer_kwargs = {"release": ensembl_release, "lengths": tuple(lengths), "gene_ids": None}
+        if not ctx.is_human_host:
+            kmer_kwargs["species"] = ctx.pyensembl_species
+        host_kmers = proteome_kmer_set(**kmer_kwargs)
+    mask = ~vdf["peptide"].isin(host_kmers)
+    out = vdf[mask].reset_index(drop=True)
+    out.attrs["species_context"] = ctx.to_provenance()
+    return out
+
+
 def human_exclusive_viral_peptides(
     virus: str | None = None,
     fasta_path: str | Path | None = None,
@@ -251,44 +312,17 @@ def human_exclusive_viral_peptides(
 ) -> pd.DataFrame:
     """Return viral peptides NOT found in any human protein.
 
-    Generates all k-mer peptides from the viral proteome and removes
-    any that appear as a substring of any human protein-coding gene's
-    protein sequence (from Ensembl).
-
-    Requires ``pyensembl`` (install with ``pip install tsarina[peptides]``).
-
-    Parameters
-    ----------
-    virus, fasta_path, proteins
-        Viral proteome source (see :func:`viral_peptides`).
-    lengths
-        Peptide lengths (default 8-11).
-    ensembl_release
-        Ensembl release for human proteome (default 112).
-
-    Returns
-    -------
-    pd.DataFrame
-        Same columns as :func:`viral_peptides`, filtered to human-exclusive.
-
-    Notes
-    -----
-    The human k-mer set is computed once per
-    ``(ensembl_release, lengths)`` via
-    :func:`hitlist.proteome.proteome_kmer_set` and cached both in-process
-    and on disk (hitlist 1.30.49+ persists the ``ProteomeIndex`` to
-    ``~/.hitlist/proteome_index_cache/`` so repeat invocations across
-    fresh processes — e.g. per-patient cluster jobs — skip the cold
-    Ensembl build entirely).
+    Thin wrapper around :func:`host_exclusive_viral_peptides` with
+    ``host_species="human"``.
     """
-    from hitlist.proteome import proteome_kmer_set
-
-    vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
-    if vdf.empty:
-        return vdf
-    human_kmers = proteome_kmer_set(release=ensembl_release, lengths=tuple(lengths), gene_ids=None)
-    mask = ~vdf["peptide"].isin(human_kmers)
-    return vdf[mask].reset_index(drop=True)
+    return host_exclusive_viral_peptides(
+        virus=virus,
+        fasta_path=fasta_path,
+        proteins=proteins,
+        lengths=lengths,
+        ensembl_release=ensembl_release,
+        host_species="human",
+    )
 
 
 def cancer_specific_viral_peptides(
@@ -365,44 +399,39 @@ def viral_iedb_overlap(
     mhc_class: str | None = "I",
     human_exclusive_only: bool = False,
     ensembl_release: int = 112,
+    *,
+    host_species: str = "human",
+    mhc_species: str | None = None,
+    requested_alleles: list[str] | tuple[str, ...] | None = None,
+    evidence_scope: str = "all",
+    observations: pd.DataFrame | None = None,
+    host_proteins: dict[str, str] | list[str] | None = None,
 ) -> pd.DataFrame:
     """Find viral peptides with public IEDB/CEDAR mass spec support.
 
-    Parameters
-    ----------
-    virus, fasta_path, proteins
-        Viral proteome source (see :func:`viral_peptides`).
-    lengths
-        Peptide lengths (default 8-11).
-    iedb_path
-        Path to IEDB MHC ligand export.
-    cedar_path
-        Path to CEDAR MHC ligand export.
-    mhc_class
-        MHC class filter (default ``"I"``).
-    human_exclusive_only
-        If True, only include peptides not found in the human proteome.
-        Requires ``pyensembl``.
-    ensembl_release
-        Ensembl release for human proteome filtering.
-
-    Returns
-    -------
-    pd.DataFrame
-        Viral peptide DataFrame merged with IEDB hit information.
-        Columns include all viral_peptides columns plus ``has_iedb_hit``,
-        ``iedb_alleles`` (semicolon-separated MHC restrictions),
-        ``iedb_hit_count``.
+    Supports species-scoped host self-exclusion and MHC restriction filtering
+    (#217) as well as multi-tier MS attribution (#216) when *requested_alleles*
+    or *observations* are provided.
     """
     from .ms_evidence import aggregate_ms_hits_for_iedb_columns, load_public_ms_hits
+    from .species import resolve_species_context
+
+    ctx = resolve_species_context(
+        host_species,
+        antigen_source_species=virus or "viral",
+        mhc_species=mhc_species,
+        ensembl_release=ensembl_release,
+    )
 
     if human_exclusive_only:
-        vdf = human_exclusive_viral_peptides(
+        vdf = host_exclusive_viral_peptides(
             virus=virus,
             fasta_path=fasta_path,
             proteins=proteins,
             lengths=lengths,
             ensembl_release=ensembl_release,
+            host_species=host_species,
+            host_proteins=host_proteins,
         )
     else:
         vdf = viral_peptides(virus=virus, fasta_path=fasta_path, proteins=proteins, lengths=lengths)
@@ -411,22 +440,51 @@ def viral_iedb_overlap(
         vdf["has_iedb_hit"] = pd.Series(dtype=bool)
         vdf["iedb_alleles"] = pd.Series(dtype=str)
         vdf["iedb_hit_count"] = pd.Series(dtype=int)
+        vdf.attrs["species_context"] = ctx.to_provenance()
         return vdf
 
     unique_peptides = set(vdf["peptide"].unique())
-    hits = load_public_ms_hits(
-        peptides=unique_peptides,
-        iedb_path=iedb_path,
-        cedar_path=cedar_path,
-        mhc_class=mhc_class,
-        classify_source=False,
-        drop_binding_assays=True,
-    )
+    if observations is not None:
+        hits = observations.copy()
+    else:
+        hits = load_public_ms_hits(
+            peptides=unique_peptides,
+            iedb_path=iedb_path,
+            cedar_path=cedar_path,
+            mhc_class=mhc_class,
+            mhc_species=ctx.mhc_species,
+            classify_source=False,
+            drop_binding_assays=True,
+        )
+
+    if requested_alleles is not None or evidence_scope != "all" or observations is not None:
+        from .ms_attribution import attribute_ms_evidence, summarize_ms_attribution
+
+        attributed = attribute_ms_evidence(
+            vdf[["peptide"]].drop_duplicates(),
+            hits,
+            requested_alleles=requested_alleles,
+            species_context=ctx,
+            evidence_scope=evidence_scope,
+            evidence_loaded=True,
+        )
+        summary = summarize_ms_attribution(attributed, group_cols=("peptide",))
+        vdf = vdf.merge(summary, on="peptide", how="left")
+        vdf["iedb_hit_count"] = (
+            pd.to_numeric(vdf["ms_hit_count"], errors="coerce").fillna(0).astype(int)
+        )
+        vdf["iedb_alleles"] = vdf["ms_alleles"].fillna("")
+        vdf["has_iedb_hit"] = vdf["iedb_hit_count"] > 0
+        if evidence_scope != "all":
+            vdf = vdf[vdf["has_iedb_hit"]].reset_index(drop=True)
+        vdf.attrs["species_context"] = ctx.to_provenance()
+        return vdf
 
     if hits.empty:
         vdf["has_iedb_hit"] = False
         vdf["iedb_alleles"] = ""
         vdf["iedb_hit_count"] = 0
+        vdf.attrs["species_context"] = ctx.to_provenance()
         return vdf
 
     # Aggregate IEDB hits per peptide
@@ -436,4 +494,5 @@ def viral_iedb_overlap(
     vdf["has_iedb_hit"] = vdf["iedb_hit_count"].notna() & (vdf["iedb_hit_count"] > 0)
     vdf["iedb_hit_count"] = vdf["iedb_hit_count"].fillna(0).astype(int)
     vdf["iedb_alleles"] = vdf["iedb_alleles"].fillna("")
+    vdf.attrs["species_context"] = ctx.to_provenance()
     return vdf

@@ -52,59 +52,55 @@ def target_peptides(
     classify_source: bool = True,
     cancer_specific: bool = False,
     require_human_exclusive_viral: bool = True,
+    *,
+    host_species: str = "human",
+    mhc_species: str | None = None,
+    requested_alleles: list[str] | tuple[str, ...] | None = None,
+    evidence_scope: str = "all",
+    observations: pd.DataFrame | None = None,
+    custom_targets: pd.DataFrame | None = None,
+    host_proteins: dict[str, str] | list[str] | None = None,
 ) -> pd.DataFrame:
-    """Build a unified peptide table across CTA, viral, and mutant targets.
+    """Build a unified peptide table across CTA, viral, mutant, and custom targets.
 
-    Parameters
-    ----------
-    cta
-        Include CTA-exclusive peptides (default True).
-    viruses
-        Include viral peptides. Pass True for all 9 oncogenic viruses,
-        or a list of virus keys (e.g. ``["hpv16", "ebv"]``).
-        Pass False to skip.
-    mutations
-        Include recurrent mutant-spanning peptides absent from all
-        reference-human coding proteins (default True).
-    lengths
-        Peptide lengths (default 8-11).
-    ensembl_release
-        Ensembl release (default 112).
-    iedb_path
-        Path to IEDB MHC ligand export for MS evidence lookup.
-    cedar_path
-        Path to CEDAR MHC ligand export.
-    mhc_class
-        MHC class filter for IEDB scanning (default ``"I"``).
-    require_ms_evidence
-        If True, only return peptides with at least one IEDB/CEDAR hit.
-    attach_ms_evidence
-        If True, attach MS evidence columns without filtering to
-        MS-confirmed peptides.
-    classify_source
-        If True (default), add source context columns from IEDB
-        (``src_cancer``, ``src_healthy``, etc.).
-    cancer_specific
-        If True, filter to peptides with cancer MS evidence
-        (``src_cancer=True``) and without healthy-tissue evidence
-        (``src_healthy=False``).  Only applies when MS evidence is
-        available.
-    require_human_exclusive_viral
-        If True (default), viral k-mers are filtered to those that do not
-        appear in any human protein (via
-        :func:`tsarina.viral.human_exclusive_viral_peptides`).  Set False
-        to include all viral k-mers regardless of human-proteome overlap.
-
-    Returns
-    -------
-    pd.DataFrame
-        Columns: ``peptide``, ``length``, ``category`` (``"cta"``,
-        ``"viral"``, ``"mutant"``), ``source`` (gene name, virus name,
-        or mutation label), plus MS evidence columns when requested via
-        ``attach_ms_evidence``, ``require_ms_evidence``,
-        ``cancer_specific``, or explicit IEDB/CEDAR paths.
+    Supports species-scoped host/MHC references (#217) and restriction-aware
+    MS attribution (#216). Refuses to silently transfer human CTA or human
+    recurrent-mutation catalogs to non-human host species; pass
+    ``cta=False, mutations=False`` with species-scoped *custom_targets* or
+    *viruses* instead.
     """
+    from .species import resolve_species_context
+
+    ctx = resolve_species_context(
+        host_species,
+        mhc_species=mhc_species,
+        ensembl_release=ensembl_release,
+    )
+    if not ctx.is_human_host:
+        if cta:
+            raise ValueError(
+                f"Human CTA catalog cannot be silently transferred to host_species="
+                f"{ctx.host_species!r}; set cta=False and pass species-scoped custom_targets."
+            )
+        if mutations:
+            raise ValueError(
+                f"Human HOTSPOT_MUTATIONS cannot be silently transferred to host_species="
+                f"{ctx.host_species!r}; set mutations=False and pass species-scoped custom_targets."
+            )
+
     frames: list[pd.DataFrame] = []
+
+    if custom_targets is not None and not custom_targets.empty:
+        req_cols = {"peptide", "category", "source"}
+        missing = req_cols - set(custom_targets.columns)
+        if missing:
+            raise ValueError(f"custom_targets missing required columns: {sorted(missing)}")
+        ct = custom_targets.copy()
+        if "length" not in ct.columns:
+            ct["length"] = ct["peptide"].astype(str).str.len()
+        if "source_detail" not in ct.columns:
+            ct["source_detail"] = ""
+        frames.append(ct[["peptide", "length", "category", "source", "source_detail"]])
 
     # ── CTA peptides ────────────────────────────────────────────────────
     if cta:
@@ -128,16 +124,27 @@ def target_peptides(
     if viruses:
         from .viral import (
             ONCOGENIC_VIRUSES,
-            human_exclusive_viral_peptides,
+            host_exclusive_viral_peptides,
             viral_peptides,
         )
 
         virus_keys = sorted(ONCOGENIC_VIRUSES.keys()) if viruses is True else list(viruses)
         for vk in virus_keys:
             if require_human_exclusive_viral:
-                vdf = human_exclusive_viral_peptides(
-                    virus=vk, lengths=lengths, ensembl_release=ensembl_release
-                )
+                if ctx.is_human_host and host_proteins is None:
+                    from .viral import human_exclusive_viral_peptides
+
+                    vdf = human_exclusive_viral_peptides(
+                        virus=vk, lengths=lengths, ensembl_release=ensembl_release
+                    )
+                else:
+                    vdf = host_exclusive_viral_peptides(
+                        virus=vk,
+                        lengths=lengths,
+                        ensembl_release=ensembl_release,
+                        host_species=host_species,
+                        host_proteins=host_proteins,
+                    )
             else:
                 vdf = viral_peptides(virus=vk, lengths=lengths)
             if not vdf.empty:
@@ -172,7 +179,9 @@ def target_peptides(
             )
 
     if not frames:
-        return pd.DataFrame(columns=["peptide", "length", "category", "source", "source_detail"])
+        empty = pd.DataFrame(columns=["peptide", "length", "category", "source", "source_detail"])
+        empty.attrs["species_context"] = ctx.to_provenance()
+        return empty
 
     combined = pd.concat(frames, ignore_index=True)
 
@@ -184,6 +193,8 @@ def target_peptides(
     needs_ms_evidence = attach_ms_evidence or require_ms_evidence or cancer_specific
     needs_ms_evidence = needs_ms_evidence or iedb_path is not None
     needs_ms_evidence = needs_ms_evidence or cedar_path is not None
+    needs_ms_evidence = needs_ms_evidence or observations is not None
+    needs_ms_evidence = needs_ms_evidence or requested_alleles is not None
     if needs_ms_evidence:
         from .ms_evidence import (
             SOURCE_FLAG_OUTPUTS,
@@ -192,33 +203,63 @@ def target_peptides(
         )
 
         source_flag_outputs = SOURCE_FLAG_OUTPUTS if classify_source or cancer_specific else {}
-        hits = load_public_ms_hits(
-            peptides=set(combined["peptide"].unique()),
-            iedb_path=iedb_path,
-            cedar_path=cedar_path,
-            mhc_class=mhc_class,
-            mhc_species="Homo sapiens",
-            classify_source=classify_source or cancer_specific,
-            drop_binding_assays=True,
-        )
-        hit_agg = aggregate_ms_hits_by_peptide(
-            hits,
-            source_flag_outputs=source_flag_outputs,
-            cell_line_output="ms_cell_lines" if source_flag_outputs else None,
-        )
-        combined = combined.merge(hit_agg, on="peptide", how="left")
-        combined["has_ms_evidence"] = combined["ms_hit_count"].notna() & (
-            combined["ms_hit_count"] > 0
-        )
-        combined["ms_hit_count"] = combined["ms_hit_count"].fillna(0).astype(int)
-        combined["ms_alleles"] = combined["ms_alleles"].fillna("")
-        combined["ms_allele_count"] = combined["ms_allele_count"].fillna(0).astype(int)
+        if observations is not None:
+            hits = observations.copy()
+        else:
+            hits = load_public_ms_hits(
+                peptides=set(combined["peptide"].unique()),
+                iedb_path=iedb_path,
+                cedar_path=cedar_path,
+                mhc_class=mhc_class,
+                mhc_species=ctx.mhc_species,
+                classify_source=classify_source or cancer_specific,
+                drop_binding_assays=True,
+            )
 
-        for col in source_flag_outputs.values():
-            if col in combined.columns:
-                combined[col] = combined[col].where(combined[col].notna(), False).astype(bool)
-        if "ms_cell_lines" in combined.columns:
-            combined["ms_cell_lines"] = combined["ms_cell_lines"].fillna("")
+        if requested_alleles is not None or evidence_scope != "all" or observations is not None:
+            from .ms_attribution import attribute_ms_evidence, summarize_ms_attribution
+
+            attributed = attribute_ms_evidence(
+                combined[["peptide"]].drop_duplicates(),
+                hits,
+                requested_alleles=requested_alleles,
+                species_context=ctx,
+                evidence_scope=evidence_scope,
+                evidence_loaded=True,
+            )
+            summary = summarize_ms_attribution(attributed, group_cols=("peptide",))
+            combined = combined.merge(summary, on="peptide", how="left")
+            combined["has_ms_evidence"] = combined["ms_hit_count"].notna() & (
+                combined["ms_hit_count"] > 0
+            )
+            combined["ms_hit_count"] = combined["ms_hit_count"].fillna(0).astype(int)
+            combined["ms_alleles"] = combined["ms_alleles"].fillna("")
+            combined["ms_allele_count"] = combined["ms_allele_count"].fillna(0).astype(int)
+            combined["ms_cancer"] = combined["ms_in_cancer"].fillna(False).astype(bool)
+            combined["ms_healthy_tissue"] = (
+                combined["ms_in_healthy_tissue"].fillna(False).astype(bool)
+            )
+            if evidence_scope != "all":
+                combined = combined[combined["has_ms_evidence"]].reset_index(drop=True)
+        else:
+            hit_agg = aggregate_ms_hits_by_peptide(
+                hits,
+                source_flag_outputs=source_flag_outputs,
+                cell_line_output="ms_cell_lines" if source_flag_outputs else None,
+            )
+            combined = combined.merge(hit_agg, on="peptide", how="left")
+            combined["has_ms_evidence"] = combined["ms_hit_count"].notna() & (
+                combined["ms_hit_count"] > 0
+            )
+            combined["ms_hit_count"] = combined["ms_hit_count"].fillna(0).astype(int)
+            combined["ms_alleles"] = combined["ms_alleles"].fillna("")
+            combined["ms_allele_count"] = combined["ms_allele_count"].fillna(0).astype(int)
+
+            for col in source_flag_outputs.values():
+                if col in combined.columns:
+                    combined[col] = combined[col].where(combined[col].notna(), False).astype(bool)
+            if "ms_cell_lines" in combined.columns:
+                combined["ms_cell_lines"] = combined["ms_cell_lines"].fillna("")
 
         # ── Filters ─────────────────────────────────────────────────────
         if require_ms_evidence:
@@ -230,6 +271,7 @@ def target_peptides(
             ].reset_index(drop=True)
 
     combined = combined.drop(columns=["peptide_unique_id"], errors="ignore")
+    combined.attrs["species_context"] = ctx.to_provenance()
     return combined
 
 

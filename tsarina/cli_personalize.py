@@ -154,6 +154,32 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="MHC class filter for IEDB scanning (default I).",
     )
     p.add_argument(
+        "--species",
+        default="human",
+        help=(
+            "Host species common or scientific name resolved via PyEnsembl "
+            "(default: human / Homo sapiens; e.g. mouse, dog)."
+        ),
+    )
+    p.add_argument(
+        "--mhc-species",
+        default=None,
+        help=(
+            "Restricting MHC species when distinct from --species, such as "
+            "'Homo sapiens' for HLA-transgenic mouse hosts."
+        ),
+    )
+    p.add_argument(
+        "--ms-evidence-scope",
+        choices=("all", "requested_mhc", "any_mhc"),
+        default="all",
+        help=(
+            "MS attribution filter: 'all' (retain all candidates with tier "
+            "labels), 'requested_mhc' (require exact/donor-set/predicted "
+            "support for requested alleles), or 'any_mhc' (require any exact-peptide MS)."
+        ),
+    )
+    p.add_argument(
         "--min-cta-tpm",
         type=float,
         default=2.0,
@@ -290,8 +316,11 @@ def handle(args: argparse.Namespace) -> None:
             drop_weak_tier=args.drop_weak_tier,
             show_progress=not args.quiet,
             proteoform_rollup=args.proteoform_rollup,
+            host_species=getattr(args, "species", "human"),
+            mhc_species=getattr(args, "mhc_species", None),
+            ms_evidence_scope=getattr(args, "ms_evidence_scope", "all"),
         )
-    except DatasetNotRegisteredError as e:
+    except (DatasetNotRegisteredError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
