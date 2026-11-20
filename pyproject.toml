@@ -21,6 +21,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 requires-python = ">=3.11"
@@ -99,7 +101,7 @@ include = ["tsarina*"]
 tsarina = ["data/gene-ms-safety-evidence.csv", "data/gene-ms-safety-evidence.meta.json", "data/hpa-*.csv", "data/vaccine-website/*", "data/vaccine-website/fonts/*"]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py311"
 line-length = 100
 src = ["tsarina", "tests"]
 exclude = [
