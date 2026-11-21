@@ -3248,3 +3248,12 @@ Plan:
 - [x] Implement `#201` and `#202` in `vaccine_budget.py`, `vaccine.py`, `vaccine_report.py`, `cli_vaccine.py`.
 - [x] Add regression tests in `tests/test_vaccine_optimization_and_budget.py`.
 - [x] Bump version `1.40.0` -> `1.41.0`; run `./format.sh`, `./lint.sh`, `./test.sh`; PR, CI, merge, and deploy to PyPI.
+
+## CLI data health, uniform `--json` schema, and subparser dispatch cleanup (#223, #224, #226) (2026-11-20)
+
+Issues: `#223`, `#224`, `#226` (release `1.41.1`).
+
+- [x] Include explicit `exists` boolean in `data info` and `data list`/`data available` JSON output (`#223`).
+- [x] Add `--json` flag to `data info` and align `data list --json`, `data available --json`, and `data info --json` on one uniform schema (`name`, `status`, `exists`, `size_bytes`, `path`, `source`, `description`) (`#224`).
+- [x] Replace CLI handler dicts with `set_defaults(func=...)` on every subparser and fix `_format_size` boundary rollover (`#226`).
+- [x] Bump version `1.41.0` -> `1.41.1`, run `./format.sh`, `./lint.sh`, `./test.sh`; PR, CI, merge, and deploy to PyPI.
