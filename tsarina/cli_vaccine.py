@@ -125,6 +125,36 @@ def build_parser(sub):
     p.add_argument("--beam-width", type=int, default=4)
     p.add_argument("--optimization-rounds", type=int, default=3)
     p.add_argument("--require-clean-junctions", action="store_true")
+    p.add_argument(
+        "--panel-backfill-budget",
+        type=int,
+        default=12,
+        help="Max supported K-target panels to test when --require-clean-junctions is set",
+    )
+    p.add_argument(
+        "--allocation-objective",
+        choices=["global_union", "target_specific", "evidence_tradeoff"],
+        default="global_union",
+        help="Budget-mode allocation objective (default: global_union)",
+    )
+    p.add_argument(
+        "--min-mortality-gain-pp",
+        type=float,
+        default=0.0,
+        help="Minimum mortality-expression gain in percentage points for evidence_tradeoff mode",
+    )
+    p.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        help="Resume junction search from a verified JSON checkpoint",
+    )
+    p.add_argument(
+        "--save-checkpoint",
+        type=Path,
+        default=None,
+        help="Write resumable junction-search checkpoint JSON after optimization",
+    )
     p.add_argument("--vaccine-type", choices=["dna", "rna", "mrna"], default="rna")
     p.add_argument("--include-utrs", action="store_true")
     p.add_argument(
@@ -195,6 +225,9 @@ def handle(args):
             beam_width=args.beam_width,
             optimization_rounds=args.optimization_rounds,
             require_clean_junctions=args.require_clean_junctions,
+            panel_backfill_budget=args.panel_backfill_budget,
+            allocation_objective=args.allocation_objective,
+            min_mortality_gain_pp=args.min_mortality_gain_pp,
             vaccine_type="rna" if args.vaccine_type == "mrna" else args.vaccine_type,
             include_utrs=args.include_utrs,
             utr_5p=args.utr_5p,
@@ -228,6 +261,8 @@ def handle(args):
                     auto_fetch=args.auto_fetch,
                     output_dir=out,
                     on_progress=lambda message: print(message, file=sys.stderr),
+                    checkpoint_in=getattr(args, "resume_from", None),
+                    checkpoint_out=getattr(args, "save_checkpoint", None),
                 )
             except (ValueError, KeyError, ImportError, FileNotFoundError) as error:
                 failed = True

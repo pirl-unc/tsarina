@@ -6,6 +6,7 @@ from dataclasses import asdict
 from fnmatch import fnmatchcase
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
+from itertools import combinations
 
 import pandas as pd
 
@@ -36,6 +37,8 @@ def design_vaccine(
     on_progress=None,
     affinity_fn=None,
     cleavage_fn=None,
+    checkpoint_in=None,
+    checkpoint_out=None,
 ):
     """Design one vaccine and optionally write the complete evidence bundle.
 
@@ -257,7 +260,9 @@ def design_vaccine(
         if config.selection_mode == "budget":
             from .vaccine_budget import select_budget_segments
 
-            allocated, allocation_history = select_budget_segments(segments, cancer_summary, config)
+            allocated, allocation_history = select_budget_segments(
+                segments, cancer_summary, config, ligand_rows=ligand_rows
+            )
             allocation_ids = {s.segment_id for s in allocated}
             chosen = {s.proteoform_key for s in allocated}
             length_rejected = []
@@ -271,6 +276,9 @@ def design_vaccine(
         if len(chosen) >= config.top_k or inspected == len(eligible):
             break
         inspected = min(inspected + batch, len(eligible))
+
+    screened_segments = list(segments)
+    screened_ligand_rows = list(ligand_rows)
     ranking["selected"] = ranking.proteoform_key.isin(chosen)
     for row in candidates.itertuples(index=False):
         reason = "selected"
@@ -290,8 +298,8 @@ def design_vaccine(
             )
         ranking.loc[ranking.proteoform_key.eq(row.proteoform_key), "selection_reason"] = reason
     selected = ranking[ranking.selected].copy()
-    segments = [s for s in segments if s.proteoform_key in chosen]
-    ligand_rows = [r for r in ligand_rows if r["proteoform_key"] in chosen]
+    segments = [s for s in screened_segments if s.proteoform_key in chosen]
+    ligand_rows = [r for r in screened_ligand_rows if r["proteoform_key"] in chosen]
     target_count_error = (
         f"Only {len(selected)} supported proteoforms fit; requested {config.top_k}"
         if config.selection_mode == "supported" and len(selected) < config.top_k
@@ -310,6 +318,8 @@ def design_vaccine(
 
     design = None
     constraint_error = None
+    panel_search_audit = []
+    panel_search_status = None
     if segments:
         try:
             design = optimize_construct(
@@ -320,9 +330,205 @@ def design_vaccine(
                 cleavage_fn,
                 on_progress,
                 background_fn=background_check,
+                checkpoint_in=checkpoint_in,
+                checkpoint_out=checkpoint_out,
             )
         except NoFeasibleConstruct as error:
             constraint_error = str(error)
+
+    # Clean-junction-aware supported target backfill (#192): when supported mode
+    # requests clean junctions and the top-K panel fails the clean-junction or
+    # background gate, boundedly try alternative supported K-target panels.
+    if (
+        config.selection_mode == "supported"
+        and config.require_clean_junctions
+        and not target_count_error
+        and checkpoint_in is None
+        and (design is None or not design["clean_junctions"] or not design["background_safe"])
+    ):
+        name_by_key = dict(zip(ranking["proteoform_key"], ranking["name"]))
+        rank_by_key = dict(zip(ranking["proteoform_key"], ranking["rank"]))
+        score_by_key = dict(zip(ranking["proteoform_key"], ranking["mortality_weighted_score"]))
+        initial_chosen = set(chosen)
+
+        def _audit_entry(attempt_num, keys_set, cand_design, cand_error):
+            ordered_names = [
+                name_by_key.get(k, k) for k in sorted(keys_set, key=lambda k: rank_by_key.get(k, 0))
+            ]
+            if cand_design is None:
+                return {
+                    "attempt": attempt_num,
+                    "targets": ";".join(ordered_names),
+                    "status": "infeasible",
+                    "junction_binders": None,
+                    "background_overlaps": None,
+                    "search_stop_reason": "",
+                    "failure_reason": cand_error or "no_feasible_construct",
+                }
+            binders = int(cand_design["final_objective"][0])
+            bg_overlaps = len(cand_design.get("background_overlaps", []))
+            if cand_design["background_safe"] and cand_design["clean_junctions"]:
+                st = "clean"
+                reason = ""
+            elif not cand_design["background_safe"]:
+                st = "rejected_background_overlap"
+                reason = f"{bg_overlaps} background overlap(s)"
+            else:
+                st = "junction_review_required"
+                reason = f"{binders} junction binder(s)"
+            return {
+                "attempt": attempt_num,
+                "targets": ";".join(ordered_names),
+                "status": st,
+                "junction_binders": binders,
+                "background_overlaps": bg_overlaps,
+                "search_stop_reason": cand_design.get("search_stop_reason", ""),
+                "failure_reason": reason,
+            }
+
+        panel_search_audit.append(_audit_entry(1, chosen, design, constraint_error))
+
+        # Screen remaining eligible candidates if the initial batch stopped early.
+        if inspected < len(eligible):
+            candidates = eligible
+            forbidden_all = shared_kmers(
+                inputs.proteins, background_cta_ids, candidates.sequence, config.shared_k
+            )
+            background_intervals = {
+                r.proteoform_key: specific_intervals(r.sequence, forbidden_all, config.shared_k)
+                for r in candidates.itertuples(index=False)
+            }
+            before_normal_rows = [
+                {
+                    "proteoform_key": r.proteoform_key,
+                    "name": r.name,
+                    "start": a,
+                    "end": b,
+                    "length_aa": b - a,
+                }
+                for r in candidates.itertuples(index=False)
+                for a, b in background_intervals[r.proteoform_key]
+            ]
+            forbidden_all.update(normal_kmers)
+            intervals = {
+                r.proteoform_key: specific_intervals(r.sequence, forbidden_all, config.shared_k)
+                for r in candidates.itertuples(index=False)
+            }
+            interval_rows, peptides_all = [], set()
+            for row in candidates.itertuples(index=False):
+                for start, end in intervals[row.proteoform_key]:
+                    interval_rows.append(
+                        {
+                            "proteoform_key": row.proteoform_key,
+                            "name": row.name,
+                            "start": start,
+                            "end": end,
+                            "length_aa": end - start,
+                            "sequence": row.sequence[start:end],
+                        }
+                    )
+                    for k in config.lengths:
+                        peptides_all.update(
+                            row.sequence[a : a + k] for a in range(start, end - k + 1)
+                        )
+            support = panel_ms_support(
+                peptides_all,
+                alleles,
+                raw_hits,
+                config.predictor,
+                mode=config.ms_support_mode,
+                affinity_nm=config.ms_affinity_nm,
+                allow_untyped=config.allow_untyped_ms,
+            )
+            screened_segments, screened_ligand_rows = supported_segments(
+                candidates, intervals, support
+            )
+            supported_keys = {s.proteoform_key for s in screened_segments}
+
+        pool_keys = list(
+            dict.fromkeys(
+                s.proteoform_key
+                for s in sorted(screened_segments, key=lambda s: (s.rank, s.proteoform_key))
+            )
+        )
+        alt_combos = [
+            combo
+            for combo in combinations(pool_keys, config.top_k)
+            if frozenset(combo) != frozenset(initial_chosen)
+        ]
+        alt_combos.sort(
+            key=lambda combo: (
+                -sum(score_by_key.get(k, 0.0) for k in combo),
+                tuple(rank_by_key.get(k, 0) for k in combo),
+            )
+        )
+        attempts = 1
+        found_clean = False
+        for combo in alt_combos:
+            if attempts >= config.panel_backfill_budget:
+                break
+            combo_set = set(combo)
+            combo_segments = [s for s in screened_segments if s.proteoform_key in combo_set]
+            reserved_alt, rejected_alt = reserve_target_segments(combo_segments, config)
+            if rejected_alt or len(reserved_alt) < config.top_k:
+                continue
+            attempts += 1
+            alt_design = None
+            alt_error = None
+            try:
+                alt_design = optimize_construct(
+                    combo_segments,
+                    alleles,
+                    config,
+                    affinity_fn,
+                    cleavage_fn,
+                    on_progress,
+                    background_fn=background_check,
+                    checkpoint_out=checkpoint_out,
+                )
+            except NoFeasibleConstruct as error:
+                alt_error = str(error)
+            panel_search_audit.append(_audit_entry(attempts, combo_set, alt_design, alt_error))
+            if (
+                alt_design is not None
+                and alt_design["clean_junctions"]
+                and alt_design["background_safe"]
+            ):
+                design = alt_design
+                constraint_error = None
+                chosen = combo_set
+                found_clean = True
+                break
+
+        if found_clean:
+            panel_search_status = "clean_panel_found"
+            ranking["selected"] = ranking.proteoform_key.isin(chosen)
+            for row in candidates.itertuples(index=False):
+                if row.proteoform_key in chosen:
+                    reason = "selected"
+                elif row.proteoform_key in initial_chosen:
+                    reason = "junction_backfill_excluded"
+                elif not background_intervals[row.proteoform_key]:
+                    reason = "no_cta_specific_sequence"
+                elif not intervals[row.proteoform_key]:
+                    reason = "no_sequence_after_normal_ms"
+                elif row.proteoform_key not in supported_keys:
+                    reason = "no_qualified_panel_ms_ligands"
+                else:
+                    reason = "lower_rank_supported"
+                ranking.loc[ranking.proteoform_key.eq(row.proteoform_key), "selection_reason"] = (
+                    reason
+                )
+            selected = ranking[ranking.selected].copy()
+            segments = [s for s in screened_segments if s.proteoform_key in chosen]
+            ligand_rows = [r for r in screened_ligand_rows if r["proteoform_key"] in chosen]
+        elif (
+            attempts >= config.panel_backfill_budget
+            and len(alt_combos) >= config.panel_backfill_budget
+        ):
+            panel_search_status = "search_budget_exhausted"
+        else:
+            panel_search_status = "all_combinations_exhausted"
     if design:
         non_cta_hits = shared_kmers(
             inputs.proteins, background_cta_ids, [design["protein"]], config.shared_k
@@ -471,8 +677,27 @@ def design_vaccine(
         before_normal_rows, columns=["proteoform_key", "name", "start", "end", "length_aa"]
     )
     source_tables["candidate_funnel"] = pd.DataFrame(candidate_funnel)
+    from .vaccine_budget import allocation_justification_table, target_hla_support_table
+
+    source_tables["target_hla_support"] = target_hla_support_table(
+        segments, cancer_summary, alleles, ligand_rows=ligand_rows
+    )
     if config.selection_mode == "budget":
         source_tables["budget_allocation"] = pd.DataFrame(allocation_history)
+        allocated_segments = [
+            s
+            for s in screened_segments
+            if allocation_ids is not None and s.segment_id in allocation_ids
+        ]
+        source_tables["allocation_justification"] = allocation_justification_table(
+            allocated_segments,
+            screened_segments,
+            cancer_summary,
+            config,
+            ligand_rows=screened_ligand_rows,
+        )
+    if panel_search_audit:
+        source_tables["panel_search_audit"] = pd.DataFrame(panel_search_audit)
     source_tables["background_cta_aliases"] = aliases
     source_tables["background_overlaps"] = pd.DataFrame(
         design["background_overlaps"] if design else [],
@@ -552,6 +777,15 @@ def design_vaccine(
         "assembled_background_overlap_count": (
             len(design["background_overlaps"]) if design else None
         ),
+        "search_stop_reason": design.get("search_stop_reason") if design else None,
+        "search_progress": design.get("search_progress") if design else None,
+        "panel_search_status": panel_search_status,
+        "allocation_objective": config.allocation_objective
+        if config.selection_mode == "budget"
+        else None,
+        "min_mortality_gain_pp": config.min_mortality_gain_pp
+        if config.selection_mode == "budget"
+        else None,
         "inspected_proteoforms": len(candidates),
         "selected_proteoforms": len(selected),
         "background_translated_occurrences": sum(

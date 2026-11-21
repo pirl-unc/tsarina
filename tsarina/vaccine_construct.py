@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import asdict, dataclass
+from hashlib import sha256
+from pathlib import Path
 
 from .peptides import AA20
 from .vaccine_sequences import assemble_layers, junction_windows
@@ -52,6 +55,9 @@ class VaccineConfig:
     species: str = "human"
     canine_cohort: str | None = None
     allow_exploratory_dla: bool = False
+    panel_backfill_budget: int = 12
+    allocation_objective: str = "global_union"
+    min_mortality_gain_pp: float = 0.0
 
     def __post_init__(self):
         object.__setattr__(self, "species", resolve_vaccine_species(self.species))
@@ -117,6 +123,18 @@ class VaccineConfig:
             raise ValueError("normal_ms_min_donors must be a positive integer")
         if self.selection_mode not in {"ranked", "supported", "budget"}:
             raise ValueError("selection_mode must be ranked, supported or budget")
+        if type(self.panel_backfill_budget) is not int or self.panel_backfill_budget < 1:
+            raise ValueError("panel_backfill_budget must be a positive integer")
+        if self.allocation_objective not in {
+            "global_union",
+            "target_specific",
+            "evidence_tradeoff",
+        }:
+            raise ValueError(
+                "allocation_objective must be global_union, target_specific or evidence_tradeoff"
+            )
+        if not math.isfinite(self.min_mortality_gain_pp) or self.min_mortality_gain_pp < 0:
+            raise ValueError("min_mortality_gain_pp must be finite and non-negative")
         if (
             self.selection_mode == "budget"
             and self.max_length_aa is None
@@ -320,6 +338,58 @@ def reserve_target_segments(segments, config):
     return retained, rejected
 
 
+def _checkpoint_fingerprint(retained, alleles, config, cleavage_model):
+    """Deterministic compatibility digest for resumable vaccine search (#191)."""
+    payload = {
+        "schema": "tsarina.vaccine_search_checkpoint.v1",
+        "segments": [
+            {
+                "segment_id": s.segment_id,
+                "proteoform_key": s.proteoform_key,
+                "protein_sequence": s.protein_sequence,
+                "specific_start": s.specific_start,
+                "specific_end": s.specific_end,
+                "ligand_start": s.ligand_start,
+                "ligand_end": s.ligand_end,
+            }
+            for s, _, _, _ in sorted(retained, key=lambda p: p[0].segment_id)
+        ],
+        "alleles": sorted(alleles),
+        "config": {
+            "shared_k": config.shared_k,
+            "min_padding": config.min_padding,
+            "max_padding": config.max_padding,
+            "padding_step": config.padding_step,
+            "lengths": list(config.lengths),
+            "predictor": config.predictor,
+            "junction_affinity_nm": config.junction_affinity_nm,
+            "linkers": list(config.linkers),
+            "beam_width": config.beam_width,
+            "max_length_aa": config.max_length_aa,
+            "max_length_nt": config.max_length_nt,
+            "include_utrs": config.include_utrs,
+            "utr_5p": config.utr_5p,
+            "utr_3p": config.utr_3p,
+            "poly_a_length": config.poly_a_length,
+        },
+        "cleavage_model": cleavage_model,
+    }
+    return sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def _load_checkpoint(checkpoint_in):
+    if isinstance(checkpoint_in, dict):
+        return checkpoint_in
+    path = Path(checkpoint_in)
+    return json.loads(path.read_text())
+
+
+def _save_checkpoint(checkpoint_out, payload):
+    path = Path(checkpoint_out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def optimize_construct(
     segments,
     alleles,
@@ -328,12 +398,18 @@ def optimize_construct(
     cleavage_fn=None,
     on_progress=None,
     background_fn=None,
+    *,
+    checkpoint_in=None,
+    checkpoint_out=None,
 ):
     """Bounded beam of complete constructs, preserving every retained ligand.
 
     Each round explores adjacent swaps, reversal/rotations, independent edge
     padding changes, and linkers. Full-sequence windows avoid the false
     independence assumption for adjacent junctions near short segments.
+    Reports an explicit ``search_stop_reason`` (``clean``, ``converged``,
+    ``budget_exhausted_improving``, ``budget_exhausted_plateau``) and supports
+    verified continuation via ``checkpoint_in`` / ``checkpoint_out`` (#191).
     This deterministic heuristic does not claim a global optimum.
     """
     utr5, utr3, poly_a = nucleotide_elements(config)
@@ -374,9 +450,56 @@ def optimize_construct(
             config.max_padding,
         }
     )
+
+    segment_by_id = {placement[0].segment_id: placement[0] for placement in retained}
+    fingerprint = _checkpoint_fingerprint(retained, alleles, config, audit.cleavage_model)
+
     beam = [retained]
     seen = set()
     history = []
+    initial_key = None
+    start_round = 0
+    resumed_from_round = None
+
+    if checkpoint_in is not None:
+        ckpt = _load_checkpoint(checkpoint_in)
+        if ckpt.get("compatibility_fingerprint") != fingerprint:
+            raise ValueError(
+                "Incompatible vaccine search checkpoint: retained segments, alleles, "
+                "model or search configuration differ from checkpoint fingerprint"
+            )
+        if bool(ckpt.get("has_background_fn", False)) != bool(background_fn is not None):
+            raise ValueError(
+                "Incompatible vaccine search checkpoint: background audit policy differs"
+            )
+        resumed_from_round = int(ckpt["rounds_completed"])
+        if config.optimization_rounds < resumed_from_round:
+            raise ValueError(
+                f"optimization_rounds ({config.optimization_rounds}) cannot be less than "
+                f"checkpoint rounds_completed ({resumed_from_round})"
+            )
+        beam = [
+            [(segment_by_id[sid], int(n), int(c), str(link)) for sid, n, c, link in state]
+            for state in ckpt["beam"]
+        ]
+        seen = {
+            tuple((str(sid), int(a), int(b), str(link)) for sid, a, b, link in sig)
+            for sig in ckpt["seen"]
+        }
+        history = [
+            {
+                "round": int(row["round"]),
+                "candidates": int(row["candidates"]),
+                "best_key": tuple(row["best_key"]),
+            }
+            for row in ckpt["history"]
+        ]
+        initial_key = tuple(ckpt["initial_key"]) if ckpt.get("initial_key") is not None else None
+        for peptide, allele_map in ckpt.get("affinities", {}).items():
+            audit.affinities[peptide] = {a: float(v) for a, v in allele_map.items()}
+        for context, profile in ckpt.get("profiles", {}).items():
+            audit.profiles[context] = [None if v is None else float(v) for v in profile]
+        start_round = resumed_from_round + 1
 
     def signature(state):
         # Padding beyond a native interval end produces the same construct.
@@ -420,15 +543,19 @@ def optimize_construct(
                     trial[i] = (segment, npad, cpad, link)
                     yield trial
 
-    initial_key = None
-    for round_index in range(config.optimization_rounds + 1):
+    converged_early = False
+    rounds_completed = resumed_from_round if resumed_from_round is not None else -1
+    for round_index in range(start_round, config.optimization_rounds + 1):
         states = {}
+        new_candidates = 0
         for state in beam:
             for trial in [state] if round_index == 0 else candidates(state):
                 # Incoming linker belongs to the boundary, not the source protein.
                 trial = [(s, n, c, link if i else "") for i, (s, n, c, link) in enumerate(trial)]
                 sig = signature(trial)
                 if feasible(trial) and (sig not in seen or trial in beam):
+                    if sig not in seen:
+                        new_candidates += 1
                     states[sig] = trial
         assemblies = [assemble_layers(state) for state in states.values()]
         forbidden = (
@@ -455,18 +582,49 @@ def optimize_construct(
             initial_key = scored[0][0]
         history.append({"round": round_index, "candidates": len(scored), "best_key": scored[0][0]})
         beam = [state for _, _, state in scored[: config.beam_width]]
+        rounds_completed = round_index
+        if round_index > 0 and new_candidates == 0:
+            converged_early = True
+            break
+
+    if checkpoint_out is not None:
+        ckpt_payload = {
+            "schema": "tsarina.vaccine_search_checkpoint.v1",
+            "compatibility_fingerprint": fingerprint,
+            "has_background_fn": background_fn is not None,
+            "rounds_completed": rounds_completed,
+            "initial_key": list(initial_key) if initial_key is not None else None,
+            "beam": [[(s.segment_id, n, c, link) for s, n, c, link in state] for state in beam],
+            "seen": [[list(item) for item in sig] for sig in sorted(seen)],
+            "history": [
+                {
+                    "round": row["round"],
+                    "candidates": row["candidates"],
+                    "best_key": list(row["best_key"]),
+                }
+                for row in history
+            ],
+            "affinities": audit.affinities,
+            "profiles": audit.profiles,
+        }
+        _save_checkpoint(checkpoint_out, ckpt_payload)
+
     chosen = beam[0]
     protein, layers = assemble_layers(chosen)
     # Reassess the complete final product, not just the pairwise joins.
     audit.prepare([(protein, layers)])
     key, junctions, cleavage = audit.assess(protein, layers)
+    improved_in_final_round = (
+        len(history) >= 2 and history[-1]["best_key"] < history[-2]["best_key"]
+    )
+    history_out = [dict(row) for row in history]
     result = {
         "protein": protein,
         "layers": layers,
         "junctions": junctions,
         "cleavage": cleavage,
         "excluded_segments": excluded,
-        "search_history": history,
+        "search_history": history_out,
         "initial_objective": initial_key,
         "final_objective": key,
         "clean_junctions": key[0] == 0,
@@ -476,6 +634,7 @@ def optimize_construct(
         "utr3": utr3,
         "poly_a": poly_a,
     }
+    background_clean = True
     if background_fn:
         result["initial_background_overlap_windows"] = initial_key[0]
         result["initial_objective"] = initial_key[1:]
@@ -490,6 +649,26 @@ def optimize_construct(
             if protein[i : i + k] in forbidden
         ]
         result["background_safe"] = not result["background_overlaps"]
+        background_clean = result["background_safe"]
+
+    if background_clean and result["clean_junctions"]:
+        stop_reason = "clean"
+    elif converged_early:
+        stop_reason = "converged"
+    elif improved_in_final_round:
+        stop_reason = "budget_exhausted_improving"
+    else:
+        stop_reason = "budget_exhausted_plateau"
+
+    result["search_stop_reason"] = stop_reason
+    result["search_progress"] = {
+        "rounds_completed": rounds_completed,
+        "rounds_budget": config.optimization_rounds,
+        "improved_in_final_round": improved_in_final_round,
+        "converged_early": converged_early,
+        "resumed_from_round": resumed_from_round,
+        "compatibility_fingerprint": fingerprint,
+    }
     return result
 
 
