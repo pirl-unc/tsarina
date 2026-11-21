@@ -37,6 +37,7 @@ import functools
 import json
 import shutil
 import sys
+from pathlib import Path
 
 from hitlist.cli_help import ColorArgumentParser
 
@@ -65,10 +66,17 @@ def _fail(message: str) -> None:
 
 
 def _format_size(size: int) -> str:
-    for unit, scale in (("GB", 1e9), ("MB", 1e6), ("KB", 1e3)):
-        if size >= scale:
-            return f"{size / scale:.1f} {unit}"
-    return f"{size} B"
+    """Format byte count using decimal SI units without boundary rollover quirks (#226)."""
+    if size < 0:
+        return f"-{_format_size(-size)}"
+    if size < 1000:
+        return f"{size} B"
+    value = float(size)
+    for unit in ("KB", "MB", "GB", "TB"):
+        value /= 1000.0
+        if round(value, 1) < 1000.0 or unit == "TB":
+            return f"{value:.1f} {unit}"
+    return f"{value:.1f} TB"
 
 
 def _unknown_dataset(name: str) -> None:
@@ -103,18 +111,21 @@ def _guarded(handler):
 
 
 def _registered_entry(name: str, meta: dict) -> dict:
-    """One registered dataset as a plain dict.
+    """One registered dataset as a plain dict matching the uniform JSON schema (#223/#224).
 
     ``status`` is datacache's file state (via hitlist's ``info``): ``installed``,
     ``missing``, ``corrupt`` or ``inaccessible``.
     """
     path = meta.get("path")
+    exists = bool(path and Path(str(path)).exists())
+    status = info(name).get("status", "installed" if exists else "missing")
     return {
         "name": name,
-        "status": info(name)["status"],
+        "status": status,
+        "exists": exists,
         "size_bytes": meta.get("size_bytes", 0),
+        "path": str(path) if path is not None else None,
         "source": "registered" if meta.get("source") == "registered" else "fetched",
-        "path": path,
         "description": meta.get("description", ""),
     }
 
@@ -158,14 +169,30 @@ def _data_list(args: argparse.Namespace) -> None:
 
 def _data_available(args: argparse.Namespace) -> None:
     registered = {n: _registered_entry(n, m) for n, m in list_datasets().items()}
-    entries = [
-        {
-            "name": name,
-            "status": registered[name]["status"] if name in registered else "not installed",
-            "description": desc,
-        }
-        for name, desc in sorted(available_datasets().items())
-    ]
+    entries = []
+    for name, desc in sorted(available_datasets().items()):
+        if name in registered:
+            entry = dict(registered[name])
+            if not entry.get("description"):
+                entry["description"] = desc
+        else:
+            source = (
+                "fetchable"
+                if name in FETCHABLE_DATASETS
+                else "manual"
+                if name in MANUAL_DATASETS
+                else "catalog"
+            )
+            entry = {
+                "name": name,
+                "status": "not installed",
+                "exists": False,
+                "size_bytes": 0,
+                "path": None,
+                "source": source,
+                "description": desc,
+            }
+        entries.append(entry)
     if getattr(args, "json", False):
         print(json.dumps(entries, indent=2))
         return
@@ -253,7 +280,23 @@ def _data_refresh(args: argparse.Namespace) -> None:
 @_guarded
 def _data_info(args: argparse.Namespace) -> None:
     _require_known(args.name)
-    print(json.dumps(info(args.name), indent=2, default=str))
+    meta = dict(info(args.name))
+    path = meta.get("path")
+    exists = bool(path and Path(str(path)).exists())
+    meta.setdefault("name", args.name)
+    meta["exists"] = exists
+    meta.setdefault("size_bytes", 0)
+    meta.setdefault("path", str(path) if path is not None else None)
+    meta.setdefault(
+        "source",
+        "fetchable"
+        if args.name in FETCHABLE_DATASETS
+        else "manual"
+        if args.name in MANUAL_DATASETS
+        else "catalog",
+    )
+    meta.setdefault("description", available_datasets().get(args.name, ""))
+    print(json.dumps(meta, indent=2, default=str))
 
 
 @_guarded
@@ -284,6 +327,8 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         "data",
         help="Datasets: list/fetch/register IEDB, CEDAR, viral proteomes, HPA/DepMap and mirrored assets",
     )
+    # Bare `tsarina data` defaults to listing.
+    data_parser.set_defaults(func=_data_list)
     data_sub = data_parser.add_subparsers(dest="data_command")
 
     p_list = data_sub.add_parser("list", help="Show installed datasets")
@@ -291,9 +336,11 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         "--all", action="store_true", help="Deprecated: use `tsarina data available`."
     )
     p_list.add_argument("--json", action="store_true", help="Machine-readable output")
+    p_list.set_defaults(func=_data_list)
 
     p_avail = data_sub.add_parser("available", help="Show all known datasets (installed or not)")
     p_avail.add_argument("--json", action="store_true", help="Machine-readable output")
+    p_avail.set_defaults(func=_data_available)
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar; see `data available`)")
@@ -302,6 +349,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         help="Path to the downloaded file (IEDB/CEDAR: the MHC ligand full CSV export)",
     )
     p_reg.add_argument("--description", "-d", help="Optional description")
+    p_reg.set_defaults(func=_data_register)
 
     p_fetch = data_sub.add_parser("fetch", help="Download a fetchable dataset")
     p_fetch.add_argument("name", help="Dataset name (e.g. iedb, hpv16, ebv)")
@@ -311,70 +359,55 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Show source, destination and free disk space; download nothing",
     )
+    p_fetch.set_defaults(func=_data_fetch)
 
     p_refresh = data_sub.add_parser("refresh", help="Re-download a fetchable dataset")
     p_refresh.add_argument("name", help="Dataset name")
+    p_refresh.set_defaults(func=_data_refresh)
 
     p_fetch_all = data_sub.add_parser("fetch-all", help="Fetch all mirrored data-asset files")
     p_fetch_all.add_argument("--force", "-f", action="store_true", help="Re-download")
+    p_fetch_all.set_defaults(func=_data_fetch_all)
 
     p_info = data_sub.add_parser("info", help="Detailed metadata for a dataset (JSON)")
     p_info.add_argument("name", help="Dataset name")
+    p_info.add_argument("--json", action="store_true", help="Machine-readable output (default)")
+    p_info.set_defaults(func=_data_info)
 
     p_path = data_sub.add_parser("path", help="Print path to a dataset")
     p_path.add_argument("name", help="Dataset name")
+    p_path.set_defaults(func=_data_path)
 
     p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file by default)")
     p_rm.add_argument("name", help="Dataset name")
     p_rm.add_argument("--delete", action="store_true", help="Also delete the cached file")
+    p_rm.set_defaults(func=_data_remove)
 
     p_build = data_sub.add_parser(
         "build",
         help="DEPRECATED — use `tsarina build observations`",
     )
     p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
+    p_build.set_defaults(func=_data_build)
 
 
-_DATA_HANDLERS = {
-    "list": _data_list,
-    "available": _data_available,
-    "register": _data_register,
-    "fetch": _data_fetch,
-    "refresh": _data_refresh,
-    "fetch-all": _data_fetch_all,
-    "info": _data_info,
-    "path": _data_path,
-    "remove": _data_remove,
-    "build": _data_build,
-}
-
-
-def _handle_data(args: argparse.Namespace) -> None:
-    # Bare `tsarina data` defaults to listing.
-    _DATA_HANDLERS[getattr(args, "data_command", None) or "list"](args)
+def _build_usage_error(args: argparse.Namespace) -> None:
+    print("Usage: tsarina build observations [--force]", file=sys.stderr)
+    sys.exit(2)
 
 
 def _build_build_parser(sub: argparse._SubParsersAction) -> None:
     build_parser = sub.add_parser(
         "build", help="Build cached artifacts (observations index from IEDB/CEDAR)"
     )
+    build_parser.set_defaults(func=_build_usage_error)
     build_sub = build_parser.add_subparsers(dest="build_command")
     p_obs = build_sub.add_parser(
         "observations",
         help="Build the hitlist observations index (IEDB + CEDAR; cached after first run)",
     )
     p_obs.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
-
-
-_BUILD_HANDLERS = {"observations": _build_observations}
-
-
-def _handle_build(args: argparse.Namespace) -> None:
-    cmd = getattr(args, "build_command", None)
-    if cmd is None:
-        print("Usage: tsarina build observations [--force]", file=sys.stderr)
-        sys.exit(2)
-    _BUILD_HANDLERS[cmd](args)
+    p_obs.set_defaults(func=_build_observations)
 
 
 # ── Main entry point ────────────────────────────────────────────────────────
@@ -393,11 +426,11 @@ def main() -> None:
 
     _build_data_parser(sub)
     _build_build_parser(sub)
-    cli_personalize.build_parser(sub)
-    cli_hits.build_parser(sub)
-    cli_spanning.build_parser(sub)
-    cli_vaccine.build_parser(sub)
-    cli_vaccine.build_report_parser(sub)
+    cli_personalize.build_parser(sub).set_defaults(func=cli_personalize.handle)
+    cli_hits.build_parser(sub).set_defaults(func=cli_hits.handle)
+    cli_spanning.build_parser(sub).set_defaults(func=cli_spanning.handle)
+    cli_vaccine.build_parser(sub).set_defaults(func=cli_vaccine.handle)
+    cli_vaccine.build_report_parser(sub).set_defaults(func=cli_vaccine.handle_report)
 
     argv = sys.argv[1:]
     deprecated_spanning = bool(argv and argv[0] == "spanning")
@@ -408,20 +441,11 @@ def main() -> None:
     if deprecated_spanning:
         args.deprecated_spanning = True
 
-    if args.command is None:
+    func = getattr(args, "func", None)
+    if func is None:
         parser.print_help()
         sys.exit(1)
-
-    handlers = {
-        "data": _handle_data,
-        "build": _handle_build,
-        "personalize": cli_personalize.handle,
-        "hits": cli_hits.handle,
-        "panel": cli_spanning.handle,
-        "vaccine": cli_vaccine.handle,
-        "vaccine-report": cli_vaccine.handle_report,
-    }
-    handlers[args.command](args)
+    func(args)
 
 
 if __name__ == "__main__":

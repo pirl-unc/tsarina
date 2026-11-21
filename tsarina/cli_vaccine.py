@@ -173,6 +173,7 @@ def build_parser(sub):
         "--codon-species",
         help="Coding table: human defaults to h_sapiens; canine defaults to generic (unoptimized)",
     )
+    return p
 
 
 def handle(args):
@@ -308,6 +309,7 @@ def build_report_parser(sub):
     p.add_argument(
         "--analysis-date", help="Explicit ISO analysis date for reproducible presentation"
     )
+    return p
 
 
 def handle_report(args):

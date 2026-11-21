@@ -89,13 +89,37 @@ def test_info_reports_datacache_file_status(tmp_path):
     f = tmp_path / "ligands.csv"
     f.write_text("a,b\n1,2\n")
     _run("data", "register", "iedb", str(f), cache_dir=tmp_path)
-    assert json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)["status"] == (
-        "installed"
-    )
+    present = json.loads(_run("data", "info", "iedb", "--json", cache_dir=tmp_path).stdout)
+    assert present["status"] == "installed"
+    assert present["exists"] is True
+    for key in ("name", "status", "exists", "size_bytes", "path", "source", "description"):
+        assert key in present
     f.unlink()
-    assert json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)["status"] == (
-        "missing"
-    )
+    missing = json.loads(_run("data", "info", "iedb", cache_dir=tmp_path).stdout)
+    assert missing["status"] == "missing"
+    assert missing["exists"] is False
+
+
+def test_available_json_shares_uniform_schema_with_list_and_info(tmp_path):
+    f = tmp_path / "ligands.csv"
+    f.write_text("a,b\n1,2\n")
+    _run("data", "register", "iedb", str(f), cache_dir=tmp_path)
+    schema = {"name", "status", "exists", "size_bytes", "path", "source", "description"}
+    list_rows = json.loads(_run("data", "list", "--json", cache_dir=tmp_path).stdout)
+    avail_rows = json.loads(_run("data", "available", "--json", cache_dir=tmp_path).stdout)
+    assert schema <= set(list_rows[0])
+    assert all(schema <= set(row) for row in avail_rows)
+
+
+def test_format_size_handles_boundaries_cleanly():
+    from tsarina.cli import _format_size
+
+    assert _format_size(0) == "0 B"
+    assert _format_size(999) == "999 B"
+    assert _format_size(1000) == "1.0 KB"
+    assert _format_size(999_999) == "1.0 MB"
+    assert _format_size(1_000_000) == "1.0 MB"
+    assert _format_size(1_000_000_000) == "1.0 GB"
 
 
 def test_remove_delete_names_the_file(tmp_path):
