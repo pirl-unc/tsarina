@@ -170,6 +170,35 @@ def _apply_proteoform_rollup(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([rest, rolled], ignore_index=True)
 
 
+_MS_ATTR_SHORT: dict[str, str] = {
+    "exact_requested_mhc": "exact",
+    "donor_set_ambiguous": "donor_set",
+    "predicted_only": "pred_only",
+    "other_mhc_only": "other_mhc",
+    "no_match": "no_match",
+    "evidence_not_loaded": "unloaded",
+}
+
+
+def _format_ms_safety(row: pd.Series) -> str:
+    hits = row.get("ms_hit_count")
+    if pd.isna(hits) or int(hits) <= 0:
+        return "-"
+    in_cancer = bool(row.get("ms_in_cancer")) if pd.notna(row.get("ms_in_cancer")) else False
+    in_healthy = (
+        bool(row.get("ms_in_healthy_tissue"))
+        if pd.notna(row.get("ms_in_healthy_tissue"))
+        else False
+    )
+    if in_healthy and in_cancer:
+        return "cancer+healthy!"
+    if in_healthy:
+        return "healthy!"
+    if in_cancer:
+        return "cancer"
+    return "unclassified"
+
+
 def format_table(df: pd.DataFrame) -> str:
     """Render a :func:`personalized_targets` result as a compact,
     fixed-width table -- one row per peptide, sorted as given (already
@@ -191,7 +220,7 @@ def format_table(df: pd.DataFrame) -> str:
     if df.empty:
         return "(no targets)"
 
-    columns: list[tuple[str, str]] = [
+    columns: list[tuple[str, str | None]] = [
         ("peptide", "peptide"),
         ("category", "category"),
         ("source", "source"),
@@ -201,20 +230,34 @@ def format_table(df: pd.DataFrame) -> str:
         ("pct_rank", "presentation_percentile"),
         ("ms_hits", "ms_hit_count"),
     ]
+    if "ms_attribution_tier" in df.columns:
+        columns.append(("ms_attr", "ms_attribution_tier"))
+    if {"ms_in_cancer", "ms_in_healthy_tissue"} & set(df.columns):
+        columns.append(("ms_safety", None))
+    if "tier_reason" in df.columns:
+        columns.append(("reason", "tier_reason"))
 
-    def _fmt(header: str, value: object) -> str:
+    def _fmt(header: str, value: object, row: pd.Series) -> str:
+        if header == "ms_safety":
+            return _format_ms_safety(row)
         if pd.isna(value):
             return ""
         if header == "ms_hits":
             return f"{int(value)}"
         if header in ("affinity_nM", "pct_rank"):
             return f"{float(value):.2f}"
+        if header == "ms_attr":
+            token = str(value).strip()
+            return _MS_ATTR_SHORT.get(token, token)
         return str(value)
 
     has_flagged = (df["category"] == "cta_flagged").any() if "category" in df.columns else False
     rows: list[list[str]] = []
     for _, row in df.iterrows():
-        cells = [_fmt(key, row.get(src_col)) for key, src_col in columns]
+        cells = [
+            _fmt(key, row.get(src_col) if src_col is not None else None, row)
+            for key, src_col in columns
+        ]
         if has_flagged and row.get("category") == "cta_flagged":
             cells[2] += "*"  # "source" is the third column
         rows.append(cells)

@@ -1,3 +1,13 @@
+# CLI consistency across personalize, hits, vaccine, and vaccine-report (1.44.0) (2026-11-22)
+
+Fixes #241 and #242.
+
+- [x] `personalize`: add `ms_attr`, `ms_safety`, and `reason` columns to `format_table()` and add `--top N` to `cli_personalize` (#241).
+- [x] `hits`: sort `pmhc`/`refs`/`table` by evidence strength (exact single-allele & monoallelic first), add `--format table`, deduplicate `ms_alleles` on `peptides`, and annotate `ms_attribution_tier` when `--allele` is provided (#241).
+- [x] `vaccine` & `vaccine-report`: prefix canine CLI status/errors with `canine/<cohort>` (instead of human HPA `strict`), list available cohorts when `--canine-cohort` is unknown, group `vaccine --help` options, and note `--analysis-date` is human-only (#242).
+- [x] Add regression unit tests, bump version to `1.44.0`, and verify live outputs.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.44.0` to PyPI.
+
 # Fix CTA pMHC panel coherence, unrestricted MS deconvolution, and proteoform TCGA lookup (1.43.0) (2026-11-22)
 
 Fixes #237, #238, #239, and #240.

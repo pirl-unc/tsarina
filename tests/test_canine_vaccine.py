@@ -461,3 +461,56 @@ def test_only_requested_panel_capabilities_set_selection_limit(tmp_path):
 def test_canine_API_rejects_named_human_panel():
     with pytest.raises(ValueError, match="bundle DLA panel"):
         config(panel="global54_abc").validate()
+
+
+def test_canine_cli_unknown_cohort_lists_available_and_uses_canine_label(
+    tmp_path, capsys, monkeypatch
+):
+    """tsarina#242: canine CLI prefixes status/errors with canine/<cohort> (not
+    human HPA 'strict') and lists available cohorts when --canine-cohort is unknown."""
+    import sys
+
+    from tsarina.cli import main
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tsarina",
+            "vaccine",
+            "--species",
+            "dog",
+            "--input-bundle",
+            str(FIXTURE),
+            "--canine-cohort",
+            "nonexistent_cohort",
+            "--predictor",
+            "frozen",
+            "-o",
+            str(tmp_path / "bad"),
+        ],
+    )
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "canine/nonexistent_cohort vaccine design failed" in err
+    assert "available cohorts in bundle: osteosarcoma" in err
+    assert "strict vaccine design failed" not in err
+
+
+def test_vaccine_help_uses_argument_groups_and_documents_analysis_date_scope():
+    """tsarina#242: vaccine --help groups options and vaccine-report notes --analysis-date scope."""
+    import argparse
+
+    from tsarina import cli_vaccine
+
+    p = argparse.ArgumentParser()
+    sub = p.add_subparsers(dest="cmd")
+    vp = cli_vaccine.build_parser(sub)
+    rp = cli_vaccine.build_report_parser(sub)
+    vhelp = vp.format_help()
+    rhelp = rp.format_help()
+    assert "Species and input sources:" in vhelp
+    assert "MS evidence and normal-tissue safety:" in vhelp
+    assert "human reports only" in rhelp
