@@ -26,7 +26,14 @@ if TYPE_CHECKING:
         hpa_cancer_ihc_prevalence,
         hpa_cancer_rna_prevalence,
     )
-    from .cta_selection import CTA_TIERS, CTA_selection, CTA_selection_coverage
+    from .cta_selection import (
+        CTA_TIERS,
+        CTA_selection,
+        CTA_selection_coverage,
+        CTA_sex_eligible_gene_ids,
+        CTA_sex_eligible_gene_names,
+        CTA_sex_restricted_antigens,
+    )
     from .evidence import CTA_detailed_evidence, CTA_evidence
     from .evidence_store import evidence_store_provenance, load_evidence_store_ms_hits
     from .gene_sets import (
@@ -121,6 +128,9 @@ _LAZY = {
     "CTA_reproductive_antigen_gene_names": (".gene_sets", "CTA_reproductive_antigen_gene_names"),
     "CTA_selection": (".cta_selection", "CTA_selection"),
     "CTA_selection_coverage": (".cta_selection", "CTA_selection_coverage"),
+    "CTA_sex_eligible_gene_ids": (".cta_selection", "CTA_sex_eligible_gene_ids"),
+    "CTA_sex_eligible_gene_names": (".cta_selection", "CTA_sex_eligible_gene_names"),
+    "CTA_sex_restricted_antigens": (".cta_selection", "CTA_sex_restricted_antigens"),
     "CTA_target_candidate_gene_ids": (".gene_sets", "CTA_target_candidate_gene_ids"),
     "CTA_target_candidate_gene_names": (".gene_sets", "CTA_target_candidate_gene_names"),
     "CTA_testis_restricted_gene_ids": (".gene_sets", "CTA_testis_restricted_gene_ids"),
@@ -222,6 +232,9 @@ __all__ = [
     "CTA_reproductive_antigen_gene_names",
     "CTA_selection",
     "CTA_selection_coverage",
+    "CTA_sex_eligible_gene_ids",
+    "CTA_sex_eligible_gene_names",
+    "CTA_sex_restricted_antigens",
     "CTA_target_candidate_gene_ids",
     "CTA_target_candidate_gene_names",
     "CTA_testis_restricted_gene_ids",
