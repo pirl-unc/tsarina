@@ -1,3 +1,14 @@
+# Fix CTA pMHC panel coherence, unrestricted MS deconvolution, and proteoform TCGA lookup (1.43.0) (2026-11-22)
+
+Fixes #237, #238, #239, and #240.
+
+- [x] Accumulate allele-consistent `sample_allele_ms` evidence onto `monoallelic_ms` buckets and prioritize `_tier_rank` ahead of `presentation_percentile` in `_top_per_cell` (#237).
+- [x] Restrict `unrestricted_ms` to genuinely class-level observations (excluding serological/locus labels like `HLA-A2`), suppress `unrestricted_ms` for peptides with allele-specific MS anywhere in `hits`, and deconvolve remaining `unrestricted_ms` across `panel_alleles` (#238).
+- [x] Resolve semicolon-/slash-delimited `cta_members` and curated proteoform aliases (`NY-ESO-1`, `SSX2/B`) in `_tcga_summary_for_cta` (#239).
+- [x] Deduplicate individual alleles in `ms_alleles`, add `ms_in_cancer` and `ms_in_healthy_tissue` to long panel output, and display compact `MS safety` in `format_panel_table` (#240).
+- [x] Add regression unit tests, bump version to `1.43.0`, verify live panel output on real MS + MHCflurry 2.3.32, and pass `./format.sh`, `./lint.sh`, and `TEST_SH_MAX=2 ./test.sh` (810 passed, 8 skipped, 85% coverage).
+- [ ] Pass PR CI, squash-merge, deploy `1.43.0` to PyPI from clean `main`, and verify SHA256s.
+
 # Adopt OncoRef 1.46.0, Hitlist 2.7.0, and MHCflurry 2.3.32 (1.42.0) (2026-11-21)
 
 Adopt the new upstream releases cleanly across tsarina's selection, species-context,
