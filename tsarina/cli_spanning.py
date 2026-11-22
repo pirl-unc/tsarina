@@ -47,7 +47,8 @@ _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
 
 
 def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    p.add_argument(
+    cta_group = p.add_argument_group("CTA selection and ranking")
+    cta_group.add_argument(
         "--cta-count",
         type=int,
         default=25,
@@ -57,7 +58,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "restores the top-candidate audit view (default 25)."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--cta-rank-by",
         default=_DEFAULT_CTA_RANK_BY,
         help=(
@@ -68,7 +69,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "alphabetical Symbol order if a non-MS rank column is missing or all-NaN)."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--cancer-rna-threshold",
         type=float,
         default=_DEFAULT_CANCER_RNA_THRESHOLD,
@@ -77,7 +78,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             f"rank (default {_DEFAULT_CANCER_RNA_THRESHOLD})."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--cancer-type-prevalence-floor",
         type=float,
         default=_DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR,
@@ -87,7 +88,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             f"(default {_DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR})."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--ctas",
         type=_split_csv,
         default=None,
@@ -96,7 +97,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "'MAGEA4,PRAME,CTAG1A/CTAG1B'). Overrides --cta-count / --cta-rank-by."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--min-restriction-confidence",
         type=_split_csv,
         default=["ANY"],
@@ -105,7 +106,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "Default 'ANY' uses the current OncoRef policy without a legacy HPA confidence gate."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--restriction-levels",
         type=_split_csv,
         default=None,
@@ -114,7 +115,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "Default keeps all levels."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--selection-allowlist",
         type=_split_csv,
         default=_split_csv(_DEFAULT_SELECTION_ALLOWLIST),
@@ -124,7 +125,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "and MAGE-A4 are normalized."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--no-vital-tissue-filter",
         dest="exclude_vital_tissue_expression",
         action="store_false",
@@ -135,7 +136,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "pancreas, unless allowlisted. A vital-RNA cutoff is opt-in."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--vital-tissue-max-ntpm",
         type=float,
         default=_DEFAULT_VITAL_TISSUE_MAX_NTPM,
@@ -144,7 +145,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "(disabled by default)."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--allow-non-magea4-mage-family",
         dest="exclude_non_magea4_mage_family",
         action="store_false",
@@ -154,50 +155,56 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "MAGE-A4 (the default under current OncoRef selection)."
         ),
     )
-    p.add_argument(
+    cta_group.add_argument(
         "--exclude-non-magea4-mage-family",
         dest="exclude_non_magea4_mage_family",
         action="store_true",
         help="Apply the optional historical MAGE-family exclusion after current OncoRef admission.",
     )
-    p.add_argument(
+
+    hla_group = p.add_argument_group("HLA panel and peptide enumeration")
+    hla_group.add_argument(
         "--alleles",
+        "--hla",
+        dest="alleles",
         type=_split_csv,
         default=None,
         help="Explicit allele list (e.g. 'HLA-A*02:01,HLA-A*24:02'). Overrides --panel.",
     )
-    p.add_argument(
+    hla_group.add_argument(
         "--panel",
         choices=_SUPPORTED_PANELS,
         default=_DEFAULT_PANEL,
         help=f"Named panel from tsarina.alleles (default '{_DEFAULT_PANEL}').",
     )
-    p.add_argument(
+    hla_group.add_argument(
         "--lengths",
         type=_parse_lengths,
         default=_DEFAULT_LENGTHS,
         help="Peptide lengths to enumerate (default 8,9,10,11).",
     )
-    p.add_argument(
+    hla_group.add_argument(
         "--ensembl-release",
         type=int,
         default=112,
         help="Ensembl release (default 112).",
     )
-    p.add_argument(
+    hla_group.add_argument(
         "--no-require-cta-exclusive",
         dest="require_cta_exclusive",
         action="store_false",
         help="Allow CTA peptides that also appear in non-CTA proteins.",
     )
-    add_predictor_arg(p, context="pMHC presentation scoring")
-    p.add_argument(
+
+    ms_group = p.add_argument_group("MS evidence tiers and presentation scoring")
+    add_predictor_arg(ms_group, context="pMHC presentation scoring")
+    ms_group.add_argument(
         "--monoallelic-ms-max-percentile",
         type=float,
         default=2.0,
         help="Max percentile for mono-allelic MS-supported pMHCs. Defaults to 2.0.",
     )
-    p.add_argument(
+    ms_group.add_argument(
         "--sample-allele-ms-max-percentile",
         type=float,
         default=1.0,
@@ -206,24 +213,24 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "best among the exact or donor-set candidate alleles. Defaults to 1.0."
         ),
     )
-    p.add_argument(
+    ms_group.add_argument(
         "--unrestricted-ms-max-percentile",
         type=float,
         default=0.5,
         help="Max percentile for peptide-level MS support without usable allele (default 0.5).",
     )
-    p.add_argument(
+    ms_group.add_argument(
         "--include-predicted-only",
         action="store_true",
         help="Allow prediction-only candidates as last-priority fillers.",
     )
-    p.add_argument(
+    ms_group.add_argument(
         "--predicted-only-max-percentile",
         type=float,
         default=0.1,
         help="Max percentile for prediction-only candidates when enabled (default 0.1).",
     )
-    p.add_argument(
+    ms_group.add_argument(
         "--peptides-per-cell",
         type=int,
         default=3,
@@ -232,7 +239,19 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "MS hit count, then prediction percentile (default 3)."
         ),
     )
-    p.add_argument(
+    ms_group.add_argument(
+        "--netmhcpan-affinity",
+        dest="annotate_netmhcpan_affinity",
+        action="store_true",
+        help=(
+            "Annotate every selected pMHC row with NetMHCpan BA affinity nM and "
+            "affinity percentile rank. Requires the external NetMHCpan backend."
+        ),
+    )
+    add_iedb_cedar_args(ms_group)
+
+    out_group = p.add_argument_group("Grouping and output formatting")
+    out_group.add_argument(
         "--no-group-identical-cta-pmhcs",
         dest="group_identical_cta_pmhcs",
         action="store_false",
@@ -242,7 +261,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "distinct candidates are backfilled."
         ),
     )
-    p.add_argument(
+    out_group.add_argument(
         "--no-group-identical-cta-peptide-sets",
         dest="group_identical_cta_peptide_sets",
         action="store_false",
@@ -252,17 +271,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "panel target name before final pMHC grouping."
         ),
     )
-    p.add_argument(
-        "--netmhcpan-affinity",
-        dest="annotate_netmhcpan_affinity",
-        action="store_true",
-        help=(
-            "Annotate every selected pMHC row with NetMHCpan BA affinity nM and "
-            "affinity percentile rank. Requires the external NetMHCpan backend."
-        ),
-    )
-    add_iedb_cedar_args(p)
-    p.add_argument(
+    out_group.add_argument(
         "--format",
         choices=_SUPPORTED_FORMATS,
         default="table",
@@ -273,7 +282,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "percentile / score / affinity columns."
         ),
     )
-    p.add_argument(
+    out_group.add_argument(
         "--proteoform-labels",
         choices=("symbol", "members"),
         default="symbol",
@@ -285,13 +294,13 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "--ctas / --selection-allowlist input either way."
         ),
     )
-    p.add_argument(
+    out_group.add_argument(
         "--no-summary",
         dest="summary",
         action="store_false",
         help="Do not append the panel coverage summary.",
     )
-    p.add_argument(
+    out_group.add_argument(
         "--show-empty-ctas",
         action="store_true",
         help=(
@@ -300,7 +309,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "--ctas forces this on; explicit requests are always preserved."
         ),
     )
-    p.add_argument(
+    out_group.add_argument(
         "--progress",
         choices=("auto", "on", "off"),
         default="auto",
@@ -309,7 +318,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "TTY (default); 'on' = force both; 'off' = silent."
         ),
     )
-    p.add_argument(
+    out_group.add_argument(
         "--score-chunk-size",
         type=int,
         default=None,
@@ -319,7 +328,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "MHCflurry chunking is opt-in because it repeats processing-model work."
         ),
     )
-    p.add_argument(
+    out_group.add_argument(
         "-o",
         "--output",
         default=None,

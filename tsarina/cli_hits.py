@@ -126,6 +126,9 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
 
     p.add_argument(
         "--allele",
+        "--alleles",
+        "--hla",
+        dest="allele",
         type=_split_csv,
         default=[],
         help="Comma-separated MHC restrictions to keep (e.g. 'HLA-A*24:02,HLA-A*02:01').",
@@ -264,10 +267,16 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--top",
+        type=int,
+        default=None,
+        help="Limit output to the top N rows (after evidence-strength sorting on pmhc/refs/table).",
+    )
+    p.add_argument(
         "-o",
         "--output",
         default=None,
-        help="Write CSV to this path (default: stdout).",
+        help="Write CSV (or table text for --format table) to this path (default: stdout).",
     )
     return p
 
@@ -794,6 +803,13 @@ def handle(args: argparse.Namespace) -> None:
                         )
                     )
                     out = out.merge(best, on="peptide", how="left")
+
+    top = getattr(args, "top", None)
+    if top is not None:
+        if top <= 0:
+            print("Error: --top must be a positive integer.", file=sys.stderr)
+            sys.exit(1)
+        out = out.head(top)
 
     if args.format == "table":
         rendered = _format_hits_table(out) + "\n"

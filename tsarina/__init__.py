@@ -26,7 +26,7 @@ if TYPE_CHECKING:
         hpa_cancer_ihc_prevalence,
         hpa_cancer_rna_prevalence,
     )
-    from .cta_selection import CTA_TIERS, CTA_selection
+    from .cta_selection import CTA_TIERS, CTA_selection, CTA_selection_coverage
     from .evidence import CTA_detailed_evidence, CTA_evidence
     from .evidence_store import evidence_store_provenance, load_evidence_store_ms_hits
     from .gene_sets import (
@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from .mutations import HOTSPOT_MUTATIONS, mutant_peptides
     from .personalize import personalized_targets
     from .scoring import score_affinity, score_presentation
+    from .spanning import spanning_pmhc_set
     from .species import (
         SpeciesContext,
         allele_prediction_capability,
@@ -83,6 +84,8 @@ if TYPE_CHECKING:
         HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS,
         PERMISSIVE_REPRODUCTIVE_TISSUES,
     )
+    from .vaccine import design_vaccine
+    from .vaccine_construct import VaccineConfig
     from .viral import viral_peptides
 
 # Public names resolve lazily (PEP 562) so ``import tsarina`` -- and therefore
@@ -136,11 +139,13 @@ _LAZY = {
     "SAFETY_TISSUE_GROUPS": (".tiers", "SAFETY_TISSUE_GROUPS"),
     "SpeciesContext": (".species", "SpeciesContext"),
     "VITAL_TISSUE_MS_NAMES": (".tiers", "VITAL_TISSUE_MS_NAMES"),
+    "VaccineConfig": (".vaccine_construct", "VaccineConfig"),
     "allele_prediction_capability": (".species", "allele_prediction_capability"),
     "attribute_ms_evidence": (".ms_attribution", "attribute_ms_evidence"),
     "cta_cancer_expression_features": (".cancer_expression", "cta_cancer_expression_features"),
     "cta_healthy_tissue_ms_hits": (".ms_evidence", "cta_healthy_tissue_ms_hits"),
     "cta_symbol_for_alias": (".gene_sets", "cta_symbol_for_alias"),
+    "design_vaccine": (".vaccine", "design_vaccine"),
     "evidence_store_provenance": (".evidence_store", "evidence_store_provenance"),
     "get_panel": (".alleles", "get_panel"),
     "hpa_cancer_ihc_prevalence": (".cancer_expression", "hpa_cancer_ihc_prevalence"),
@@ -152,6 +157,7 @@ _LAZY = {
     "resolve_species_context": (".species", "resolve_species_context"),
     "score_affinity": (".scoring", "score_affinity"),
     "score_presentation": (".scoring", "score_presentation"),
+    "spanning_pmhc_set": (".spanning", "spanning_pmhc_set"),
     "summarize_ms_attribution": (".ms_attribution", "summarize_ms_attribution"),
     "target_peptides": (".targets", "target_peptides"),
     "viral_peptides": (".viral", "viral_peptides"),
@@ -215,6 +221,7 @@ __all__ = [
     "CTA_reproductive_antigen_gene_ids",
     "CTA_reproductive_antigen_gene_names",
     "CTA_selection",
+    "CTA_selection_coverage",
     "CTA_target_candidate_gene_ids",
     "CTA_target_candidate_gene_names",
     "CTA_testis_restricted_gene_ids",
@@ -222,12 +229,14 @@ __all__ = [
     "CTA_unfiltered_gene_ids",
     "CTA_unfiltered_gene_names",
     "SpeciesContext",
+    "VaccineConfig",
     "__version__",
     "allele_prediction_capability",
     "attribute_ms_evidence",
     "cta_cancer_expression_features",
     "cta_healthy_tissue_ms_hits",
     "cta_symbol_for_alias",
+    "design_vaccine",
     "evidence_store_provenance",
     "get_panel",
     "hpa_cancer_ihc_prevalence",
@@ -239,6 +248,7 @@ __all__ = [
     "resolve_species_context",
     "score_affinity",
     "score_presentation",
+    "spanning_pmhc_set",
     "summarize_ms_attribution",
     "target_peptides",
     "viral_peptides",
