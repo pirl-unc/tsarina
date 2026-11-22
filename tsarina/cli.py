@@ -24,6 +24,10 @@ Usage::
     tsarina data remove iedb                  # unregister (keeps the file)
     tsarina build observations [--force]      # build the observations index
 
+    # Environment & discovery
+    tsarina status                             # installed versions, policy, index & models
+    tsarina catalog ctas                       # browse built-in CTAs, panels, mutations, viruses
+
     # Analysis
     tsarina personalize --hla HLA-A*02:01,... --cta PRAME=87.3 -o targets.csv
     tsarina hits --gene PRAME --allele HLA-A*24:02
@@ -464,7 +468,7 @@ def _build_build_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def main() -> None:
-    from . import cli_hits, cli_personalize, cli_spanning, cli_vaccine
+    from . import cli_catalog, cli_hits, cli_personalize, cli_spanning, cli_vaccine
     from .version import __version__
 
     parser = ColorArgumentParser(
@@ -474,6 +478,8 @@ def main() -> None:
     parser.add_argument("--version", action="version", version=f"tsarina {__version__}")
     sub = parser.add_subparsers(dest="command")
 
+    cli_catalog.build_status_parser(sub).set_defaults(func=cli_catalog.handle_status)
+    cli_catalog.build_catalog_parser(sub)
     _build_data_parser(sub)
     _build_build_parser(sub)
     cli_personalize.build_parser(sub).set_defaults(func=cli_personalize.handle)

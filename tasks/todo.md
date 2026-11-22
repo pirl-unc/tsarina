@@ -1,3 +1,12 @@
+# CLI explorability (`status`, `catalog`), flag symmetry, and top-level exports (1.45.0) (2026-11-22)
+
+- [x] Add read-only `tsarina status [--json]` showing versions, OncoRef policy/CTAs, MS overlay status, Hitlist index/EvidenceStore/registrations, PyEnsembl cached releases, and MHCflurry weights.
+- [x] Add `tsarina catalog {ctas,panels,mutations,viruses} [--json]` to explore built-in catalogs from the CLI.
+- [x] Unify `--hla`/`--alleles` aliases across `personalize`, `hits`, and `panel`; add `--top N` to `hits`; group `panel --help` into 4 argument groups.
+- [x] Export `spanning_pmhc_set`, `design_vaccine`, `VaccineConfig`, and `CTA_selection_coverage` from top-level `tsarina`.
+- [x] Add unit tests in `tests/test_cli_catalog_and_status.py` and bump version to `1.45.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.45.0` to PyPI.
+
 # CLI consistency across personalize, hits, vaccine, and vaccine-report (1.44.0) (2026-11-22)
 
 Fixes #241 and #242.

@@ -102,6 +102,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--hla",
+        "--alleles",
+        dest="hla",
         required=True,
         nargs="+",
         help=(
