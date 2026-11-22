@@ -411,6 +411,8 @@ def personalized_targets(
     *,
     host_species: str = "human",
     mhc_species: str | None = None,
+    patient_sex: str | None = None,
+    sex_eligibility: str = "all_adult",
     ms_evidence_scope: str = "all",
     ms_observations: pd.DataFrame | None = None,
     custom_targets: pd.DataFrame | None = None,
@@ -533,6 +535,14 @@ def personalized_targets(
             f"got {ms_evidence_scope!r}"
         )
 
+    norm_patient_sex: str | None = None
+    norm_sex_eligibility = "all_adult"
+    if patient_sex is not None:
+        from .cta_selection import _normalize_patient_sex, _normalize_sex_eligibility
+
+        norm_patient_sex = _normalize_patient_sex(patient_sex)
+        norm_sex_eligibility = _normalize_sex_eligibility(sex_eligibility)
+
     ctx = resolve_species_context(
         host_species,
         mhc_species=mhc_species,
@@ -617,8 +627,34 @@ def personalized_targets(
         strict_ctas = CTA_gene_names()
         clinical_target_ctas = CTA_clinical_target_gene_names() - strict_ctas
         valid_ctas = strict_ctas.copy()
+        sex_repro_ctas: set[str] = set()
         drop_reasons = {}
-        outside_panel = set(cta_expression) - strict_ctas - clinical_target_ctas
+
+        if norm_patient_sex is not None:
+            from .cta_selection import CTA_sex_eligible_gene_names, CTA_sex_restricted_antigens
+
+            sex_eligible = CTA_sex_eligible_gene_names(
+                norm_patient_sex,
+                eligibility=norm_sex_eligibility,
+                include_reproductive_only=True,
+            )
+            sex_table = CTA_sex_restricted_antigens(include_reproductive_only=True)
+            sex_class_by_label = dict(
+                zip(
+                    sex_table["label"].astype(str),
+                    sex_table["sex_restriction_class"].astype(str),
+                )
+            )
+            sex_repro_ctas = sex_eligible - strict_ctas
+            for gene in set(cta_expression) & (valid_ctas - sex_eligible):
+                sex_cls = sex_class_by_label.get(gene, "not sex-eligible")
+                drop_reasons[gene] = (
+                    f"not {norm_patient_sex} {norm_sex_eligibility} eligible "
+                    f"(OncoRef sex_restriction_class: {sex_cls})"
+                )
+            valid_ctas &= sex_eligible
+
+        outside_panel = set(cta_expression) - strict_ctas - clinical_target_ctas - sex_repro_ctas
         if outside_panel:
             excluded = CTA_excluded_gene_names()
             known = CTA_unfiltered_gene_names()
@@ -646,7 +682,7 @@ def personalized_targets(
             from .mtec import filter_by_mtec, load_mtec_gene_table
 
             mtec_df = load_mtec_gene_table(mtec_matrix_path)
-            candidates = valid_ctas | clinical_target_ctas
+            candidates = valid_ctas | sex_repro_ctas | clinical_target_ctas
             low_mtec = filter_by_mtec(candidates, mtec_df, threshold=mtec_max_tpm)
             for gene in set(cta_expression) & (candidates - low_mtec):
                 drop_reasons[gene] = (
@@ -654,9 +690,10 @@ def personalized_targets(
                     "above threshold or missing measurement)"
                 )
             valid_ctas &= low_mtec
+            sex_repro_ctas &= low_mtec
             clinical_target_ctas &= low_mtec
 
-        for gene in set(cta_expression) & (valid_ctas | clinical_target_ctas):
+        for gene in set(cta_expression) & (valid_ctas | sex_repro_ctas | clinical_target_ctas):
             tpm = cta_expression[gene]
             if not pd.isna(tpm) and tpm < min_cta_tpm:
                 drop_reasons[gene] = f"tumor TPM {tpm:g} below minimum {min_cta_tpm:g}"
@@ -671,6 +708,11 @@ def personalized_targets(
             gene: tpm
             for gene, tpm in cta_expression.items()
             if gene in valid_ctas and (pd.isna(tpm) or tpm >= min_cta_tpm)
+        }
+        expressed_sex_repro = {
+            gene: tpm
+            for gene, tpm in cta_expression.items()
+            if gene in sex_repro_ctas and (pd.isna(tpm) or tpm >= min_cta_tpm)
         }
         flagged_ctas = {
             gene: tpm
@@ -704,6 +746,52 @@ def personalized_targets(
                         }
                     )
                 )
+
+        if expressed_sex_repro:
+            from .cta_selection import selection_gene_table
+            from .partition import CTA_partition_gene_ids
+            from .peptides import _reference_overlapping_peptides, gene_peptides
+
+            _report(
+                f"Generating exclusivity-screened sex-restricted reproductive antigen peptides "
+                f"for {len(expressed_sex_repro)} gene(s): {', '.join(sorted(expressed_sex_repro))}..."
+            )
+            sel_table = selection_gene_table()
+            admitted_ids = set(
+                sel_table.loc[sel_table["Symbol"].isin(expressed_sex_repro), "Ensembl_Gene_ID"]
+            )
+            if admitted_ids:
+                sex_peps = gene_peptides(
+                    admitted_ids,
+                    ensembl_release=ensembl_release,
+                    lengths=lengths,
+                )
+                if not sex_peps.empty:
+                    # Stream background coding genes (excluding strict CTAs and the
+                    # admitted sex-restricted reproductive genes themselves).
+                    partition = CTA_partition_gene_ids(ensembl_release=ensembl_release)
+                    bg_gene_ids = sorted(partition.non_cta - admitted_ids)
+                    overlapping = _reference_overlapping_peptides(
+                        set(sex_peps["peptide"]),
+                        ensembl_release=ensembl_release,
+                        lengths=lengths,
+                        gene_ids=bg_gene_ids,
+                    )
+                    sex_peps = sex_peps[~sex_peps["peptide"].isin(overlapping)].copy()
+                if not sex_peps.empty:
+                    sex_peps["source_tpm"] = sex_peps["gene_name"].map(expressed_sex_repro)
+                    frames.append(
+                        pd.DataFrame(
+                            {
+                                "peptide": sex_peps["peptide"],
+                                "length": sex_peps["length"],
+                                "category": "cta",
+                                "source": sex_peps["gene_name"],
+                                "source_detail": sex_peps["gene_id"],
+                                "source_tpm": sex_peps["source_tpm"],
+                            }
+                        )
+                    )
 
         if flagged_ctas:
             # A flagged gene is, by construction, part of the "non-CTA"
@@ -819,6 +907,8 @@ def personalized_targets(
             species_context=ctx,
             allele_capabilities=allele_caps,
             ms_evidence_scope=ms_evidence_scope,
+            patient_sex=norm_patient_sex,
+            sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
         )
 
     combined = pd.concat(frames, ignore_index=True)
@@ -863,6 +953,8 @@ def personalized_targets(
             species_context=ctx,
             allele_capabilities=allele_caps,
             ms_evidence_scope=ms_evidence_scope,
+            patient_sex=norm_patient_sex,
+            sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
         )
 
     # ── Topiary presentation scoring ────────────────────────────────────
@@ -916,6 +1008,8 @@ def personalized_targets(
         species_context=ctx,
         allele_capabilities=allele_caps,
         ms_evidence_scope=ms_evidence_scope,
+        patient_sex=norm_patient_sex,
+        sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
     )
 
 
@@ -926,6 +1020,8 @@ def _with_selection_provenance(
     species_context=None,
     allele_capabilities=None,
     ms_evidence_scope: str = "all",
+    patient_sex: str | None = None,
+    sex_eligibility: str | None = None,
 ):
     from .cta_selection import selection_provenance
 
@@ -938,6 +1034,9 @@ def _with_selection_provenance(
     if allele_capabilities is not None:
         frame.attrs["allele_prediction_capability"] = allele_capabilities
     frame.attrs["ms_evidence_scope"] = ms_evidence_scope
+    if patient_sex is not None:
+        frame.attrs["patient_sex"] = patient_sex
+        frame.attrs["sex_eligibility"] = sex_eligibility
     return frame
 
 

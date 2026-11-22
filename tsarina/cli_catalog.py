@@ -305,14 +305,25 @@ def _catalog_overview(args: argparse.Namespace) -> None:
 
 
 def _catalog_ctas(args: argparse.Namespace) -> None:
-    from .cta_selection import CTA_selection, CTA_selection_coverage
+    from .cta_selection import CTA_selection, CTA_selection_coverage, CTA_sex_restricted_antigens
 
     species = args.species
-    category = args.category
-    if category is None and species.lower() in ("human", "homo sapiens", "homo_sapiens"):
-        category = "CTA"
+    is_human = species.lower() in ("human", "homo sapiens", "homo_sapiens")
+    sex = getattr(args, "sex", None)
+    sex_elig = getattr(args, "sex_eligibility", "all_adult")
+    if sex is not None and not is_human:
+        print("Error: --sex is only supported for human CTAs.", file=sys.stderr)
+        sys.exit(1)
 
-    df = CTA_selection(category=category, species=species)
+    category = args.category
+    if sex is not None:
+        df = CTA_sex_restricted_antigens(sex=sex, eligibility=sex_elig)
+        if category is not None:
+            df = df.loc[df["category"].eq(category)].copy()
+    else:
+        if category is None and is_human:
+            category = "CTA"
+        df = CTA_selection(category=category, species=species)
     if args.tier:
         if "cta_tier" in df.columns:
             df = df[df["cta_tier"] == args.tier].copy()
@@ -321,7 +332,7 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
 
     # Attach bundled MS safety restriction for human CTAs when available.
     ms_lookup: dict[str, str] = {}
-    if species.lower() in ("human", "homo sapiens", "homo_sapiens") and not df.empty:
+    if is_human and not df.empty:
         try:
             from .evidence import CTA_evidence
 
@@ -332,7 +343,14 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             ms_lookup = {}
 
     if "label" in df.columns:
-        df = df.sort_values(["cta_tier", "label"] if "cta_tier" in df.columns else ["label"])
+        sort_cols = (
+            ["sex_restriction_class", "label"]
+            if sex is not None and "sex_restriction_class" in df.columns
+            else ["cta_tier", "label"]
+            if "cta_tier" in df.columns
+            else ["label"]
+        )
+        df = df.sort_values(sort_cols)
 
     total_rows = len(df)
     if args.top is not None:
@@ -355,6 +373,8 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             "tier": str(getattr(row, "cta_tier", "") or getattr(row, "subtype", "") or ""),
             "gene_ids": gene_ids_str,
         }
+        if sex is not None:
+            rec["sex_restriction_class"] = str(getattr(row, "sex_restriction_class", "") or "")
         if ms_lookup:
             rec["ms_restriction"] = ms_lookup.get(label, "")
         records.append(rec)
@@ -366,7 +386,10 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             "shown": len(records),
             "ctas": records,
         }
-        if species.lower() not in ("human", "homo sapiens", "homo_sapiens"):
+        if sex is not None:
+            payload["sex"] = sex
+            payload["sex_eligibility"] = sex_elig
+        if not is_human:
             payload["coverage"] = CTA_selection_coverage(species=species)
         print(json.dumps(payload, indent=2, default=str))
         return
@@ -375,7 +398,10 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
         print(f"No CTAs matched (species={species}, category={category}, tier={args.tier}).")
         return
 
-    headers = ["label", "category", "tier", "gene_ids"]
+    headers = ["label", "category", "tier"]
+    if sex is not None:
+        headers.append("sex_restriction_class")
+    headers.append("gene_ids")
     if ms_lookup:
         headers.append("ms_restriction")
     rows = [[str(r.get(h, "")) for h in headers] for r in records]
@@ -512,6 +538,18 @@ def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentPa
         choices=("core", "core_with_extended_exposure", "extended_only"),
         default=None,
         help="Filter human CTAs by cta_tier",
+    )
+    p_ctas.add_argument(
+        "--sex",
+        choices=("female", "male"),
+        default=None,
+        help="Filter human antigens to those eligible for a patient of this biological sex",
+    )
+    p_ctas.add_argument(
+        "--sex-eligibility",
+        choices=("all_adult", "sex_organ_only"),
+        default="all_adult",
+        help="Eligibility policy when --sex is given (default: all_adult)",
     )
     p_ctas.add_argument("--top", type=int, default=50, help="Maximum rows to show (default 50)")
     p_ctas.add_argument("--json", action="store_true", help="Machine-readable JSON output")

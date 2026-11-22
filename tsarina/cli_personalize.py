@@ -172,6 +172,25 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--sex",
+        choices=("female", "male"),
+        default=None,
+        help=(
+            "Patient biological sex for OncoRef sex-restricted antigen eligibility: "
+            "filters CTAs to sex-eligible targets and admits sex-safe reproductive "
+            "antigens such as male-restricted or placental genes in female patients."
+        ),
+    )
+    p.add_argument(
+        "--sex-eligibility",
+        choices=("all_adult", "sex_organ_only"),
+        default="all_adult",
+        help=(
+            "Sex-restriction safety policy when --sex is set: 'all_adult' (default, "
+            "zero adult normal-tissue expression in that sex) or 'sex_organ_only'."
+        ),
+    )
+    p.add_argument(
         "--ms-evidence-scope",
         choices=("all", "requested_mhc", "any_mhc"),
         default="all",
@@ -326,6 +345,8 @@ def handle(args: argparse.Namespace) -> None:
             proteoform_rollup=args.proteoform_rollup,
             host_species=getattr(args, "species", "human"),
             mhc_species=getattr(args, "mhc_species", None),
+            patient_sex=getattr(args, "sex", None),
+            sex_eligibility=getattr(args, "sex_eligibility", "all_adult"),
             ms_evidence_scope=getattr(args, "ms_evidence_scope", "all"),
         )
     except (DatasetNotRegisteredError, ValueError) as e:

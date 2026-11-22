@@ -1,3 +1,11 @@
+# Sex-restricted CTA eligibility (`--sex female|male`) via OncoRef (1.46.0) (2026-11-22)
+
+- [x] Add `CTA_sex_restricted_antigens`, `CTA_sex_eligible_gene_ids`, and `CTA_sex_eligible_gene_names` backed by `oncoref.human.antigens.sex_restricted_antigens()` and export from `tsarina`.
+- [x] Wire `patient_sex` and `sex_eligibility` (`all_adult` / `sex_organ_only`) into `personalized_targets()` and `--sex` / `--sex-eligibility` into `tsarina personalize` and `tsarina catalog ctas`.
+- [x] Screen sex-admitted `Reproductive Antigen only` genes against non-target self proteome and record `patient_sex`/`sex_eligibility` provenance in `df.attrs`.
+- [x] Add unit tests in `tests/test_sex_restricted_antigens.py` and bump version to `1.46.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.46.0` to PyPI.
+
 # CLI explorability (`status`, `catalog`), flag symmetry, and top-level exports (1.45.0) (2026-11-22)
 
 - [x] Add read-only `tsarina status [--json]` showing versions, OncoRef policy/CTAs, MS overlay status, Hitlist index/EvidenceStore/registrations, PyEnsembl cached releases, and MHCflurry weights.
