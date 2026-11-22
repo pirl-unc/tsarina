@@ -117,6 +117,7 @@ _LAZY = {
     "CTA_reproductive_antigen_gene_ids": (".gene_sets", "CTA_reproductive_antigen_gene_ids"),
     "CTA_reproductive_antigen_gene_names": (".gene_sets", "CTA_reproductive_antigen_gene_names"),
     "CTA_selection": (".cta_selection", "CTA_selection"),
+    "CTA_selection_coverage": (".cta_selection", "CTA_selection_coverage"),
     "CTA_target_candidate_gene_ids": (".gene_sets", "CTA_target_candidate_gene_ids"),
     "CTA_target_candidate_gene_names": (".gene_sets", "CTA_target_candidate_gene_names"),
     "CTA_testis_restricted_gene_ids": (".gene_sets", "CTA_testis_restricted_gene_ids"),

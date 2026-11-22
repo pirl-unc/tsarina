@@ -18,6 +18,7 @@ Usage::
     tsarina data list                         # installed datasets
     tsarina data available                    # full catalog (installed or not)
     tsarina data fetch hpv16                  # auto-download a viral proteome
+    tsarina data preflight hpv16              # read-only fetch plan (JSON)
     tsarina data register iedb /path/to/file  # register a manual download
     tsarina data path iedb                    # print path to a dataset
     tsarina data remove iedb                  # unregister (keeps the file)
@@ -35,7 +36,6 @@ import argparse
 import difflib
 import functools
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -51,6 +51,7 @@ from .downloads import (
     get_path,
     info,
     list_datasets,
+    preflight,
     refresh,
     register,
     remove,
@@ -150,11 +151,12 @@ def _data_list(args: argparse.Namespace) -> None:
         print(f"Data directory: {data_dir()}")
         print("Run 'tsarina data available' to see known datasets.")
         return
-    print(f"{'Name':<12} {'Status':<10} {'Size':>10}  {'Source':<11} Description")
-    print("-" * 72)
+    name_width = max(12, max(len(e["name"]) for e in entries))
+    print(f"{'Name':<{name_width}} {'Status':<10} {'Size':>10}  {'Source':<11} Description")
+    print("-" * max(72, name_width + 44))
     for e in entries:
         print(
-            f"{e['name']:<12} {e['status']:<10} {_format_size(e['size_bytes']):>10}  "
+            f"{e['name']:<{name_width}} {e['status']:<10} {_format_size(e['size_bytes']):>10}  "
             f"{e['source']:<11} {e['description']}"
         )
     if any(e["status"] != "installed" for e in entries):
@@ -196,11 +198,12 @@ def _data_available(args: argparse.Namespace) -> None:
     if getattr(args, "json", False):
         print(json.dumps(entries, indent=2))
         return
-    print(f"{'Name':<12} {'Status':<14} Description")
-    print("-" * 72)
+    name_width = max(12, max((len(e["name"]) for e in entries), default=12))
+    print(f"{'Name':<{name_width}} {'Status':<14} Description")
+    print("-" * max(72, name_width + 28))
     for e in entries:
         status = "" if e["status"] == "not installed" else e["status"]
-        print(f"{e['name']:<12} {status:<14} {e['description']}")
+        print(f"{e['name']:<{name_width}} {status:<14} {e['description']}")
 
 
 @_guarded
@@ -209,36 +212,63 @@ def _data_register(args: argparse.Namespace) -> None:
     print(f"Registered '{args.name}' -> {p}")
 
 
-def _fetch_preview(name: str) -> None:
-    """Describe what ``fetch`` would do, without downloading."""
-    if name in FETCHABLE_DATASETS:
-        ds = FETCHABLE_DATASETS[name]
-        dest = data_dir() / ds["filename"]
-        # Stopgap until datacache provides a read-only fetch plan (openvax/datacache#135).
-        free = shutil.disk_usage(data_dir()).free
-        registered = list_datasets().get(name)
-        print(f"Dataset:     {name} ({ds['description']})")
-        print(f"Source:      {ds['url']}")
-        print(f"Destination: {dest}")
-        print(f"Free space:  {_format_size(free)} on the data directory's volume")
-        if dest.exists():
-            print("Status:      already downloaded; `fetch` would reuse it (--force re-downloads)")
-        elif registered and (state := _registered_entry(name, registered)["status"]) != "installed":
-            print(f"Status:      registered file {registered['path']} is {state}; would download")
-        else:
-            print("Status:      not downloaded; would download")
-    elif name in MANUAL_DATASETS:
+def _fetch_preview(name: str, *, force: bool = False) -> None:
+    """Describe what ``fetch`` would do via ``hitlist.preflight``, without downloading."""
+    if name in MANUAL_DATASETS:
         print(f"'{name}' is a manual download: {MANUAL_DATASETS[name]['download_url']}")
         print(f"Register it with: tsarina data register {name} <path>")
+        return
+
+    plan = preflight(name, force=force)
+    desc = available_datasets().get(name, "")
+    header = f"{name} ({desc})" if desc else name
+    print(f"Dataset:       {header}")
+    if name in FETCHABLE_DATASETS:
+        print(f"Source:        {FETCHABLE_DATASETS[name]['url']}")
     else:
-        print(f"'{name}' is a mirrored asset or built dataset; no preview is available.")
+        kind = plan.get("kind") or "catalog asset"
+        print(f"Source:        managed {kind} (hitlist catalog)")
+    print(f"Destination:   {plan['path']}")
+    files = plan.get("files")
+    if isinstance(files, list) and files:
+        n_download = sum(1 for f in files if f.get("would_download"))
+        print(f"Bundle files:  {len(files)} ({n_download} would download)")
+    expected_size = plan.get("expected_size_bytes")
+    if expected_size is not None:
+        print(f"Expected size: {_format_size(int(expected_size))}")
+    free = plan.get("free_bytes")
+    if free is not None:
+        space_note = ""
+        if plan.get("enough_space") is False:
+            space_note = " (insufficient space)"
+        print(
+            f"Free space:    {_format_size(int(free))} on the data directory's volume{space_note}"
+        )
+
+    registered = list_datasets().get(name)
+    if not plan.get("would_download"):
+        status = "already downloaded; `fetch` would reuse it (--force re-downloads)"
+    elif plan.get("exists") and force:
+        status = "already downloaded; --force would re-download"
+    elif registered and (state := _registered_entry(name, registered)["status"]) != "installed":
+        status = f"registered file {registered['path']} is {state}; would download"
+    elif plan.get("stale"):
+        status = "cached file is stale; would download"
+    else:
+        status = "not downloaded; would download"
+    print(f"Status:        {status}")
+
+    terms = plan.get("terms")
+    if isinstance(terms, str) and terms.strip():
+        first_line = next(line.strip() for line in terms.splitlines() if line.strip())
+        print(f"Terms:         {first_line}")
 
 
 @_guarded
 def _data_fetch(args: argparse.Namespace) -> None:
     _require_known(args.name)
     if args.dry_run:
-        _fetch_preview(args.name)
+        _fetch_preview(args.name, force=args.force)
         return
     registered = list_datasets().get(args.name)
     if registered and (state := _registered_entry(args.name, registered)["status"]) != "installed":
@@ -247,6 +277,13 @@ def _data_fetch(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
     print(f"Ready: {fetch(args.name, force=args.force)}")
+
+
+@_guarded
+def _data_preflight(args: argparse.Namespace) -> None:
+    _require_known(args.name)
+    plan = preflight(args.name, force=args.force)
+    print(json.dumps(plan, indent=2, default=str))
 
 
 @_guarded
@@ -360,6 +397,19 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         help="Show source, destination and free disk space; download nothing",
     )
     p_fetch.set_defaults(func=_data_fetch)
+
+    p_preflight = data_sub.add_parser(
+        "preflight",
+        help="Read-only fetch plan (destination, expected size, free space, terms) as JSON",
+    )
+    p_preflight.add_argument("name", help="Dataset name (e.g. iedb, hpv16, uniprot/human, depmap)")
+    p_preflight.add_argument(
+        "--force", "-f", action="store_true", help="Plan as if --force were passed to fetch"
+    )
+    p_preflight.add_argument(
+        "--json", action="store_true", help="Machine-readable output (default)"
+    )
+    p_preflight.set_defaults(func=_data_preflight)
 
     p_refresh = data_sub.add_parser("refresh", help="Re-download a fetchable dataset")
     p_refresh.add_argument("name", help="Dataset name")

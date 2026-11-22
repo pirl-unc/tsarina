@@ -14,6 +14,7 @@ from tsarina import (
     CTA_reproductive_antigen_gene_ids,
     CTA_reproductive_antigen_gene_names,
     CTA_selection,
+    CTA_selection_coverage,
     CTA_target_candidate_gene_ids,
     CTA_target_candidate_gene_names,
 )
@@ -62,9 +63,42 @@ def test_rebuilt_target_selection_sets_and_cta_tiers_are_consistent():
 
 
 def test_nonhuman_cta_selection_delegates_to_species_catalog():
-    canine = CTA_selection(species="dog")
-    assert not canine.empty
-    assert set(canine["species"].dropna().unique()) == {"dog"}
+    required_cols = {
+        "species",
+        "entity_id",
+        "entity_kind",
+        "label",
+        "gene_ids",
+        "category",
+        "subtype",
+        "policy_id",
+        "reference_id",
+        "source_snapshot_id",
+    }
+    for sp, expected_species in (("dog", "dog"), ("mouse", "mouse")):
+        df = CTA_selection(species=sp)
+        assert not df.empty, sp
+        assert required_cols <= set(df.columns), sp
+        assert set(df["species"].dropna().unique()) == {expected_species}
+        assert df["policy_id"].notna().all(), sp
+        assert df["reference_id"].notna().all(), sp
+
+    mouse_cov = CTA_selection_coverage(species="mouse")
+    assert mouse_cov["selection_status"] == "pending_reconciled_panels"
+    assert "ensembl115" in mouse_cov.get("registered_references", [])
+
+    human_cov = CTA_selection_coverage(species="human")
+    assert isinstance(human_cov, dict) and human_cov
+
+
+def test_oncoref_146_curation_reclassifications():
+    ev = CTA_evidence().set_index("Symbol")
+    assert ev.loc["SP7", "selection_category"] == "Other"
+    assert ev.loc["SP7", "selection_subtype"] == "Unscreened tissue"
+    assert "SP7" not in CTA_cancer_antigen_gene_names()
+    for sym in ("RGSL1", "OOSP4B"):
+        assert ev.loc[sym, "selection_category"] == "Unsafe"
+        assert sym not in CTA_gene_names()
 
 
 def test_current_partition_retains_every_nonselected_category_in_background(monkeypatch):

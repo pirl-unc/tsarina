@@ -182,13 +182,30 @@ def write_vaccine_report(result, output_dir):
                 "burden_category",
                 "cancer_codes",
                 "world_incidence_pct",
+                *(
+                    ["world_incidence_count"]
+                    if "world_incidence_count" in cancer.columns
+                    and cancer["world_incidence_count"].notna().any()
+                    else []
+                ),
                 "world_mortality_pct",
+                *(
+                    ["world_mortality_count"]
+                    if "world_mortality_count" in cancer.columns
+                    and cancer["world_mortality_count"].notna().any()
+                    else []
+                ),
                 "prevalence_p95",
                 "n_samples",
                 "complete_measurement",
                 "score_contribution",
             ],
-            {"prevalence_p95": lambda v: f"{v:.4f}", "score_contribution": lambda v: f"{v:.6f}"},
+            {
+                "prevalence_p95": lambda v: f"{v:.4f}",
+                "score_contribution": lambda v: f"{v:.6f}",
+                "world_incidence_count": lambda v: f"{int(v):,}" if pd.notna(v) else "—",
+                "world_mortality_count": lambda v: f"{int(v):,}" if pd.notna(v) else "—",
+            },
         ),
         "",
         "## Per-protein retention funnel",
@@ -258,7 +275,7 @@ def write_vaccine_report(result, output_dir):
             "",
             "The friendly interactive report is in `website/index.html`. Serve this directory over HTTP to view it. Its downloads include cumulative cancer-expression union bounds, locus-aware HLA carrier proxies, MS counts versus final-order construct length and full native-protein tissue MS maps. Tissue observations are an audit layer; retained normal-tissue overlaps require review. Missing observations do not establish safety. Saved manifests can be rendered with `tsarina vaccine-report` without rerunning models.",
             "",
-            "Scientific references: [OncoRef mortality report](https://github.com/pirl-unc/oncoref/blob/main/scripts/cta_mortality_coverage_report.py); [Vaxrank construction](https://github.com/openvax/vaxrank); [MHCflurry 2.0](https://pubmed.ncbi.nlm.nih.gov/32711842/); [Pepsickle](https://pubmed.ncbi.nlm.nih.gov/34478497/). OncoRef reference limitations: [mortality source/count refresh #542](https://github.com/pirl-unc/oncoref/issues/542), [category scope #543](https://github.com/pirl-unc/oncoref/issues/543).",
+            "Scientific references: [OncoRef mortality report](https://github.com/pirl-unc/oncoref/blob/main/scripts/cta_mortality_coverage_report.py) (GLOBOCAN 2024 world burden and mixed-cohort scope metadata); [Vaxrank construction](https://github.com/openvax/vaxrank); [MHCflurry 2.0](https://pubmed.ncbi.nlm.nih.gov/32711842/); [Pepsickle](https://pubmed.ncbi.nlm.nih.gov/34478497/).",
             "",
         ]
     )
