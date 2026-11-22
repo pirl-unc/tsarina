@@ -52,7 +52,7 @@ def test_data_remove_typo_is_not_silent_success(tmp_path):
 
 
 def test_unknown_dataset_error_is_uniform_across_subcommands(tmp_path):
-    for sub in ("path", "info", "fetch", "refresh"):
+    for sub in ("path", "info", "fetch", "preflight", "refresh"):
         r = _run("data", sub, "iedbb", cache_dir=tmp_path)
         assert r.returncode == 1, sub
         assert "unknown dataset 'iedbb'" in r.stderr, sub
@@ -67,6 +67,36 @@ def test_fetch_dry_run_downloads_nothing(tmp_path):
     assert "Source:" in r.stdout and "Free space:" in r.stdout
     assert "would download" in r.stdout
     assert list(tmp_path.iterdir()) == []
+
+
+def test_preflight_and_managed_bundle_dry_run_download_nothing(tmp_path):
+    r = _run("data", "preflight", "hpv16", cache_dir=tmp_path)
+    assert r.returncode == 0, r.stderr
+    plan = json.loads(r.stdout)
+    assert plan["name"] == "hpv16"
+    assert plan["would_download"] is True
+    assert "free_bytes" in plan and "expected_size_bytes" in plan
+    assert list(tmp_path.iterdir()) == []
+
+    bundle = _run("data", "fetch", "uniprot/human", "--dry-run", cache_dir=tmp_path)
+    assert bundle.returncode == 0, bundle.stderr
+    assert "Source:" in bundle.stdout
+    assert "Expected size:" in bundle.stdout
+    assert "Free space:" in bundle.stdout
+    assert "would download" in bundle.stdout
+    assert "Terms:" in bundle.stdout
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_available_table_aligns_long_dataset_names(tmp_path):
+    r = _run("data", "available", cache_dir=tmp_path)
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.splitlines()
+    header, rule = lines[0], lines[1]
+    assert header.startswith("Name")
+    status_col = header.index("Status")
+    assert status_col > 20  # widens dynamically for hitlist 2.7.0 dataset names
+    assert len(rule) >= status_col + 14
 
 
 def test_list_flags_missing_registered_file_and_emits_json(tmp_path):

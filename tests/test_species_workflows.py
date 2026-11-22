@@ -39,6 +39,14 @@ def test_resolve_species_context_human_mouse_dog_and_transgenic():
     assert dog.pyensembl_species == "canis_familiaris"
     assert dog.assembly == "ROS_Cfam_1.0"
 
+    # Default Ensembl release follows OncoRef's species reference registry (mouse -> 115; human/dog -> 112),
+    # while explicit values (including None) are preserved.
+    assert resolve_species_context("mouse").ensembl_release == 115
+    assert resolve_species_context("human").ensembl_release == 112
+    assert resolve_species_context("dog").ensembl_release == 112
+    assert resolve_species_context("mouse", ensembl_release=112).ensembl_release == 112
+    assert resolve_species_context("mouse", ensembl_release=None).ensembl_release is None
+
     # Transgenic mouse host with human MHC and viral antigen source stays distinct.
     transgenic = resolve_species_context(
         "mouse",

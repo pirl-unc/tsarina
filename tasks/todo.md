@@ -1,3 +1,20 @@
+# Adopt OncoRef 1.46.0, Hitlist 2.7.0, and MHCflurry 2.3.32 (1.42.0) (2026-11-21)
+
+Adopt the new upstream releases cleanly across tsarina's selection, species-context,
+CLI data catalog, and vaccine reporting layers without breaking existing contracts.
+
+- [x] Upgrade local `.venv-vaccine` to `oncoref==1.46.0`, `hitlist==2.7.0`, `mhcflurry==2.3.32`, `pyensembl==2.36.0` and run baseline suite.
+- [x] Unify `CTA_selection(species=...)` across human/mouse/dog via `oncoref.species.for_species(species).antigens.target_selection()` and add `CTA_selection_coverage(*, species="human")`.
+- [x] Resolve species-appropriate default Ensembl release in `resolve_species_context(...)` (`mouse -> 115` via `oncoref.mouse.references`, `human`/`dog -> 112`, explicit values honored).
+- [x] Re-export `hitlist.downloads.preflight`, delegate `tsarina data fetch --dry-run` to `preflight()` (covering fetchable datasets and managed catalog bundles), add `tsarina data preflight <name> [--force] [--json]`, and widen `data list`/`data available` name columns dynamically for Hitlist 2.7.0's 63-entry catalog.
+- [x] Surface GLOBOCAN 2024 `world_incidence_count` and `world_mortality_count` in `vaccine_report` and `vaccine_website` and retire the stale `oncoref#542`/`#543` open-limitation footnote.
+- [x] Bump minimum version floors (`oncoref>=1.46.0`, `hitlist>=2.7.0`, `mhcflurry>=2.3.32`) and bump `tsarina` to `1.42.0`.
+- [x] File upstream bug `pirl-unc/hitlist#954` for `build_observations` failing on symlinked registered IEDB/CEDAR paths under `datacache 1.32.0`.
+- [x] Add focused unit tests and pass `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh`, and `--run-mhcflurry` integration tests.
+- [ ] Pass PR CI, squash-merge, deploy `1.42.0` to PyPI from clean `main`, and verify SHA256s.
+
+Review: `./format.sh` and `./lint.sh` passed. `TEST_SH_MAX=2 ./test.sh` passed 806 tests (8 skipped, 0 failed, 85% coverage). Zero new CTA or candidate genes entered between `oncoref 1.43.0` (`358` CTAs / `562` candidates) and `1.46.0` (`358` CTAs / `561` candidates; `SP7` moved to `Other:Unscreened tissue`, `RGSL1`/`OOSP4B` moved to `Unsafe`), so the bundled MS safety overlay retains full coverage of all 358 CTAs and 561 candidates; refreshing the overlay against a freshly built Hitlist 2.7.0 index awaits `pirl-unc/hitlist#954`.
+
 # Vaccine species aliases and canine CTA provenance (2026-10-09)
 
 Resolve common/scientific species names through PyEnsembl's species registry.

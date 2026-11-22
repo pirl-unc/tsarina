@@ -710,6 +710,25 @@ def test_full_pipeline_artifacts_and_dropout(inputs, ms_scores, codons, tmp_path
         design_vaccine(cfg, inputs, output_dir=tmp_path, affinity_fn=affinity, cleavage_fn=cleavage)
 
 
+def test_vaccine_report_and_website_surface_globocan_counts(inputs, ms_scores, codons, tmp_path):
+    inputs.burden = inputs.burden.copy()
+    inputs.burden["world_incidence_count"] = 2_480_301
+    inputs.burden["world_mortality_count"] = 1_817_172
+    cfg = VaccineConfig(top_k=2, alleles=(ALLELE,), max_padding=0)
+    design_vaccine(cfg, inputs, output_dir=tmp_path, affinity_fn=affinity, cleavage_fn=cleavage)
+    report = (tmp_path / "report.md").read_text()
+    assert "world_incidence_count" in report
+    assert "world_mortality_count" in report
+    assert "2,480,301" in report
+    assert "1,817,172" in report
+    assert "issues/542" not in report
+    assert "issues/543" not in report
+    site = json.loads((tmp_path / "website" / "data.json").read_text())
+    cancer_entry = site["designs"][cfg.definition]["cancers"][0]
+    assert cancer_entry["incidence_count"] == 2_480_301
+    assert cancer_entry["mortality_count"] == 1_817_172
+
+
 def test_no_ms_support_writes_explanatory_audit(inputs, tmp_path):
     inputs.ms_hits = inputs.ms_hits.iloc[:0]
     with pytest.raises(ValueError, match="No selected CTA retains"):

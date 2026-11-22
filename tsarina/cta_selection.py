@@ -1,11 +1,10 @@
 """Current OncoRef target-selection decisions projected to gene members.
 
-Human selection uses OncoRef's rebuilt set-based target catalog
-(:mod:`oncoref.target_selection`, policy ``oncoref.target-selection.*``),
-which classifies every reference protein group as ``CTA`` (with
-``cta_tier``), ``Cancer Antigen only``, ``Reproductive Antigen only``,
-``Other`` (with subtype), or ``Unsafe``. Non-human species delegate to
-:mod:`oncoref.cta_selection`.
+Human, mouse, and canine selection all read OncoRef's unified set-based target
+catalog (:mod:`oncoref.target_selection` / ``oncoref.<species>.target_selection()``,
+policy ``oncoref.target-selection.*``), which classifies every protein group as
+``CTA`` (with ``cta_tier``), ``Cancer Antigen only``, ``Reproductive Antigen
+only``, ``Other`` (with subtype), or ``Unsafe``.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ from functools import lru_cache
 
 import pandas as pd
 from oncoref import antigen_sets, gene_identity_catalog, target_selection
-from oncoref.cta_selection import results as _legacy_cta_selection
+from oncoref.species import for_species as _oncoref_for_species
 
 _HUMAN_SPECIES_ALIASES = frozenset({"human", "homo_sapiens", "homo sapiens", "9606"})
 CTA_TIERS = target_selection.CTA_TIERS
@@ -143,18 +142,61 @@ def _human_target_selection() -> pd.DataFrame:
     return raw
 
 
+@lru_cache(maxsize=8)
+def _nonhuman_target_selection(species_key: str) -> pd.DataFrame:
+    """Normalized view of OncoRef's cross-species target_selection catalog."""
+    sp = _oncoref_for_species(species_key)
+    raw = sp.antigens.target_selection().copy()
+    coverage = sp.antigens.target_selection_coverage()
+    snapshot_id = str(sp.antigens.cta_snapshot().as_dict().get("snapshot_id", ""))
+    default_ref_id = str(coverage.get("reference", {}).get("reference_id", ""))
+
+    gene_ids_col: list[tuple[str, ...]] = []
+    identity_status_col: list[str] = []
+    reasons_col: list[tuple[str, ...]] = []
+    flags_col: list[tuple[str, ...]] = []
+
+    for row in raw.itertuples(index=False):
+        members = _parse_json_tuple(getattr(row, "member_gene_ids", ()))
+        gene_ids_col.append(members)
+        complete = bool(getattr(row, "identity_translation_pass", False)) and bool(members)
+        identity_status_col.append("resolved" if complete else "unmapped_or_incomplete")
+        reasons_col.append(_row_reasons(row))
+        flags_col.append(_row_evidence_flags(row))
+
+    raw["species"] = sp.species.name
+    raw["entity_kind"] = "protein_group"
+    raw["label"] = raw["protein_group_label"]
+    raw["gene_ids"] = gene_ids_col
+    raw["identity_status"] = identity_status_col
+    policy_col = "policy" if "policy" in raw.columns else "target_policy_id"
+    raw["policy_id"] = raw[policy_col] if policy_col in raw.columns else coverage.get("policy_id")
+    if "reference_id" not in raw.columns:
+        raw["reference_id"] = default_ref_id
+    raw["source_snapshot_id"] = snapshot_id
+    raw["reasons"] = reasons_col
+    raw["evidence_flags"] = flags_col
+    return raw
+
+
+def CTA_selection_coverage(*, species: str = "human") -> dict:
+    """Return OncoRef's target-selection readiness, anatomy, and category counts."""
+    return dict(_oncoref_for_species(species).antigens.target_selection_coverage())
+
+
 def CTA_selection(category: str | Iterable[str] | None = None, *, species: str = "human"):
     """Return detached current OncoRef selection decisions.
 
-    For ``species="human"`` (default), returns OncoRef's rebuilt
-    :mod:`oncoref.target_selection` catalog enriched with canonical gene
-    identities and provenance receipts. Non-human species delegate to
-    :func:`oncoref.cta_selection.results`.
+    Uses OncoRef's unified cross-species :mod:`oncoref.target_selection` catalog
+    across human, mouse, and canine, enriched with normalized gene-ID tuples and
+    provenance receipts.
     """
-    if str(species).strip().lower() not in _HUMAN_SPECIES_ALIASES:
-        return _legacy_cta_selection(species=species, category=category)
+    key = str(species).strip().lower()
+    if key in _HUMAN_SPECIES_ALIASES:
+        frame = _human_target_selection()
+    else:
+        frame = _nonhuman_target_selection(key)
 
-    frame = _human_target_selection()
     if category is not None:
         if isinstance(category, str):
             frame = frame.loc[frame["category"].eq(category)]

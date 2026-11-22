@@ -29,15 +29,14 @@ requires-python = ">=3.11"
 dependencies = [
     # hitlist owns artifact freshness (curation-YAML fingerprints in
     # observations_meta.json, mapping-artifact contract), publishes
-    # MHC_ALLELE_PROVENANCE_VALUES, and exposes verified EvidenceStore packages.
-    # 2.1.22: Hitlist 2.x release (requires Python >=3.11 and pandas >=3) used
-    # for runtime EvidenceStore queries and the bundled gene-level MS overlay.
-    "hitlist>=2.1.22",
+    # MHC_ALLELE_PROVENANCE_VALUES, and exposes verified EvidenceStore packages
+    # plus unified managed-bundle preflight/discovery (2.7.0).
+    "hitlist>=2.7.0",
     "mhcgnomes>=3.20.0",
-    # Rebuilt set-based target selection catalog, gene identities and receipts.
-    # 1.43.0: target_selection policy oncoref.target-selection.2026-11-19.4
-    # (CTA with cta_tier, Cancer Antigen only, Reproductive Antigen only, Other, Unsafe).
-    "oncoref>=1.43.0",
+    # Rebuilt cross-species target selection catalog, GLOBOCAN 2024 world burden
+    # with mixed-cohort scope, Ensembl 115 mouse host reference, and SP7/#711
+    # rare-cell adjudications (policy oncoref.target-selection.2026-11-20.2).
+    "oncoref>=1.46.0",
     "pandas>=3",
     "numpy",
     "tqdm",
@@ -45,10 +44,10 @@ dependencies = [
 
 [project.optional-dependencies]
 vaccine = [
-    "hitlist>=2.1.22",  # donor-resolved Atlas tissue blacklist API (1.65.1); base floor
+    "hitlist>=2.7.0",
     "pyensembl>=2.17.1",  # dog scientific-name aliases across Ensembl's rename
     "matplotlib",
-    "mhcflurry>=2.3.0",
+    "mhcflurry>=2.3.32",
     "mhctools>=3.47.0",
     "pepsickle>=0.1.3",
     "dnachisel>=3.2.0",
@@ -79,7 +78,7 @@ dev = [
 ]
 test-mhcflurry = [
     "pytest",
-    "mhcflurry>=2.3.0",
+    "mhcflurry>=2.3.32",
 ]
 
 [project.scripts]

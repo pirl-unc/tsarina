@@ -47,6 +47,31 @@ _CANONICAL_SHORT_ALIASES: dict[str, str] = {
     "murine": "mouse",
 }
 
+_DEFAULT_ENSEMBL_RELEASE = object()
+
+
+def _default_ensembl_release_for_species(short_name: str) -> int:
+    """Resolve the default Ensembl release for *short_name*.
+
+    Human retains ``112`` for backward compatibility with existing reference
+    indexes. Mouse aligns with OncoRef's SHA-256-pinned Ensembl host reference
+    (``115`` as of OncoRef 1.46.0) when registered.
+    """
+    if short_name == "mouse":
+        try:
+            from oncoref import mouse as _oncoref_mouse
+
+            for ref in _oncoref_mouse.references.registered_references():
+                ident = ref.get("identity", {})
+                if ident.get("annotation_source") == "Ensembl":
+                    release = str(ident.get("annotation_release", "")).strip()
+                    if release.isdigit():
+                        return int(release)
+        except Exception:
+            pass
+        return 115
+    return 112
+
 
 @dataclass(frozen=True)
 class SpeciesContext:
@@ -155,7 +180,7 @@ def resolve_species_context(
     mhc_species: str | None = None,
     mhc_taxon: int | None = None,
     host_taxon: int | None = None,
-    ensembl_release: int | None = 112,
+    ensembl_release: int | object | None = _DEFAULT_ENSEMBL_RELEASE,
     assembly: str | None = None,
     reference_source: str = "pyensembl",
     reference_key: str | None = None,
@@ -194,6 +219,7 @@ def resolve_species_context(
             and mhc_species is None
             and mhc_taxon is None
             and host_taxon is None
+            and ensembl_release is _DEFAULT_ENSEMBL_RELEASE
             and assembly is None
             and reference_key is None
         ):
@@ -210,7 +236,9 @@ def resolve_species_context(
             mhc_taxon=mhc_taxon if mhc_taxon is not None else host_species.mhc_taxon,
             host_taxon=host_taxon if host_taxon is not None else host_species.host_taxon,
             ensembl_release=(
-                ensembl_release if ensembl_release is not None else host_species.ensembl_release
+                host_species.ensembl_release
+                if ensembl_release is _DEFAULT_ENSEMBL_RELEASE
+                else ensembl_release
             ),
             assembly=assembly or host_species.assembly,
             reference_source=reference_source or host_species.reference_source,
@@ -218,6 +246,13 @@ def resolve_species_context(
         )
 
     py_sp, short_name, scientific_name, resolved_taxon = _resolve_pyensembl_species(host_species)
+    effective_release: int | None = (
+        _default_ensembl_release_for_species(short_name)
+        if ensembl_release is _DEFAULT_ENSEMBL_RELEASE
+        else int(ensembl_release)
+        if ensembl_release is not None
+        else None
+    )
     if host_taxon is not None and resolved_taxon is not None and int(host_taxon) != resolved_taxon:
         raise ValueError(
             f"Conflicting host_taxon={host_taxon} for species {scientific_name!r} "
@@ -226,9 +261,9 @@ def resolve_species_context(
     effective_host_taxon = resolved_taxon if host_taxon is None else int(host_taxon)
 
     resolved_assembly = assembly
-    if resolved_assembly is None and ensembl_release is not None:
+    if resolved_assembly is None and effective_release is not None:
         try:
-            resolved_assembly = py_sp.which_reference(int(ensembl_release))
+            resolved_assembly = py_sp.which_reference(int(effective_release))
         except Exception:
             resolved_assembly = getattr(py_sp, "current_reference_name", None)
 
@@ -264,7 +299,7 @@ def resolve_species_context(
         host_name=short_name,
         host_taxon=effective_host_taxon,
         pyensembl_species=py_sp.latin_name,
-        ensembl_release=ensembl_release,
+        ensembl_release=effective_release,
         assembly=resolved_assembly,
         reference_source=reference_source,
         reference_key=reference_key,

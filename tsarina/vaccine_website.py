@@ -140,21 +140,24 @@ def _payload(result, destination):
     cancers = []
     for category, group in cancer.groupby("burden_category"):
         row = group.iloc[0]
-        cancers.append(
-            {
-                "category": category,
-                "mortality_pct": float(row.world_mortality_pct),
-                "incidence_pct": float(row.world_incidence_pct),
-                "n_samples": int(row.n_samples),
-                "proteins": {
-                    r["proteoform_key"]: {
-                        "prevalence": r["prevalence_p95"],
-                        "sample_count": r["n_measured_samples"],
-                    }
-                    for r in records(group)
-                },
-            }
-        )
+        entry = {
+            "category": category,
+            "mortality_pct": float(row.world_mortality_pct),
+            "incidence_pct": float(row.world_incidence_pct),
+            "n_samples": int(row.n_samples),
+            "proteins": {
+                r["proteoform_key"]: {
+                    "prevalence": r["prevalence_p95"],
+                    "sample_count": r["n_measured_samples"],
+                }
+                for r in records(group)
+            },
+        }
+        if hasattr(row, "world_mortality_count") and pd.notna(row.world_mortality_count):
+            entry["mortality_count"] = int(row.world_mortality_count)
+        if hasattr(row, "world_incidence_count") and pd.notna(row.world_incidence_count):
+            entry["incidence_count"] = int(row.world_incidence_count)
+        cancers.append(entry)
     cancers.sort(key=lambda c: -c["mortality_pct"])
     screen = source_tables.get("selection_screen", pd.DataFrame())
     candidate_funnel = source_tables.get("candidate_funnel", pd.DataFrame())
