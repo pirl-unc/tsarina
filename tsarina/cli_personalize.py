@@ -253,6 +253,12 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--top",
+        type=int,
+        default=None,
+        help="Limit output to the top N ranked targets (useful with --format table).",
+    )
+    p.add_argument(
         "--format",
         choices=("csv", "tsv", "table"),
         default=None,
@@ -323,6 +329,12 @@ def handle(args: argparse.Namespace) -> None:
     except (DatasetNotRegisteredError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if args.top is not None:
+        if args.top <= 0:
+            print("Error: --top must be a positive integer.", file=sys.stderr)
+            sys.exit(1)
+        df = df.head(args.top)
 
     fmt = _resolve_format(args.format, args.output)
 

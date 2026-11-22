@@ -675,3 +675,54 @@ def test_hits_help_advertises_include_other_assays():
     r = _run_cli("hits", "--help")
     assert r.returncode == 0
     assert "--include-other-assays" in r.stdout
+    assert "table" in r.stdout
+
+
+def test_hits_pmhc_sorts_exact_monoallelic_ahead_of_donor_sets_and_formats_table():
+    """tsarina#241: pmhc/refs/table sort exact single-allele monoallelic hits
+    before 1-hit donor sets, annotate ms_attribution_tier, and render clean tables."""
+    from tsarina import cli_hits
+
+    df = pd.DataFrame(
+        [
+            {
+                "peptide": "SLLQHLIGL",
+                "gene_names": "PRAME",
+                "mhc_restriction": "HLA-A*01:01;HLA-A*02:01;HLA-B*18:01;HLA-C*05:01",
+                "ms_pmhc_hit_count": 1,
+                "ms_pmhc_pmid_count": 1,
+                "ms_pmhc_mono_hit_count": 0,
+                "ms_pmhc_has_mono_evidence": False,
+                "ms_pmhc_in_cancer": True,
+                "ms_pmhc_in_healthy_tissue": False,
+            },
+            {
+                "peptide": "SLLQHLIGL",
+                "gene_names": "PRAME",
+                "mhc_restriction": "HLA-A*02:01",
+                "ms_pmhc_hit_count": 16,
+                "ms_pmhc_pmid_count": 13,
+                "ms_pmhc_mono_hit_count": 2,
+                "ms_pmhc_has_mono_evidence": True,
+                "ms_pmhc_in_cancer": True,
+                "ms_pmhc_in_healthy_tissue": False,
+            },
+        ]
+    )
+    annotated = cli_hits._annotate_pmhc_attribution(df, ["HLA-A*02:01"])
+    sorted_df = cli_hits._sort_pmhc_by_evidence(annotated)
+    assert sorted_df.iloc[0]["mhc_restriction"] == "HLA-A*02:01"
+    assert list(sorted_df["ms_attribution_tier"]) == [
+        "exact_requested_mhc",
+        "donor_set_ambiguous",
+    ]
+
+    rendered = cli_hits._format_hits_table(sorted_df)
+    assert "exact" in rendered and "donor_set" in rendered
+    assert "yes (2)" in rendered
+    assert "(+1)" in rendered  # donor set truncated cleanly past 3 alleles
+
+    deduped = cli_hits._deduplicate_semicolon_alleles(
+        pd.DataFrame({"ms_alleles": ["HLA-A*02:01;HLA-A*02:01;HLA-B*07:02;HLA-A*02:01"]})
+    )
+    assert deduped.iloc[0]["ms_alleles"] == "HLA-A*02:01;HLA-B*07:02"

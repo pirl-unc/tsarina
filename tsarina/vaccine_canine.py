@@ -171,6 +171,13 @@ def design_canine_vaccine(
         raise ValueError("Portable protein occurrences disagree with the frozen reference")
     if config.definition != bundle["restriction_policy"]["definition"]:
         raise ValueError("Canine restriction definition disagrees with the bundle policy")
+    available_cohorts = sorted(bundle.get("cohorts", ()))
+    if config.canine_cohort not in available_cohorts:
+        cohort_list = ", ".join(available_cohorts) if available_cohorts else "(none)"
+        raise ValueError(
+            f"Unknown canine cohort '{config.canine_cohort}'; "
+            f"available cohorts in bundle: {cohort_list}"
+        )
     if bundle["genotype_population"]["cohort"] != config.canine_cohort:
         raise ValueError("Genotype sampling frame disagrees with the named RNA cohort")
     if config.selection_mode == "budget":

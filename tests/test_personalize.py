@@ -911,6 +911,77 @@ def test_format_table_marks_flagged_rows_with_footnote():
     assert any("flagged clinical-target CTA" in line for line in lines)
 
 
+def test_format_table_surfaces_ms_attribution_safety_and_tier_reason():
+    """tsarina#241: personalize --format table exposes ms_attr, ms_safety, and tier_reason."""
+    df = pd.DataFrame(
+        {
+            "peptide": ["SLLQHLIGL", "TLAKFSPYL", "PREDONLY1"],
+            "category": ["cta", "cta", "cta"],
+            "source": ["PRAME", "PRAME", "PRAME"],
+            "tier_label": ["STRONG", "MODERATE", "CANDIDATE"],
+            "best_allele": ["HLA-A*02:01", "HLA-A*02:01", "HLA-A*02:01"],
+            "affinity_nm": [15.9, 10.8, 120.0],
+            "presentation_percentile": [0.01, 0.05, 0.40],
+            "ms_hit_count": [32, 1, 0],
+            "ms_attribution_tier": ["exact_requested_mhc", "other_mhc_only", "no_match"],
+            "ms_in_cancer": [True, False, False],
+            "ms_in_healthy_tissue": [False, True, False],
+            "tier_reason": [
+                "strong_presentation+cancer_ms",
+                "strong_presentation+healthy_ms",
+                "predicted_presentation_only",
+            ],
+        }
+    )
+    table = personalize_module.format_table(df)
+    assert "ms_attr" in table and "ms_safety" in table and "reason" in table
+    assert "exact" in table and "other_mhc" in table and "no_match" in table
+    assert "cancer" in table and "healthy!" in table
+    assert "strong_presentation+cancer_ms" in table
+
+
+def test_cli_personalize_top_limits_rows_and_rejects_nonpositive(monkeypatch, capsys):
+    """tsarina#241: --top N limits printed rows and rejects <= 0."""
+    from tsarina import cli_personalize
+
+    fake_df = pd.DataFrame(
+        {
+            "peptide": ["PEP1", "PEP2", "PEP3"],
+            "category": ["cta", "cta", "cta"],
+            "source": ["PRAME", "PRAME", "PRAME"],
+            "tier_label": ["STRONG", "MODERATE", "CANDIDATE"],
+            "best_allele": ["HLA-A*02:01"] * 3,
+            "affinity_nm": [10.0, 20.0, 30.0],
+            "presentation_percentile": [0.01, 0.1, 0.5],
+            "ms_hit_count": [5, 1, 0],
+        }
+    )
+    monkeypatch.setattr(
+        "tsarina.personalize.personalized_targets",
+        lambda **kw: fake_df,
+    )
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="cmd")
+    cli_personalize.build_parser(sub)
+
+    args = parser.parse_args(
+        ["personalize", "--hla", "HLA-A02:01", "--cta", "PRAME", "--top", "2", "--format", "table"]
+    )
+    cli_personalize.handle(args)
+    out = capsys.readouterr().out
+    assert "PEP1" in out and "PEP2" in out and "PEP3" not in out
+
+    bad_args = parser.parse_args(
+        ["personalize", "--hla", "HLA-A02:01", "--cta", "PRAME", "--top", "0"]
+    )
+    with pytest.raises(SystemExit) as exc:
+        cli_personalize.handle(bad_args)
+    assert exc.value.code == 1
+    assert "--top must be a positive integer" in capsys.readouterr().err
+
+
 # ── Proteoform roll-up (identical-protein CTA paralogs) ─────────────────
 
 

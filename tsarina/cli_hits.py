@@ -47,7 +47,7 @@ from .cli_common import (
 if TYPE_CHECKING:
     import pandas as pd
 
-_SUPPORTED_FORMATS = ("peptides", "pmhc", "refs", "raw")
+_SUPPORTED_FORMATS = ("peptides", "pmhc", "refs", "raw", "table")
 # Allele-resolution levels, most specific first.  Mirrors the leading prefix of
 # hitlist's ``ALLELE_RESOLUTION_ORDER`` (``unresolved`` is omitted: asking for it
 # keeps everything).  Kept as a literal so ``--help`` does not pay for importing
@@ -220,7 +220,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "for ms_pmhc_ref_count, ms_pmhc_pmids, ms_pmhc_tissues, "
             "ms_pmhc_diseases, ms_pmhc_cell_lines, and the "
             "ms_pmhc_in_cancer / ms_pmhc_in_healthy_tissue source flags. "
-            "Backed by hitlist.aggregate.aggregate_per_pmhc_with_refs."
+            "'table' renders a compact human-readable terminal table sorted by "
+            "evidence strength (exact single-allele & monoallelic hits first)."
         ),
     )
     p.add_argument(
@@ -694,6 +695,7 @@ def handle(args: argparse.Namespace) -> None:
     gene_ident_cols = [c for c in ("gene_names", "gene_ids", "protein_ids") if c in hits.columns]
     if args.format == "peptides":
         out = aggregate_per_peptide(hits)
+        out = _deduplicate_semicolon_alleles(out, "ms_alleles")
         if gene_ident_cols:
             ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
             out = ids.merge(out, on="peptide", how="inner")
@@ -712,7 +714,9 @@ def handle(args: argparse.Namespace) -> None:
                 subset="peptide"
             )
             out = legacy.merge(out, on="peptide", how="inner")
-    elif args.format == "refs":
+        out = _annotate_pmhc_attribution(out, args.allele)
+        out = _sort_pmhc_by_evidence(out)
+    elif args.format in ("refs", "table"):
         out = aggregate_per_pmhc_with_refs(hits)
         if gene_ident_cols:
             ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
@@ -722,6 +726,8 @@ def handle(args: argparse.Namespace) -> None:
                 subset="peptide"
             )
             out = legacy.merge(out, on="peptide", how="inner")
+        out = _annotate_pmhc_attribution(out, args.allele)
+        out = _sort_pmhc_by_evidence(out)
     else:
         # raw: observations already carry gene columns; only the raw-CSV
         # path needs the ProteomeIndex join for flanking context.
@@ -745,14 +751,18 @@ def handle(args: argparse.Namespace) -> None:
     if args.predict and not out.empty:
         from .scoring import score_presentation
 
-        if args.format == "pmhc":
+        if args.format in ("pmhc", "refs", "table"):
             peptide_allele = out[["peptide", "mhc_restriction"]].drop_duplicates()
-            scores = score_presentation(
-                peptides=peptide_allele["peptide"].tolist(),
-                alleles=peptide_allele["mhc_restriction"].unique().tolist(),
-                predictor=args.predictor,
-            ).rename(columns={"allele": "mhc_restriction"})
-            out = out.merge(scores, on=["peptide", "mhc_restriction"], how="left")
+            single_alleles = [
+                a for a in peptide_allele["mhc_restriction"].unique().tolist() if ";" not in str(a)
+            ]
+            if single_alleles:
+                scores = score_presentation(
+                    peptides=peptide_allele["peptide"].tolist(),
+                    alleles=single_alleles,
+                    predictor=args.predictor,
+                ).rename(columns={"allele": "mhc_restriction"})
+                out = out.merge(scores, on=["peptide", "mhc_restriction"], how="left")
         else:
             # peptides / raw: score each peptide against observed alleles collectively.
             alleles_col = "ms_alleles" if "ms_alleles" in out.columns else "mhc_restriction"
@@ -785,7 +795,208 @@ def handle(args: argparse.Namespace) -> None:
                     )
                     out = out.merge(best, on="peptide", how="left")
 
+    if args.format == "table":
+        rendered = _format_hits_table(out) + "\n"
+        if args.output:
+            with open(args.output, "w") as f:
+                f.write(rendered)
+            print(f"Wrote {len(out)} rows to {args.output}", file=sys.stderr)
+        else:
+            sys.stdout.write(rendered)
+        return
+
     _write(args.output, out)
+
+
+def _deduplicate_semicolon_alleles(df: pd.DataFrame, column: str = "ms_alleles") -> pd.DataFrame:
+    """Deduplicate individual alleles across semicolon-joined donor sets (#241)."""
+    if df.empty or column not in df.columns:
+        return df
+    out = df.copy()
+
+    def _clean(value: object) -> str:
+        if not isinstance(value, str) or not value.strip():
+            return "" if value is None else str(value)
+        tokens = sorted({tok.strip() for tok in value.split(";") if tok.strip()})
+        return ";".join(tokens)
+
+    out[column] = out[column].map(_clean)
+    return out
+
+
+def _sort_pmhc_by_evidence(df: pd.DataFrame) -> pd.DataFrame:
+    """Order per-pMHC rows by evidence strength (#241): exact single-allele
+    before multi-allelic donor sets, then monoallelic evidence, PMID/ref count,
+    and hit count."""
+    if df.empty or "mhc_restriction" not in df.columns:
+        return df
+    import pandas as pd
+
+    out = df.copy()
+    out["_is_donor_set"] = out["mhc_restriction"].astype(str).str.contains(";", regex=False)
+    if "ms_pmhc_has_mono_evidence" in out.columns:
+        mono = out["ms_pmhc_has_mono_evidence"].fillna(False).astype(bool)
+    elif "ms_pmhc_mono_hit_count" in out.columns:
+        mono = pd.to_numeric(out["ms_pmhc_mono_hit_count"], errors="coerce").fillna(0) > 0
+    else:
+        mono = pd.Series(False, index=out.index)
+    out["_mono_rank"] = (~mono).astype(int)
+    pmid_col = (
+        "ms_pmhc_pmid_count"
+        if "ms_pmhc_pmid_count" in out.columns
+        else "ms_pmhc_ref_count"
+        if "ms_pmhc_ref_count" in out.columns
+        else None
+    )
+    out["_pmid_rank"] = (
+        -pd.to_numeric(out[pmid_col], errors="coerce").fillna(0).astype(int)
+        if pmid_col is not None
+        else 0
+    )
+    out["_hit_rank"] = (
+        -pd.to_numeric(out["ms_pmhc_hit_count"], errors="coerce").fillna(0).astype(int)
+        if "ms_pmhc_hit_count" in out.columns
+        else 0
+    )
+    sort_cols = ["_is_donor_set", "_mono_rank", "_pmid_rank", "_hit_rank"]
+    if "peptide" in out.columns:
+        sort_cols.append("peptide")
+    sort_cols.append("mhc_restriction")
+    out = out.sort_values(sort_cols, kind="mergesort").drop(
+        columns=["_is_donor_set", "_mono_rank", "_pmid_rank", "_hit_rank"]
+    )
+    return out.reset_index(drop=True)
+
+
+def _annotate_pmhc_attribution(df: pd.DataFrame, requested_alleles: list[str]) -> pd.DataFrame:
+    """Tag per-pMHC rows with exact vs donor-set attribution when --allele is given (#241)."""
+    if df.empty or not requested_alleles or "mhc_restriction" not in df.columns:
+        return df
+    from .mhc import normalize_mhc_restriction_set
+
+    wanted = normalize_mhc_restriction_set(requested_alleles)
+    out = df.copy()
+
+    def _classify(restriction: object) -> str:
+        text = str(restriction or "").strip()
+        if not text:
+            return "other_mhc_only"
+        tokens = [tok.strip() for tok in text.split(";") if tok.strip()]
+        normalized = normalize_mhc_restriction_set(tokens)
+        if not (normalized & wanted):
+            return "other_mhc_only"
+        if len(tokens) == 1:
+            return "exact_requested_mhc"
+        return "donor_set_ambiguous"
+
+    out["ms_attribution_tier"] = out["mhc_restriction"].map(_classify)
+    return out
+
+
+def _abbreviate_restriction(value: object, max_alleles: int = 3) -> str:
+    text = str(value or "").strip()
+    if ";" not in text:
+        return text
+    tokens = [tok.strip() for tok in text.split(";") if tok.strip()]
+    if len(tokens) <= max_alleles:
+        return ";".join(tokens)
+    return f"{';'.join(tokens[:max_alleles])};... (+{len(tokens) - max_alleles})"
+
+
+def _format_hits_table(df: pd.DataFrame) -> str:
+    """Render a compact fixed-width terminal table for ``tsarina hits --format table``."""
+    import pandas as pd
+
+    if df.empty:
+        return "(no hits)"
+
+    attr_short = {
+        "exact_requested_mhc": "exact",
+        "donor_set_ambiguous": "donor_set",
+        "other_mhc_only": "other_mhc",
+    }
+
+    def _safety(row: pd.Series) -> str:
+        in_cancer = (
+            bool(row.get("ms_pmhc_in_cancer")) if pd.notna(row.get("ms_pmhc_in_cancer")) else False
+        )
+        in_healthy = (
+            bool(row.get("ms_pmhc_in_healthy_tissue"))
+            if pd.notna(row.get("ms_pmhc_in_healthy_tissue"))
+            else False
+        )
+        if in_healthy and in_cancer:
+            return "cancer+healthy!"
+        if in_healthy:
+            return "healthy!"
+        if in_cancer:
+            return "cancer"
+        return "unclassified"
+
+    has_attr = "ms_attribution_tier" in df.columns
+    has_safety = bool({"ms_pmhc_in_cancer", "ms_pmhc_in_healthy_tissue"} & set(df.columns))
+    has_predict = "presentation_percentile" in df.columns
+
+    headers = ["peptide", "genes", "mhc_restriction"]
+    if has_attr:
+        headers.append("ms_attr")
+    headers.extend(["hits", "pmids", "mono"])
+    if has_safety:
+        headers.append("ms_safety")
+    if has_predict:
+        headers.extend(["pct_rank", "affinity_nM"])
+
+    rows: list[list[str]] = []
+    for _, row in df.iterrows():
+        pmids_val = row.get("ms_pmhc_pmid_count")
+        if pd.isna(pmids_val):
+            pmids_val = row.get("ms_pmhc_ref_count")
+        if pd.isna(pmids_val):
+            pmid_str = str(row.get("ms_pmhc_pmids") or "").strip()
+            pmids_val = len([p for p in pmid_str.split(";") if p.strip()]) if pmid_str else 0
+        mono_hits = row.get("ms_pmhc_mono_hit_count")
+        mono_str = (
+            f"yes ({int(mono_hits)})"
+            if pd.notna(mono_hits) and int(mono_hits) > 0
+            else "yes"
+            if bool(row.get("ms_pmhc_has_mono_evidence"))
+            else "no"
+        )
+        entry = [
+            str(row.get("peptide") or ""),
+            str(row.get("gene_names") or row.get("gene_name") or ""),
+            _abbreviate_restriction(row.get("mhc_restriction")),
+        ]
+        if has_attr:
+            raw_attr = str(row.get("ms_attribution_tier") or "")
+            entry.append(attr_short.get(raw_attr, raw_attr))
+        entry.extend(
+            [
+                str(int(row.get("ms_pmhc_hit_count") or 0)),
+                str(int(pmids_val or 0)),
+                mono_str,
+            ]
+        )
+        if has_safety:
+            entry.append(_safety(row))
+        if has_predict:
+            pct = row.get("presentation_percentile")
+            aff = row.get("affinity_nm")
+            entry.extend(
+                [
+                    "" if pd.isna(pct) else f"{float(pct):.2f}",
+                    "" if pd.isna(aff) else f"{float(aff):.1f}",
+                ]
+            )
+        rows.append(entry)
+
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+    lines = [
+        "  ".join(h.ljust(w) for h, w in zip(headers, widths)),
+        "  ".join("-" * w for w in widths),
+    ]
+    lines.extend("  ".join(cell.ljust(w) for cell, w in zip(r, widths)) for r in rows)
+    return "\n".join(lines)
 
 
 def _write(output: str | None, df: pd.DataFrame) -> None:
