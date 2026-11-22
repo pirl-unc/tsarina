@@ -39,6 +39,7 @@ Typical usage::
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 from collections import defaultdict
@@ -283,6 +284,8 @@ _LONG_OUTPUT_COLUMNS: tuple[str, ...] = (
     "ms_alleles",
     "ms_pmids",
     "ms_samples",
+    "ms_in_cancer",
+    "ms_in_healthy_tissue",
     "presentation_percentile",
     "presentation_score",
     "affinity_nm",
@@ -1992,12 +1995,42 @@ def _score_lookup(scores: pd.DataFrame) -> dict[tuple[str, str], float]:
     }
 
 
+_UNRESTRICTED_CLASS_RE = re.compile(
+    r"^(?:(?:hla|mhc)\s+)?class\s+(?:i|ii|1|2)$",
+    re.IGNORECASE,
+)
+
+
+def _is_unrestricted_class_restriction(
+    restriction: object,
+    allele_resolution: object = None,
+) -> bool:
+    """Return True only for class-level/empty restrictions, never locus or serotype labels.
+
+    Serological or locus-specific labels such as ``HLA-A2`` or ``HLA-B7`` do
+    not parse as 4-digit alleles, so they must not fall into ``unrestricted_ms``
+    where they could be credited to an incompatible locus (tsarina#238).
+    """
+    if allele_resolution is not None and not pd.isna(allele_resolution):
+        res = str(allele_resolution).strip().lower()
+        if res:
+            return res == "class_only"
+    if restriction is None or pd.isna(restriction):
+        return True
+    text = str(restriction).strip()
+    if not text:
+        return True
+    return bool(_UNRESTRICTED_CLASS_RE.match(text))
+
+
 def _new_evidence_bucket() -> dict[str, object]:
     return {
         "ms_hit_count": 0,
         "ms_alleles": set(),
         "ms_pmids": set(),
         "ms_samples": set(),
+        "ms_in_cancer": False,
+        "ms_in_healthy_tissue": False,
     }
 
 
@@ -2008,23 +2041,53 @@ def _add_evidence(
 ) -> None:
     bucket = stats.setdefault(key, _new_evidence_bucket())
     bucket["ms_hit_count"] = int(bucket["ms_hit_count"]) + 1
-    for source_col, output_key in (
-        ("mhc_restriction", "ms_alleles"),
-        ("pmid", "ms_pmids"),
-    ):
-        value = row.get(source_col)
-        if isinstance(value, str):
-            stripped = value.strip()
+    restriction = row.get("mhc_restriction")
+    if isinstance(restriction, str):
+        for token in restriction.split(";"):
+            stripped = token.strip()
             if stripped:
-                bucket[output_key].add(stripped)
-        elif pd.notna(value):
-            bucket[output_key].add(str(value))
+                bucket["ms_alleles"].add(stripped)
+    elif pd.notna(restriction):
+        stripped = str(restriction).strip()
+        if stripped:
+            bucket["ms_alleles"].add(stripped)
+    pmid = row.get("pmid")
+    if isinstance(pmid, str):
+        stripped = pmid.strip()
+        if stripped:
+            bucket["ms_pmids"].add(stripped)
+    elif pd.notna(pmid):
+        bucket["ms_pmids"].add(str(pmid))
     for source_col in ("cell_line_name", "cell_name", "source_tissue"):
         value = row.get(source_col)
         if isinstance(value, str):
             stripped = value.strip()
             if stripped:
                 bucket["ms_samples"].add(stripped)
+    bucket["ms_in_cancer"] = bool(bucket["ms_in_cancer"]) or _is_truthy(
+        row.get("src_cancer", False)
+    )
+    bucket["ms_in_healthy_tissue"] = bool(bucket["ms_in_healthy_tissue"]) or _is_truthy(
+        row.get("src_healthy_tissue", False)
+    )
+
+
+def _merge_raw_evidence_buckets(*buckets: dict[str, object] | None) -> dict[str, object]:
+    merged = _new_evidence_bucket()
+    for bucket in buckets:
+        if bucket is None:
+            continue
+        merged["ms_hit_count"] = int(merged["ms_hit_count"]) + int(bucket["ms_hit_count"])
+        merged["ms_alleles"].update(bucket["ms_alleles"])
+        merged["ms_pmids"].update(bucket["ms_pmids"])
+        merged["ms_samples"].update(bucket["ms_samples"])
+        merged["ms_in_cancer"] = bool(merged["ms_in_cancer"]) or bool(
+            bucket.get("ms_in_cancer", False)
+        )
+        merged["ms_in_healthy_tissue"] = bool(merged["ms_in_healthy_tissue"]) or bool(
+            bucket.get("ms_in_healthy_tissue", False)
+        )
+    return merged
 
 
 def _finalize_evidence_bucket(bucket: dict[str, object]) -> dict[str, object]:
@@ -2039,6 +2102,8 @@ def _finalize_evidence_bucket(bucket: dict[str, object]) -> dict[str, object]:
         "ms_alleles": ";".join(sorted(bucket["ms_alleles"])),
         "ms_pmids": ";".join(sorted(bucket["ms_pmids"])),
         "ms_samples": ";".join(sorted(bucket["ms_samples"])),
+        "ms_in_cancer": bool(bucket.get("ms_in_cancer", False)),
+        "ms_in_healthy_tissue": bool(bucket.get("ms_in_healthy_tissue", False)),
     }
 
 
@@ -2083,12 +2148,25 @@ def _build_evidence_stats(
     allele_list: list[str],
     score_lookup: dict[tuple[str, str], float],
 ) -> dict[tuple[str, str | None, str], dict[str, object]]:
-    """Build evidence buckets keyed by peptide, allele, and evidence tier."""
+    """Build evidence buckets keyed by peptide, allele, and evidence tier.
+
+    Design invariants:
+    - Monoallelic confirmation strengthens rather than replaces sample-allele
+      support: any ``(peptide, allele, "monoallelic_ms")`` bucket accumulates
+      ``(peptide, allele, "sample_allele_ms")`` observations on the same allele
+      so total source/hit/PMID counts never shrink (tsarina#237).
+    - Serotype/locus-specific restrictions (e.g. ``HLA-A2``) never fall into
+      ``unrestricted_ms``; peptides with allele-specific MS anywhere in ``hits``
+      do not leak untyped class-level rows onto unrelated alleles; and
+      genuinely untyped ``unrestricted_ms`` peptides deconvolve to their
+      best-presenting allele(s) in ``allele_list`` (tsarina#238).
+    """
     stats: dict[tuple[str, str | None, str], dict[str, object]] = {}
     if hits.empty or "peptide" not in hits.columns:
         return stats
 
     panel_alleles = set(allele_list)
+    typed_ms_peptides: set[str] = set()
     for _, row in hits.iterrows():
         peptide_value = row.get("peptide")
         if not isinstance(peptide_value, str) or not peptide_value.strip():
@@ -2100,6 +2178,9 @@ def _build_evidence_stats(
         sample_alleles = _exact_hla_alleles(row.get("mhc_allele_set", ""))
         provenance = str(row.get("mhc_allele_provenance", "")).strip()
         matched = False
+
+        if restriction_alleles or (provenance in _SAMPLE_NARROWED_PROVENANCES and sample_alleles):
+            typed_ms_peptides.add(peptide)
 
         if is_monoallelic and len(restriction_alleles) == 1 and exact_panel_alleles:
             for allele in exact_panel_alleles:
@@ -2116,14 +2197,44 @@ def _build_evidence_stats(
                     _add_evidence(stats, (peptide, allele, "sample_allele_ms"), row)
                     matched = True
 
-        if not matched and not restriction_alleles:
+        if (
+            not matched
+            and not restriction_alleles
+            and _is_unrestricted_class_restriction(
+                row.get("mhc_restriction", ""),
+                row.get("allele_resolution"),
+            )
+        ):
             _add_evidence(stats, (peptide, None, "unrestricted_ms"), row)
 
-    return {
-        key: _finalize_evidence_bucket(bucket)
-        for key, bucket in stats.items()
-        if int(bucket["ms_hit_count"]) > 0
-    }
+    # Suppress unrestricted_ms for peptides that already have allele-specific MS
+    # anywhere in hits, and deconvolve remaining unrestricted_ms across the panel.
+    unrestricted_keys = [key for key in stats if key[2] == "unrestricted_ms" and key[1] is None]
+    for key in unrestricted_keys:
+        bucket = stats.pop(key)
+        peptide = key[0]
+        if peptide in typed_ms_peptides:
+            continue
+        for allele in allele_list:
+            if _is_best_deconvolved_allele(peptide, allele, panel_alleles, score_lookup):
+                stats[(peptide, allele, "unrestricted_ms")] = bucket
+
+    # Accumulate allele-consistent sample_allele_ms observations onto monoallelic_ms
+    # buckets so monoallelic confirmation never shrinks source/hit/PMID counts.
+    merged_stats: dict[tuple[str, str | None, str], dict[str, object]] = {}
+    for key, bucket in stats.items():
+        if int(bucket["ms_hit_count"]) <= 0:
+            continue
+        peptide, allele, tier = key
+        if tier == "monoallelic_ms" and allele is not None:
+            sample_bucket = stats.get((peptide, allele, "sample_allele_ms"))
+            merged_stats[key] = _finalize_evidence_bucket(
+                _merge_raw_evidence_buckets(bucket, sample_bucket)
+            )
+        else:
+            merged_stats[key] = _finalize_evidence_bucket(bucket)
+
+    return merged_stats
 
 
 def _candidate_rows(
@@ -2189,6 +2300,8 @@ def _candidate_rows(
                 "ms_alleles": "",
                 "ms_pmids": "",
                 "ms_samples": "",
+                "ms_in_cancer": False,
+                "ms_in_healthy_tissue": False,
             }
 
         rows.append(
@@ -2204,6 +2317,8 @@ def _candidate_rows(
                 "ms_alleles": evidence["ms_alleles"],
                 "ms_pmids": evidence["ms_pmids"],
                 "ms_samples": evidence["ms_samples"],
+                "ms_in_cancer": bool(evidence.get("ms_in_cancer", False)),
+                "ms_in_healthy_tissue": bool(evidence.get("ms_in_healthy_tissue", False)),
                 "presentation_percentile": percentile,
                 "presentation_score": getattr(row, "presentation_score", pd.NA),
                 "affinity_nm": getattr(row, "affinity_nm", pd.NA),
@@ -2234,8 +2349,8 @@ def _top_per_cell(candidates: pd.DataFrame, peptides_per_cell: int) -> pd.DataFr
         "allele",
         "_source_rank",
         "_hit_rank",
-        "presentation_percentile",
         "_tier_rank",
+        "presentation_percentile",
         "peptide",
     ]
     ranked = ranked.sort_values(sort_cols, kind="mergesort")
@@ -2385,15 +2500,29 @@ def _tcga_summary_for_cta(
 ) -> dict[str, object]:
     """Aggregate TCGA prevalence across the (possibly merged) CTA members.
 
-    For each slash-joined member symbol we pull its TCGA summary and keep the
-    member with the highest ``tcga_pan_prevalence_tpm_ge_1`` so the top
-    cancer-type string corresponds to a real underlying gene rather than a
-    cross-member mash-up.
+    Resolves both semicolon- and slash-delimited member lists as well as
+    curated proteoform display symbols (e.g. ``NY-ESO-1`` -> ``CTAG1A``,
+    ``CTAG1B``; ``SSX2/B`` -> ``SSX2``, ``SSX2B``) so multi-gene CTAs never
+    silently fall back to 0% (tsarina#239).
     """
     if not tcga_lookup or not cta_members:
         return _empty_tcga_panel_summary()
-    members = [m for m in str(cta_members).split("/") if m]
-    rows = [tcga_lookup[m] for m in members if m in tcga_lookup]
+    raw = str(cta_members).strip()
+    members: list[str] = []
+    group_label = _GROUP_ALIAS_TO_LABEL.get(_compact_cta_name(raw))
+    if group_label and group_label in _CTA_GROUPS:
+        members.extend(_CTA_GROUPS[group_label])
+    else:
+        for token in re.split(r"[;/]", raw):
+            token = token.strip()
+            if not token:
+                continue
+            token_group = _GROUP_ALIAS_TO_LABEL.get(_compact_cta_name(token))
+            if token_group and token_group in _CTA_GROUPS:
+                members.extend(_CTA_GROUPS[token_group])
+            else:
+                members.append(token)
+    rows = [tcga_lookup[m] for m in dict.fromkeys(members) if m in tcga_lookup]
     if not rows:
         return _empty_tcga_panel_summary()
     best = max(rows, key=lambda r: float(r["tcga_pan_prevalence_tpm_ge_1"]))

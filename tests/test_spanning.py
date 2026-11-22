@@ -1261,10 +1261,39 @@ def test_peptides_per_cell_ranks_ms_support_before_prediction(monkeypatch):
 # ── Output formats ─────────────────────────────────────────────────────
 
 
-def test_long_format_has_one_row_per_filled_cell():
+def _exact_multi_allele_ms_hits(peptides, alleles) -> pd.DataFrame:
+    rows = [
+        {
+            "peptide": pep,
+            "mhc_restriction": allele,
+            "mhc_allele_provenance": "exact",
+            "mhc_allele_set": allele,
+            "is_monoallelic": False,
+            "src_cancer": True,
+            "src_healthy_tissue": False,
+            "src_healthy_reproductive": False,
+            "src_healthy_thymus": False,
+            "src_ebv_lcl": False,
+            "pmid": "1",
+            "cell_line_name": "",
+            "cell_name": "",
+            "source_tissue": "",
+        }
+        for pep in peptides
+        for allele in alleles
+    ]
+    return pd.DataFrame(rows)
+
+
+def test_long_format_has_one_row_per_filled_cell(monkeypatch):
+    alleles = ["HLA-A*02:01", "HLA-A*24:02"]
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits",
+        lambda peptides, **kw: _exact_multi_allele_ms_hits(peptides, alleles),
+    )
     long = spanning_pmhc_set(
         ctas=["MAGEA4", "PRAME"],
-        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        alleles=alleles,
         max_percentile=2.0,
         peptides_per_cell=1,
         output_format="long",
@@ -1283,6 +1312,8 @@ def test_long_format_has_one_row_per_filled_cell():
         "ms_alleles",
         "ms_pmids",
         "ms_samples",
+        "ms_in_cancer",
+        "ms_in_healthy_tissue",
         "presentation_percentile",
         "presentation_score",
         "affinity_nm",
@@ -1313,10 +1344,15 @@ def test_unrecognized_output_format_raises():
         spanning_pmhc_set(output_format="grid")
 
 
-def test_output_attrs_include_summary_and_order_metadata():
+def test_output_attrs_include_summary_and_order_metadata(monkeypatch):
+    alleles = ["HLA-A*02:01", "HLA-A*24:02"]
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits",
+        lambda peptides, **kw: _exact_multi_allele_ms_hits(peptides, alleles),
+    )
     long = spanning_pmhc_set(
         ctas=["MAGEA4"],
-        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        alleles=alleles,
         max_percentile=10.0,
         peptides_per_cell=2,
         output_format="long",
@@ -1806,13 +1842,18 @@ def test_on_progress_pre_scoring_message_has_accurate_counts():
     assert "12 predictions" in pre
 
 
-def test_on_progress_summary_reports_filled_cell_count():
+def test_on_progress_summary_reports_filled_cell_count(monkeypatch):
     """Summary message's filled-cell count should equal the count the
     output table actually carries (rows with a non-NaN peptide)."""
+    alleles = ["HLA-A*02:01", "HLA-A*24:02"]
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits",
+        lambda peptides, **kw: _exact_multi_allele_ms_hits(peptides, alleles),
+    )
     messages: list[str] = []
     spanning_pmhc_set(
         ctas=["MAGEA4", "PRAME"],
-        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        alleles=alleles,
         max_percentile=2.0,
         output_format="long",
         on_progress=messages.append,
@@ -2123,9 +2164,16 @@ def test_size_within_target_envelope_for_default_args(monkeypatch):
         }
     )
 
+    from tsarina.alleles import get_panel
+
     monkeypatch.setattr(
         "tsarina.peptides.cta_exclusive_peptides",
         lambda **kw: pd.concat([_stub_peptides(), extra_peps], ignore_index=True),
+        raising=True,
+    )
+    monkeypatch.setattr(
+        "tsarina.ms_evidence.load_public_ms_hits",
+        lambda peptides, **kw: _exact_multi_allele_ms_hits(peptides, get_panel("iedb27_ab")[:6]),
         raising=True,
     )
     monkeypatch.setattr("tsarina.loader.cta_dataframe", lambda: cta_csv, raising=True)
@@ -2444,3 +2492,239 @@ def test_proteoform_labels_rejects_unknown_value():
             max_percentile=10.0,
             proteoform_labels="nope",
         )
+
+
+def test_monoallelic_ms_accumulates_sample_allele_evidence_and_outranks_sample_only(monkeypatch):
+    """tsarina#237: monoallelic confirmation must accumulate sample-allele cancer
+    observations rather than shrinking counts and ejecting flagship epitopes."""
+    hits = pd.DataFrame(
+        [
+            {
+                "peptide": "MAGEAPEP1",
+                "mhc_restriction": "HLA-A*02:01",
+                "mhc_allele_provenance": "exact",
+                "mhc_allele_set": "HLA-A*02:01",
+                "is_monoallelic": True,
+                "src_cancer": False,
+                "src_healthy_tissue": False,
+                "pmid": "1001",
+                "source_tissue": "Blood",
+            },
+            *[
+                {
+                    "peptide": "MAGEAPEP1",
+                    "mhc_restriction": "HLA-A*02:01",
+                    "mhc_allele_provenance": "exact",
+                    "mhc_allele_set": "HLA-A*02:01",
+                    "is_monoallelic": False,
+                    "src_cancer": True,
+                    "src_healthy_tissue": False,
+                    "pmid": str(1002 + i),
+                    "source_tissue": "Skin",
+                }
+                for i in range(4)
+            ],
+            *[
+                {
+                    "peptide": "MAGEAPEP2",
+                    "mhc_restriction": "HLA-A*02:01",
+                    "mhc_allele_provenance": "exact",
+                    "mhc_allele_set": "HLA-A*02:01",
+                    "is_monoallelic": False,
+                    "src_cancer": True,
+                    "src_healthy_tissue": False,
+                    "pmid": str(2001 + i),
+                    "source_tissue": "Skin",
+                }
+                for i in range(3)
+            ],
+        ]
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=2.0,
+        peptides_per_cell=1,
+        output_format="long",
+    )
+    assert len(long) == 1
+    row = long.iloc[0]
+    assert row["peptide"] == "MAGEAPEP1"
+    assert row["evidence_tier"] == "monoallelic_ms"
+    assert row["ms_hit_count"] == 5
+    assert row["ms_source_count"] == 5
+    assert bool(row["ms_in_cancer"]) is True
+    assert bool(row["ms_in_healthy_tissue"]) is False
+
+
+def test_unrestricted_ms_blocks_typed_peptides_serotypes_and_deconvolves_panel(monkeypatch):
+    """tsarina#238: peptides with typed MS never leak via unrestricted_ms,
+    serological labels like HLA-A2 never enter unrestricted_ms, and genuinely
+    untyped peptides deconvolve to their best panel allele."""
+    peps = pd.DataFrame(
+        {
+            "peptide": ["TYPEDPEP1", "SEROPEP1", "UNTYPED1"],
+            "length": [9, 9, 9],
+            "gene_name": ["PRAME", "PRAME", "PRAME"],
+            "gene_id": ["E2", "E2", "E2"],
+        }
+    )
+    monkeypatch.setattr("tsarina.peptides.cta_exclusive_peptides", lambda **kw: peps)
+    scores = pd.DataFrame(
+        [
+            {"peptide": "TYPEDPEP1", "allele": "HLA-A*02:01", "presentation_percentile": 0.05},
+            {"peptide": "TYPEDPEP1", "allele": "HLA-A*24:02", "presentation_percentile": 0.20},
+            {"peptide": "SEROPEP1", "allele": "HLA-A*02:01", "presentation_percentile": 0.10},
+            {"peptide": "SEROPEP1", "allele": "HLA-A*24:02", "presentation_percentile": 0.15},
+            {"peptide": "UNTYPED1", "allele": "HLA-A*02:01", "presentation_percentile": 0.30},
+            {"peptide": "UNTYPED1", "allele": "HLA-A*24:02", "presentation_percentile": 0.08},
+        ]
+    )
+    monkeypatch.setattr(
+        "tsarina.scoring.score_presentation", lambda peptides, alleles, **kw: scores
+    )
+    hits = pd.DataFrame(
+        [
+            {
+                "peptide": "TYPEDPEP1",
+                "mhc_restriction": "HLA-A*02:01",
+                "allele_resolution": "four_digit",
+                "mhc_allele_provenance": "exact",
+                "mhc_allele_set": "HLA-A*02:01",
+                "is_monoallelic": False,
+                "src_cancer": True,
+                "src_healthy_tissue": False,
+                "pmid": "1",
+            },
+            {
+                "peptide": "TYPEDPEP1",
+                "mhc_restriction": "HLA class I",
+                "allele_resolution": "class_only",
+                "mhc_allele_provenance": "unmatched",
+                "mhc_allele_set": "",
+                "is_monoallelic": False,
+                "src_cancer": True,
+                "src_healthy_tissue": False,
+                "pmid": "2",
+            },
+            {
+                "peptide": "SEROPEP1",
+                "mhc_restriction": "HLA-A2",
+                "allele_resolution": "serological",
+                "mhc_allele_provenance": "unmatched",
+                "mhc_allele_set": "",
+                "is_monoallelic": False,
+                "src_cancer": True,
+                "src_healthy_tissue": False,
+                "pmid": "3",
+            },
+            {
+                "peptide": "UNTYPED1",
+                "mhc_restriction": "HLA class I",
+                "allele_resolution": "class_only",
+                "mhc_allele_provenance": "unmatched",
+                "mhc_allele_set": "",
+                "is_monoallelic": False,
+                "src_cancer": True,
+                "src_healthy_tissue": False,
+                "pmid": "4",
+            },
+        ]
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+
+    long = spanning_pmhc_set(
+        ctas=["PRAME"],
+        alleles=["HLA-A*02:01", "HLA-A*24:02"],
+        unrestricted_ms_max_percentile=0.5,
+        output_format="long",
+    )
+    pairs = set(zip(long["peptide"], long["allele"], long["evidence_tier"]))
+    assert pairs == {
+        ("TYPEDPEP1", "HLA-A*02:01", "sample_allele_ms"),
+        ("UNTYPED1", "HLA-A*24:02", "unrestricted_ms"),
+    }
+
+
+def test_panel_summary_resolves_semicolon_and_alias_proteoforms_for_tcga():
+    """tsarina#239: semicolon-delimited cta_members and proteoform aliases
+    resolve non-zero TCGA expression instead of silently reporting 0.0%."""
+    selected = pd.DataFrame(
+        {
+            "cta": ["NY-ESO-1"],
+            "cta_members": ["CTAG1A;CTAG1B"],
+            "allele": ["HLA-B*07:02"],
+            "peptide": ["MPFATPMEA"],
+            "evidence_tier": ["sample_allele_ms"],
+        }
+    )
+    tcga = pd.DataFrame(
+        {
+            "symbol": ["CTAG1B", "SSX2"],
+            "tcga_max_ptpm": [400.0, 250.0],
+            "tcga_pan_prevalence_tpm_ge_1": [0.078, 0.071],
+            "tcga_pan_prevalence_tpm_ge_5": [0.047, 0.025],
+            "tcga_top_cancer_type_tpm_ge_1": [
+                "Testicular Germ Cell Tumor",
+                "Testicular Germ Cell Tumor",
+            ],
+        }
+    )
+    summary = panel_summary(
+        selected,
+        cta_list=["NY-ESO-1", "SSX2/B"],
+        allele_list=["HLA-B*07:02"],
+        allele_frequencies={"HLA-B*07:02": 0.05},
+        tcga_features=tcga,
+    )
+    by_cta = {row["cta"]: row for row in summary["cta_coverage"]}
+    assert by_cta["NY-ESO-1"]["tcga_pan_prevalence_tpm_ge_1"] == pytest.approx(0.078)
+    assert by_cta["NY-ESO-1"]["tcga_top_cancer_type"] == "Testicular Germ Cell Tumor"
+    assert by_cta["SSX2/B"]["tcga_pan_prevalence_tpm_ge_1"] == pytest.approx(0.071)
+
+
+def test_panel_deduplicates_ms_alleles_and_formats_ms_safety(monkeypatch):
+    """tsarina#240: ms_alleles deduplicates individual alleles across donor sets
+    and format_panel_table displays MS safety status."""
+    from tsarina.cli_spanning import format_panel_table
+
+    hits = pd.DataFrame(
+        [
+            {
+                "peptide": "MAGEAPEP1",
+                "mhc_restriction": "HLA-A*02:01",
+                "mhc_allele_provenance": "exact",
+                "mhc_allele_set": "HLA-A*02:01",
+                "is_monoallelic": False,
+                "src_cancer": True,
+                "src_healthy_tissue": False,
+                "pmid": "10",
+            },
+            {
+                "peptide": "MAGEAPEP1",
+                "mhc_restriction": "HLA-A*02:01;HLA-B*15:11;HLA-C*03:03",
+                "mhc_allele_provenance": "sample_allele_match",
+                "mhc_allele_set": "HLA-A*02:01;HLA-B*15:11;HLA-C*03:03",
+                "is_monoallelic": False,
+                "src_cancer": True,
+                "src_healthy_tissue": True,
+                "pmid": "11",
+            },
+        ]
+    )
+    monkeypatch.setattr("tsarina.ms_evidence.load_public_ms_hits", lambda peptides, **kw: hits)
+    long = spanning_pmhc_set(
+        ctas=["MAGEA4"],
+        alleles=["HLA-A*02:01"],
+        max_percentile=2.0,
+        output_format="long",
+    )
+    assert len(long) == 1
+    assert long.iloc[0]["ms_alleles"] == "HLA-A*02:01;HLA-B*15:11;HLA-C*03:03"
+    assert bool(long.iloc[0]["ms_in_cancer"]) is True
+    assert bool(long.iloc[0]["ms_in_healthy_tissue"]) is True
+    rendered = format_panel_table(long)
+    assert "MS safety" in rendered
+    assert "cancer+healthy!" in rendered

@@ -515,6 +515,21 @@ def _plain_table(headers: list[str], rows: list[list[str]]) -> str:
     return "\n".join([header_line, rule_line, *body])
 
 
+def _format_ms_safety(row: object) -> str:
+    hits = int(getattr(row, "ms_hit_count", 0) or 0)
+    if hits <= 0:
+        return "-"
+    in_cancer = bool(getattr(row, "ms_in_cancer", False))
+    in_healthy = bool(getattr(row, "ms_in_healthy_tissue", False))
+    if in_healthy and in_cancer:
+        return "cancer+healthy!"
+    if in_healthy:
+        return "healthy!"
+    if in_cancer:
+        return "cancer"
+    return "unclassified"
+
+
 def format_panel_table(df) -> str:
     if df.empty:
         return "No panel peptides selected."
@@ -528,6 +543,7 @@ def format_panel_table(df) -> str:
     out["_cta_order"] = out["cta"].map(cta_order).fillna(len(cta_order))
     out["_allele_order"] = out["allele"].map(allele_order).fillna(len(allele_order))
     out = out.sort_values(["_cta_order", "_allele_order", "peptide_rank_in_cell"])
+    show_ms_safety = {"ms_in_cancer", "ms_in_healthy_tissue"} <= set(out.columns)
     show_netmhcpan_affinity = {"netmhcpan_affinity_nm", "netmhcpan_affinity_percentile"} <= set(
         out.columns
     ) and (
@@ -554,6 +570,7 @@ def format_panel_table(df) -> str:
             str(row.ms_source_count),
             str(row.ms_hit_count),
             _pmid_count(row.ms_pmids),
+            *([_format_ms_safety(row)] if show_ms_safety else []),
             _format_optional_float(row.presentation_percentile, 3),
             _format_optional_float(row.presentation_score, 3),
             _format_optional_float(row.affinity_nm, 1),
@@ -579,6 +596,7 @@ def format_panel_table(df) -> str:
         "Sources",
         "MS hits",
         "PMIDs",
+        *(["MS safety"] if show_ms_safety else []),
         "%Rank",
         "Score",
         "nM",
