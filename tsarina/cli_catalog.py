@@ -273,10 +273,24 @@ def handle_status(args: argparse.Namespace) -> None:
 def _catalog_overview(args: argparse.Namespace) -> None:
     from .alleles import panel_names
     from .cta_selection import CTA_TIERS, CTA_selection
+    from .fusions import cancer_fusions
     from .mutations import HOTSPOT_MUTATIONS
-    from .viral import ONCOGENIC_VIRUSES
+    from .viral import ONCOGENIC_VIRUSES, orfdata_viral_subsets
 
     ctas = CTA_selection(category="CTA")
+    fusions_df = cancer_fusions()
+    defining_fusions = (
+        int(fusions_df["is_defining"].astype(bool).sum())
+        if "is_defining" in fusions_df.columns
+        else 0
+    )
+    try:
+        orfdata_subsets = [
+            {"name": s["name"], "virus_count": s["virus_count"]} for s in orfdata_viral_subsets()
+        ]
+    except ImportError:
+        orfdata_subsets = []
+
     summary = {
         "ctas": {
             "human_cta_count": len(ctas),
@@ -288,7 +302,10 @@ def _catalog_overview(args: argparse.Namespace) -> None:
         },
         "panels": list(panel_names()),
         "mutations_count": len(HOTSPOT_MUTATIONS),
+        "fusions_count": len(fusions_df),
+        "defining_fusions_count": defining_fusions,
         "viruses": sorted(ONCOGENIC_VIRUSES),
+        "orfdata_viral_subsets": orfdata_subsets,
     }
     if getattr(args, "json", False):
         print(json.dumps(summary, indent=2))
@@ -299,9 +316,18 @@ def _catalog_overview(args: argparse.Namespace) -> None:
     print(f"  panels     {len(summary['panels'])} HLA panels ({', '.join(summary['panels'])})")
     print(f"  mutations  {summary['mutations_count']} curated hotspot mutations")
     print(
-        f"  viruses    {len(summary['viruses'])} oncogenic viruses ({', '.join(summary['viruses'])})"
+        f"  fusions    {summary['fusions_count']} curated cancer fusions "
+        f"({summary['defining_fusions_count']} defining)"
     )
-    print("\nInspect any catalog with `tsarina catalog <ctas|panels|mutations|viruses>`.")
+    vir_extra = ""
+    if orfdata_subsets:
+        subset_desc = ", ".join(f"{s['name']}={s['virus_count']}" for s in orfdata_subsets)
+        vir_extra = f"; + orfdata GDC subsets: {subset_desc}"
+    print(
+        f"  viruses    {len(summary['viruses'])} built-in oncogenic viruses "
+        f"({', '.join(summary['viruses'])}){vir_extra}"
+    )
+    print("\nInspect any catalog with `tsarina catalog <ctas|panels|mutations|fusions|viruses>`.")
 
 
 def _catalog_ctas(args: argparse.Namespace) -> None:
@@ -491,24 +517,163 @@ def _catalog_mutations(args: argparse.Namespace) -> None:
     print(_plain_table(["label", "gene", "change", "cancers", "notes"], rows))
 
 
-def _catalog_viruses(args: argparse.Namespace) -> None:
-    from .viral import ONCOGENIC_VIRUSES
+def _catalog_fusions(args: argparse.Namespace) -> None:
+    from .fusions import cancer_fusions
 
-    records = [{"key": key, **meta} for key, meta in sorted(ONCOGENIC_VIRUSES.items())]
+    df = cancer_fusions(
+        cancer_code=args.cancer,
+        gene=args.gene,
+        fusion_family=args.family,
+        defining_only=args.defining_only,
+        rnaseq_detectable_only=args.rnaseq_only,
+    )
+    total_rows = len(df)
+    if args.top is not None:
+        if args.top <= 0:
+            print("Error: --top must be a positive integer.", file=sys.stderr)
+            sys.exit(1)
+        df = df.head(args.top)
+
+    records: list[dict[str, object]] = []
+    for row in df.itertuples(index=False):
+        g5 = str(getattr(row, "gene_5prime", "") or "")
+        g3 = str(getattr(row, "gene_3prime", "") or "")
+        records.append(
+            {
+                "fusion": f"{g5}-{g3}",
+                "cancer_code": str(getattr(row, "cancer_code", "") or ""),
+                "fusion_family": str(getattr(row, "fusion_family", "") or ""),
+                "gene_5prime": g5,
+                "gene_3prime": g3,
+                "frequency": str(getattr(row, "frequency", "") or ""),
+                "is_defining": bool(getattr(row, "is_defining", False)),
+                "rnaseq_detectable": str(getattr(row, "rnaseq_detectable", "") or ""),
+                "mechanism": str(getattr(row, "mechanism", "") or ""),
+                "confidence": str(getattr(row, "confidence", "") or ""),
+                "pmid": str(getattr(row, "pmid", "") or ""),
+            }
+        )
+
     if args.json:
-        print(json.dumps(records, indent=2))
+        print(
+            json.dumps(
+                {"total": total_rows, "shown": len(records), "fusions": records},
+                indent=2,
+            )
+        )
         return
+
+    if not records:
+        print("No cancer fusions matched the requested filters.")
+        return
+
+    headers = ["fusion", "cancer", "family", "freq", "defining", "rnaseq", "mechanism"]
     rows = [
         [
-            str(r["key"]),
-            str(r["name"]),
-            str(r["taxonomy_id"]),
-            ", ".join(r.get("key_oncoproteins", [])),
-            ", ".join(r.get("cancers", [])),
+            str(r["fusion"]),
+            str(r["cancer_code"]),
+            str(r["fusion_family"]),
+            str(r["frequency"]),
+            "yes" if r["is_defining"] else "no",
+            str(r["rnaseq_detectable"]),
+            str(r["mechanism"]),
         ]
         for r in records
     ]
-    print(_plain_table(["key", "name", "taxon", "oncoproteins", "cancers"], rows))
+    print(_plain_table(headers, rows))
+    if total_rows > len(records):
+        print(f"\nShowing {len(records)} of {total_rows} rows (pass --top to adjust).")
+
+
+def _catalog_viruses(args: argparse.Namespace) -> None:
+    from .viral import ONCOGENIC_VIRUSES, orfdata_viral_subsets
+
+    source = getattr(args, "source", "builtin")
+    subset_filter = getattr(args, "subset", None)
+    if subset_filter is not None and source == "builtin":
+        source = "orfdata"
+
+    builtin_records = [{"key": key, **meta} for key, meta in sorted(ONCOGENIC_VIRUSES.items())]
+
+    if source == "builtin":
+        if args.json:
+            print(json.dumps(builtin_records, indent=2))
+            return
+        rows = [
+            [
+                str(r["key"]),
+                str(r["name"]),
+                str(r["taxonomy_id"]),
+                ", ".join(r.get("key_oncoproteins", [])),
+                ", ".join(r.get("cancers", [])),
+            ]
+            for r in builtin_records
+        ]
+        print(_plain_table(["key", "name", "taxon", "oncoproteins", "cancers"], rows))
+        try:
+            subsets = orfdata_viral_subsets()
+        except ImportError:
+            subsets = ()
+        if subsets:
+            desc = ", ".join(f"{s['name']} ({s['virus_count']})" for s in subsets)
+            print(f"\nTip: pass --source orfdata for IARC GDC viral subsets: {desc}.")
+        return
+
+    try:
+        orf_subsets = list(orfdata_viral_subsets())
+    except ImportError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if subset_filter is not None:
+        orf_subsets = [s for s in orf_subsets if s["name"] == subset_filter]
+        if not orf_subsets:
+            valid = ", ".join(str(s["name"]) for s in orfdata_viral_subsets())
+            print(
+                f"Error: unknown orfdata viral subset '{subset_filter}'. Available: {valid}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if args.json:
+        if source == "orfdata":
+            print(json.dumps(orf_subsets, indent=2))
+        else:
+            print(
+                json.dumps(
+                    {"builtin": builtin_records, "orfdata_subsets": orf_subsets},
+                    indent=2,
+                )
+            )
+        return
+
+    if source == "all":
+        rows = [
+            [
+                str(r["key"]),
+                str(r["name"]),
+                str(r["taxonomy_id"]),
+                ", ".join(r.get("key_oncoproteins", [])),
+                ", ".join(r.get("cancers", [])),
+            ]
+            for r in builtin_records
+        ]
+        print("Built-in UniProt oncogenic viruses:")
+        print(_plain_table(["key", "name", "taxon", "oncoproteins", "cancers"], rows))
+        print("\norfdata IARC GDC viral subsets:")
+
+    orf_rows = [
+        [
+            str(s["name"]),
+            str(s["virus_count"]),
+            str(s["title"]),
+            ", ".join(s["abbreviations"][:6]) + ("..." if len(s["abbreviations"]) > 6 else ""),
+        ]
+        for s in orf_subsets
+    ]
+    print(_plain_table(["subset", "viruses", "title", "examples"], orf_rows))
+    if subset_filter is not None and orf_subsets:
+        print("\nMembers: " + ", ".join(orf_subsets[0]["abbreviations"]))
 
 
 def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -566,7 +731,36 @@ def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentPa
     p_muts.add_argument("--json", action="store_true", help="Machine-readable JSON output")
     p_muts.set_defaults(func=_catalog_mutations)
 
-    p_vir = cat_sub.add_parser("viruses", help="List supported oncogenic viruses")
+    p_fus = cat_sub.add_parser("fusions", help="List curated OncoRef cancer fusions")
+    p_fus.add_argument("--cancer", default=None, help="Filter by cancer code, e.g. SARC_EWS, LUAD")
+    p_fus.add_argument("--gene", default=None, help="Filter by 5-prime or 3-prime gene symbol")
+    p_fus.add_argument("--family", default=None, help="Filter by fusion family, e.g. EWSR1-ETS")
+    p_fus.add_argument(
+        "--defining-only",
+        action="store_true",
+        help="Show only cancer-defining fusions",
+    )
+    p_fus.add_argument(
+        "--rnaseq-only",
+        action="store_true",
+        help="Show only directly RNA-seq detectable fusions",
+    )
+    p_fus.add_argument("--top", type=int, default=50, help="Maximum rows to show, default 50")
+    p_fus.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+    p_fus.set_defaults(func=_catalog_fusions)
+
+    p_vir = cat_sub.add_parser("viruses", help="List supported oncogenic viruses and GDC subsets")
+    p_vir.add_argument(
+        "--source",
+        choices=("builtin", "orfdata", "all"),
+        default="builtin",
+        help="Catalog source: builtin UniProt panel, orfdata IARC GDC subsets, or all",
+    )
+    p_vir.add_argument(
+        "--subset",
+        default=None,
+        help="Inspect a specific orfdata viral subset, e.g. cancer-causing",
+    )
     p_vir.add_argument("--json", action="store_true", help="Machine-readable JSON output")
     p_vir.set_defaults(func=_catalog_viruses)
 

@@ -91,6 +91,7 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "ms_allele_count",
     "ms_in_cancer",
     "ms_in_healthy_tissue",
+    "ms_detectability_note",
     "best_allele",
     "presentation_percentile",
     "presentation_score",
@@ -275,6 +276,15 @@ def format_table(df: pd.DataFrame) -> str:
             "* flagged clinical-target CTA, outside the current CTA selection -- "
             "see flag_reason in --format csv for why."
         )
+    if "ms_detectability_note" in df.columns:
+        cys_notes = df["ms_detectability_note"].fillna("").astype(str).str.strip()
+        n_cys = int(cys_notes.ne("").sum())
+        if n_cys > 0:
+            lines.append("")
+            lines.append(
+                f"Note: {n_cys} zero-MS peptide(s) contain Cys (unmodified MS under-detects "
+                "Cys oxidation/cysteinylation; see ms_detectability_note in --format csv)."
+            )
     return "\n".join(lines)
 
 
@@ -413,6 +423,8 @@ def personalized_targets(
     mhc_species: str | None = None,
     patient_sex: str | None = None,
     sex_eligibility: str = "all_adult",
+    fusions: Iterable[dict] | pd.DataFrame | None = None,
+    require_host_exclusive_fusions: bool = True,
     ms_evidence_scope: str = "all",
     ms_observations: pd.DataFrame | None = None,
     custom_targets: pd.DataFrame | None = None,
@@ -900,6 +912,35 @@ def personalized_targets(
                     )
                 )
 
+    # ── Fusion junction peptides ────────────────────────────────────────
+    if fusions is not None:
+        from .fusions import fusion_junction_peptides
+
+        _report("Generating junction-spanning peptides for supplied fusion breakpoints...")
+        fdf = fusion_junction_peptides(
+            fusions,
+            lengths=lengths,
+            ensembl_release=ensembl_release,
+            require_host_exclusive=require_host_exclusive_fusions,
+            host_species=host_species,
+            host_proteins=host_proteins,
+        )
+        if not fdf.empty:
+            frames.append(
+                pd.DataFrame(
+                    {
+                        "peptide": fdf["peptide"],
+                        "length": fdf["length"],
+                        "category": "fusion",
+                        "source": fdf["label"],
+                        "source_detail": fdf["gene_5prime"].astype(str)
+                        + "-"
+                        + fdf["gene_3prime"].astype(str),
+                        "source_tpm": float("nan"),
+                    }
+                )
+            )
+
     if not frames:
         return _with_selection_provenance(
             pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
@@ -984,8 +1025,11 @@ def personalized_targets(
             if col not in combined.columns:
                 combined[col] = pd.NA
 
-    # ── Tier assignment ─────────────────────────────────────────────────
+    # ── Tier assignment & detectability caveats ─────────────────────────
+    from .ms_evidence import annotate_ms_detectability
+
     combined = _assign_tiers(combined)
+    combined = annotate_ms_detectability(combined)
     if drop_weak_tier:
         combined = combined[combined["tier"] < 4].reset_index(drop=True)
 
@@ -1263,7 +1307,7 @@ def _assign_tiers(combined: pd.DataFrame) -> pd.DataFrame:
     )
     ms_hits = pd.to_numeric(combined.get("ms_hit_count", 0), errors="coerce").fillna(0)
     category = combined["category"].astype(str)
-    non_self_category = category.isin(("mutant", "viral"))
+    non_self_category = category.isin(("mutant", "viral", "fusion"))
 
     t1_mask = pct.le(t1_cut) & (ms_cancer | non_self_category)
     t2_mask = pct.le(t2_cut) & ((ms_hits > 0) | non_self_category)
