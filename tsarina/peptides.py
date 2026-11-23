@@ -128,6 +128,8 @@ def gene_peptides(
     progress_bar: bool = False,
     progress_file: TextIO | None = None,
     progress_desc: str = "Genes",
+    *,
+    species: str = "human",
 ) -> pd.DataFrame:
     """Generate all peptides from the longest coding protein of each gene.
 
@@ -141,11 +143,19 @@ def gene_peptides(
     from pyensembl import EnsemblRelease
 
     from .gene_sets import is_coding_transcript
-    from .loader import cta_dataframe
 
-    ensembl = EnsemblRelease(ensembl_release)
-    evidence = cta_dataframe()
-    symbols = dict(zip(evidence.Ensembl_Gene_ID, evidence.Symbol))
+    is_human = str(species).strip().lower() in ("human", "homo_sapiens", "homo sapiens")
+    ensembl = (
+        EnsemblRelease(ensembl_release)
+        if is_human
+        else EnsemblRelease(ensembl_release, species=species)
+    )
+    symbols: dict[str, str] = {}
+    if is_human:
+        from .loader import cta_dataframe
+
+        evidence = cta_dataframe()
+        symbols = dict(zip(evidence.Ensembl_Gene_ID, evidence.Symbol))
 
     rows: list[dict] = []
     for gene_id in _progress_iter(
@@ -315,14 +325,17 @@ def _reference_overlapping_peptides(
     ensembl_release: int,
     lengths: tuple[int, ...],
     gene_ids: Iterable[str] | None = None,
+    exclude_gene_ids: set[str] | frozenset[str] | None = None,
+    species: str = "human",
     progress_bar: bool = False,
     progress_file: TextIO | None = None,
 ) -> set[str]:
     """Stream coding translations and retain only overlaps with the candidates.
 
-    With no gene subset, screen every coding gene, including CTA genes and
-    germline IG/TR segments. Memory scales with the candidate set rather than
-    the full human k-mer universe. Every coding isoform is checked.
+    With no gene subset, screen every coding gene (minus ``exclude_gene_ids``
+    when provided), including germline IG/TR segments. Memory scales with the
+    candidate set rather than the full k-mer universe. Every coding isoform is
+    checked.
     """
     if not candidate_peptides:
         return set()
@@ -331,13 +344,25 @@ def _reference_overlapping_peptides(
 
     from .gene_sets import is_coding_gene, is_coding_transcript
 
-    ensembl = EnsemblRelease(ensembl_release)
+    is_human = str(species).strip().lower() in ("human", "homo_sapiens", "homo sapiens")
+    ensembl = (
+        EnsemblRelease(ensembl_release)
+        if is_human
+        else EnsemblRelease(ensembl_release, species=species)
+    )
+    excluded = frozenset(exclude_gene_ids) if exclude_gene_ids else frozenset()
 
     def reference_genes():
         if gene_ids is None:
-            yield from (gene for gene in ensembl.genes() if is_coding_gene(gene))
+            for gene in ensembl.genes():
+                if excluded and gene.id in excluded:
+                    continue
+                if is_coding_gene(gene):
+                    yield gene
         else:
             for gene_id in gene_ids:
+                if excluded and gene_id in excluded:
+                    continue
                 try:
                     yield ensembl.gene_by_id(gene_id)
                 except ValueError:
@@ -346,7 +371,7 @@ def _reference_overlapping_peptides(
     seen: set[str] = set()
     for gene in _progress_iter(
         reference_genes(),
-        desc="Human genes" if gene_ids is None else "Non-CTA genes",
+        desc=f"{species} genes" if gene_ids is None else "Non-CTA genes",
         progress_bar=progress_bar,
         progress_file=progress_file,
     ):

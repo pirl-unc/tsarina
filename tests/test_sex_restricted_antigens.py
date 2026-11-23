@@ -170,7 +170,7 @@ def test_catalog_ctas_sex_cli_filter(tmp_path):
             "catalog",
             "ctas",
             "--species",
-            "mouse",
+            "dog",
             "--sex",
             "female",
         ],
@@ -179,4 +179,4 @@ def test_catalog_ctas_sex_cli_filter(tmp_path):
         env=env,
     )
     assert bad.returncode == 1
-    assert "only supported for human" in bad.stderr
+    assert "not yet available" in bad.stderr.lower()

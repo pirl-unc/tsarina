@@ -92,14 +92,27 @@ def test_species_mismatch_and_human_catalog_transfer_rejected():
     with pytest.raises(ValueError, match="Human HOTSPOT_MUTATIONS"):
         target_peptides(cta=False, mutations=True, host_species="mouse")
 
+    # Unevaluated species (dog) must still refuse human CTA catalog transfer.
     with pytest.raises(ValueError, match="Human OncoRef CTA"):
         personalized_targets(
+            hla_alleles=["DLA-88*508:01"],
+            cta_expression={"PRAME": 50.0},
+            host_species="dog",
+            score_presentation=False,
+            skip_ms_evidence=True,
+        )
+
+    # Evaluated mouse catalog must NOT admit human-only CTA symbols like PRAME.
+    with pytest.warns(UserWarning, match="PRAME.*not in OncoRef Mus musculus CTA"):
+        mouse_human_sym = personalized_targets(
             hla_alleles=["H-2-Kb"],
             cta_expression={"PRAME": 50.0},
             host_species="mouse",
             score_presentation=False,
             skip_ms_evidence=True,
+            show_progress=False,
         )
+    assert mouse_human_sym.empty
 
 
 def test_mouse_h2_offline_workflow_across_cta_viral_and_mutation():
