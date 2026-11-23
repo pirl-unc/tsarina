@@ -421,7 +421,7 @@ def personalized_targets(
     mutations: list[str] | None = None,
     viruses: list[str] | None = None,
     lengths: tuple[int, ...] = (8, 9, 10, 11),
-    ensembl_release: int = 112,
+    ensembl_release: int | None = None,
     iedb_path: str | Path | None = None,
     cedar_path: str | Path | None = None,
     evidence_package: str | Path | None = None,
@@ -575,11 +575,11 @@ def personalized_targets(
         norm_patient_sex = _normalize_patient_sex(patient_sex)
         norm_sex_eligibility = _normalize_sex_eligibility(sex_eligibility)
 
-    ctx = resolve_species_context(
-        host_species,
-        mhc_species=mhc_species,
-        ensembl_release=ensembl_release,
-    )
+    ctx_kwargs: dict[str, object] = {"mhc_species": mhc_species}
+    if ensembl_release is not None:
+        ctx_kwargs["ensembl_release"] = ensembl_release
+    ctx = resolve_species_context(host_species, **ctx_kwargs)
+    resolved_ensembl_release = int(ctx.ensembl_release) if ctx.ensembl_release is not None else 112
     if hla_alleles:
         validate_alleles_for_species(hla_alleles, ctx.mhc_species)
     allele_caps = allele_prediction_capability(
@@ -589,12 +589,21 @@ def personalized_targets(
         capability_table=capability_table,
     )
 
+    nonhuman_cta_evaluated = False
     if not ctx.is_human_host:
         if cta_expression:
-            raise ValueError(
-                f"Human OncoRef CTA expression catalog cannot be silently transferred to "
-                f"host_species={ctx.host_species!r}; pass species-scoped custom_targets instead."
-            )
+            from .cta_selection import CTA_selection_coverage
+
+            cov = CTA_selection_coverage(species=ctx.host_species)
+            if cov.get("selection_status") == "evaluated":
+                nonhuman_cta_evaluated = True
+            else:
+                raise ValueError(
+                    f"Human OncoRef CTA expression catalog cannot be silently transferred to "
+                    f"host_species={ctx.host_species!r} "
+                    f"(selection_status={cov.get('selection_status')!r}); "
+                    "pass species-scoped custom_targets instead."
+                )
         if mutations:
             raise ValueError(
                 f"Human HOTSPOT_MUTATIONS cannot be silently transferred to "
@@ -634,7 +643,113 @@ def personalized_targets(
         )
 
     # ── CTA peptides ────────────────────────────────────────────────────
-    if cta_expression:
+    if cta_expression and nonhuman_cta_evaluated:
+        from .cta_selection import CTA_selection, CTA_sex_restricted_antigens
+        from .peptides import _reference_overlapping_peptides, gene_peptides
+        from .viral import _proteome_kmers_from_sequences
+
+        species_ctas = CTA_selection(category="CTA", species=ctx.host_species)
+        all_species_cta_ids: set[str] = {
+            str(gid)
+            for members in species_ctas.get("gene_ids", ())
+            if isinstance(members, (tuple, list))
+            for gid in members
+            if gid
+        }
+        eligible_by_key: dict[str, tuple[str, tuple[str, ...]]] = {}
+        sex_eligible_entity_ids: set[str] | None = None
+        if norm_patient_sex is not None:
+            sex_df = CTA_sex_restricted_antigens(
+                sex=norm_patient_sex,
+                eligibility=norm_sex_eligibility,
+                include_reproductive_only=True,
+                species=ctx.host_species,
+            )
+            sex_eligible_entity_ids = set(sex_df["entity_id"])
+            for row in sex_df.itertuples(index=False):
+                label = str(getattr(row, "label", "") or "").strip()
+                members = getattr(row, "gene_ids", ()) or ()
+                if label and members:
+                    eligible_by_key[label.casefold()] = (label, tuple(str(g) for g in members))
+        for row in species_ctas.itertuples(index=False):
+            if sex_eligible_entity_ids is not None and row.entity_id not in sex_eligible_entity_ids:
+                continue
+            label = str(getattr(row, "label", "") or "").strip()
+            members = getattr(row, "gene_ids", ()) or ()
+            if label and members:
+                eligible_by_key[label.casefold()] = (label, tuple(str(g) for g in members))
+
+        admitted_tpms: dict[str, float] = {}
+        admitted_ids: set[str] = set()
+        id_to_label: dict[str, str] = {}
+        for gene, raw_tpm in cta_expression.items():
+            tpm = float("nan") if raw_tpm is None else float(raw_tpm)
+            hit = eligible_by_key.get(str(gene).strip().casefold())
+            if hit is None:
+                reason = (
+                    f"not in OncoRef {ctx.host_species} CTA"
+                    + (
+                        f" / {norm_patient_sex} ({norm_sex_eligibility}) eligible"
+                        if norm_patient_sex is not None
+                        else ""
+                    )
+                    + " set"
+                )
+                warnings.warn(f"--cta {gene} dropped: {reason}", UserWarning, stacklevel=2)
+                continue
+            if not pd.isna(tpm) and tpm < min_cta_tpm:
+                warnings.warn(
+                    f"--cta {gene} dropped: TPM {tpm:g} < min_cta_tpm {min_cta_tpm:g}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                continue
+            canon_label, gids = hit
+            admitted_tpms[canon_label] = tpm
+            admitted_ids.update(gids)
+            for gid in gids:
+                id_to_label[gid] = canon_label
+
+        if admitted_ids:
+            _report(
+                f"Generating {ctx.host_species} CTA peptides for {len(admitted_tpms)} gene(s): "
+                f"{', '.join(sorted(admitted_tpms))}..."
+            )
+            sp_peps = gene_peptides(
+                sorted(admitted_ids),
+                ensembl_release=resolved_ensembl_release,
+                lengths=lengths,
+                species=ctx.pyensembl_species,
+            )
+            if not sp_peps.empty:
+                if host_proteins is not None:
+                    host_kmers = _proteome_kmers_from_sequences(host_proteins, tuple(lengths))
+                    overlapping = set(sp_peps["peptide"]) & host_kmers
+                else:
+                    overlapping = _reference_overlapping_peptides(
+                        set(sp_peps["peptide"]),
+                        ensembl_release=resolved_ensembl_release,
+                        lengths=lengths,
+                        species=ctx.pyensembl_species,
+                        exclude_gene_ids=all_species_cta_ids | admitted_ids,
+                    )
+                sp_peps = sp_peps[~sp_peps["peptide"].isin(overlapping)].copy()
+            if not sp_peps.empty:
+                sources = sp_peps["gene_id"].map(id_to_label).fillna(sp_peps["gene_name"])
+                frames.append(
+                    pd.DataFrame(
+                        {
+                            "peptide": sp_peps["peptide"],
+                            "length": sp_peps["length"],
+                            "category": "cta",
+                            "source": sources,
+                            "source_detail": sp_peps["gene_id"],
+                            "source_tpm": sources.map(admitted_tpms),
+                        }
+                    )
+                )
+
+    elif cta_expression:
         from .gene_sets import (
             CTA_by_axes,
             CTA_clinical_target_gene_names,
@@ -758,7 +873,7 @@ def personalized_targets(
                 f"{len(expressed_ctas)} gene(s): {', '.join(sorted(expressed_ctas))}..."
             )
             all_cta_peps = cta_exclusive_peptides(
-                ensembl_release=ensembl_release,
+                ensembl_release=resolved_ensembl_release,
                 lengths=lengths,
                 on_progress=_report if show_progress else None,
                 progress_bar=show_progress,
@@ -795,17 +910,17 @@ def personalized_targets(
             if admitted_ids:
                 sex_peps = gene_peptides(
                     admitted_ids,
-                    ensembl_release=ensembl_release,
+                    ensembl_release=resolved_ensembl_release,
                     lengths=lengths,
                 )
                 if not sex_peps.empty:
                     # Stream background coding genes (excluding strict CTAs and the
                     # admitted sex-restricted reproductive genes themselves).
-                    partition = CTA_partition_gene_ids(ensembl_release=ensembl_release)
+                    partition = CTA_partition_gene_ids(ensembl_release=resolved_ensembl_release)
                     bg_gene_ids = sorted(partition.non_cta - admitted_ids)
                     overlapping = _reference_overlapping_peptides(
                         set(sex_peps["peptide"]),
-                        ensembl_release=ensembl_release,
+                        ensembl_release=resolved_ensembl_release,
                         lengths=lengths,
                         gene_ids=bg_gene_ids,
                     )
@@ -843,7 +958,7 @@ def personalized_targets(
                 f"gene(s): {', '.join(sorted(flagged_ctas))}..."
             )
             flagged_peps = _cta_flagged_gene_peptides(
-                flagged_ctas, ensembl_release=ensembl_release, lengths=lengths
+                flagged_ctas, ensembl_release=resolved_ensembl_release, lengths=lengths
             )
             if not flagged_peps.empty:
                 flagged_peps["source_tpm"] = flagged_peps["gene_name"].map(flagged_ctas)
@@ -877,7 +992,7 @@ def personalized_targets(
                 f"{', '.join(m['label'] for m in matched)}..."
             )
             mdf = _mutant_peptides(
-                mutations=matched, lengths=lengths, ensembl_release=ensembl_release
+                mutations=matched, lengths=lengths, ensembl_release=resolved_ensembl_release
             )
             if not mdf.empty:
                 frames.append(
@@ -907,12 +1022,14 @@ def personalized_targets(
             _report(f"Generating viral peptides for {vk}...")
             if require_human_exclusive_viral:
                 if ctx.is_human_host and host_proteins is None:
-                    vdf = _viral_peps(virus=vk, lengths=lengths, ensembl_release=ensembl_release)
+                    vdf = _viral_peps(
+                        virus=vk, lengths=lengths, ensembl_release=resolved_ensembl_release
+                    )
                 else:
                     vdf = _viral_peps(
                         virus=vk,
                         lengths=lengths,
-                        ensembl_release=ensembl_release,
+                        ensembl_release=resolved_ensembl_release,
                         host_species=host_species,
                         host_proteins=host_proteins,
                     )
@@ -940,7 +1057,7 @@ def personalized_targets(
         fdf = fusion_junction_peptides(
             fusions,
             lengths=lengths,
-            ensembl_release=ensembl_release,
+            ensembl_release=resolved_ensembl_release,
             require_host_exclusive=require_host_exclusive_fusions,
             host_species=host_species,
             host_proteins=host_proteins,
@@ -964,7 +1081,7 @@ def personalized_targets(
     if not frames:
         return _with_selection_provenance(
             pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
-            ensembl_release,
+            resolved_ensembl_release,
             species_context=ctx,
             allele_capabilities=allele_caps,
             ms_evidence_scope=ms_evidence_scope,
@@ -1028,7 +1145,7 @@ def personalized_targets(
     if combined.empty:
         return _with_selection_provenance(
             pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
-            ensembl_release,
+            resolved_ensembl_release,
             species_context=ctx,
             allele_capabilities=allele_caps,
             ms_evidence_scope=ms_evidence_scope,
@@ -1086,7 +1203,7 @@ def personalized_targets(
     _report(f"Done: {len(combined)} target row(s).")
     return _with_selection_provenance(
         combined[list(_OUTPUT_COLUMNS)],
-        ensembl_release,
+        resolved_ensembl_release,
         species_context=ctx,
         allele_capabilities=allele_caps,
         ms_evidence_scope=ms_evidence_scope,

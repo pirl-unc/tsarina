@@ -203,11 +203,29 @@ def _normalize_sex_eligibility(eligibility: str) -> str:
     return token
 
 
-@lru_cache(maxsize=1)
-def _human_sex_restricted_table() -> pd.DataFrame:
-    raw = _oncoref_for_species("human").antigens.sex_restricted_antigens().copy()
-    sel = _human_target_selection()[["entity_id", "label", "gene_ids", "category", "cta_tier"]]
-    return raw.merge(sel, on="entity_id", how="left")
+@lru_cache(maxsize=8)
+def _sex_restricted_table(species_key: str) -> pd.DataFrame:
+    if species_key in _HUMAN_SPECIES_ALIASES:
+        raw = _oncoref_for_species("human").antigens.sex_restricted_antigens().copy()
+        sel = _human_target_selection()[["entity_id", "label", "gene_ids", "category", "cta_tier"]]
+        return raw.merge(sel, on="entity_id", how="left")
+
+    sp = _oncoref_for_species(species_key)
+    cov = sp.antigens.target_selection_coverage()
+    status = cov.get("selection_status")
+    if status != "evaluated":
+        raise ValueError(
+            f"Sex-restricted antigen eligibility is not yet available for species "
+            f"{sp.species.name!r} (selection_status={status!r})."
+        )
+    raw = sp.antigens.sex_restricted_antigens().copy()
+    sel_full = _nonhuman_target_selection(species_key)
+    keep_cols = [
+        c
+        for c in ("entity_id", "label", "gene_ids", "category", "cta_tier")
+        if c in sel_full.columns
+    ]
+    return raw.merge(sel_full[keep_cols], on="entity_id", how="left")
 
 
 def CTA_sex_restricted_antigens(
@@ -215,13 +233,16 @@ def CTA_sex_restricted_antigens(
     sex: str | None = None,
     eligibility: str = "all_adult",
     include_reproductive_only: bool = True,
+    species: str = "human",
 ) -> pd.DataFrame:
     """Return OncoRef's sex-restricted antigen catalog, optionally filtered for a patient sex.
+
+    Works for any OncoRef-evaluated species (``"human"``, ``"mouse"``).
 
     Parameters
     ----------
     sex
-        ``"female"``, ``"male"``, or ``None`` (return all 455 classified
+        ``"female"``, ``"male"``, or ``None`` (return all classified
         reproductive/CTA entities with both female and male eligibility flags).
     eligibility
         ``"all_adult"`` (default — zero normal expression in any adult tissue of
@@ -230,9 +251,12 @@ def CTA_sex_restricted_antigens(
     include_reproductive_only
         Include ``Reproductive Antigen only`` entities alongside ``CTA`` entities
         (default ``True``).
+    species
+        Species name resolved via OncoRef (default ``"human"``; also ``"mouse"``).
     """
     elig = _normalize_sex_eligibility(eligibility)
-    df = _human_sex_restricted_table()
+    species_key = str(species).strip().lower()
+    df = _sex_restricted_table(species_key)
     if not include_reproductive_only:
         df = df.loc[df["is_cta"].astype(bool)]
     if sex is not None:
@@ -247,17 +271,24 @@ def CTA_sex_eligible_gene_ids(
     *,
     eligibility: str = "all_adult",
     include_reproductive_only: bool = True,
+    species: str = "human",
 ) -> set[str]:
     """Return Ensembl gene IDs eligible for a patient of ``sex`` under ``eligibility``."""
-    entity_ids = set(
-        CTA_sex_restricted_antigens(
-            sex=sex,
-            eligibility=eligibility,
-            include_reproductive_only=include_reproductive_only,
-        )["entity_id"]
+    df = CTA_sex_restricted_antigens(
+        sex=sex,
+        eligibility=eligibility,
+        include_reproductive_only=include_reproductive_only,
+        species=species,
     )
-    frame = _selection_gene_table()
-    return set(frame.loc[frame["selection_entity_id"].isin(entity_ids), "Ensembl_Gene_ID"])
+    if str(species).strip().lower() in _HUMAN_SPECIES_ALIASES:
+        entity_ids = set(df["entity_id"])
+        frame = _selection_gene_table()
+        return set(frame.loc[frame["selection_entity_id"].isin(entity_ids), "Ensembl_Gene_ID"])
+    gene_ids: set[str] = set()
+    for members in df.get("gene_ids", ()):
+        if isinstance(members, (tuple, list)):
+            gene_ids.update(str(g) for g in members if g)
+    return gene_ids
 
 
 def CTA_sex_eligible_gene_names(
@@ -265,17 +296,28 @@ def CTA_sex_eligible_gene_names(
     *,
     eligibility: str = "all_adult",
     include_reproductive_only: bool = True,
+    species: str = "human",
 ) -> set[str]:
-    """Return HGNC gene symbols eligible for a patient of ``sex`` under ``eligibility``."""
-    entity_ids = set(
-        CTA_sex_restricted_antigens(
-            sex=sex,
-            eligibility=eligibility,
-            include_reproductive_only=include_reproductive_only,
-        )["entity_id"]
+    """Return gene symbols eligible for a patient of ``sex`` under ``eligibility``."""
+    df = CTA_sex_restricted_antigens(
+        sex=sex,
+        eligibility=eligibility,
+        include_reproductive_only=include_reproductive_only,
+        species=species,
     )
-    frame = _selection_gene_table()
-    return set(frame.loc[frame["selection_entity_id"].isin(entity_ids), "Symbol"])
+    if str(species).strip().lower() in _HUMAN_SPECIES_ALIASES:
+        entity_ids = set(df["entity_id"])
+        frame = _selection_gene_table()
+        return set(frame.loc[frame["selection_entity_id"].isin(entity_ids), "Symbol"])
+    names: set[str] = set()
+    for label in df.get("label", ()):
+        text = _clean_text(label)
+        if text:
+            for part in text.split("/"):
+                part = part.strip()
+                if part:
+                    names.add(part)
+    return names
 
 
 def CTA_selection(category: str | Iterable[str] | None = None, *, species: str = "human"):

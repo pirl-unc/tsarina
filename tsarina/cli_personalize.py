@@ -146,8 +146,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p.add_argument(
         "--ensembl-release",
         type=int,
-        default=112,
-        help="Ensembl release (default 112).",
+        default=None,
+        help="Ensembl release. Defaults to 112 for human and 115 for mouse.",
     )
     p.add_argument(
         "--mhc-class",

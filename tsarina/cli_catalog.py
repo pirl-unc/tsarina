@@ -348,16 +348,17 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
     is_human = species.lower() in ("human", "homo sapiens", "homo_sapiens")
     sex = getattr(args, "sex", None)
     sex_elig = getattr(args, "sex_eligibility", "all_adult")
-    if sex is not None and not is_human:
-        print("Error: --sex is only supported for human CTAs.", file=sys.stderr)
-        sys.exit(1)
 
     category = args.category
     coverage_info: dict[str, object] | None = None
     if not is_human:
         coverage_info = CTA_selection_coverage(species=species)
     if sex is not None:
-        df = CTA_sex_restricted_antigens(sex=sex, eligibility=sex_elig)
+        try:
+            df = CTA_sex_restricted_antigens(sex=sex, eligibility=sex_elig, species=species)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
         if category is not None:
             df = df.loc[df["category"].eq(category)].copy()
     else:
@@ -728,7 +729,7 @@ def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentPa
         "--sex",
         choices=("female", "male"),
         default=None,
-        help="Filter human antigens to those eligible for a patient of this biological sex",
+        help="Filter evaluated-species antigens to those eligible for this biological sex",
     )
     p_ctas.add_argument(
         "--sex-eligibility",

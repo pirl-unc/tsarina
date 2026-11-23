@@ -1,3 +1,12 @@
+# Native mouse CTA & mouse sex-restricted workflows (1.50.0) (2026-11-23)
+
+- [x] Generalize `CTA_sex_restricted_antigens`, `CTA_sex_eligible_gene_ids`, and `CTA_sex_eligible_gene_names` with `species="human"` to support evaluated mouse sex-restricted antigens (`oncoref>=1.49.0`) while rejecting unevaluated species (`dog`).
+- [x] Generalize `gene_peptides()` and `_reference_overlapping_peptides()` in `tsarina/peptides.py` with `species` + `exclude_gene_ids` for non-human Ensembl releases (mouse Ensembl 115).
+- [x] Unlock native mouse CTA + sex-restricted personalization in `personalized_targets(host_species="mouse", cta_expression=...)` with automatic species-default Ensembl release (`115` for mouse, `112` for human), keeping unevaluated species (`dog`) gated.
+- [x] Enable `tsarina catalog ctas --species mouse --sex female|male` and species-default `--ensembl-release` in `tsarina personalize`.
+- [x] Add tests in `tests/test_mouse_cta_workflows.py`, update `tests/test_species_workflows.py`, and bump version to `1.50.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.50.0` to PyPI.
+
 # Sex-aware MS safety filtering via Hitlist female/male reproductive flags (1.49.0) (2026-11-22)
 
 - [x] Propagate Hitlist `src_healthy_reproductive_female` and `src_healthy_reproductive_male` through `SOURCE_FLAG_OUTPUTS` (`ms_evidence.py`), `attribute_ms_evidence`/`summarize_ms_attribution` (`ms_attribution.py`), and `personalized_targets()` (`personalize.py`).
@@ -5,7 +14,7 @@
 - [x] Add `patient_sex` / `sex_eligibility` to `cta_healthy_tissue_ms_hits()` and `--sex` / `--sex-eligibility` to `tsarina hits --healthy-tissue`.
 - [x] Surface `repro_f` / `repro_m` tags in `personalize.format_table()` `ms_safety` column.
 - [x] Add tests in `tests/test_sex_aware_ms_safety.py` and bump version to `1.49.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.49.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.49.0` to PyPI.
 
 # Adopt Hitlist >=2.12.0 & OncoRef >=1.49.0 (1.48.0) (2026-11-22)
 
