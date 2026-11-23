@@ -1314,6 +1314,7 @@ def test_long_format_has_one_row_per_filled_cell(monkeypatch):
         "ms_samples",
         "ms_in_cancer",
         "ms_in_healthy_tissue",
+        "ms_detectability_note",
         "presentation_percentile",
         "presentation_score",
         "affinity_nm",

@@ -286,6 +286,7 @@ _LONG_OUTPUT_COLUMNS: tuple[str, ...] = (
     "ms_samples",
     "ms_in_cancer",
     "ms_in_healthy_tissue",
+    "ms_detectability_note",
     "presentation_percentile",
     "presentation_score",
     "affinity_nm",
@@ -2319,6 +2320,7 @@ def _candidate_rows(
                 "ms_samples": evidence["ms_samples"],
                 "ms_in_cancer": bool(evidence.get("ms_in_cancer", False)),
                 "ms_in_healthy_tissue": bool(evidence.get("ms_in_healthy_tissue", False)),
+                "ms_detectability_note": "",
                 "presentation_percentile": percentile,
                 "presentation_score": getattr(row, "presentation_score", pd.NA),
                 "affinity_nm": getattr(row, "affinity_nm", pd.NA),
@@ -2386,6 +2388,8 @@ def _to_long(
     cta_list: list[str],
     allele_list: list[str],
 ) -> pd.DataFrame:
+    from .ms_evidence import annotate_ms_detectability
+
     columns = [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
     if selected.empty:
         return pd.DataFrame(columns=columns)
@@ -2397,6 +2401,7 @@ def _to_long(
     out = out.sort_values(["_cta_order", "_allele_order", "peptide_rank_in_cell"]).drop(
         columns=["_cta_order", "_allele_order"]
     )
+    out = annotate_ms_detectability(out)
     return out[columns].reset_index(drop=True)
 
 
