@@ -1,10 +1,18 @@
+# Website navigation, ecosystem map, and up-to-date docs/README (1.52.1) (2026-11-23)
+
+- [x] Add missing core guides (`Ecosystem & Python API`, `Personalized targets`, `CTA panel design`, `Data and evidence`) to `mkdocs.yml` `nav:`.
+- [x] Add `docs/ecosystem-and-api.md` documenting how `tsarina` connects to `oncoref`, `hitlist`, `pyensembl`, `orfdata`, `mhcgnomes`, and predictors (`mhcflurry`/`mhctools`/`topiary`/`pepsickle`/`dnachisel`), plus a grouped Python API map and CLI reference.
+- [x] Update `README.md`, `docs/index.md`, `docs/data-and-evidence.md`, and `docs/personalized-targets.md` for accurate dependency floors (`oncoref>=1.49.0`, `hitlist>=2.12.0`), auto-fetching `iedb`/`cedar`, live Hitlist `src_healthy_*` flags, Cys MS-detectability caveats, `status`/`catalog`, `--sex`, fusions, `orfdata` viral subsets, and evaluated mouse CTAs.
+- [x] Bump version to `1.52.1`.
+- [ ] Verify `mkdocs build --strict`, `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.52.1` to PyPI.
+
 # CLI help grouping & structured Python REPL API map (1.52.0) (2026-11-23)
 
 - [x] Group `tsarina personalize --help` and `tsarina hits --help` into four clear argument groups (matching `panel` and `vaccine`).
 - [x] Update top-level `tsarina --help` so `catalog` mentions `fusions` and subcommand summaries share consistent punctuation.
 - [x] Replace one-line `tsarina.__doc__` with a structured REPL map of headline workflows, target catalogs, MS evidence/scoring helpers, and upstream OpenVax/PIRL stack roles while keeping all 77 lazy exports backward-compatible.
 - [x] Add regression tests in `tests/test_cli_catalog_and_status.py` and bump version to `1.52.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.52.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.52.0` to PyPI.
 
 # CLI fusion parity & panel Cys MS-detectability caveats (1.51.0) (2026-11-23)
 

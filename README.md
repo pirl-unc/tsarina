@@ -6,25 +6,37 @@
 Tsarina selects shared cancer immunotherapy targets for an individual patient
 or a population HLA panel.
 
-It starts with reusable cancer-testis antigen (CTA), oncogenic-virus, and
-recurrent-mutation targets. It then combines tumor context, public
-immunopeptidomics evidence, healthy-tissue safety evidence, and predicted HLA
-presentation to produce ranked peptide-MHC (pMHC) candidates.
+It starts with reusable cancer-testis antigen (CTA), curated cancer fusion,
+oncogenic-virus, and recurrent-mutation targets. It then combines tumor
+context, biological sex eligibility, public immunopeptidomics evidence,
+healthy-tissue safety evidence, and predicted MHC presentation to produce
+ranked peptide-MHC (pMHC) candidates.
 
 ## Workflows
 
 | Goal | Entry point | Result |
 |---|---|---|
-| Prioritize targets for one patient | `tsarina personalize` or `personalized_targets()` | Ranked CTA, viral, and mutant pMHCs for that patient's HLA type and tumor |
-| Design an off-the-shelf CTA panel | `tsarina panel` | CTA × HLA matrix with evidence tiers and population-coverage estimates |
-| Assemble a shared CTA vaccine | `tsarina vaccine` | Mortality-ranked proteoforms, sequence funnel, junction audit and DNA/RNA construct |
-| Inspect public peptide observations | `tsarina hits` | Cancer, healthy-tissue, and restriction evidence for specified peptides |
+| Check setup & browse built-in catalogs | `tsarina status` / `tsarina catalog` | Read-only environment check and CTA, HLA panel, mutation, fusion, and virus catalogs |
+| Prioritize targets for one patient | `tsarina personalize` or `personalized_targets()` | Ranked CTA, fusion, viral, and mutant pMHCs for a human or mouse host (optional `--sex`) |
+| Design an off-the-shelf CTA panel | `tsarina panel` or `spanning_pmhc_set()` | CTA × HLA matrix with evidence tiers, MS safety flags, and population coverage |
+| Assemble a shared CTA vaccine | `tsarina vaccine` or `design_vaccine()` | Mortality-ranked proteoforms, sequence funnel, junction audit, and DNA/RNA construct |
+| Inspect public peptide observations | `tsarina hits` or `cta_healthy_tissue_ms_hits()` | Cancer, healthy-somatic, sex-reproductive, and restriction evidence for a gene |
 
-See: [documentation](docs/index.md) — inputs, dataset setup and workflow details.
+See: [documentation](docs/index.md) and [Ecosystem & Python API](docs/ecosystem-and-api.md).
+
+## How Tsarina connects to the stack
+
+| Package | Owns |
+|---|---|
+| [oncoref](https://github.com/pirl-unc/oncoref) | Gene-level CTA & sex-restricted selection (human & mouse), proteoform groups, 188 curated cancer fusions, TCGA/HPA/GLOBOCAN burden |
+| [hitlist](https://github.com/pirl-unc/hitlist) | Public MS observations (IEDB/CEDAR/studies), cancer vs. healthy vs. sex-reproductive tissue classification, `EvidenceStore`, dataset registry |
+| [pyensembl](https://github.com/openvax/pyensembl) / [orfdata](https://github.com/openvax/orfdata) | Reference coding proteomes (Ensembl 112 human, 115 mouse, dog) and optional IARC GDC / RefSeq viral ORFs |
+| [mhcgnomes](https://github.com/openvax/mhcgnomes) | HLA, H-2, and DLA allele, serotype, and species parsing |
+| [mhcflurry](https://github.com/openvax/mhcflurry) / [mhctools](https://github.com/openvax/mhctools) / [topiary](https://github.com/openvax/topiary) | MHC presentation and affinity prediction (`pepsickle` + `dnachisel` for vaccine cleavage & mRNA design) |
 
 ## Install
 
-Requires Python 3.11 or newer, OncoRef 1.43.0 or newer and Hitlist 2.1.22 or newer.
+Requires Python 3.11 or newer, `oncoref>=1.49.0`, and `hitlist>=2.12.0`.
 
 ```bash
 pip install tsarina
@@ -39,6 +51,15 @@ pip install "tsarina[all]"
 
 ## Quick start
 
+Check local readiness and browse built-in catalogs (read-only, downloads nothing):
+
+```bash
+tsarina status
+tsarina catalog
+tsarina catalog ctas --tier core --top 10
+tsarina catalog fusions --cancer SARC_EWS
+```
+
 Prioritize targets for a patient:
 
 ```bash
@@ -46,7 +67,9 @@ tsarina personalize \
   --hla 'HLA-A*02:01,HLA-A*24:02,HLA-B*07:02' \
   --cta 'MAGEA4=142.5,PRAME=87.3' \
   --mutations "KRAS G12D" \
+  --fusion 'EWSR1-FLI1:SYGQQSSY|NPSYDSVR' \
   --viruses hpv16 \
+  --sex female \
   --output patient-targets.csv
 ```
 
@@ -56,17 +79,34 @@ Build the default global CTA × HLA panel:
 tsarina panel --format long --output panel.csv
 ```
 
-Both workflows can use registered IEDB or CEDAR ligand exports as public
-immunopeptidomics evidence. See [Data and evidence](docs/data-and-evidence.md)
+Or use the Python API directly:
+
+```python
+from tsarina import CTA_selection, cancer_fusions, personalized_targets, spanning_pmhc_set
+
+ctas = CTA_selection(category="CTA")                 # human (or species="mouse")
+ewing = cancer_fusions(cancer_code="SARC_EWS")
+targets = personalized_targets(
+    hla_alleles=["HLA-A*02:01", "HLA-B*07:02"],
+    cta_expression={"PRAME": 87.3, "MAGEA4": 142.5},
+    mutations=["KRAS G12D"],
+    patient_sex="female",
+)
+```
+
+Fetch public immunopeptidomics data with `tsarina data fetch iedb` /
+`tsarina data fetch cedar` (or inspect grouped catalogs via
+`tsarina data available --grouped`). See [Data and evidence](docs/data-and-evidence.md)
 for setup and interpretation.
 
 ## Target categories
 
 | Category | Candidate source | Tumor-specific context |
 |---|---|---|
-| CTA | The current-policy [oncoref](https://github.com/pirl-unc/oncoref) CTA set | Tumor RNA expression and reproductive-tissue restriction |
-| Viral | Proteomes from nine oncogenic viruses | Virus detected in the tumor |
-| Mutant | Nineteen recurrent hotspots across seven driver genes | Matching mutation detected in the tumor |
+| CTA | Current-policy [oncoref](https://github.com/pirl-unc/oncoref) CTA & sex-restricted sets (human and evaluated mouse) | Tumor RNA expression, reproductive-tissue restriction, and optional biological sex eligibility |
+| Fusion | 188 curated [oncoref](https://github.com/pirl-unc/oncoref) cancer fusions + host-exclusive breakpoint k-mer enumeration | Fusion breakpoint sequence detected in the tumor |
+| Viral | 9 built-in UniProt oncogenic viruses plus optional `orfdata` IARC GDC subsets (15/20/37 viruses) & RefSeq viral ORFs | Virus detected in the tumor |
+| Mutant | 19 recurrent hotspots across 7 driver genes | Matching mutation detected in the tumor |
 
 Oncoref is the single authority for CTA membership, aliases, HPA restriction
 calls, and proteoform groups. Tsarina adds downstream evidence and scoring
@@ -92,8 +132,11 @@ and thymus are treated as safety evidence.
 ## Documentation
 
 - [Documentation guide](docs/index.md) — workflow selection and shared concepts
+- [Ecosystem & Python API](docs/ecosystem-and-api.md) — how Tsarina connects to
+  `oncoref`, `hitlist`, `pyensembl`, `orfdata`, `mhcgnomes`, and predictors, plus
+  the curated Python API map
 - [Personalized target selection](docs/personalized-targets.md) — patient
-  inputs, prioritization, and output schema
+  inputs, sex-restricted eligibility, fusions, mouse CTAs, and output schema
 - [CTA panel design](docs/panel-design.md) — automatic selection, evidence
   tiers, HLA panels, and coverage
 - [CTA vaccine design](docs/vaccine-design.md) — mortality-weighted p95 selection,

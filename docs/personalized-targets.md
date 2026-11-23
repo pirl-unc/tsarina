@@ -18,11 +18,13 @@ whole-exome discovery of private neoantigens.
 
 | Input | Required | Format | Effect |
 |---|---|---|---|
-| HLA class I alleles | Yes | HLA names such as `HLA-A*02:01` | Defines the presentation-scoring space |
-| CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed current-policy CTAs |
-| Mutations | No | Supported labels such as `KRAS G12D` | Adds mutation-spanning shared neoantigens |
-| Viruses | No | Keys such as `hpv16` or `ebv` | Adds peptides from the corresponding viral proteome |
-| IEDB/CEDAR data | Recommended | Registered dataset or explicit path | Adds public cancer and healthy-tissue MS evidence |
+| MHC class I alleles | Yes | Allele names such as `HLA-A*02:01` (or `H-2-Kb` with `--species mouse`) | Defines the presentation-scoring space |
+| CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed current-policy CTAs (human or evaluated mouse) |
+| Patient sex (`--sex`) | No | `female` or `male` (+ `--sex-eligibility all_adult\|sex_organ_only`) | Filters CTAs and admits sex-safe reproductive antigens (RNA + sex-aware MS safety) |
+| Mutations | No | Supported labels such as `KRAS G12D` | Adds host-exclusive mutation-spanning shared neoantigens |
+| Fusions (`--fusion` / `--fusions`) | No | Inline `LABEL:NTERM\|CTERM` or CSV/TSV/JSON breakpoints | Adds host-exclusive junction-spanning fusion neoantigens |
+| Viruses | No | Keys such as `hpv16` or `ebv` | Adds host-exclusive peptides from the corresponding viral proteome |
+| IEDB/CEDAR data | Recommended | Fetched or registered dataset / `EvidenceStore` package | Adds public cancer, somatic, and sex-reproductive MS evidence |
 
 On the command line, `--hla` and `--cta` accept comma- and/or space-separated
 entries, quoted or not (`--hla HLA-A*02:01 HLA-B*07:02` works as well as

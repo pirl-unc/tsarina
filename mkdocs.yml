@@ -12,6 +12,10 @@ exclude_docs: |
 
 nav:
   - Home: index.md
+  - Ecosystem & Python API: ecosystem-and-api.md
+  - Personalized targets: personalized-targets.md
+  - CTA panel design: panel-design.md
+  - Data and evidence: data-and-evidence.md
   - Curation: curation.md
   - Vaccine design: vaccine-design.md
   - Vaccine validation: vaccine-validation.md

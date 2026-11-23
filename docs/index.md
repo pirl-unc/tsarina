@@ -1,16 +1,25 @@
 # Tsarina documentation
 
 Tsarina ranks peptide-MHC candidates from cancer-testis antigens (CTAs),
-oncogenic viruses and recurrent mutations. It supports patient target
-selection, population CTA panels and shared CTA vaccine constructs.
+curated cancer fusions, oncogenic viruses, and recurrent hotspot mutations. It
+supports single-patient target selection (human and mouse), population CTA
+panels, public MS safety lookup, and shared CTA vaccine constructs.
 
 ## Workflows
 
+### [Ecosystem and Python API](ecosystem-and-api.md)
+
+How Tsarina connects to `oncoref`, `hitlist`, `pyensembl`, `orfdata`,
+`mhcgnomes`, and MHC predictors (`mhcflurry`, `mhctools`, `topiary`), plus a
+grouped Python API and CLI command map.
+
 ### [Personalized target selection](personalized-targets.md)
 
-Patient HLA type, CTA expression, hotspot mutations and viral status determine
-the candidates. Results include ranked pMHCs with source abundance, public MS
-support, healthy-tissue safety flags and predicted presentation.
+Patient HLA (or mouse H-2) type, CTA expression, biological sex eligibility,
+hotspot mutations, fusion breakpoints, and viral status determine the
+candidates. Results include ranked pMHCs with source abundance, public MS
+support, somatic and sex-specific reproductive safety flags, Cys
+MS-detectability caveats, and predicted presentation.
 
 ### [CTA panel design](panel-design.md)
 
@@ -62,59 +71,76 @@ Install the package:
 pip install "tsarina[all]"
 ```
 
-See which external datasets Tsarina can use:
+Inspect local environment readiness and built-in catalogs (read-only):
 
 ```bash
-tsarina data available
+tsarina status
+tsarina catalog
+tsarina data available --grouped
 ```
 
-Viral proteomes can be fetched automatically. IEDB and CEDAR ligand exports
-must be downloaded under their source terms and registered locally:
+IEDB, CEDAR, and built-in viral proteomes can be fetched directly (or
+registered locally if already downloaded):
 
 ```bash
+tsarina data fetch iedb
+tsarina data fetch cedar
 tsarina data fetch hpv16
-tsarina data register iedb /data/mhc_ligand_full.csv
-tsarina data register cedar /data/cedar-mhc-ligand-full.csv
 tsarina data list
 ```
 
 See: [Data and evidence](data-and-evidence.md) — storage, observation
-classification and the evidence model.
+classification, preflight checks, and the evidence model.
 
 ## Target types
 
-### Cancer-testis antigens
+### Cancer-testis antigens (human and mouse)
 
-CTAs are normally restricted to reproductive tissues but can be reactivated in
-tumors. OncoRef supplies current protein-level selection decisions and historical
-HPA-derived restriction axes. Tsarina adds tumor prevalence, public-MS safety evidence, peptide
-enumeration, and HLA scoring after membership is known.
+CTAs are normally restricted to reproductive tissues but reactivated in tumors.
+OncoRef supplies current protein-level selection decisions across human (327
+CTAs) and evaluated mouse (20 CTAs), biological sex-restricted eligibility
+(`--sex female|male`), and historical HPA-derived restriction axes. Tsarina
+adds tumor prevalence, public-MS safety evidence (including sex-specific
+reproductive flags), peptide enumeration, and MHC scoring.
+
+### Curated cancer fusions
+
+OncoRef curates 188 cancer fusions (`tsarina catalog fusions` /
+`cancer_fusions()`). Given explicit fusion breakpoint sequences, Tsarina
+enumerates host-exclusive junction-spanning peptides (`fusion_junction_peptides()`
+or `--fusion` / `--fusions` in `tsarina personalize`).
 
 ### Oncogenic viruses
 
-Viral proteins are foreign to the human proteome. Clinical helpers default to
-human-exclusive viral peptides, removing viral k-mers that also occur in human
-proteins.
+Viral proteins are foreign to the host proteome. Tsarina supports 9 built-in
+UniProt oncogenic viruses plus optional `orfdata` IARC GDC viral subsets
+(`cancer-associated`, `cancer-causing`, `cancer-integrated-driver`) and spliced
+RefSeq viral ORFs (`tsarina catalog viruses --source orfdata`). Clinical
+helpers default to host-exclusive viral peptides.
 
 ### Recurrent mutations
 
 Hotspot driver mutations produce shared mutant peptides in patients carrying
-the same alteration. Tsarina enumerates mutation-spanning peptides rather than
-discovering private passenger mutations from whole-exome sequencing.
+the same alteration. Tsarina enumerates host-exclusive mutation-spanning
+peptides rather than discovering private passenger mutations from whole-exome
+sequencing.
 
 ## Guides
 
 | Guide | Use it for |
 |---|---|
-| [Personalized target selection](personalized-targets.md) | Patient inputs, CLI and Python use, output columns, and ranking |
+| [Ecosystem & Python API](ecosystem-and-api.md) | Stack ownership (`oncoref`, `hitlist`, `pyensembl`, `orfdata`, `mhcgnomes`, predictors), CLI map, and Python quickstart |
+| [Personalized target selection](personalized-targets.md) | Patient inputs, sex eligibility, fusions, mouse CTAs, output columns, and ranking |
 | [CTA panel design](panel-design.md) | Automatic CTA selection, safety gates, evidence tiers, HLA panels, and coverage |
-| [Data and evidence](data-and-evidence.md) | Dataset setup, source classification, positive/negative evidence, scoring, and naming |
+| [Data and evidence](data-and-evidence.md) | Dataset setup, source classification, Cys MS-detectability caveats, scoring, and naming |
 | [CTA ownership and downstream evidence](curation.md) | The oncoref/Tsarina boundary, API behavior, and definition updates |
 
 For the current command-line surface, use:
 
 ```bash
 tsarina --help
+tsarina status
+tsarina catalog --help
 tsarina personalize --help
 tsarina panel --help
 tsarina hits --help
