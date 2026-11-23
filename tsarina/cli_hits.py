@@ -704,7 +704,6 @@ def handle(args: argparse.Namespace) -> None:
     gene_ident_cols = [c for c in ("gene_names", "gene_ids", "protein_ids") if c in hits.columns]
     if args.format == "peptides":
         out = aggregate_per_peptide(hits)
-        out = _deduplicate_semicolon_alleles(out, "ms_alleles")
         if gene_ident_cols:
             ids = hits[["peptide", *gene_ident_cols]].drop_duplicates(subset="peptide")
             out = ids.merge(out, on="peptide", how="inner")
@@ -822,22 +821,6 @@ def handle(args: argparse.Namespace) -> None:
         return
 
     _write(args.output, out)
-
-
-def _deduplicate_semicolon_alleles(df: pd.DataFrame, column: str = "ms_alleles") -> pd.DataFrame:
-    """Deduplicate individual alleles across semicolon-joined donor sets (#241)."""
-    if df.empty or column not in df.columns:
-        return df
-    out = df.copy()
-
-    def _clean(value: object) -> str:
-        if not isinstance(value, str) or not value.strip():
-            return "" if value is None else str(value)
-        tokens = sorted({tok.strip() for tok in value.split(";") if tok.strip()})
-        return ";".join(tokens)
-
-    out[column] = out[column].map(_clean)
-    return out
 
 
 def _sort_pmhc_by_evidence(df: pd.DataFrame) -> pd.DataFrame:

@@ -1,3 +1,13 @@
+# Adopt Hitlist >=2.12.0 & OncoRef >=1.49.0 (1.48.0) (2026-11-22)
+
+- [x] Upgrade local `.venv-vaccine` to `hitlist==2.13.0`, `oncoref==1.49.0`, `orfdata==0.55.0` and bump `pyproject.toml` floors to `hitlist>=2.12.0`, `oncoref>=1.49.0`.
+- [x] Re-export `DATASET_CATEGORIES`, `dataset_categories`, and `available_dataset_catalog` from `tsarina.downloads`.
+- [x] Add `--category` and `--grouped` to `tsarina data available`, enrich JSON entries with structured `category`/`group`/`species`/`kind`, and surface `symlink_status` across `data list`, `data info`, and `status`.
+- [x] Default `tsarina catalog ctas --species <sp>` to `category='CTA'` for evaluated non-human species (such as `oncoref 1.49.0` mouse, 20 CTAs) while keeping `pending_reconciled_panels` species (dog) unfiltered.
+- [x] Retire local `_deduplicate_semicolon_alleles` shim in `tsarina.cli_hits` in favor of `hitlist>=2.12.0`'s native deduplicated `ms_alleles` / `ms_exact_alleles` / `ms_restriction_sets`.
+- [x] Add unit tests and bump version to `1.48.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.48.0` to PyPI.
+
 # Curated cancer fusions, orfdata viral subsets, and Cys MS-detectability caveats (1.47.0) (2026-11-22)
 
 - [x] Add `tsarina.fusions` (`cancer_fusions`, `fusion_junction_peptides`) backed by `oncoref.cancer_fusions_df()` with host-proteome self-exclusivity screening and wire optional `fusions` into `personalized_targets()`.
@@ -5,7 +15,7 @@
 - [x] Add `annotate_ms_detectability()` in `tsarina.ms_evidence` flagging zero-MS cysteine / C-terminal cysteine peptides (e.g., NY-ESO-1 `SLLMWITQC`) and surface `ms_detectability_note` + table footnote in `personalized_targets()`.
 - [x] Add `tsarina catalog fusions` and enhance `tsarina catalog viruses` with `--source builtin|orfdata|all` and `--subset`.
 - [x] Export new helpers from `tsarina`, add tests in `tests/test_fusions_viral_detectability.py`, and bump version to `1.47.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.47.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.47.0` to PyPI.
 
 # Sex-restricted CTA eligibility (`--sex female|male`) via OncoRef (1.46.0) (2026-11-22)
 

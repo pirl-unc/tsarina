@@ -46,8 +46,10 @@ from pathlib import Path
 from hitlist.cli_help import ColorArgumentParser
 
 from .downloads import (
+    DATASET_CATEGORIES,
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
+    available_dataset_catalog,
     available_datasets,
     data_dir,
     fetch,
@@ -119,12 +121,14 @@ def _registered_entry(name: str, meta: dict) -> dict:
     """One registered dataset as a plain dict matching the uniform JSON schema (#223/#224).
 
     ``status`` is datacache's file state (via hitlist's ``info``): ``installed``,
-    ``missing``, ``corrupt`` or ``inaccessible``.
+    ``missing``, ``corrupt`` or ``inaccessible``. When hitlist>=2.12.0 reports
+    ``symlink_status`` / ``resolved_path``, they are included verbatim.
     """
     path = meta.get("path")
     exists = bool(path and Path(str(path)).exists())
-    status = info(name).get("status", "installed" if exists else "missing")
-    return {
+    detail = info(name)
+    status = detail.get("status", "installed" if exists else "missing")
+    entry: dict[str, object] = {
         "name": name,
         "status": status,
         "exists": exists,
@@ -133,6 +137,11 @@ def _registered_entry(name: str, meta: dict) -> dict:
         "source": "registered" if meta.get("source") == "registered" else "fetched",
         "description": meta.get("description", ""),
     }
+    if "symlink_status" in detail:
+        entry["symlink_status"] = detail["symlink_status"]
+    if "resolved_path" in detail:
+        entry["resolved_path"] = detail["resolved_path"]
+    return entry
 
 
 def _data_list(args: argparse.Namespace) -> None:
@@ -174,9 +183,13 @@ def _data_list(args: argparse.Namespace) -> None:
 
 
 def _data_available(args: argparse.Namespace) -> None:
+    category = getattr(args, "category", None)
+    grouped = getattr(args, "grouped", False)
+    catalog = available_dataset_catalog(category=category)
     registered = {n: _registered_entry(n, m) for n, m in list_datasets().items()}
     entries = []
-    for name, desc in sorted(available_datasets().items()):
+    for name, cat_meta in sorted(catalog.items()):
+        desc = str(cat_meta.get("description") or "")
         if name in registered:
             entry = dict(registered[name])
             if not entry.get("description"):
@@ -198,11 +211,30 @@ def _data_available(args: argparse.Namespace) -> None:
                 "source": source,
                 "description": desc,
             }
+        for key in ("category", "group", "species", "kind"):
+            if key in cat_meta:
+                entry[key] = cat_meta[key]
         entries.append(entry)
     if getattr(args, "json", False):
         print(json.dumps(entries, indent=2))
         return
     name_width = max(12, max((len(e["name"]) for e in entries), default=12))
+    if grouped:
+        by_cat: dict[str, list[dict]] = {}
+        for e in entries:
+            by_cat.setdefault(str(e.get("category") or "other"), []).append(e)
+        ordered_cats = [c for c in DATASET_CATEGORIES if c in by_cat] + [
+            c for c in sorted(by_cat) if c not in DATASET_CATEGORIES
+        ]
+        for idx, cat_name in enumerate(ordered_cats):
+            cat_entries = by_cat[cat_name]
+            if idx:
+                print()
+            print(f"[{cat_name}] ({len(cat_entries)})")
+            for e in cat_entries:
+                status = "" if e["status"] == "not installed" else f" [{e['status']}]"
+                print(f"  {e['name']:<{name_width}} {e['description']}{status}")
+        return
     print(f"{'Name':<{name_width}} {'Status':<14} Description")
     print("-" * max(72, name_width + 28))
     for e in entries:
@@ -380,6 +412,17 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_list.set_defaults(func=_data_list)
 
     p_avail = data_sub.add_parser("available", help="Show all known datasets (installed or not)")
+    p_avail.add_argument(
+        "--category",
+        choices=DATASET_CATEGORIES,
+        default=None,
+        help="Filter datasets to one structured category",
+    )
+    p_avail.add_argument(
+        "--grouped",
+        action="store_true",
+        help="Group datasets by structured category",
+    )
     p_avail.add_argument("--json", action="store_true", help="Machine-readable output")
     p_avail.set_defaults(func=_data_available)
 

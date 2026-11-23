@@ -19,10 +19,13 @@ hitlist. This module re-exports hitlist's API for backward compatibility.
 from __future__ import annotations
 
 from hitlist.downloads import (
+    DATASET_CATEGORIES,
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
+    available_dataset_catalog,
     available_datasets,
     data_dir,
+    dataset_categories,
     download_to_file,
     fetch,
     fetch_all_data_assets,
@@ -37,10 +40,13 @@ from hitlist.downloads import (
 )
 
 __all__ = [
+    "DATASET_CATEGORIES",
     "FETCHABLE_DATASETS",
     "MANUAL_DATASETS",
+    "available_dataset_catalog",
     "available_datasets",
     "data_dir",
+    "dataset_categories",
     "download_to_file",
     "fetch",
     "fetch_all_data_assets",

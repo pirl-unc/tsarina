@@ -133,9 +133,14 @@ def collect_status() -> dict[str, object]:
             obs_meta = {}
 
     registered: dict[str, str] = {}
+    registered_symlinks: dict[str, str] = {}
     for name in sorted(list_datasets()):
         try:
-            registered[name] = str(info(name).get("status", "unknown"))
+            detail = info(name)
+            registered[name] = str(detail.get("status", "unknown"))
+            sym = detail.get("symlink_status")
+            if sym and sym != "regular_file":
+                registered_symlinks[name] = str(sym)
         except Exception:
             registered[name] = "unknown"
 
@@ -175,6 +180,7 @@ def collect_status() -> dict[str, object]:
             "observations_artifact_version": obs_meta.get("artifact_version"),
             "evidence_package": str(ev_pkg) if ev_pkg is not None else None,
             "registered_datasets": registered,
+            "registered_symlink_status": registered_symlinks,
         },
         "pyensembl": _check_pyensembl_releases(),
         "mhcflurry": _check_mhcflurry_weights(),
@@ -205,7 +211,12 @@ def format_status(status: dict[str, object]) -> str:
         obs_str = "not built (run `tsarina build observations`)"
 
     reg = hitlist_info["registered_datasets"]
-    reg_str = ", ".join(f"{k}={v}" for k, v in reg.items()) if reg else "none"
+    reg_sym = hitlist_info.get("registered_symlink_status", {})
+    reg_str = (
+        ", ".join(f"{k}={v} ({reg_sym[k]})" if k in reg_sym else f"{k}={v}" for k, v in reg.items())
+        if reg
+        else "none"
+    )
 
     flurry_str = (
         f"{mhcflurry_info['version']} (weights ready)"
@@ -342,12 +353,17 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     category = args.category
+    coverage_info: dict[str, object] | None = None
+    if not is_human:
+        coverage_info = CTA_selection_coverage(species=species)
     if sex is not None:
         df = CTA_sex_restricted_antigens(sex=sex, eligibility=sex_elig)
         if category is not None:
             df = df.loc[df["category"].eq(category)].copy()
     else:
-        if category is None and is_human:
+        if category is None and (
+            is_human or (coverage_info and coverage_info.get("selection_status") == "evaluated")
+        ):
             category = "CTA"
         df = CTA_selection(category=category, species=species)
     if args.tier:
@@ -416,7 +432,11 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             payload["sex"] = sex
             payload["sex_eligibility"] = sex_elig
         if not is_human:
-            payload["coverage"] = CTA_selection_coverage(species=species)
+            payload["coverage"] = (
+                coverage_info
+                if coverage_info is not None
+                else CTA_selection_coverage(species=species)
+            )
         print(json.dumps(payload, indent=2, default=str))
         return
 
