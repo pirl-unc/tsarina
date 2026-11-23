@@ -39,21 +39,34 @@ lacks a usable exact restriction.
 
 ## Observation classification
 
-Each IEDB/CEDAR MS observation is classified by biological source before
-aggregation:
+Each IEDB/CEDAR MS observation is classified by biological source in Hitlist
+before aggregation:
 
 | Flag | Source criteria | Interpretation |
 |---|---|---|
 | `src_cancer` | Process type is occurrence of cancer | Peptide observed in a tumor context |
-| `src_healthy` | No immunization and disease is healthy or empty | Peptide observed in a normal context |
-| `src_reproductive` | Tissue belongs to the reproductive definition | Expected source context for many CTAs |
-| `src_thymus` | Source tissue is thymus | Tracked separately because of AIRE-mediated expression |
+| `src_healthy_tissue` | Direct ex vivo healthy non-reproductive, non-thymic somatic tissue | Primary off-tumor safety signal |
+| `src_healthy_reproductive` | Healthy core reproductive / fetal-placental tissue (`testis`, `placenta`, `embryo`, `epididymis`) | Expected CTA reproductive context |
+| `src_healthy_reproductive_female` | Healthy female reproductive tract / mammary tissue (`ovary`, `uterus`, `endometrium`, `cervix`, `fallopian tube`, `vagina`, `breast`) | Same-sex normal organ risk for female `all_adult` dosing; opposite-sex in male patients |
+| `src_healthy_reproductive_male` | Healthy male accessory reproductive tissue (`prostate`, `seminal vesicle`) | Same-sex normal organ risk for male `all_adult` dosing; opposite-sex in female patients |
+| `src_healthy_thymus` | Source tissue is healthy thymus | Tracked separately because of AIRE-mediated expression |
 | `src_cell_line` | Culture condition is cell line or clone | In-vitro evidence rather than direct tissue |
 | `src_ebv_lcl` | EBV-transformed B lymphoblastoid cell line | Special-case transformed-cell evidence |
 | `src_ex_vivo` | Culture condition is direct ex vivo | Highest-confidence direct-tissue context |
 
-The flags are not mutually exclusive. For example, an observation can be both
-healthy and reproductive.
+The flags are not mutually exclusive across modalities (e.g., an observation can
+be `src_cancer` and `src_ex_vivo`).
+
+### Cysteine MS-detectability caveats
+
+Standard unmodified HLA-I elution MS systematically under-detects
+cysteine-containing peptides — particularly ligands ending in a C-terminal
+cysteine such as the clinically validated `HLA-A*02:01` NY-ESO-1 epitope
+`SLLMWITQC`, which readily undergoes oxidation, cysteinylation, or disulfide
+formation during sample preparation. `annotate_ms_detectability()` (wired into
+`personalized_targets()` and `spanning_pmhc_set(output_format="long")`)
+populates `ms_detectability_note` on zero-MS cysteine peptides and appends a
+table footnote without changing presentation scores or tiers.
 
 ## Positive and negative evidence
 
@@ -75,27 +88,33 @@ from direct-ex-vivo evidence.
 
 ## Install and register datasets
 
-List all datasets Tsarina knows about, then inspect what is installed:
+List all datasets Tsarina knows about (grouped by Hitlist structured category),
+then inspect what is installed:
 
 ```bash
-tsarina data available
+tsarina data available --grouped
+tsarina data available --category core_immunopeptidomics
 tsarina data list
 ```
 
-Fetch supported remotely available assets:
+Fetch supported remotely available assets (including IEDB, CEDAR, and viral
+proteomes):
 
 ```bash
+tsarina data fetch iedb
+tsarina data fetch cedar
 tsarina data fetch hpv16
 tsarina data fetch ebv
 ```
 
-`tsarina data fetch <name> --dry-run` shows the source, destination and free disk space
-without downloading. `data list` reports each registered file's state (`installed`, `missing`, `corrupt` or
-`inaccessible`);
+`tsarina data fetch <name> --dry-run` (or `tsarina data preflight <name>`)
+shows the source, destination, expected size, and free disk space without
+downloading. `data list` reports each registered file's state (`installed`,
+`missing`, `corrupt`, or `inaccessible`) plus `symlink_status` in JSON;
 `data list --json` and `data available --json` give machine-readable output.
 
-IEDB and CEDAR exports must be downloaded under their source terms, then
-registered:
+If you already downloaded IEDB or CEDAR exports locally, you can register them
+directly instead of re-fetching:
 
 ```bash
 tsarina data register iedb /data/mhc_ligand_full.csv
