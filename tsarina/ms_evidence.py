@@ -26,6 +26,8 @@ SOURCE_FLAG_OUTPUTS: dict[str, str] = {
     "src_healthy_tissue": "ms_healthy_tissue",
     "src_healthy_thymus": "ms_healthy_thymus",
     "src_healthy_reproductive": "ms_healthy_reproductive",
+    "src_healthy_reproductive_female": "ms_healthy_reproductive_female",
+    "src_healthy_reproductive_male": "ms_healthy_reproductive_male",
     "src_cell_line": "ms_cell_line",
     "src_ebv_lcl": "ms_ebv_lcl",
     "src_ex_vivo": "ms_ex_vivo",
@@ -360,6 +362,8 @@ def cta_healthy_tissue_ms_hits(
     mhc_class: str | None = "I",
     mhc_species: str | None = "Homo sapiens",
     evidence_package: str | Path | None = None,
+    patient_sex: str | None = None,
+    sex_eligibility: str = "all_adult",
 ) -> pd.DataFrame:
     """Per-peptide healthy *somatic*-tissue MS hits for a CTA gene.
 
@@ -368,8 +372,14 @@ def cta_healthy_tissue_ms_hits(
     peptide x tissue x allele granularity so consumers can do allele-aware,
     peptide-level screening (tsarina#76).
 
-    Reproductive and thymic hits (expected for CTAs) are excluded — only
-    ``src_healthy_tissue`` (non-reproductive, non-thymus) rows are returned.
+    Core CTA reproductive and thymic hits (``src_healthy_reproductive``:
+    testis, placenta, embryo, epididymis) are excluded. When ``patient_sex`` is
+    provided with ``sex_eligibility="all_adult"``, Hitlist's sex-specific
+    normal reproductive tract flags (``src_healthy_reproductive_female`` for
+    female patients; ``src_healthy_reproductive_male`` for male patients) are
+    also included as same-sex normal-organ hits while opposite-sex reproductive
+    hits remain excluded. Under ``sex_eligibility="sex_organ_only"``, only
+    non-reproductive somatic hits (``src_healthy_tissue``) are returned.
 
     Parameters
     ----------
@@ -377,18 +387,31 @@ def cta_healthy_tissue_ms_hits(
         Gene symbol (or alias — resolved via the hitlist peptide mappings).
     mhc_class, mhc_species, evidence_package
         Passed through to :func:`tsarina.indexing.load_ms_evidence`.
+    patient_sex
+        Optional biological sex (``"female"`` or ``"male"``).
+    sex_eligibility
+        ``"all_adult"`` (default) or ``"sex_organ_only"``.
 
     Returns
     -------
     pd.DataFrame
-        One row per healthy-somatic MS observation, columns:
+        One row per healthy-somatic (plus same-sex adult reproductive when
+        requested) MS observation, columns:
         ``peptide``, ``tissue``, ``allele`` (recorded ``mhc_restriction``),
         ``allele_set`` (candidate set for multiallelic samples),
         ``provenance``, ``pmid``, and ``vital_organ`` (bool — tissue matches a
-        ``SAFETY_TISSUE_GROUPS`` vital organ).  Empty if the gene has no
-        healthy-somatic MS hits.
+        ``SAFETY_TISSUE_GROUPS`` vital organ).  Empty if no healthy MS hits
+        match.
     """
     from .indexing import load_ms_evidence
+
+    norm_sex: str | None = None
+    norm_elig = "all_adult"
+    if patient_sex is not None:
+        from .cta_selection import _normalize_patient_sex, _normalize_sex_eligibility
+
+        norm_sex = _normalize_patient_sex(patient_sex)
+        norm_elig = _normalize_sex_eligibility(sex_eligibility)
 
     load_kwargs = {"gene_name": gene, "mhc_class": mhc_class, "mhc_species": mhc_species}
     if evidence_package is not None:
@@ -397,7 +420,17 @@ def cta_healthy_tissue_ms_hits(
     if df.empty or "src_healthy_tissue" not in df.columns:
         return pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
 
-    hits = df[df["src_healthy_tissue"].astype(bool)].copy()
+    mask = df["src_healthy_tissue"].fillna(False).astype(bool)
+    if norm_sex is not None and norm_elig == "all_adult":
+        sex_col = (
+            "src_healthy_reproductive_female"
+            if norm_sex == "female"
+            else "src_healthy_reproductive_male"
+        )
+        if sex_col in df.columns:
+            mask = mask | df[sex_col].fillna(False).astype(bool)
+
+    hits = df[mask].copy()
     if hits.empty:
         return pd.DataFrame(columns=CTA_HEALTHY_TISSUE_MS_COLUMNS)
 

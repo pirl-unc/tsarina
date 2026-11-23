@@ -97,6 +97,8 @@ _ATTRIBUTION_COLUMNS: tuple[str, ...] = (
     "src_cancer",
     "src_healthy_tissue",
     "src_healthy_reproductive",
+    "src_healthy_reproductive_female",
+    "src_healthy_reproductive_male",
     "src_cell_line",
     "src_ex_vivo",
     "pmid",
@@ -420,6 +422,8 @@ def attribute_ms_evidence(
             "src_cancer": False,
             "src_healthy_tissue": False,
             "src_healthy_reproductive": False,
+            "src_healthy_reproductive_female": False,
+            "src_healthy_reproductive_male": False,
             "src_cell_line": False,
             "src_ex_vivo": False,
             "pmid": "",
@@ -551,6 +555,12 @@ def attribute_ms_evidence(
                     "src_healthy_reproductive": _is_truthy(
                         rec.get("src_healthy_reproductive", False)
                     ),
+                    "src_healthy_reproductive_female": _is_truthy(
+                        rec.get("src_healthy_reproductive_female", False)
+                    ),
+                    "src_healthy_reproductive_male": _is_truthy(
+                        rec.get("src_healthy_reproductive_male", False)
+                    ),
                     "src_cell_line": _is_truthy(rec.get("src_cell_line", False)),
                     "src_ex_vivo": _is_truthy(rec.get("src_ex_vivo", False)),
                     "pmid": _clean_str(rec.get("pmid", "")),
@@ -596,6 +606,8 @@ def summarize_ms_attribution(
         "ms_in_cancer",
         "ms_in_healthy_tissue",
         "ms_in_healthy_reproductive",
+        "ms_in_healthy_reproductive_female",
+        "ms_in_healthy_reproductive_male",
         "ms_in_cell_line",
         "ms_in_ex_vivo",
     ]
@@ -635,6 +647,8 @@ def summarize_ms_attribution(
                     "ms_in_cancer": False,
                     "ms_in_healthy_tissue": False,
                     "ms_in_healthy_reproductive": False,
+                    "ms_in_healthy_reproductive_female": False,
+                    "ms_in_healthy_reproductive_male": False,
                     "ms_in_cell_line": False,
                     "ms_in_ex_vivo": False,
                 }
@@ -697,6 +711,16 @@ def summarize_ms_attribution(
                 "ms_in_healthy_reproductive": bool(
                     matched["src_healthy_reproductive"].astype(bool).any()
                 ),
+                "ms_in_healthy_reproductive_female": bool(
+                    matched["src_healthy_reproductive_female"].astype(bool).any()
+                )
+                if "src_healthy_reproductive_female" in matched.columns
+                else False,
+                "ms_in_healthy_reproductive_male": bool(
+                    matched["src_healthy_reproductive_male"].astype(bool).any()
+                )
+                if "src_healthy_reproductive_male" in matched.columns
+                else False,
                 "ms_in_cell_line": bool(matched["src_cell_line"].astype(bool).any()),
                 "ms_in_ex_vivo": bool(matched["src_ex_vivo"].astype(bool).any()),
             }

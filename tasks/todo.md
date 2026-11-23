@@ -1,3 +1,12 @@
+# Sex-aware MS safety filtering via Hitlist female/male reproductive flags (1.49.0) (2026-11-22)
+
+- [x] Propagate Hitlist `src_healthy_reproductive_female` and `src_healthy_reproductive_male` through `SOURCE_FLAG_OUTPUTS` (`ms_evidence.py`), `attribute_ms_evidence`/`summarize_ms_attribution` (`ms_attribution.py`), and `personalized_targets()` (`personalize.py`).
+- [x] Enforce same-sex normal adult reproductive tract MS exclusion under `patient_sex` + `sex_eligibility='all_adult'` while allowing opposite-sex hits and retaining same-sex hits (flagged) under `sex_eligibility='sex_organ_only'`.
+- [x] Add `patient_sex` / `sex_eligibility` to `cta_healthy_tissue_ms_hits()` and `--sex` / `--sex-eligibility` to `tsarina hits --healthy-tissue`.
+- [x] Surface `repro_f` / `repro_m` tags in `personalize.format_table()` `ms_safety` column.
+- [x] Add tests in `tests/test_sex_aware_ms_safety.py` and bump version to `1.49.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.49.0` to PyPI.
+
 # Adopt Hitlist >=2.12.0 & OncoRef >=1.49.0 (1.48.0) (2026-11-22)
 
 - [x] Upgrade local `.venv-vaccine` to `hitlist==2.13.0`, `oncoref==1.49.0`, `orfdata==0.55.0` and bump `pyproject.toml` floors to `hitlist>=2.12.0`, `oncoref>=1.49.0`.
@@ -6,7 +15,7 @@
 - [x] Default `tsarina catalog ctas --species <sp>` to `category='CTA'` for evaluated non-human species (such as `oncoref 1.49.0` mouse, 20 CTAs) while keeping `pending_reconciled_panels` species (dog) unfiltered.
 - [x] Retire local `_deduplicate_semicolon_alleles` shim in `tsarina.cli_hits` in favor of `hitlist>=2.12.0`'s native deduplicated `ms_alleles` / `ms_exact_alleles` / `ms_restriction_sets`.
 - [x] Add unit tests and bump version to `1.48.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.48.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.48.0` to PyPI.
 
 # Curated cancer fusions, orfdata viral subsets, and Cys MS-detectability caveats (1.47.0) (2026-11-22)
 
