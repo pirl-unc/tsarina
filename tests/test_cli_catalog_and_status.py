@@ -119,6 +119,31 @@ def test_cli_allele_flag_symmetry_and_grouped_panel_help():
     assert "HLA panel and peptide enumeration:" in panel_help
     assert "MS evidence tiers and presentation scoring:" in panel_help
 
+    pers_help = p_pers.format_help()
+    assert "Target inputs:" in pers_help
+    assert "Species, sex, and safety gates:" in pers_help
+    assert "MS evidence and presentation scoring:" in pers_help
+    assert "Output and formatting:" in pers_help
+
+    hits_help = p_hits.format_help()
+    assert "Target protein:" in hits_help
+    assert "Restriction and assay filters:" in hits_help
+    assert "MS evidence sources and scoring:" in hits_help
+    assert "Mode switches and output:" in hits_help
+
+
+def test_top_level_docstring_and_cli_help_are_structured(tmp_path):
+    doc = tsarina.__doc__ or ""
+    assert "Headline workflows" in doc
+    assert "Target & allele catalogs" in doc
+    assert "personalized_targets" in doc
+    assert "spanning_pmhc_set" in doc
+    assert "oncoref" in doc and "hitlist" in doc
+
+    top_help = _run("--help", cache_dir=tmp_path)
+    assert top_help.returncode == 0
+    assert "fusion" in top_help.stdout.lower()
+
 
 def test_top_level_headline_exports_are_available_and_in_all():
     for name in (

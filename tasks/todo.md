@@ -1,10 +1,18 @@
+# CLI help grouping & structured Python REPL API map (1.52.0) (2026-11-23)
+
+- [x] Group `tsarina personalize --help` and `tsarina hits --help` into four clear argument groups (matching `panel` and `vaccine`).
+- [x] Update top-level `tsarina --help` so `catalog` mentions `fusions` and subcommand summaries share consistent punctuation.
+- [x] Replace one-line `tsarina.__doc__` with a structured REPL map of headline workflows, target catalogs, MS evidence/scoring helpers, and upstream OpenVax/PIRL stack roles while keeping all 77 lazy exports backward-compatible.
+- [x] Add regression tests in `tests/test_cli_catalog_and_status.py` and bump version to `1.52.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.52.0` to PyPI.
+
 # CLI fusion parity & panel Cys MS-detectability caveats (1.51.0) (2026-11-23)
 
 - [x] Add inline `--fusion LABEL:NTERM|CTERM`, file-based `--fusions <csv|tsv|json>`, and `--no-require-host-exclusive-fusions` to `tsarina personalize` (`tsarina/cli_personalize.py`).
 - [x] Populate `ms_detectability_note` on `spanning_pmhc_set(output_format='long')` (`tsarina/spanning.py`) and append a concise zero-MS Cys caveat footnote to `format_panel_table()` (`tsarina/cli_spanning.py`).
 - [x] Document `peptides` format deduplicated `ms_alleles`, `ms_exact_alleles`, and `ms_restriction_sets` in `tsarina hits --help`.
 - [x] Add tests in `tests/test_cli_fusions_and_panel_cys.py` and bump version to `1.51.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.51.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.51.0` to PyPI.
 
 # Native mouse CTA & mouse sex-restricted workflows (1.50.0) (2026-11-23)
 

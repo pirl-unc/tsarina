@@ -107,7 +107,7 @@ def _resolve_lengths(args: argparse.Namespace) -> tuple[int, ...] | None:
 def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = sub.add_parser(
         "hits",
-        help="List all public MS hits for a protein, with filtering.",
+        help="List public MS hits for a gene or protein, with filtering",
         description=(
             "List all public MS hits for a gene or protein from the hitlist "
             "observations index, filtered by allele / species / serotype / "
@@ -117,14 +117,16 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "with `tsarina build observations` — it auto-builds on first use otherwise."
         ),
     )
-    target = p.add_mutually_exclusive_group(required=True)
+    target_group = p.add_argument_group("Target protein")
+    target = target_group.add_mutually_exclusive_group(required=True)
     target.add_argument("--gene", help="HGNC gene symbol (e.g. PRAME).")
     target.add_argument(
         "--uniprot",
         help="UniProt accession. Best-effort — maps via gene symbol cross-reference.",
     )
 
-    p.add_argument(
+    filters = p.add_argument_group("Restriction and assay filters")
+    filters.add_argument(
         "--allele",
         "--alleles",
         "--hla",
@@ -133,12 +135,12 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         default=[],
         help="Comma-separated MHC restrictions to keep (e.g. 'HLA-A*24:02,HLA-A*02:01').",
     )
-    p.add_argument(
+    filters.add_argument(
         "--species",
         default="Homo sapiens",
         help="MHC species filter (default 'Homo sapiens'). Use 'any' to disable.",
     )
-    p.add_argument(
+    filters.add_argument(
         "--serotype",
         type=_parse_serotypes,
         default=[],
@@ -149,7 +151,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "single-molecule restrictions with --min-resolution."
         ),
     )
-    p.add_argument(
+    filters.add_argument(
         "--min-resolution",
         choices=_SUPPORTED_RESOLUTIONS,
         default=None,
@@ -158,13 +160,13 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "annotation. Choices are ordered most specific first."
         ),
     )
-    p.add_argument(
+    filters.add_argument(
         "--mhc-class",
         choices=("I", "II"),
         default=None,
         help="MHC class filter.",
     )
-    p.add_argument(
+    filters.add_argument(
         "--lengths",
         type=_parse_lengths,
         default=None,
@@ -178,13 +180,28 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "skips length bounds entirely so nothing is silently dropped."
         ),
     )
-    p.add_argument(
-        "--ensembl-release",
-        type=int,
-        default=112,
-        help="Ensembl release (default 112).",
+    filters.add_argument(
+        "--ms-evidence-scope",
+        choices=("all", "requested_mhc", "any_mhc"),
+        default="all",
+        help=(
+            "Control MHC restriction attribution when --allele is provided: "
+            "'all' (default), 'requested_mhc' (retain exact/donor-set matches "
+            "to requested --allele), or 'any_mhc' (keep all exact-peptide MS "
+            "observations while annotating restriction tier in raw output)."
+        ),
     )
-    p.add_argument(
+    filters.add_argument(
+        "--mono-allelic-only",
+        action="store_true",
+        help=(
+            "Keep only hits with direct mono-allelic evidence, i.e. observed on a "
+            "cell line expressing a single HLA allele.  Excludes multi-allelic "
+            "studies where the allele was assigned by a predictor (NetMHCpan / "
+            "MHCflurry) rather than observed directly."
+        ),
+    )
+    filters.add_argument(
         "--include-binding-assays",
         action="store_true",
         help=(
@@ -195,7 +212,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "admit structural, unknown, or negative-MS assays."
         ),
     )
-    p.add_argument(
+    filters.add_argument(
         "--include-other-assays",
         action="store_true",
         help=(
@@ -204,17 +221,58 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "--include-binding-assays)."
         ),
     )
-    p.add_argument(
-        "--mono-allelic-only",
+
+    sources = p.add_argument_group("MS evidence sources and scoring")
+    sources.add_argument(
+        "--ensembl-release",
+        type=int,
+        default=112,
+        help="Ensembl release (default 112).",
+    )
+    sources.add_argument(
+        "--predict",
+        action="store_true",
+        help="Also score observed (peptide, allele) pairs via topiary.",
+    )
+    add_predictor_arg(sources, context="--predict")
+    add_iedb_cedar_args(sources)
+
+    modes = p.add_argument_group("Mode switches and output")
+    modes.add_argument(
+        "--skip-ms-evidence",
         action="store_true",
         help=(
-            "Keep only hits with direct mono-allelic evidence, i.e. observed on a "
-            "cell line expressing a single HLA allele.  Excludes multi-allelic "
-            "studies where the allele was assigned by a predictor (NetMHCpan / "
-            "MHCflurry) rather than observed directly."
+            "Mode switch: skip IEDB/CEDAR and output only the proteome-enumerated "
+            "peptide menu. Filtering/aggregation flags (--allele, --serotype, "
+            "--format, --predict, …) are ignored."
         ),
     )
-    p.add_argument(
+    modes.add_argument(
+        "--healthy-tissue",
+        action="store_true",
+        help=(
+            "Mode switch: output this gene's per-peptide healthy-SOMATIC-tissue "
+            "MS hits (tissue, allele, allele_set, provenance, pmid, vital_organ "
+            "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits, "
+            "expected for CTAs, are excluded unless --sex includes same-sex adult "
+            "reproductive tract hits. Only --gene/--uniprot, --mhc-class, "
+            "--species, --sex, --sex-eligibility, and --output apply; other flags "
+            "are ignored. See cta_healthy_tissue_ms_hits()."
+        ),
+    )
+    modes.add_argument(
+        "--sex",
+        choices=("female", "male"),
+        default=None,
+        help="Optional patient sex for --healthy-tissue: include same-sex adult reproductive tract MS hits under all_adult.",
+    )
+    modes.add_argument(
+        "--sex-eligibility",
+        choices=("all_adult", "sex_organ_only"),
+        default="all_adult",
+        help="Eligibility policy when --sex is used with --healthy-tissue, default all_adult.",
+    )
+    modes.add_argument(
         "--format",
         choices=_SUPPORTED_FORMATS,
         default="pmhc",
@@ -228,65 +286,13 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "terminal table sorted by evidence strength."
         ),
     )
-    p.add_argument(
-        "--predict",
-        action="store_true",
-        help="Also score observed (peptide, allele) pairs via topiary.",
-    )
-    add_predictor_arg(p, context="--predict")
-    add_iedb_cedar_args(p)
-    p.add_argument(
-        "--skip-ms-evidence",
-        action="store_true",
-        help=(
-            "Mode switch: skip IEDB/CEDAR and output only the proteome-enumerated "
-            "peptide menu. Filtering/aggregation flags (--allele, --serotype, "
-            "--format, --predict, …) are ignored."
-        ),
-    )
-    p.add_argument(
-        "--healthy-tissue",
-        action="store_true",
-        help=(
-            "Mode switch: output this gene's per-peptide healthy-SOMATIC-tissue "
-            "MS hits (tissue, allele, allele_set, provenance, pmid, vital_organ "
-            "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits, "
-            "expected for CTAs, are excluded unless --sex includes same-sex adult "
-            "reproductive tract hits. Only --gene/--uniprot, --mhc-class, "
-            "--species, --sex, --sex-eligibility, and --output apply; other flags "
-            "are ignored. See cta_healthy_tissue_ms_hits()."
-        ),
-    )
-    p.add_argument(
-        "--sex",
-        choices=("female", "male"),
-        default=None,
-        help="Optional patient sex for --healthy-tissue: include same-sex adult reproductive tract MS hits under all_adult.",
-    )
-    p.add_argument(
-        "--sex-eligibility",
-        choices=("all_adult", "sex_organ_only"),
-        default="all_adult",
-        help="Eligibility policy when --sex is used with --healthy-tissue, default all_adult.",
-    )
-    p.add_argument(
-        "--ms-evidence-scope",
-        choices=("all", "requested_mhc", "any_mhc"),
-        default="all",
-        help=(
-            "Control MHC restriction attribution when --allele is provided: "
-            "'all' (default), 'requested_mhc' (retain exact/donor-set matches "
-            "to requested --allele), or 'any_mhc' (keep all exact-peptide MS "
-            "observations while annotating restriction tier in raw output)."
-        ),
-    )
-    p.add_argument(
+    modes.add_argument(
         "--top",
         type=int,
         default=None,
         help="Limit output to the top N rows (after evidence-strength sorting on pmhc/refs/table).",
     )
-    p.add_argument(
+    modes.add_argument(
         "-o",
         "--output",
         default=None,

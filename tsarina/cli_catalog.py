@@ -700,7 +700,7 @@ def _catalog_viruses(args: argparse.Namespace) -> None:
 def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = sub.add_parser(
         "catalog",
-        help="Browse built-in CTA, HLA panel, hotspot mutation, and oncogenic virus catalogs",
+        help="Browse built-in CTA, HLA panel, mutation, fusion, and virus catalogs",
         description=(
             "Inspect the built-in target and allele catalogs that feed `tsarina panel`, "
             "`tsarina personalize`, and `tsarina vaccine`."
