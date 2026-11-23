@@ -84,8 +84,11 @@ def test_nonhuman_cta_selection_delegates_to_species_catalog():
         assert df["reference_id"].notna().all(), sp
 
     mouse_cov = CTA_selection_coverage(species="mouse")
-    assert mouse_cov["selection_status"] == "pending_reconciled_panels"
+    assert mouse_cov["selection_status"] == "evaluated"
     assert "ensembl115" in mouse_cov.get("registered_references", [])
+
+    dog_cov = CTA_selection_coverage(species="dog")
+    assert dog_cov["selection_status"] == "pending_reconciled_panels"
 
     human_cov = CTA_selection_coverage(species="human")
     assert isinstance(human_cov, dict) and human_cov

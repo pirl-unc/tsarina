@@ -722,7 +722,18 @@ def test_hits_pmhc_sorts_exact_monoallelic_ahead_of_donor_sets_and_formats_table
     assert "yes (2)" in rendered
     assert "(+1)" in rendered  # donor set truncated cleanly past 3 alleles
 
-    deduped = cli_hits._deduplicate_semicolon_alleles(
-        pd.DataFrame({"ms_alleles": ["HLA-A*02:01;HLA-A*02:01;HLA-B*07:02;HLA-A*02:01"]})
+    # hitlist>=2.12.0 natively deduplicates ms_alleles and emits ms_exact_alleles
+    # plus pipe-delimited ms_restriction_sets (#957).
+    from hitlist.aggregate import aggregate_per_peptide
+
+    raw = pd.DataFrame(
+        [
+            {"peptide": "SLLQHLIGL", "mhc_restriction": "HLA-A*02:01"},
+            {"peptide": "SLLQHLIGL", "mhc_restriction": "HLA-A*02:01;HLA-B*07:02"},
+            {"peptide": "SLLQHLIGL", "mhc_restriction": "HLA-A*02:01;HLA-B*07:02"},
+        ]
     )
-    assert deduped.iloc[0]["ms_alleles"] == "HLA-A*02:01;HLA-B*07:02"
+    agg = aggregate_per_peptide(raw)
+    assert agg.iloc[0]["ms_alleles"] == "HLA-A*02:01;HLA-B*07:02"
+    assert agg.iloc[0]["ms_exact_alleles"] == "HLA-A*02:01"
+    assert "HLA-A*02:01;HLA-B*07:02" in agg.iloc[0]["ms_restriction_sets"]

@@ -70,7 +70,8 @@ def test_catalog_overview_and_subcommands(tmp_path):
     assert mouse.returncode == 0, mouse.stderr
     mouse_data = json.loads(mouse.stdout)
     assert mouse_data["total"] >= 1
-    assert mouse_data["coverage"]["selection_status"] == "pending_reconciled_panels"
+    assert mouse_data["coverage"]["selection_status"] == "evaluated"
+    assert all(row["category"] == "CTA" for row in mouse_data["ctas"])
 
     panels = _run("catalog", "panels", cache_dir=tmp_path)
     assert panels.returncode == 0, panels.stderr

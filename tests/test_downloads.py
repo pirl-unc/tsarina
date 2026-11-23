@@ -1,7 +1,10 @@
 from tsarina.downloads import (
+    DATASET_CATEGORIES,
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
+    available_dataset_catalog,
     available_datasets,
+    dataset_categories,
 )
 
 
@@ -37,3 +40,11 @@ def test_iedb_cedar_now_fetchable():
     assert "cedar" in FETCHABLE_DATASETS
     assert "iedb" not in MANUAL_DATASETS
     assert "cedar" not in MANUAL_DATASETS
+
+
+def test_structured_dataset_catalog_and_categories_reexported():
+    assert dataset_categories() == DATASET_CATEGORIES
+    assert "core_immunopeptidomics" in DATASET_CATEGORIES
+    core = available_dataset_catalog(category="core_immunopeptidomics")
+    assert {"iedb", "cedar"} <= set(core)
+    assert core["iedb"]["category"] == "core_immunopeptidomics"

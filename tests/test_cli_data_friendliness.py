@@ -160,3 +160,50 @@ def test_remove_delete_names_the_file(tmp_path):
     assert r.returncode == 0
     assert str(f) in r.stderr and "other projects" in r.stderr
     assert not f.exists()
+
+
+def test_available_category_grouped_and_structured_json(tmp_path):
+    r_cat = _run(
+        "data", "available", "--category", "core_immunopeptidomics", "--json", cache_dir=tmp_path
+    )
+    assert r_cat.returncode == 0, r_cat.stderr
+    rows = json.loads(r_cat.stdout)
+    names = {e["name"] for e in rows}
+    assert {"iedb", "cedar"} <= names
+    assert all(e["category"] == "core_immunopeptidomics" for e in rows)
+    for row in rows:
+        for key in ("category", "group", "species", "kind"):
+            assert key in row
+
+    r_grouped = _run("data", "available", "--grouped", cache_dir=tmp_path)
+    assert r_grouped.returncode == 0, r_grouped.stderr
+    assert "[core_immunopeptidomics]" in r_grouped.stdout
+    assert "[viral_proteomes]" in r_grouped.stdout
+
+
+def test_symlink_status_surfaced_in_data_list_info_and_status(tmp_path):
+    target = tmp_path / "real_ligands.csv"
+    target.write_text("a,b\n1,2\n")
+    link = tmp_path / "link_ligands.csv"
+    link.write_text("a,b\n1,2\n")
+
+    reg = _run("data", "register", "iedb", str(link), cache_dir=tmp_path)
+    assert reg.returncode == 0, reg.stderr
+
+    # Replace registered path in place with a symlink (matching real-world
+    # ~/.hitlist manifests whose files are symlinked to shared storage).
+    link.unlink()
+    link.symlink_to(target)
+
+    listed = json.loads(_run("data", "list", "--json", cache_dir=tmp_path).stdout)
+    assert listed[0]["symlink_status"] == "valid_symlink"
+
+    info_json = json.loads(_run("data", "info", "iedb", "--json", cache_dir=tmp_path).stdout)
+    assert info_json["symlink_status"] == "valid_symlink"
+
+    status_json = json.loads(_run("status", "--json", cache_dir=tmp_path).stdout)
+    assert status_json["hitlist"]["registered_symlink_status"]["iedb"] == "valid_symlink"
+
+    target.unlink()
+    broken_info = json.loads(_run("data", "info", "iedb", "--json", cache_dir=tmp_path).stdout)
+    assert broken_info["symlink_status"] == "broken_symlink"
