@@ -340,7 +340,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
 def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = sub.add_parser(
         "panel",
-        help="Build a CTA x HLA pMHC matrix for a population HLA panel.",
+        help="Build a CTA x HLA pMHC matrix for a population HLA panel",
         description=(
             "Produce a CTA x HLA pivot table where each cell is the best MS-supported "
             "peptide-HLA candidate for that CTA and allele. Defaults to up to 25 "

@@ -152,14 +152,16 @@ def _parse_hla(raw: list[str]) -> list[str]:
 def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = sub.add_parser(
         "personalize",
-        help="Build a personalized pMHC target list for a patient.",
+        help="Build a personalized pMHC target list for a patient",
         description=(
             "Build a prioritized peptide-MHC target list from a patient's HLA "
-            "type, CTA expression, detected mutations, and viral status. "
-            "IEDB/CEDAR paths auto-resolve from the hitlist data registry."
+            "type, CTA expression, hotspot mutations, cancer fusions, and viral "
+            "status. IEDB/CEDAR paths auto-resolve from the hitlist data registry."
         ),
     )
-    p.add_argument(
+
+    inputs = p.add_argument_group("Target inputs")
+    inputs.add_argument(
         "--hla",
         "--alleles",
         dest="hla",
@@ -173,7 +175,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "glob character)."
         ),
     )
-    p.add_argument(
+    inputs.add_argument(
         "--cta",
         nargs="+",
         default=[],
@@ -184,19 +186,19 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "name is included regardless of --min-cta-tpm."
         ),
     )
-    p.add_argument(
+    inputs.add_argument(
         "--mutations",
         type=_split_csv,
         default=[],
         help="Comma-separated hotspot labels (e.g. 'KRAS G12D,TP53 R175H').",
     )
-    p.add_argument(
+    inputs.add_argument(
         "--viruses",
         type=_split_csv,
         default=[],
         help="Comma-separated virus keys (e.g. hpv16,ebv).",
     )
-    p.add_argument(
+    inputs.add_argument(
         "--fusion",
         nargs="+",
         default=[],
@@ -205,7 +207,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "e.g. EWSR1-FLI1:SYGQQSSY|NPSYDSVR."
         ),
     )
-    p.add_argument(
+    inputs.add_argument(
         "--fusions",
         default=None,
         help=(
@@ -213,31 +215,21 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "n_terminal_seq/c_terminal_seq or sequence/junction_pos columns."
         ),
     )
-    p.add_argument(
-        "--no-require-host-exclusive-fusions",
-        dest="require_host_exclusive_fusions",
-        action="store_false",
-        help="Include fusion junction k-mers even if they match a reference host protein.",
-    )
-    p.add_argument(
+    inputs.add_argument(
         "--lengths",
         type=_parse_lengths,
         default=(8, 9, 10, 11),
         help="Peptide lengths (default 8,9,10,11).",
     )
-    p.add_argument(
+    inputs.add_argument(
         "--ensembl-release",
         type=int,
         default=None,
         help="Ensembl release. Defaults to 112 for human and 115 for mouse.",
     )
-    p.add_argument(
-        "--mhc-class",
-        choices=("I", "II"),
-        default="I",
-        help="MHC class filter for IEDB scanning (default I).",
-    )
-    p.add_argument(
+
+    safety = p.add_argument_group("Species, sex, and safety gates")
+    safety.add_argument(
         "--species",
         default="human",
         help=(
@@ -245,7 +237,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "(default: human / Homo sapiens; e.g. mouse, dog)."
         ),
     )
-    p.add_argument(
+    safety.add_argument(
         "--mhc-species",
         default=None,
         help=(
@@ -253,7 +245,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "'Homo sapiens' for HLA-transgenic mouse hosts."
         ),
     )
-    p.add_argument(
+    safety.add_argument(
         "--sex",
         choices=("female", "male"),
         default=None,
@@ -263,7 +255,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "antigens such as male-restricted or placental genes in female patients."
         ),
     )
-    p.add_argument(
+    safety.add_argument(
         "--sex-eligibility",
         choices=("all_adult", "sex_organ_only"),
         default="all_adult",
@@ -272,23 +264,13 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "zero adult normal-tissue expression in that sex) or 'sex_organ_only'."
         ),
     )
-    p.add_argument(
-        "--ms-evidence-scope",
-        choices=("all", "requested_mhc", "any_mhc"),
-        default="all",
-        help=(
-            "MS attribution filter: 'all' (retain all candidates with tier "
-            "labels), 'requested_mhc' (require exact/donor-set/predicted "
-            "support for requested alleles), or 'any_mhc' (require any exact-peptide MS)."
-        ),
-    )
-    p.add_argument(
+    safety.add_argument(
         "--min-cta-tpm",
         type=float,
         default=2.0,
         help="Minimum CTA expression in TPM to include. Defaults to 2.0.",
     )
-    p.add_argument(
+    safety.add_argument(
         "--min-restriction-confidence",
         type=_split_csv,
         default=["ANY"],
@@ -297,54 +279,37 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "Default 'ANY' uses the current OncoRef policy without a legacy HPA confidence gate."
         ),
     )
-    p.add_argument(
+    safety.add_argument(
         "--mtec-matrix-path",
         dest="mtec_matrix_path",
         default=None,
         help="Path to mTEC gene TPM matrix (TSV); gates CTAs by thymic expression.",
     )
-    p.add_argument(
+    safety.add_argument(
         "--mtec-max-tpm",
         type=float,
         default=1.0,
         help="Maximum mean mTEC TPM when --mtec-matrix-path is given. Defaults to 1.0.",
     )
-    p.add_argument(
+    safety.add_argument(
         "--no-require-human-exclusive-viral",
         dest="require_human_exclusive_viral",
         action="store_false",
         help="Include viral k-mers even if they match a human protein.",
     )
-    p.add_argument(
+    safety.add_argument(
+        "--no-require-host-exclusive-fusions",
+        dest="require_host_exclusive_fusions",
+        action="store_false",
+        help="Include fusion junction k-mers even if they match a reference host protein.",
+    )
+    safety.add_argument(
         "--no-enforce-tumor-specificity",
         dest="enforce_tumor_specificity",
         action="store_false",
         help="Keep peptides observed on healthy tissue (default: drop them).",
     )
-    p.add_argument(
-        "--keep-weak-tier",
-        dest="drop_weak_tier",
-        action="store_false",
-        help="Retain tier-4 (WEAK/unscored) rows in the output.",
-    )
-    p.add_argument(
-        "--no-score",
-        action="store_true",
-        help="Disable MHC presentation scoring (skip topiary).",
-    )
-    add_predictor_arg(p, context="presentation scoring")
-    add_iedb_cedar_args(p)
-    p.add_argument(
-        "--skip-ms-evidence",
-        action="store_true",
-        help="Do not look up IEDB/CEDAR evidence (useful when no data registered).",
-    )
-    p.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Suppress stage-progress messages on stderr (shown by default).",
-    )
-    p.add_argument(
+    safety.add_argument(
         "--no-proteoform-rollup",
         dest="proteoform_rollup",
         action="store_false",
@@ -355,13 +320,56 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "Rollup is on by default."
         ),
     )
-    p.add_argument(
+
+    evidence = p.add_argument_group("MS evidence and presentation scoring")
+    evidence.add_argument(
+        "--mhc-class",
+        choices=("I", "II"),
+        default="I",
+        help="MHC class filter for IEDB scanning (default I).",
+    )
+    evidence.add_argument(
+        "--ms-evidence-scope",
+        choices=("all", "requested_mhc", "any_mhc"),
+        default="all",
+        help=(
+            "MS attribution filter: 'all' (retain all candidates with tier "
+            "labels), 'requested_mhc' (require exact/donor-set/predicted "
+            "support for requested alleles), or 'any_mhc' (require any exact-peptide MS)."
+        ),
+    )
+    evidence.add_argument(
+        "--no-score",
+        action="store_true",
+        help="Disable MHC presentation scoring (skip topiary).",
+    )
+    add_predictor_arg(evidence, context="presentation scoring")
+    add_iedb_cedar_args(evidence)
+    evidence.add_argument(
+        "--skip-ms-evidence",
+        action="store_true",
+        help="Do not look up IEDB/CEDAR evidence (useful when no data registered).",
+    )
+
+    output = p.add_argument_group("Output and formatting")
+    output.add_argument(
+        "--keep-weak-tier",
+        dest="drop_weak_tier",
+        action="store_false",
+        help="Retain tier-4 (WEAK/unscored) rows in the output.",
+    )
+    output.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress stage-progress messages on stderr (shown by default).",
+    )
+    output.add_argument(
         "--top",
         type=int,
         default=None,
         help="Limit output to the top N ranked targets (useful with --format table).",
     )
-    p.add_argument(
+    output.add_argument(
         "--format",
         choices=("csv", "tsv", "table"),
         default=None,
@@ -372,7 +380,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "Pass explicitly to override."
         ),
     )
-    p.add_argument(
+    output.add_argument(
         "-o",
         "--output",
         default=None,

@@ -10,7 +10,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tsarina: personalized cancer immunotherapy target selection from curated shared antigen data."""
+"""tsarina: shared cancer immunotherapy target selection and vaccine design.
+
+Tsarina joins gene-level tumor specificity (``oncoref``), peptide-level public
+immunopeptidomics MS evidence (``hitlist``), reference proteomes and viral ORFs
+(``pyensembl`` / ``orfdata``), MHC allele parsing (``mhcgnomes``), and
+presentation/processing scoring (``mhcflurry`` / ``mhctools`` / ``topiary`` /
+``pepsickle`` / ``dnachisel``) into four high-level workflows.
+
+Headline workflows
+------------------
+- ``personalized_targets`` — rank CTA, fusion, mutant, and viral pMHCs for a
+  single patient (human or mouse, with optional ``patient_sex`` RNA + MS safety).
+- ``spanning_pmhc_set`` — build a population CTA x HLA panel with MS evidence
+  tiers, safety flags, and population coverage (CLI: ``tsarina panel``).
+- ``design_vaccine`` / ``VaccineConfig`` — select mortality-weighted CTA
+  segments and assemble an audited DNA/RNA vaccine construct.
+- ``cta_healthy_tissue_ms_hits`` — inspect per-peptide somatic (and optional
+  same-sex reproductive) healthy-tissue MS hits for a gene (CLI: ``tsarina hits``).
+
+Target & allele catalogs
+------------------------
+- ``CTA_selection`` / ``CTA_selection_coverage`` — current OncoRef CTA decisions
+  (human, mouse, dog) and readiness metadata.
+- ``CTA_sex_restricted_antigens`` / ``CTA_sex_eligible_gene_names`` — biological
+  sex eligibility across human and mouse reproductive/CTA sets.
+- ``cancer_fusions`` / ``fusion_junction_peptides`` — OncoRef curated cancer
+  fusions and host-exclusive breakpoint k-mer enumeration.
+- ``HOTSPOT_MUTATIONS`` / ``mutant_peptides`` — curated hotspot driver mutations.
+- ``viral_peptides`` / ``orfdata_viral_subsets`` / ``orfdata_viral_peptides`` —
+  built-in UniProt oncogenic viruses and optional ``orfdata`` IARC GDC panels.
+- ``panel_names`` / ``get_panel`` — built-in population HLA allele panels.
+
+MS evidence & scoring
+---------------------
+- ``attribute_ms_evidence`` / ``summarize_ms_attribution`` — exact vs. donor-set
+  vs. predicted MHC restriction attribution.
+- ``annotate_ms_detectability`` — flag zero-MS cysteine / C-terminal Cys ligands.
+- ``score_presentation`` / ``score_affinity`` — MHC presentation & affinity scoring.
+
+Public exports resolve lazily (PEP 562) so ``import tsarina`` stays fast.
+"""
 
 import importlib
 from typing import TYPE_CHECKING
