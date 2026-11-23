@@ -1,10 +1,19 @@
+# Curated cancer fusions, orfdata viral subsets, and Cys MS-detectability caveats (1.47.0) (2026-11-22)
+
+- [x] Add `tsarina.fusions` (`cancer_fusions`, `fusion_junction_peptides`) backed by `oncoref.cancer_fusions_df()` with host-proteome self-exclusivity screening and wire optional `fusions` into `personalized_targets()`.
+- [x] Add `orfdata_viral_subsets()` and `orfdata_viral_peptides()` in `tsarina.viral` bridging optional `orfdata` IARC GDC viral subsets and bundled RefSeq viral ORFs.
+- [x] Add `annotate_ms_detectability()` in `tsarina.ms_evidence` flagging zero-MS cysteine / C-terminal cysteine peptides (e.g., NY-ESO-1 `SLLMWITQC`) and surface `ms_detectability_note` + table footnote in `personalized_targets()`.
+- [x] Add `tsarina catalog fusions` and enhance `tsarina catalog viruses` with `--source builtin|orfdata|all` and `--subset`.
+- [x] Export new helpers from `tsarina`, add tests in `tests/test_fusions_viral_detectability.py`, and bump version to `1.47.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.47.0` to PyPI.
+
 # Sex-restricted CTA eligibility (`--sex female|male`) via OncoRef (1.46.0) (2026-11-22)
 
 - [x] Add `CTA_sex_restricted_antigens`, `CTA_sex_eligible_gene_ids`, and `CTA_sex_eligible_gene_names` backed by `oncoref.human.antigens.sex_restricted_antigens()` and export from `tsarina`.
 - [x] Wire `patient_sex` and `sex_eligibility` (`all_adult` / `sex_organ_only`) into `personalized_targets()` and `--sex` / `--sex-eligibility` into `tsarina personalize` and `tsarina catalog ctas`.
 - [x] Screen sex-admitted `Reproductive Antigen only` genes against non-target self proteome and record `patient_sex`/`sex_eligibility` provenance in `df.attrs`.
 - [x] Add unit tests in `tests/test_sex_restricted_antigens.py` and bump version to `1.46.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.46.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.46.0` to PyPI.
 
 # CLI explorability (`status`, `catalog`), flag symmetry, and top-level exports (1.45.0) (2026-11-22)
 
@@ -13,7 +22,7 @@
 - [x] Unify `--hla`/`--alleles` aliases across `personalize`, `hits`, and `panel`; add `--top N` to `hits`; group `panel --help` into 4 argument groups.
 - [x] Export `spanning_pmhc_set`, `design_vaccine`, `VaccineConfig`, and `CTA_selection_coverage` from top-level `tsarina`.
 - [x] Add unit tests in `tests/test_cli_catalog_and_status.py` and bump version to `1.45.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.45.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.45.0` to PyPI.
 
 # CLI consistency across personalize, hits, vaccine, and vaccine-report (1.44.0) (2026-11-22)
 

@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     )
     from .evidence import CTA_detailed_evidence, CTA_evidence
     from .evidence_store import evidence_store_provenance, load_evidence_store_ms_hits
+    from .fusions import cancer_fusions, fusion_junction_peptides
     from .gene_sets import (
         CTA_by_axes,
         CTA_by_tier,
@@ -66,7 +67,7 @@ if TYPE_CHECKING:
         cta_symbol_for_alias,
     )
     from .ms_attribution import attribute_ms_evidence, summarize_ms_attribution
-    from .ms_evidence import cta_healthy_tissue_ms_hits
+    from .ms_evidence import annotate_ms_detectability, cta_healthy_tissue_ms_hits
     from .mutations import HOTSPOT_MUTATIONS, mutant_peptides
     from .personalize import personalized_targets
     from .scoring import score_affinity, score_presentation
@@ -93,7 +94,7 @@ if TYPE_CHECKING:
     )
     from .vaccine import design_vaccine
     from .vaccine_construct import VaccineConfig
-    from .viral import viral_peptides
+    from .viral import orfdata_viral_peptides, orfdata_viral_subsets, viral_peptides
 
 # Public names resolve lazily (PEP 562) so ``import tsarina`` -- and therefore
 # ``tsarina --version`` -- does not pay for pandas/oncoref until a name is used.
@@ -151,17 +152,22 @@ _LAZY = {
     "VITAL_TISSUE_MS_NAMES": (".tiers", "VITAL_TISSUE_MS_NAMES"),
     "VaccineConfig": (".vaccine_construct", "VaccineConfig"),
     "allele_prediction_capability": (".species", "allele_prediction_capability"),
+    "annotate_ms_detectability": (".ms_evidence", "annotate_ms_detectability"),
     "attribute_ms_evidence": (".ms_attribution", "attribute_ms_evidence"),
+    "cancer_fusions": (".fusions", "cancer_fusions"),
     "cta_cancer_expression_features": (".cancer_expression", "cta_cancer_expression_features"),
     "cta_healthy_tissue_ms_hits": (".ms_evidence", "cta_healthy_tissue_ms_hits"),
     "cta_symbol_for_alias": (".gene_sets", "cta_symbol_for_alias"),
     "design_vaccine": (".vaccine", "design_vaccine"),
     "evidence_store_provenance": (".evidence_store", "evidence_store_provenance"),
+    "fusion_junction_peptides": (".fusions", "fusion_junction_peptides"),
     "get_panel": (".alleles", "get_panel"),
     "hpa_cancer_ihc_prevalence": (".cancer_expression", "hpa_cancer_ihc_prevalence"),
     "hpa_cancer_rna_prevalence": (".cancer_expression", "hpa_cancer_rna_prevalence"),
     "load_evidence_store_ms_hits": (".evidence_store", "load_evidence_store_ms_hits"),
     "mutant_peptides": (".mutations", "mutant_peptides"),
+    "orfdata_viral_peptides": (".viral", "orfdata_viral_peptides"),
+    "orfdata_viral_subsets": (".viral", "orfdata_viral_subsets"),
     "panel_names": (".alleles", "panel_names"),
     "personalized_targets": (".personalize", "personalized_targets"),
     "resolve_species_context": (".species", "resolve_species_context"),
@@ -245,17 +251,22 @@ __all__ = [
     "VaccineConfig",
     "__version__",
     "allele_prediction_capability",
+    "annotate_ms_detectability",
     "attribute_ms_evidence",
+    "cancer_fusions",
     "cta_cancer_expression_features",
     "cta_healthy_tissue_ms_hits",
     "cta_symbol_for_alias",
     "design_vaccine",
     "evidence_store_provenance",
+    "fusion_junction_peptides",
     "get_panel",
     "hpa_cancer_ihc_prevalence",
     "hpa_cancer_rna_prevalence",
     "load_evidence_store_ms_hits",
     "mutant_peptides",
+    "orfdata_viral_peptides",
+    "orfdata_viral_subsets",
     "panel_names",
     "personalized_targets",
     "resolve_species_context",

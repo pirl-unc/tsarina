@@ -496,3 +496,112 @@ def viral_iedb_overlap(
     vdf["iedb_alleles"] = vdf["iedb_alleles"].fillna("")
     vdf.attrs["species_context"] = ctx.to_provenance()
     return vdf
+
+
+def _require_orfdata():
+    try:
+        import orfdata
+    except ImportError as exc:
+        raise ImportError(
+            "orfdata is required for GDC IARC viral subsets and RefSeq viral ORFs; "
+            "install with `pip install orfdata`."
+        ) from exc
+    return orfdata
+
+
+def orfdata_viral_subsets() -> tuple[dict[str, object], ...]:
+    """Return IARC cancer-viral subsets exposed by optional ``orfdata``.
+
+    Each entry contains ``name``, ``title``, ``description``,
+    ``abbreviations`` (tuple of virus abbreviations), and ``virus_count``.
+    Works completely offline once ``orfdata`` is installed; raises
+    :class:`ImportError` with installation guidance when ``orfdata`` is absent.
+    """
+    orfdata = _require_orfdata()
+    subsets: list[dict[str, object]] = []
+    for entry in orfdata.viral_subsets():
+        abbrevs = tuple(str(a).strip() for a in entry.get("abbreviations", ()))
+        subsets.append(
+            {
+                "name": str(entry.get("name", "")),
+                "title": str(entry.get("title", "")),
+                "description": str(entry.get("description", "")),
+                "abbreviations": abbrevs,
+                "virus_count": len(abbrevs),
+            }
+        )
+    return tuple(subsets)
+
+
+def orfdata_viral_peptides(
+    *,
+    reference_id: str | None = None,
+    subsets: str | list[str] | tuple[str, ...] | None = None,
+    lengths: tuple[int, ...] = DEFAULT_PEPTIDE_LENGTHS,
+    installed: bool = False,
+    download_if_missing: bool = False,
+    host_exclusive: bool = False,
+    ensembl_release: int = 112,
+    host_species: str = "human",
+    host_proteins: dict[str, str] | list[str] | None = None,
+) -> pd.DataFrame:
+    """Generate viral peptides from ``orfdata`` RefSeq viral ORFs or GDC viral subsets.
+
+    Provide exactly one of ``reference_id`` (uses :func:`orfdata.viral_orfs`,
+    including bundled spliced CDS annotations such as HPV16 ``NC_001526.4``
+    ``E1^E4`` and ``E6*``) or ``subsets`` (uses
+    :func:`orfdata.select_viral_references` over the IARC GDC viral panel, e.g.
+    ``"cancer-causing"``, ``"cancer-associated"``, or
+    ``"cancer-integrated-driver"``).
+    """
+    if (reference_id is None) == (subsets is None):
+        raise ValueError("Provide exactly one of reference_id or subsets.")
+
+    orfdata = _require_orfdata()
+
+    if reference_id is not None:
+        orfs = orfdata.viral_orfs(reference_id=reference_id, installed=installed)
+        proteins: dict[str, str] = {}
+        gene_by_prot: dict[str, str] = {}
+        for orf in orfs:
+            seq = str(getattr(orf, "protein_sequence", "") or "").strip().upper()
+            if not seq:
+                continue
+            prot_id = str(getattr(orf, "annotation_id", None) or getattr(orf, "orf_id", ""))
+            proteins[prot_id] = seq
+            gene_by_prot[prot_id] = str(getattr(orf, "gene_name", "") or "")
+        if host_exclusive:
+            df = host_exclusive_viral_peptides(
+                proteins=proteins,
+                lengths=lengths,
+                ensembl_release=ensembl_release,
+                host_species=host_species,
+                host_proteins=host_proteins,
+            )
+        else:
+            df = viral_peptides(proteins=proteins, lengths=lengths)
+        if not df.empty:
+            df["virus"] = str(reference_id)
+            df["gene_name"] = df["protein_id"].map(gene_by_prot).fillna("")
+        else:
+            df["gene_name"] = pd.Series(dtype=str)
+        return df
+
+    subset_list = [subsets] if isinstance(subsets, str) else list(subsets)  # type: ignore[arg-type]
+    refs = orfdata.select_viral_references(
+        subsets=subset_list,
+        download_if_missing=download_if_missing,
+    )
+    if host_exclusive:
+        df = host_exclusive_viral_peptides(
+            fasta_path=refs.protein_fasta,
+            lengths=lengths,
+            ensembl_release=ensembl_release,
+            host_species=host_species,
+            host_proteins=host_proteins,
+        )
+    else:
+        df = viral_peptides(fasta_path=refs.protein_fasta, lengths=lengths)
+    if not df.empty:
+        df["virus"] = ",".join(subset_list)
+    return df

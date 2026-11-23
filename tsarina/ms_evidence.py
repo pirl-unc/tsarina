@@ -419,3 +419,62 @@ def cta_healthy_tissue_ms_hits(
         }
     )
     return out.reset_index(drop=True)
+
+
+C_TERM_CYS_MS_NOTE = (
+    "C-terminal Cys: unmodified elution MS frequently misses oxidized/cysteinylated "
+    "C-term Cys ligands (e.g. NY-ESO-1 SLLMWITQC)"
+)
+INTERNAL_CYS_MS_NOTE = (
+    "Contains Cys: unmodified elution MS systematically under-detects cysteine "
+    "oxidation/disulfide peptidoforms"
+)
+
+
+def annotate_ms_detectability(
+    df: pd.DataFrame,
+    *,
+    peptide_col: str = "peptide",
+    ms_hit_col: str = "ms_hit_count",
+) -> pd.DataFrame:
+    """Annotate peptides with cysteine/PTM unmodified-MS detectability caveats.
+
+    Standard HLA-I immunopeptidomics searches look for unmodified peptides and
+    systematically under-detect cysteine-containing ligands — especially
+    peptides ending in a C-terminal cysteine (e.g. the clinically validated
+    HLA-A*02:01 NY-ESO-1 epitope ``SLLMWITQC``), which readily undergo
+    cysteinylation, oxidation, or disulfide formation during elution.
+
+    Adds three columns to a copy of ``df`` without changing row order, scores,
+    or tiers:
+
+    - ``has_cysteine`` (bool): peptide contains ``"C"``.
+    - ``c_terminal_cysteine`` (bool): peptide ends with ``"C"``.
+    - ``ms_detectability_note`` (str): populated only when a peptide contains
+      cysteine and has no observed MS hits (``ms_hit_col`` absent, NaN, or 0);
+      empty string otherwise.
+    """
+    out = df.copy()
+    if out.empty or peptide_col not in out.columns:
+        out["has_cysteine"] = pd.Series(dtype=bool)
+        out["c_terminal_cysteine"] = pd.Series(dtype=bool)
+        out["ms_detectability_note"] = pd.Series(dtype=str)
+        return out
+
+    peps = out[peptide_col].fillna("").astype(str).str.strip().str.upper()
+    has_cys = peps.str.contains("C", regex=False)
+    c_term_cys = peps.str.endswith("C")
+
+    if ms_hit_col in out.columns:
+        zero_ms = pd.to_numeric(out[ms_hit_col], errors="coerce").fillna(0).le(0)
+    else:
+        zero_ms = pd.Series(True, index=out.index)
+
+    notes = pd.Series("", index=out.index, dtype=object)
+    notes = notes.mask(has_cys & zero_ms, INTERNAL_CYS_MS_NOTE)
+    notes = notes.mask(c_term_cys & zero_ms, C_TERM_CYS_MS_NOTE)
+
+    out["has_cysteine"] = has_cys.to_numpy(dtype=bool)
+    out["c_terminal_cysteine"] = c_term_cys.to_numpy(dtype=bool)
+    out["ms_detectability_note"] = notes.astype(str).to_numpy()
+    return out
