@@ -613,7 +613,19 @@ def format_panel_table(df) -> str:
     if show_netmhcpan_affinity:
         headers.extend(["NetMHCpan %Rank", "NetMHCpan nM"])
 
-    return _plain_table(headers, rows)
+    table = _plain_table(headers, rows)
+    cys_notes = (
+        out["ms_detectability_note"].fillna("").astype(str).str.strip()
+        if "ms_detectability_note" in out.columns
+        else None
+    )
+    if cys_notes is not None and cys_notes.ne("").any():
+        n_cys = int(cys_notes.ne("").sum())
+        table += (
+            f"\n\nNote: {n_cys} zero-MS panel peptide(s) contain Cys (unmodified elution MS "
+            "under-detects Cys oxidation/cysteinylation; see ms_detectability_note in CSV)."
+        )
+    return table
 
 
 def format_panel_summary(df) -> str:

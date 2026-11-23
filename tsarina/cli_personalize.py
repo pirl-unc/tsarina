@@ -71,6 +71,65 @@ def _resolve_format(explicit: str | None, output: str | None) -> str:
     return _FORMAT_BY_SUFFIX.get(Path(output).suffix.lower(), "csv")
 
 
+def _parse_fusion_specs(raw: list[str]) -> list[dict[str, object]]:
+    """Parse inline ``--fusion`` specs of form ``LABEL:NTERM|CTERM`` or ``NTERM|CTERM``."""
+    records: list[dict[str, object]] = []
+    for token in _flatten_multi(raw):
+        if "|" not in token:
+            raise argparse.ArgumentTypeError(
+                f"--fusion entry '{token}' must contain '|' separating N-terminal and C-terminal "
+                "sequences, e.g. EWSR1-FLI1:SYGQQSSY|NPSYDSVR"
+            )
+        if ":" in token:
+            label, seq_part = token.split(":", 1)
+            label = label.strip()
+        else:
+            label, seq_part = "", token
+        n_seq, c_seq = seq_part.split("|", 1)
+        n_seq, c_seq = n_seq.strip().upper(), c_seq.strip().upper()
+        if not n_seq or not c_seq:
+            raise argparse.ArgumentTypeError(
+                f"--fusion entry '{token}' must have non-empty sequences on both sides of '|'"
+            )
+        rec: dict[str, object] = {
+            "n_terminal_seq": n_seq,
+            "c_terminal_seq": c_seq,
+        }
+        if label:
+            rec["label"] = label
+            if "-" in label:
+                g5, g3 = label.split("-", 1)
+                if g5.strip() and g3.strip():
+                    rec["gene_5prime"] = g5.strip()
+                    rec["gene_3prime"] = g3.strip()
+        records.append(rec)
+    return records
+
+
+def _load_fusions_file(path_str: str) -> list[dict[str, object]]:
+    """Load fusion breakpoint records from a CSV, TSV, or JSON file."""
+    import json
+
+    import pandas as pd
+
+    p = Path(path_str)
+    if not p.exists():
+        raise argparse.ArgumentTypeError(f"--fusions file not found: {p}")
+    suffix = p.suffix.lower()
+    if suffix == ".json":
+        data = json.loads(p.read_text())
+        if isinstance(data, dict):
+            return [data]
+        if isinstance(data, list):
+            return [dict(item) for item in data]
+        raise argparse.ArgumentTypeError(
+            f"--fusions JSON file '{p}' must contain an object or list of objects"
+        )
+    sep = "\t" if suffix in (".tsv", ".tab") else ","
+    df = pd.read_csv(p, sep=sep)
+    return [dict(row) for row in df.to_dict(orient="records")]
+
+
 def _parse_hla(raw: list[str]) -> list[str]:
     """Parse ``--hla`` tokens into canonical allele strings.
 
@@ -136,6 +195,29 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         type=_split_csv,
         default=[],
         help="Comma-separated virus keys (e.g. hpv16,ebv).",
+    )
+    p.add_argument(
+        "--fusion",
+        nargs="+",
+        default=[],
+        help=(
+            "Inline fusion breakpoint specs of form LABEL:NTERM|CTERM or NTERM|CTERM, "
+            "e.g. EWSR1-FLI1:SYGQQSSY|NPSYDSVR."
+        ),
+    )
+    p.add_argument(
+        "--fusions",
+        default=None,
+        help=(
+            "Path to a CSV, TSV, or JSON file of fusion breakpoint records with "
+            "n_terminal_seq/c_terminal_seq or sequence/junction_pos columns."
+        ),
+    )
+    p.add_argument(
+        "--no-require-host-exclusive-fusions",
+        dest="require_host_exclusive_fusions",
+        action="store_false",
+        help="Include fusion junction k-mers even if they match a reference host protein.",
     )
     p.add_argument(
         "--lengths",
@@ -315,9 +397,21 @@ def handle(args: argparse.Namespace) -> None:
     try:
         hla_alleles = _parse_hla(args.hla)
         cta_expression = _parse_cta(args.cta)
+        fusion_records: list[dict[str, object]] = []
+        if getattr(args, "fusion", None):
+            fusion_records.extend(_parse_fusion_specs(args.fusion))
+        if getattr(args, "fusions", None):
+            fusion_records.extend(_load_fusions_file(args.fusions))
     except argparse.ArgumentTypeError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    extra_kwargs: dict[str, object] = {}
+    if fusion_records:
+        extra_kwargs["fusions"] = fusion_records
+        extra_kwargs["require_host_exclusive_fusions"] = getattr(
+            args, "require_host_exclusive_fusions", True
+        )
 
     try:
         df = personalized_targets(
@@ -348,6 +442,7 @@ def handle(args: argparse.Namespace) -> None:
             patient_sex=getattr(args, "sex", None),
             sex_eligibility=getattr(args, "sex_eligibility", "all_adult"),
             ms_evidence_scope=getattr(args, "ms_evidence_scope", "all"),
+            **extra_kwargs,
         )
     except (DatasetNotRegisteredError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)

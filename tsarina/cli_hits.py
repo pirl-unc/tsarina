@@ -219,12 +219,13 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         choices=_SUPPORTED_FORMATS,
         default="pmhc",
         help=(
-            "Output aggregation (default pmhc). 'refs' adds per-pMHC columns "
-            "for ms_pmhc_ref_count, ms_pmhc_pmids, ms_pmhc_tissues, "
-            "ms_pmhc_diseases, ms_pmhc_cell_lines, and the "
-            "ms_pmhc_in_cancer / ms_pmhc_in_healthy_tissue source flags. "
-            "'table' renders a compact human-readable terminal table sorted by "
-            "evidence strength (exact single-allele & monoallelic hits first)."
+            "Output aggregation, default pmhc. 'peptides' emits per-peptide "
+            "summaries with deduplicated ms_alleles, ms_exact_alleles, and "
+            "ms_restriction_sets. 'refs' adds per-pMHC ms_pmhc_ref_count, "
+            "ms_pmhc_pmids, ms_pmhc_tissues, ms_pmhc_diseases, "
+            "ms_pmhc_cell_lines, and ms_pmhc_in_cancer / "
+            "ms_pmhc_in_healthy_tissue flags. 'table' renders a compact "
+            "terminal table sorted by evidence strength."
         ),
     )
     p.add_argument(

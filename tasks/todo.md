@@ -1,3 +1,11 @@
+# CLI fusion parity & panel Cys MS-detectability caveats (1.51.0) (2026-11-23)
+
+- [x] Add inline `--fusion LABEL:NTERM|CTERM`, file-based `--fusions <csv|tsv|json>`, and `--no-require-host-exclusive-fusions` to `tsarina personalize` (`tsarina/cli_personalize.py`).
+- [x] Populate `ms_detectability_note` on `spanning_pmhc_set(output_format='long')` (`tsarina/spanning.py`) and append a concise zero-MS Cys caveat footnote to `format_panel_table()` (`tsarina/cli_spanning.py`).
+- [x] Document `peptides` format deduplicated `ms_alleles`, `ms_exact_alleles`, and `ms_restriction_sets` in `tsarina hits --help`.
+- [x] Add tests in `tests/test_cli_fusions_and_panel_cys.py` and bump version to `1.51.0`.
+- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.51.0` to PyPI.
+
 # Native mouse CTA & mouse sex-restricted workflows (1.50.0) (2026-11-23)
 
 - [x] Generalize `CTA_sex_restricted_antigens`, `CTA_sex_eligible_gene_ids`, and `CTA_sex_eligible_gene_names` with `species="human"` to support evaluated mouse sex-restricted antigens (`oncoref>=1.49.0`) while rejecting unevaluated species (`dog`).
@@ -5,7 +13,7 @@
 - [x] Unlock native mouse CTA + sex-restricted personalization in `personalized_targets(host_species="mouse", cta_expression=...)` with automatic species-default Ensembl release (`115` for mouse, `112` for human), keeping unevaluated species (`dog`) gated.
 - [x] Enable `tsarina catalog ctas --species mouse --sex female|male` and species-default `--ensembl-release` in `tsarina personalize`.
 - [x] Add tests in `tests/test_mouse_cta_workflows.py`, update `tests/test_species_workflows.py`, and bump version to `1.50.0`.
-- [ ] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.50.0` to PyPI.
+- [x] Pass `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.50.0` to PyPI.
 
 # Sex-aware MS safety filtering via Hitlist female/male reproductive flags (1.49.0) (2026-11-22)
 
