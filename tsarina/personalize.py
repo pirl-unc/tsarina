@@ -91,6 +91,8 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "ms_allele_count",
     "ms_in_cancer",
     "ms_in_healthy_tissue",
+    "ms_in_healthy_reproductive_female",
+    "ms_in_healthy_reproductive_male",
     "ms_detectability_note",
     "best_allele",
     "presentation_percentile",
@@ -191,10 +193,28 @@ def _format_ms_safety(row: pd.Series) -> str:
         if pd.notna(row.get("ms_in_healthy_tissue"))
         else False
     )
+    in_repro_f = (
+        bool(row.get("ms_in_healthy_reproductive_female"))
+        if pd.notna(row.get("ms_in_healthy_reproductive_female"))
+        else False
+    )
+    in_repro_m = (
+        bool(row.get("ms_in_healthy_reproductive_male"))
+        if pd.notna(row.get("ms_in_healthy_reproductive_male"))
+        else False
+    )
     if in_healthy and in_cancer:
         return "cancer+healthy!"
     if in_healthy:
         return "healthy!"
+    repro_tags: list[str] = []
+    if in_repro_f:
+        repro_tags.append("repro_f")
+    if in_repro_m:
+        repro_tags.append("repro_m")
+    if repro_tags:
+        suffix = "+".join(repro_tags)
+        return f"cancer+{suffix}" if in_cancer else suffix
     if in_cancer:
         return "cancer"
     return "unclassified"
@@ -985,6 +1005,24 @@ def personalized_targets(
 
     if enforce_tumor_specificity and "ms_in_healthy_tissue" in combined.columns:
         safe_mask = ~combined["ms_in_healthy_tissue"].astype(bool)
+        # Match Hitlist's sex-specific normal reproductive tract MS flags
+        # (src_healthy_reproductive_female / src_healthy_reproductive_male)
+        # against the patient's biological sex and eligibility policy:
+        # under all_adult, exclude same-sex adult reproductive tract MS hits
+        # while allowing opposite-sex hits; under sex_organ_only, retain
+        # same-sex reproductive MS hits with explicit flags.
+        if (
+            norm_patient_sex == "female"
+            and norm_sex_eligibility == "all_adult"
+            and "ms_in_healthy_reproductive_female" in combined.columns
+        ):
+            safe_mask = safe_mask & ~combined["ms_in_healthy_reproductive_female"].astype(bool)
+        elif (
+            norm_patient_sex == "male"
+            and norm_sex_eligibility == "all_adult"
+            and "ms_in_healthy_reproductive_male" in combined.columns
+        ):
+            safe_mask = safe_mask & ~combined["ms_in_healthy_reproductive_male"].astype(bool)
         combined = combined[safe_mask].reset_index(drop=True)
 
     if combined.empty:
@@ -1122,6 +1160,8 @@ def _attach_ms_evidence(
         "ms_allele_count": 0,
         "ms_in_cancer": False,
         "ms_in_healthy_tissue": False,
+        "ms_in_healthy_reproductive_female": False,
+        "ms_in_healthy_reproductive_male": False,
     }
 
     if skip_ms_evidence:
@@ -1170,13 +1210,20 @@ def _attach_ms_evidence(
         "ms_allele_count",
         "ms_in_cancer",
         "ms_in_healthy_tissue",
+        "ms_in_healthy_reproductive_female",
+        "ms_in_healthy_reproductive_male",
     ]
     # validate="m:1": summary is one row per peptide; fail loudly rather than
     # silently multiply candidate rows if that invariant ever breaks.
     combined = combined.merge(summary[merge_cols], on="peptide", how="left", validate="m:1")
 
     int_cols = {"ms_hit_count", "ms_exact_mhc_hits", "ms_donor_set_hits", "ms_allele_count"}
-    bool_cols = {"ms_in_cancer", "ms_in_healthy_tissue"}
+    bool_cols = {
+        "ms_in_cancer",
+        "ms_in_healthy_tissue",
+        "ms_in_healthy_reproductive_female",
+        "ms_in_healthy_reproductive_male",
+    }
     for col, default in defaults.items():
         if col not in combined.columns:
             combined[col] = default

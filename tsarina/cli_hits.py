@@ -250,10 +250,23 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "Mode switch: output this gene's per-peptide healthy-SOMATIC-tissue "
             "MS hits (tissue, allele, allele_set, provenance, pmid, vital_organ "
             "flag) instead of the cancer-MS aggregation. Reproductive/thymic hits, "
-            "expected for CTAs, are excluded. Only --gene/--uniprot, --mhc-class, "
-            "--species, --output apply; other flags are ignored. See "
-            "cta_healthy_tissue_ms_hits()."
+            "expected for CTAs, are excluded unless --sex includes same-sex adult "
+            "reproductive tract hits. Only --gene/--uniprot, --mhc-class, "
+            "--species, --sex, --sex-eligibility, and --output apply; other flags "
+            "are ignored. See cta_healthy_tissue_ms_hits()."
         ),
+    )
+    p.add_argument(
+        "--sex",
+        choices=("female", "male"),
+        default=None,
+        help="Optional patient sex for --healthy-tissue: include same-sex adult reproductive tract MS hits under all_adult.",
+    )
+    p.add_argument(
+        "--sex-eligibility",
+        choices=("all_adult", "sex_organ_only"),
+        default="all_adult",
+        help="Eligibility policy when --sex is used with --healthy-tissue, default all_adult.",
     )
     p.add_argument(
         "--ms-evidence-scope",
@@ -488,7 +501,11 @@ def handle(args: argparse.Namespace) -> None:
         _warn_ignored_flags("--healthy-tissue", ignored)
         from .ms_evidence import cta_healthy_tissue_ms_hits
 
-        hits = cta_healthy_tissue_ms_hits(gene, mhc_class=args.mhc_class, mhc_species=mhc_species)
+        ht_kwargs: dict[str, object] = {"mhc_class": args.mhc_class, "mhc_species": mhc_species}
+        if getattr(args, "sex", None) is not None:
+            ht_kwargs["patient_sex"] = args.sex
+            ht_kwargs["sex_eligibility"] = getattr(args, "sex_eligibility", "all_adult")
+        hits = cta_healthy_tissue_ms_hits(gene, **ht_kwargs)
         if hits.empty:
             print(f"No healthy-somatic-tissue MS hits for {gene}.", file=sys.stderr)
         _write(args.output, hits)
