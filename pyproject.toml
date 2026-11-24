@@ -30,9 +30,10 @@ dependencies = [
     # hitlist owns artifact freshness (curation-YAML fingerprints in
     # observations_meta.json, mapping-artifact contract), publishes
     # MHC_ALLELE_PROVENANCE_VALUES, exposes verified EvidenceStore packages,
-    # structured dataset catalog categories, symlink_status diagnostics, and
-    # deduplicated ms_alleles/ms_exact_alleles + evidence-first pMHC sorting (2.12.0).
-    "hitlist>=2.12.0",
+    # structured dataset catalog categories, symlink_status diagnostics,
+    # deduplicated ms_alleles/ms_exact_alleles + evidence-first pMHC sorting,
+    # and OPENVAX_DATA_CACHE / offline / verify / prune helpers (2.15.0+).
+    "hitlist>=2.15.0",
     "mhcgnomes>=3.20.0",
     # Rebuilt cross-species target selection catalog (evaluated human & mouse
     # CTAs), GLOBOCAN 2024 world burden with mixed-cohort scope, Ensembl 115
@@ -45,7 +46,7 @@ dependencies = [
 
 [project.optional-dependencies]
 vaccine = [
-    "hitlist>=2.12.0",
+    "hitlist>=2.15.0",
     "pyensembl>=2.17.1",  # dog scientific-name aliases across Ensembl's rename
     "matplotlib",
     "mhcflurry>=2.3.32",
