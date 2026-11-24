@@ -37,9 +37,11 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import contextlib
 import difflib
 import functools
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -49,6 +51,7 @@ from .downloads import (
     DATASET_CATEGORIES,
     FETCHABLE_DATASETS,
     MANUAL_DATASETS,
+    OfflineError,
     available_dataset_catalog,
     available_datasets,
     data_dir,
@@ -56,11 +59,16 @@ from .downloads import (
     fetch_all_data_assets,
     get_path,
     info,
+    is_offline,
     list_datasets,
     preflight,
+    prune_cache_bundles,
     refresh,
     register,
     remove,
+    resolve_data_dir,
+    set_offline,
+    verify_cache_files,
 )
 
 # ── data subcommands ────────────────────────────────────────────────────────
@@ -111,10 +119,46 @@ def _guarded(handler):
             handler(args)
         except KeyError as e:
             _unknown_dataset(str(e.args[0]) if e.args else "")
-        except (ValueError, OSError, RuntimeError) as e:
+        except (ValueError, OSError, RuntimeError, OfflineError) as e:
             _fail(str(e))
 
     return run
+
+
+@contextlib.contextmanager
+def _offline_scope(offline: bool):
+    if not offline:
+        yield
+        return
+    prev_env = os.environ.get("DATACACHE_OFFLINE")
+    os.environ["DATACACHE_OFFLINE"] = "1"
+    set_offline(True)
+    try:
+        yield
+    finally:
+        set_offline(None)
+        if prev_env is None:
+            os.environ.pop("DATACACHE_OFFLINE", None)
+        else:
+            os.environ["DATACACHE_OFFLINE"] = prev_env
+
+
+def _dir_size_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    if path.is_file():
+        try:
+            return path.stat().st_size
+        except OSError:
+            return 0
+    total = 0
+    for child in path.rglob("*"):
+        if child.is_file():
+            try:
+                total += child.stat().st_size
+            except OSError:
+                continue
+    return total
 
 
 def _registered_entry(name: str, meta: dict) -> dict:
@@ -301,6 +345,87 @@ def _fetch_preview(name: str, *, force: bool = False) -> None:
 
 
 @_guarded
+def _data_dirs(args: argparse.Namespace) -> None:
+    import datacache
+
+    from .version import __version__
+
+    resolved_dir, origin = resolve_data_dir()
+    exists = resolved_dir.exists()
+    size_bytes = _dir_size_bytes(resolved_dir)
+    offline_enabled = bool(is_offline())
+    offline_src = datacache.offline_source()
+    payload: dict[str, object] = {
+        "package": "tsarina",
+        "version": __version__,
+        "data_dir": str(resolved_dir),
+        "origin": origin,
+        "exists": exists,
+        "size_bytes": size_bytes,
+        "offline": offline_enabled,
+        "offline_source": offline_src,
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return
+    print(f"tsarina data directory (v{__version__}; delegated to hitlist)")
+    state = _format_size(size_bytes) if exists else "not created"
+    print(f"  data_dir : {resolved_dir} [{origin}; {state}]")
+    if offline_enabled:
+        detail = f" ({offline_src})" if offline_src else ""
+        print(f"  offline  : enabled{detail}")
+    else:
+        print("  offline  : disabled")
+
+
+@_guarded
+def _data_verify(args: argparse.Namespace) -> None:
+    report = verify_cache_files(
+        include_unregistered=bool(getattr(args, "include_unregistered", False)),
+    )
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=2, default=str))
+    else:
+        print(
+            f"Verified {report['n_verified']}/{report['n_files']} file(s); "
+            f"{report['n_failed']} failed."
+        )
+        for row in report["files"]:
+            if row["status"] in ("corrupt", "invalid", "inaccessible") or (
+                row["status"] == "missing" and "registered dataset" in row.get("kinds", [])
+            ):
+                print(f"  FAIL  {row['status']:<12} {row['path']}")
+    if not report["ok"]:
+        sys.exit(1)
+
+
+@_guarded
+def _data_prune(args: argparse.Namespace) -> None:
+    apply = bool(getattr(args, "yes", False))
+    keep = int(getattr(args, "keep", 1))
+    report = prune_cache_bundles(keep=keep, apply=apply)
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=2, default=str))
+        return
+    print(f"tsarina data cache: {report['root']}")
+    if report["n_prunable_bundles"] == 0:
+        print("Nothing to prune.")
+        return
+    size_text = _format_size(int(report["reclaimable_bytes"]))
+    if report["dry_run"]:
+        print(
+            f"Dry run — would remove {report['n_prunable_bundles']} superseded bundle(s) "
+            f"across {report['n_stores']} store(s), freeing {size_text}. "
+            "Re-run with --yes to delete."
+        )
+    else:
+        print(
+            f"Deleted {report['n_deleted_bundles']} superseded bundle(s) "
+            f"across {report['n_stores']} store(s), freed {size_text}."
+        )
+
+
+@_guarded
 def _data_fetch(args: argparse.Namespace) -> None:
     _require_known(args.name)
     if args.dry_run:
@@ -312,7 +437,8 @@ def _data_fetch(args: argparse.Namespace) -> None:
             f"Note: registered file {registered['path']} is {state}; downloading a replacement.",
             file=sys.stderr,
         )
-    print(f"Ready: {fetch(args.name, force=args.force)}")
+    with _offline_scope(bool(getattr(args, "offline", False))):
+        print(f"Ready: {fetch(args.name, force=args.force)}")
 
 
 @_guarded
@@ -325,7 +451,11 @@ def _data_preflight(args: argparse.Namespace) -> None:
 @_guarded
 def _data_path(args: argparse.Namespace) -> None:
     _require_known(args.name)
-    print(str(get_path(args.name)))
+    resolved = str(get_path(args.name))
+    if getattr(args, "json", False):
+        print(json.dumps({"name": args.name, "path": resolved}, indent=2))
+    else:
+        print(resolved)
 
 
 @_guarded
@@ -347,7 +477,8 @@ def _data_remove(args: argparse.Namespace) -> None:
 @_guarded
 def _data_refresh(args: argparse.Namespace) -> None:
     _require_known(args.name)
-    print(f"Refreshed: {refresh(args.name)}")
+    with _offline_scope(bool(getattr(args, "offline", False))):
+        print(f"Refreshed: {refresh(args.name)}")
 
 
 @_guarded
@@ -374,7 +505,8 @@ def _data_info(args: argparse.Namespace) -> None:
 
 @_guarded
 def _data_fetch_all(args: argparse.Namespace) -> None:
-    paths = fetch_all_data_assets(force=args.force)
+    with _offline_scope(bool(getattr(args, "offline", False))):
+        paths = fetch_all_data_assets(force=args.force)
     print(f"Fetched {len(paths)} data-asset file(s).")
 
 
@@ -403,6 +535,12 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     # Bare `tsarina data` defaults to listing.
     data_parser.set_defaults(func=_data_list)
     data_sub = data_parser.add_subparsers(dest="data_command")
+
+    p_dirs = data_sub.add_parser(
+        "dirs", help="Show cache directory location, size, and offline status (read-only)"
+    )
+    p_dirs.add_argument("--json", action="store_true", help="Machine-readable output")
+    p_dirs.set_defaults(func=_data_dirs)
 
     p_list = data_sub.add_parser("list", help="Show installed datasets")
     p_list.add_argument(
@@ -443,6 +581,11 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Show source, destination and free disk space; download nothing",
     )
+    p_fetch.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disallow network downloads (also honors OPENVAX_OFFLINE / DATACACHE_OFFLINE)",
+    )
     p_fetch.set_defaults(func=_data_fetch)
 
     p_preflight = data_sub.add_parser(
@@ -460,10 +603,20 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
 
     p_refresh = data_sub.add_parser("refresh", help="Re-download a fetchable dataset")
     p_refresh.add_argument("name", help="Dataset name")
+    p_refresh.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disallow network downloads (also honors OPENVAX_OFFLINE / DATACACHE_OFFLINE)",
+    )
     p_refresh.set_defaults(func=_data_refresh)
 
     p_fetch_all = data_sub.add_parser("fetch-all", help="Fetch all mirrored data-asset files")
     p_fetch_all.add_argument("--force", "-f", action="store_true", help="Re-download")
+    p_fetch_all.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disallow network downloads (also honors OPENVAX_OFFLINE / DATACACHE_OFFLINE)",
+    )
     p_fetch_all.set_defaults(func=_data_fetch_all)
 
     p_info = data_sub.add_parser("info", help="Detailed metadata for a dataset (JSON)")
@@ -473,7 +626,35 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
 
     p_path = data_sub.add_parser("path", help="Print path to a dataset")
     p_path.add_argument("name", help="Dataset name")
+    p_path.add_argument("--json", action="store_true", help="Machine-readable output")
     p_path.set_defaults(func=_data_path)
+
+    p_verify = data_sub.add_parser(
+        "verify",
+        help="Verify cached/registered files and trusted mirrored-asset hashes (read-only)",
+    )
+    p_verify.add_argument(
+        "--include-unregistered",
+        action="store_true",
+        help="Include unregistered files found in the cache directory",
+    )
+    p_verify.add_argument("--json", action="store_true", help="Machine-readable output")
+    p_verify.set_defaults(func=_data_verify)
+
+    p_prune = data_sub.add_parser(
+        "prune", help="Prune superseded datacache bundle generations (dry-run by default)"
+    )
+    p_prune.add_argument(
+        "--keep",
+        type=int,
+        default=1,
+        help="Number of newest generations to keep per store (default: 1)",
+    )
+    p_prune.add_argument(
+        "--yes", action="store_true", help="Actually delete superseded bundles (default is dry-run)"
+    )
+    p_prune.add_argument("--json", action="store_true", help="Machine-readable output")
+    p_prune.set_defaults(func=_data_prune)
 
     p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file by default)")
     p_rm.add_argument("name", help="Dataset name")
