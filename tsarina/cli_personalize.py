@@ -307,7 +307,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--no-enforce-tumor-specificity",
         dest="enforce_tumor_specificity",
         action="store_false",
-        help="Keep peptides observed on healthy tissue (default: drop them).",
+        help="Keep peptides observed on healthy tissue; default drops them.",
     )
     safety.add_argument(
         "--no-proteoform-rollup",
@@ -333,9 +333,9 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         choices=("all", "requested_mhc", "any_mhc"),
         default="all",
         help=(
-            "MS attribution filter: 'all' (retain all candidates with tier "
-            "labels), 'requested_mhc' (require exact/donor-set/predicted "
-            "support for requested alleles), or 'any_mhc' (require any exact-peptide MS)."
+            "MS attribution filter: 'all' retains all candidates with tier "
+            "labels; 'requested_mhc' requires exact/donor-set/predicted "
+            "support for requested alleles; 'any_mhc' requires any exact-peptide MS."
         ),
     )
     evidence.add_argument(
@@ -361,13 +361,13 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
     output.add_argument(
         "--quiet",
         action="store_true",
-        help="Suppress stage-progress messages on stderr (shown by default).",
+        help="Suppress stage-progress messages on stderr; shown by default.",
     )
     output.add_argument(
         "--top",
         type=int,
         default=None,
-        help="Limit output to the top N ranked targets (useful with --format table).",
+        help="Limit output to the top N ranked targets; useful with --format table.",
     )
     output.add_argument(
         "--format",

@@ -3,6 +3,7 @@ site_description: Personalized cancer immunotherapy target selection from curate
 site_url: https://pirl-unc.github.io/tsarina/
 repo_url: https://github.com/pirl-unc/tsarina
 repo_name: pirl-unc/tsarina
+strict: true
 
 hooks:
   - tsarina/docs_reports.py

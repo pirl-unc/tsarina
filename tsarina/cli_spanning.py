@@ -111,7 +111,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=_split_csv,
         default=None,
         help=(
-            "Restriction levels to keep, comma-separated (e.g. 'TESTIS,PLACENTAL'). "
+            "Restriction levels to keep, comma-separated, e.g. 'TESTIS,PLACENTAL'. "
             "Default keeps all levels."
         ),
     )
@@ -287,7 +287,7 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         choices=("symbol", "members"),
         default="symbol",
         help=(
-            "How to label identical-protein CTA groups (default 'symbol'). "
+            "How to label identical-protein CTA groups; defaults to 'symbol'. "
             "'symbol' uses oncoref's preferred name -- NY-ESO-1, XAGE1A/B, "
             "SSX2/B -- matching `tsarina personalize`. 'members' keeps the "
             "full members label, CTAG1A/CTAG1B. Both spellings stay valid "

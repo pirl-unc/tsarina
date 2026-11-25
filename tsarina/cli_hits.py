@@ -171,8 +171,8 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         type=_parse_lengths,
         default=None,
         help=(
-            "Peptide lengths. On the enumeration paths (--skip-ms-evidence / "
-            "--iedb / --cedar) controls the k-mer walk; on the cached "
+            "Peptide lengths. On the enumeration paths — --skip-ms-evidence, "
+            "--iedb, or --cedar — controls the k-mer walk; on the cached "
             "observations path bounds the loader's length filter "
             "(hitlist>=1.15.1). If omitted, defaults are derived from "
             "--mhc-class: 8-15 for class I, 12-45 for class II. When "
@@ -186,9 +186,9 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         default="all",
         help=(
             "Control MHC restriction attribution when --allele is provided: "
-            "'all' (default), 'requested_mhc' (retain exact/donor-set matches "
-            "to requested --allele), or 'any_mhc' (keep all exact-peptide MS "
-            "observations while annotating restriction tier in raw output)."
+            "'all' by default; 'requested_mhc' retains exact/donor-set matches "
+            "to requested --allele; 'any_mhc' keeps all exact-peptide MS "
+            "observations while annotating restriction tier in raw output."
         ),
     )
     filters.add_argument(

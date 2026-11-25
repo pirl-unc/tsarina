@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -27,6 +27,8 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    # Shared OpenVax cache/offline helpers and CLI help/tab-completion styling.
+    "datacache>=1.38.0,<2.0.0",
     # hitlist owns artifact freshness (curation-YAML fingerprints in
     # observations_meta.json, mapping-artifact contract), publishes
     # MHC_ALLELE_PROVENANCE_VALUES, exposes verified EvidenceStore packages,

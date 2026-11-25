@@ -126,7 +126,8 @@ def test_panel_is_registered_in_main_help():
     r = _run_cli("--help")
     assert r.returncode == 0
     assert "panel" in r.stdout
-    assert "Build a CTA x HLA pMHC matrix for a population HLA" in r.stdout
+    collapsed = " ".join(r.stdout.split())
+    assert "Build a CTA x HLA pMHC matrix for a population HLA panel" in collapsed
     assert "spanning" not in r.stdout
 
 
