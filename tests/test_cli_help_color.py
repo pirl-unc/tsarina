@@ -10,8 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""tsarina reuses hitlist's shared subtle help coloring (the formatter's own
-alignment/gating invariants are tested in hitlist.tests.test_cli_help)."""
+"""tsarina reuses datacache's shared subtle cyan help coloring."""
 
 import contextlib
 import sys
@@ -19,23 +18,30 @@ import sys
 import tsarina.cli as cli
 
 
-def _help(monkeypatch, capsys, **env):
+def _help(monkeypatch, capsys, *, tty: bool, **env):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
     for k, v in env.items():
         monkeypatch.setenv(k, v)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: tty)
     monkeypatch.setattr(sys, "argv", ["tsarina", "--help"])
     with contextlib.suppress(SystemExit):
         cli.main()
     return capsys.readouterr().out
 
 
-def test_help_colored_when_forced(monkeypatch, capsys):
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    out = _help(monkeypatch, capsys, FORCE_COLOR="1")
-    assert "\033[36m" in out  # subcommand names in cyan
-    assert "\033[1m" in out  # bold section headings
+def test_help_colored_on_tty(monkeypatch, capsys):
+    out = _help(monkeypatch, capsys, tty=True)
+    assert "\033[1;36m" in out  # bold cyan section headings
+    assert "\033[36m" in out  # cyan option flags
+    assert "\033[1musage:\033[0m" in out
 
 
 def test_help_plain_when_no_color(monkeypatch, capsys):
-    monkeypatch.delenv("FORCE_COLOR", raising=False)
-    out = _help(monkeypatch, capsys, NO_COLOR="1")
+    out = _help(monkeypatch, capsys, tty=True, NO_COLOR="1")
+    assert "\033[" not in out
+
+
+def test_help_plain_when_not_tty(monkeypatch, capsys):
+    out = _help(monkeypatch, capsys, tty=False)
     assert "\033[" not in out

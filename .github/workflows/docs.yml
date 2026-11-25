@@ -2,6 +2,8 @@ name: Docs
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -9,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: ${{ github.event_name == 'push' && 'pages' || format('docs-pr-{0}', github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -32,14 +34,16 @@ jobs:
           pip install mkdocs
 
       - name: Build docs
-        run: mkdocs build
+        run: mkdocs build --strict
 
       - name: Upload artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

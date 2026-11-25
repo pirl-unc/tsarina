@@ -1,3 +1,4 @@
+# PYTHON_ARGCOMPLETE_OK
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -45,7 +46,7 @@ import os
 import sys
 from pathlib import Path
 
-from hitlist.cli_help import ColorArgumentParser
+from datacache.cli_help import HelpArgumentParser, enable_argcomplete
 
 from .downloads import (
     DATASET_CATEGORIES,
@@ -116,13 +117,45 @@ def _guarded(handler):
     @functools.wraps(handler)
     def run(args: argparse.Namespace) -> None:
         try:
-            handler(args)
+            with _cache_root_scope(getattr(args, "cache_root", None)):
+                handler(args)
         except KeyError as e:
             _unknown_dataset(str(e.args[0]) if e.args else "")
         except (ValueError, OSError, RuntimeError, OfflineError) as e:
             _fail(str(e))
 
     return run
+
+
+@contextlib.contextmanager
+def _cache_root_scope(cache_root: str | Path | None):
+    if not cache_root:
+        yield
+        return
+    import hitlist.downloads as hitlist_downloads
+
+    prev_openvax = os.environ.get("OPENVAX_DATA_CACHE")
+    prev_hitlist = os.environ.get("HITLIST_DATA_DIR")
+    prev_override = getattr(hitlist_downloads, "_override_data_dir", None)
+    os.environ["OPENVAX_DATA_CACHE"] = str(Path(cache_root).expanduser())
+    os.environ.pop("HITLIST_DATA_DIR", None)
+    if prev_override is not None:
+        hitlist_downloads._override_data_dir = None
+    hitlist_downloads.reset_data_dir_cache()
+    try:
+        yield
+    finally:
+        if prev_openvax is None:
+            os.environ.pop("OPENVAX_DATA_CACHE", None)
+        else:
+            os.environ["OPENVAX_DATA_CACHE"] = prev_openvax
+        if prev_hitlist is None:
+            os.environ.pop("HITLIST_DATA_DIR", None)
+        else:
+            os.environ["HITLIST_DATA_DIR"] = prev_hitlist
+        if prev_override is not None:
+            hitlist_downloads._override_data_dir = prev_override
+        hitlist_downloads.reset_data_dir_cache()
 
 
 @contextlib.contextmanager
@@ -527,11 +560,20 @@ def _data_build(args: argparse.Namespace) -> None:
     _build_observations(args)
 
 
+def _add_cache_root_arg(parser: argparse.ArgumentParser, *, suppress_default: bool = True) -> None:
+    parser.add_argument(
+        "--cache-root",
+        default=argparse.SUPPRESS if suppress_default else None,
+        help="Override the shared OpenVax cache root for this command; sets OPENVAX_DATA_CACHE.",
+    )
+
+
 def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     data_parser = sub.add_parser(
         "data",
         help="Datasets: list/fetch/register IEDB, CEDAR, viral proteomes, HPA/DepMap and mirrored assets",
     )
+    _add_cache_root_arg(data_parser, suppress_default=False)
     # Bare `tsarina data` defaults to listing.
     data_parser.set_defaults(func=_data_list)
     data_sub = data_parser.add_subparsers(dest="data_command")
@@ -539,10 +581,12 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_dirs = data_sub.add_parser(
         "dirs", help="Show cache directory location, size, and offline status (read-only)"
     )
+    _add_cache_root_arg(p_dirs)
     p_dirs.add_argument("--json", action="store_true", help="Machine-readable output")
     p_dirs.set_defaults(func=_data_dirs)
 
     p_list = data_sub.add_parser("list", help="Show installed datasets")
+    _add_cache_root_arg(p_list)
     p_list.add_argument(
         "--all", action="store_true", help="Deprecated: use `tsarina data available`."
     )
@@ -550,6 +594,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_list.set_defaults(func=_data_list)
 
     p_avail = data_sub.add_parser("available", help="Show all known datasets (installed or not)")
+    _add_cache_root_arg(p_avail)
     p_avail.add_argument(
         "--category",
         choices=DATASET_CATEGORIES,
@@ -565,6 +610,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_avail.set_defaults(func=_data_available)
 
     p_reg = data_sub.add_parser("register", help="Register a local file")
+    _add_cache_root_arg(p_reg)
     p_reg.add_argument("name", help="Dataset name (e.g. iedb, cedar; see `data available`)")
     p_reg.add_argument(
         "path",
@@ -574,6 +620,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_reg.set_defaults(func=_data_register)
 
     p_fetch = data_sub.add_parser("fetch", help="Download a fetchable dataset")
+    _add_cache_root_arg(p_fetch)
     p_fetch.add_argument("name", help="Dataset name (e.g. iedb, hpv16, ebv)")
     p_fetch.add_argument("--force", "-f", action="store_true", help="Re-download")
     p_fetch.add_argument(
@@ -592,6 +639,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         "preflight",
         help="Read-only fetch plan (destination, expected size, free space, terms) as JSON",
     )
+    _add_cache_root_arg(p_preflight)
     p_preflight.add_argument("name", help="Dataset name (e.g. iedb, hpv16, uniprot/human, depmap)")
     p_preflight.add_argument(
         "--force", "-f", action="store_true", help="Plan as if --force were passed to fetch"
@@ -602,6 +650,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_preflight.set_defaults(func=_data_preflight)
 
     p_refresh = data_sub.add_parser("refresh", help="Re-download a fetchable dataset")
+    _add_cache_root_arg(p_refresh)
     p_refresh.add_argument("name", help="Dataset name")
     p_refresh.add_argument(
         "--offline",
@@ -611,6 +660,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_refresh.set_defaults(func=_data_refresh)
 
     p_fetch_all = data_sub.add_parser("fetch-all", help="Fetch all mirrored data-asset files")
+    _add_cache_root_arg(p_fetch_all)
     p_fetch_all.add_argument("--force", "-f", action="store_true", help="Re-download")
     p_fetch_all.add_argument(
         "--offline",
@@ -620,11 +670,13 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_fetch_all.set_defaults(func=_data_fetch_all)
 
     p_info = data_sub.add_parser("info", help="Detailed metadata for a dataset (JSON)")
+    _add_cache_root_arg(p_info)
     p_info.add_argument("name", help="Dataset name")
     p_info.add_argument("--json", action="store_true", help="Machine-readable output (default)")
     p_info.set_defaults(func=_data_info)
 
     p_path = data_sub.add_parser("path", help="Print path to a dataset")
+    _add_cache_root_arg(p_path)
     p_path.add_argument("name", help="Dataset name")
     p_path.add_argument("--json", action="store_true", help="Machine-readable output")
     p_path.set_defaults(func=_data_path)
@@ -633,6 +685,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         "verify",
         help="Verify cached/registered files and trusted mirrored-asset hashes (read-only)",
     )
+    _add_cache_root_arg(p_verify)
     p_verify.add_argument(
         "--include-unregistered",
         action="store_true",
@@ -642,8 +695,9 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_verify.set_defaults(func=_data_verify)
 
     p_prune = data_sub.add_parser(
-        "prune", help="Prune superseded datacache bundle generations (dry-run by default)"
+        "prune", help="Prune superseded datacache bundle generations; dry-run by default"
     )
+    _add_cache_root_arg(p_prune)
     p_prune.add_argument(
         "--keep",
         type=int,
@@ -657,6 +711,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
     p_prune.set_defaults(func=_data_prune)
 
     p_rm = data_sub.add_parser("remove", help="Unregister a dataset (keeps file by default)")
+    _add_cache_root_arg(p_rm)
     p_rm.add_argument("name", help="Dataset name")
     p_rm.add_argument("--delete", action="store_true", help="Also delete the cached file")
     p_rm.set_defaults(func=_data_remove)
@@ -665,6 +720,7 @@ def _build_data_parser(sub: argparse._SubParsersAction) -> None:
         "build",
         help="DEPRECATED — use `tsarina build observations`",
     )
+    _add_cache_root_arg(p_build)
     p_build.add_argument("--force", "-f", action="store_true", help="Rebuild from scratch")
     p_build.set_defaults(func=_data_build)
 
@@ -691,11 +747,11 @@ def _build_build_parser(sub: argparse._SubParsersAction) -> None:
 # ── Main entry point ────────────────────────────────────────────────────────
 
 
-def main() -> None:
+def build_parser() -> HelpArgumentParser:
     from . import cli_catalog, cli_hits, cli_personalize, cli_spanning, cli_vaccine
     from .version import __version__
 
-    parser = ColorArgumentParser(
+    parser = HelpArgumentParser(
         prog="tsarina",
         description="tsarina: cancer-testis antigens, viral targets, and shared cancer immunotherapy peptides",
     )
@@ -711,6 +767,12 @@ def main() -> None:
     cli_spanning.build_parser(sub).set_defaults(func=cli_spanning.handle)
     cli_vaccine.build_parser(sub).set_defaults(func=cli_vaccine.handle)
     cli_vaccine.build_report_parser(sub).set_defaults(func=cli_vaccine.handle_report)
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    enable_argcomplete(parser)
 
     argv = sys.argv[1:]
     deprecated_spanning = bool(argv and argv[0] == "spanning")
@@ -725,7 +787,8 @@ def main() -> None:
     if func is None:
         parser.print_help()
         sys.exit(1)
-    func(args)
+    with _cache_root_scope(getattr(args, "cache_root", None)):
+        func(args)
 
 
 if __name__ == "__main__":
