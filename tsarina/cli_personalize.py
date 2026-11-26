@@ -225,7 +225,7 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--ensembl-release",
         type=int,
         default=None,
-        help="Ensembl release. Defaults to 112 for human and 115 for mouse.",
+        help="Ensembl release. Defaults to 112 for human, 115 for mouse, and 98 for dog.",
     )
 
     safety = p.add_argument_group("Species, sex, and safety gates")

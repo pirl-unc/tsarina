@@ -21,7 +21,7 @@ presentation/processing scoring (``mhcflurry`` / ``mhctools`` / ``topiary`` /
 Headline workflows
 ------------------
 - ``personalized_targets`` — rank CTA, fusion, mutant, and viral pMHCs for a
-  single patient (human or mouse, with optional ``patient_sex`` RNA + MS safety).
+  single patient (human, mouse, or dog, with optional ``patient_sex`` RNA + MS safety).
 - ``spanning_pmhc_set`` — build a population CTA x HLA panel with MS evidence
   tiers, safety flags, and population coverage (CLI: ``tsarina panel``).
 - ``design_vaccine`` / ``VaccineConfig`` — select mortality-weighted CTA
@@ -32,9 +32,10 @@ Headline workflows
 Target & allele catalogs
 ------------------------
 - ``CTA_selection`` / ``CTA_selection_coverage`` — current OncoRef CTA decisions
-  (human, mouse, dog) and readiness metadata.
-- ``CTA_sex_restricted_antigens`` / ``CTA_sex_eligible_gene_names`` — biological
-  sex eligibility across human and mouse reproductive/CTA sets.
+  (evaluated human, mouse, and dog) and readiness metadata.
+- ``CTA_sex_restricted_antigens`` / ``CTA_sex_eligible_gene_names`` — 4-way
+  biological sex eligibility (``CTA-M``/``F``/``MF``/``P`` and ``RA-*-only``)
+  across human, mouse, and dog.
 - ``cancer_fusions`` / ``fusion_junction_peptides`` — OncoRef curated cancer
   fusions and host-exclusive breakpoint k-mer enumeration.
 - ``HOTSPOT_MUTATIONS`` / ``mutant_peptides`` — curated hotspot driver mutations.

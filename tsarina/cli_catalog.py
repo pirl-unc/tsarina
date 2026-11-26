@@ -410,14 +410,37 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             gene_ids_str = ";".join(str(g) for g in gene_ids)
         else:
             gene_ids_str = "" if gene_ids is None else str(gene_ids)
-        rec = {
+        rec: dict[str, object] = {
             "label": label,
             "category": str(getattr(row, "category", "") or ""),
             "tier": str(getattr(row, "cta_tier", "") or getattr(row, "subtype", "") or ""),
             "gene_ids": gene_ids_str,
         }
+        sex_code = getattr(row, "sex_restriction_code", None)
+        if (
+            sex_code is not None
+            and str(sex_code).strip()
+            and str(sex_code).strip().lower() != "nan"
+        ):
+            rec["sex_restriction_code"] = str(sex_code).strip()
         if sex is not None:
             rec["sex_restriction_class"] = str(getattr(row, "sex_restriction_class", "") or "")
+        near_self = getattr(row, "unsafe_near_self_1mm_pct", None)
+        if near_self is not None:
+            try:
+                val = float(near_self)
+                if val == val:  # finite / not NaN
+                    rec["unsafe_near_self_1mm_pct"] = round(val, 2)
+            except (TypeError, ValueError):
+                pass
+        cleared_raw = getattr(row, "clinical_cleared_epitopes", None)
+        if isinstance(cleared_raw, str) and cleared_raw.strip().startswith("["):
+            try:
+                cleared_list = [str(e) for e in json.loads(cleared_raw) if e]
+                if cleared_list:
+                    rec["clinical_cleared_epitopes"] = cleared_list
+            except Exception:
+                pass
         if ms_lookup:
             rec["ms_restriction"] = ms_lookup.get(label, "")
         records.append(rec)
@@ -447,7 +470,9 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
 
     headers = ["label", "category", "tier"]
     if sex is not None:
-        headers.append("sex_restriction_class")
+        headers.extend(["sex_restriction_code", "sex_restriction_class"])
+    elif any(r.get("sex_restriction_code") for r in records):
+        headers.append("sex_restriction_code")
     headers.append("gene_ids")
     if ms_lookup:
         headers.append("ms_restriction")
@@ -717,13 +742,13 @@ def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentPa
     p_ctas.add_argument(
         "--category",
         default=None,
-        help="Filter by OncoRef selection category (default: 'CTA' for human, all for non-human)",
+        help="Filter by OncoRef selection category (default: 'CTA' for evaluated species: human, mouse, dog)",
     )
     p_ctas.add_argument(
         "--tier",
         choices=("core", "core_with_extended_exposure", "extended_only"),
         default=None,
-        help="Filter human CTAs by cta_tier",
+        help="Filter CTAs by cta_tier",
     )
     p_ctas.add_argument(
         "--sex",

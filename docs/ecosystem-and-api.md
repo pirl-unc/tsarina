@@ -8,7 +8,7 @@ PIRL / OpenVax stack.
 ## How Tsarina connects to the stack
 
 ```text
-  oncoref (gene-level specificity, human/mouse CTAs, sex restriction, fusions, cancer burden)
+  oncoref (gene-level specificity, human/mouse/dog CTAs, 4-way sex restriction, fusions, cancer burden)
        +
   pyensembl / orfdata (reference coding proteomes; IARC GDC & RefSeq viral ORFs)
        +
@@ -28,9 +28,9 @@ PIRL / OpenVax stack.
 
 | Package | Role in the stack | What Tsarina reads from it |
 |---|---|---|
-| [oncoref](https://github.com/pirl-unc/oncoref) | Single authority for gene-level cancer specificity | Human & mouse `CTA_selection`, sex-restricted eligibility (`female`/`male`), proteoform groups, 188 curated cancer fusions, TCGA/HPA/GLOBOCAN burden |
+| [oncoref](https://github.com/pirl-unc/oncoref) | Single authority for gene-level cancer specificity | Evaluated human, mouse & dog `CTA_selection`, 4-way sex-restricted eligibility (`CTA-M`/`F`/`MF`/`P` & `RA-*-only`), clinical clearance, 1-mm near-self coverage, proteoform groups, 188 curated cancer fusions, TCGA/HPA/GLOBOCAN burden |
 | [hitlist](https://github.com/pirl-unc/hitlist) | Public immunopeptidomics MS curation & indexing | Normalized IEDB/CEDAR/study observations, cancer vs. somatic vs. sex-specific reproductive tissue flags, verified `EvidenceStore` packages, dataset registry & preflight |
-| [pyensembl](https://github.com/openvax/pyensembl) | Ensembl reference proteomes & species registry | Human (Ensembl 112), mouse (Ensembl 115), and dog coding sequences for peptide enumeration and self-proteome exclusivity screening |
+| [pyensembl](https://github.com/openvax/pyensembl) | Ensembl reference proteomes & species registry | Human (Ensembl 112), mouse (Ensembl 115), and dog (Ensembl 98, CanFam3.1) coding sequences for peptide enumeration and self-proteome exclusivity screening |
 | [orfdata](https://github.com/openvax/orfdata) *(optional)* | Viral ORF & GDC reference collections | Three offline IARC GDC oncogenic viral subsets (`cancer-associated` 37, `cancer-causing` 20, `cancer-integrated-driver` 15) and spliced RefSeq viral CDSs (e.g. HPV16 `E1^E4`, `E6*`) |
 | [mhcgnomes](https://github.com/openvax/mhcgnomes) | MHC nomenclature & ontology | Canonical parsing of HLA, H-2, and DLA alleles, serotypes, donor sets, and species validation |
 | [mhcflurry](https://github.com/openvax/mhcflurry) / [mhctools](https://github.com/openvax/mhctools) / [topiary](https://github.com/openvax/topiary) | MHC presentation & affinity prediction | Presentation percentile, presentation score, and affinity calibration |
@@ -44,7 +44,7 @@ PIRL / OpenVax stack.
 | `tsarina catalog {ctas,panels,mutations,fusions,viruses}` | Browse built-in CTA (human/mouse/dog, optional `--sex`), HLA panel, hotspot mutation, OncoRef fusion, and viral catalogs |
 | `tsarina data {available,list,fetch,preflight,register,info,path,remove}` | Manage IEDB, CEDAR, viral proteomes, and mirrored datasets (`--grouped` / `--category` supported on `available`) |
 | `tsarina build observations` | Build or refresh the local Hitlist observations index |
-| `tsarina personalize` | Prioritize CTA, fusion, mutant, and viral pMHCs for one patient (human or mouse, optional `--sex`) |
+| `tsarina personalize` | Prioritize CTA, fusion, mutant, and viral pMHCs for one patient (human, mouse, or dog, optional `--sex`) |
 | `tsarina hits` | Inspect public MS hits or `--healthy-tissue` safety screens for a gene or UniProt ID |
 | `tsarina panel` | Build a CTA × HLA pMHC matrix with evidence tiers, MS safety flags, and population coverage |
 | `tsarina vaccine` / `tsarina vaccine-report` | Design a shared CTA vaccine construct and render an interactive report website |
@@ -59,7 +59,7 @@ gene-set helpers, most workflows only need the functions grouped below.
 
 | Entry point | Purpose |
 |---|---|
-| `personalized_targets(...)` | Rank CTA, fusion, mutant, and viral pMHCs for one patient (human or mouse, optional `patient_sex` RNA + MS safety) |
+| `personalized_targets(...)` | Rank CTA, fusion, mutant, and viral pMHCs for one patient (human, mouse, or dog, optional `patient_sex` RNA + MS safety) |
 | `spanning_pmhc_set(...)` | Build a population CTA × HLA panel with evidence tiers, safety flags, Cys MS-detectability caveats, and coverage |
 | `design_vaccine(...)` / `VaccineConfig` | Mortality-weighted CTA segment selection, junction optimization, and audited DNA/RNA construct design |
 | `cta_healthy_tissue_ms_hits(...)` | Per-peptide healthy somatic (and optional same-sex adult reproductive) MS safety screen for one gene |
@@ -68,9 +68,9 @@ gene-set helpers, most workflows only need the functions grouped below.
 
 | Entry point | Purpose |
 |---|---|
-| `CTA_selection(category=..., species=...)` | Current OncoRef CTA catalog across `human`, `mouse` (evaluated), and `dog` |
-| `CTA_selection_coverage(species=...)` | Species readiness (`evaluated` vs. `pending_reconciled_panels`), anatomy, and category counts |
-| `CTA_sex_restricted_antigens(sex=..., eligibility=..., species=...)` | Biological sex eligibility (`all_adult` or `sex_organ_only`) for `human` and `mouse` |
+| `CTA_selection(category=..., species=...)` | Current OncoRef CTA catalog across evaluated `human`, `mouse`, and `dog` |
+| `CTA_selection_coverage(species=...)` | Species readiness (`evaluated`), anatomy, category counts, and 4-way `sex_restricted_counts` |
+| `CTA_sex_restricted_antigens(sex=..., eligibility=..., species=...)` | 4-way biological sex eligibility (`all_adult` or `sex_organ_only`) for `human`, `mouse`, and `dog` |
 | `CTA_sex_eligible_gene_names(...)` / `CTA_sex_eligible_gene_ids(...)` | Eligible gene symbols or Ensembl IDs for a given `sex`, `eligibility`, and `species` |
 | `cancer_fusions(...)` / `fusion_junction_peptides(...)` | Filter OncoRef's 188 curated cancer fusions and enumerate host-exclusive breakpoint-spanning peptides |
 | `HOTSPOT_MUTATIONS` / `mutant_peptides(...)` | Curated driver hotspot mutations and host-exclusive mutant-spanning peptides |

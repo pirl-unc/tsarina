@@ -141,6 +141,7 @@ def load_public_ms_hits(
     min_allele_resolution: str | None = None,
     drop_binding_assays: bool = True,
     include_other_assays: bool = False,
+    auto_build: bool = True,
 ) -> pd.DataFrame:
     """Load public MS evidence for peptides from the canonical tsarina path.
 
@@ -181,6 +182,7 @@ def load_public_ms_hits(
             "mhc_class": mhc_class,
             "mhc_species": mhc_species,
             "drop_binding_assays": drop_binding_assays,
+            "auto_build": auto_build,
         }
         if evidence_package is not None:
             load_kwargs["evidence_package"] = evidence_package

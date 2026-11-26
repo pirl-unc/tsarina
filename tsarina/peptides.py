@@ -151,11 +151,14 @@ def gene_peptides(
         else EnsemblRelease(ensembl_release, species=species)
     )
     symbols: dict[str, str] = {}
+    rep_transcripts_by_gene: dict[str, tuple[str, ...]] = {}
     if is_human:
+        from .cta_selection import selection_representative_transcripts
         from .loader import cta_dataframe
 
         evidence = cta_dataframe()
         symbols = dict(zip(evidence.Ensembl_Gene_ID, evidence.Symbol))
+        rep_transcripts_by_gene = selection_representative_transcripts()
 
     rows: list[dict] = []
     for gene_id in _progress_iter(
@@ -169,7 +172,13 @@ def gene_peptides(
         except ValueError:
             continue
 
-        # Pick the canonical (longest) coding transcript
+        # Prefer OncoRef's representative / clinically cleared coding transcript
+        # when present in the requested Ensembl release (e.g., CTAG2 LAGE-1a
+        # ENST00000369585 carrying SLLMWITQC over longer unverified LAGE-1b
+        # ENST00000247306); otherwise fall back to the longest coding transcript.
+        preferred_ids = set(rep_transcripts_by_gene.get(gene_id, ()))
+        best_preferred = None
+        best_preferred_length = 0
         best_transcript = None
         best_length = 0
         for t in gene.transcripts:
@@ -182,10 +191,17 @@ def gene_peptides(
                 # translation; let unexpected errors surface rather than
                 # silently dropping the transcript.
                 continue
-            if seq and len(seq) > best_length:
+            if not seq:
+                continue
+            tid = str(getattr(t, "id", "")).split(".")[0]
+            if tid in preferred_ids and len(seq) > best_preferred_length:
+                best_preferred = t
+                best_preferred_length = len(seq)
+            if len(seq) > best_length:
                 best_transcript = t
                 best_length = len(seq)
 
+        best_transcript = best_preferred or best_transcript
         if best_transcript is None:
             continue
 

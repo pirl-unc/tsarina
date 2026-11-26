@@ -17,7 +17,7 @@ ranked peptide-MHC (pMHC) candidates.
 | Goal | Entry point | Result |
 |---|---|---|
 | Check setup & browse built-in catalogs | `tsarina status` / `tsarina catalog` | Read-only environment check and CTA, HLA panel, mutation, fusion, and virus catalogs |
-| Prioritize targets for one patient | `tsarina personalize` or `personalized_targets()` | Ranked CTA, fusion, viral, and mutant pMHCs for a human or mouse host (optional `--sex`) |
+| Prioritize targets for one patient | `tsarina personalize` or `personalized_targets()` | Ranked CTA, fusion, viral, and mutant pMHCs for a human, mouse, or dog host (optional `--sex`) |
 | Design an off-the-shelf CTA panel | `tsarina panel` or `spanning_pmhc_set()` | CTA × HLA matrix with evidence tiers, MS safety flags, and population coverage |
 | Assemble a shared CTA vaccine | `tsarina vaccine` or `design_vaccine()` | Mortality-ranked proteoforms, sequence funnel, junction audit, and DNA/RNA construct |
 | Inspect public peptide observations | `tsarina hits` or `cta_healthy_tissue_ms_hits()` | Cancer, healthy-somatic, sex-reproductive, and restriction evidence for a gene |
@@ -28,15 +28,15 @@ See: [documentation](docs/index.md) and [Ecosystem & Python API](docs/ecosystem-
 
 | Package | Owns |
 |---|---|
-| [oncoref](https://github.com/pirl-unc/oncoref) | Gene-level CTA & sex-restricted selection (human & mouse), proteoform groups, 188 curated cancer fusions, TCGA/HPA/GLOBOCAN burden |
+| [oncoref](https://github.com/pirl-unc/oncoref) | Gene-level CTA & 4-way sex-restricted selection (evaluated human, mouse, and dog), clinical clearance, 1-mm near-self metrics, proteoform groups, 188 curated cancer fusions, TCGA/HPA/GLOBOCAN burden |
 | [hitlist](https://github.com/pirl-unc/hitlist) | Public MS observations (IEDB/CEDAR/studies), cancer vs. healthy vs. sex-reproductive tissue classification, `EvidenceStore`, dataset registry |
-| [pyensembl](https://github.com/openvax/pyensembl) / [orfdata](https://github.com/openvax/orfdata) | Reference coding proteomes (Ensembl 112 human, 115 mouse, dog) and optional IARC GDC / RefSeq viral ORFs |
+| [pyensembl](https://github.com/openvax/pyensembl) / [orfdata](https://github.com/openvax/orfdata) | Reference coding proteomes (Ensembl 112 human, 115 mouse, 98 dog) and optional IARC GDC / RefSeq viral ORFs |
 | [mhcgnomes](https://github.com/openvax/mhcgnomes) | HLA, H-2, and DLA allele, serotype, and species parsing |
 | [mhcflurry](https://github.com/openvax/mhcflurry) / [mhctools](https://github.com/openvax/mhctools) / [topiary](https://github.com/openvax/topiary) | MHC presentation and affinity prediction (`pepsickle` + `dnachisel` for vaccine cleavage & mRNA design) |
 
 ## Install
 
-Requires Python 3.11 or newer, `oncoref>=1.49.0`, and `hitlist>=2.12.0`.
+Requires Python 3.11 or newer, `oncoref>=1.52.0`, `hitlist>=2.15.0`, and `datacache>=1.38.0`.
 
 ```bash
 pip install tsarina
@@ -103,7 +103,7 @@ for setup and interpretation.
 
 | Category | Candidate source | Tumor-specific context |
 |---|---|---|
-| CTA | Current-policy [oncoref](https://github.com/pirl-unc/oncoref) CTA & sex-restricted sets (human and evaluated mouse) | Tumor RNA expression, reproductive-tissue restriction, and optional biological sex eligibility |
+| CTA | Current-policy [oncoref](https://github.com/pirl-unc/oncoref) CTA & 4-way sex-restricted sets (evaluated human, mouse, and dog) | Tumor RNA expression, reproductive-tissue restriction, and optional biological sex eligibility |
 | Fusion | 188 curated [oncoref](https://github.com/pirl-unc/oncoref) cancer fusions + host-exclusive breakpoint k-mer enumeration | Fusion breakpoint sequence detected in the tumor |
 | Viral | 9 built-in UniProt oncogenic viruses plus optional `orfdata` IARC GDC subsets (15/20/37 viruses) & RefSeq viral ORFs | Virus detected in the tumor |
 | Mutant | 19 recurrent hotspots across 7 driver genes | Matching mutation detected in the tumor |

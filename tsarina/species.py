@@ -54,14 +54,15 @@ def _default_ensembl_release_for_species(short_name: str) -> int:
     """Resolve the default Ensembl release for *short_name*.
 
     Human retains ``112`` for backward compatibility with existing reference
-    indexes. Mouse aligns with OncoRef's SHA-256-pinned Ensembl host reference
-    (``115`` as of OncoRef 1.46.0) when registered.
+    indexes. Mouse (``115``, GRCm39) and dog (``98``, CanFam3.1) align with
+    OncoRef's SHA-256-pinned Ensembl host references when registered.
     """
-    if short_name == "mouse":
+    if short_name in ("mouse", "dog"):
         try:
-            from oncoref import mouse as _oncoref_mouse
+            from oncoref.species import for_species as _oncoref_for_species
 
-            for ref in _oncoref_mouse.references.registered_references():
+            sp = _oncoref_for_species(short_name)
+            for ref in sp.references.registered_references():
                 ident = ref.get("identity", {})
                 if ident.get("annotation_source") == "Ensembl":
                     release = str(ident.get("annotation_release", "")).strip()
@@ -69,7 +70,7 @@ def _default_ensembl_release_for_species(short_name: str) -> int:
                         return int(release)
         except Exception:
             pass
-        return 115
+        return 115 if short_name == "mouse" else 98
     return 112
 
 

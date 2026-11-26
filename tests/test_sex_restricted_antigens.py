@@ -52,8 +52,9 @@ def test_sex_restricted_antigens_catalog_and_gene_sets():
 
     female_names = CTA_sex_eligible_gene_names("female", eligibility="all_adult")
     male_names = CTA_sex_eligible_gene_names("male", eligibility="all_adult")
-    assert "PABPC3" in female_names and "PABPC3" not in male_names
+    assert "PRM2" in female_names and "PRM2" not in male_names
     assert "OR1N1" in male_names and "OR1N1" not in female_names
+    assert "DUX4" in female_names and "DUX4" in male_names
     assert len(CTA_sex_eligible_gene_ids("female")) >= len(female_all)
 
     with pytest.raises(ValueError, match="Unsupported patient sex"):
@@ -70,7 +71,7 @@ def test_sex_restricted_antigens_catalog_and_gene_sets():
 
 
 def test_personalized_targets_admits_sex_safe_reproductive_and_filters_ineligible(monkeypatch):
-    # Pick one male-restricted Reproductive Antigen only (PABPC3 -> female all_adult eligible)
+    # Pick one male-restricted Reproductive Antigen only (PRM2 -> female all_adult eligible)
     # and one shared male & female CTA (ineligible under strict all_adult).
     sex_df = CTA_sex_restricted_antigens()
     shared_cta = sex_df[sex_df["is_cta"] & (~sex_df["female_all_adult_eligible"])].iloc[0]["label"]
@@ -81,15 +82,15 @@ def test_personalized_targets_admits_sex_safe_reproductive_and_filters_ineligibl
         lambda gene_ids, **kw: pd.DataFrame(
             [
                 {
-                    "peptide": "PABPCPEP1",
+                    "peptide": "PRM2PEPT1",
                     "length": 9,
-                    "gene_name": "PABPC3",
+                    "gene_name": "PRM2",
                     "gene_id": next(iter(gene_ids)),
                 },
                 {
                     "peptide": "BGOVERLAP",
                     "length": 9,
-                    "gene_name": "PABPC3",
+                    "gene_name": "PRM2",
                     "gene_id": next(iter(gene_ids)),
                 },
             ]
@@ -107,7 +108,7 @@ def test_personalized_targets_admits_sex_safe_reproductive_and_filters_ineligibl
     with pytest.warns(UserWarning, match=f"{shared_cta}.*not female all_adult eligible"):
         res_f = personalized_targets(
             hla_alleles=["HLA-A*02:01"],
-            cta_expression={"PABPC3": 50.0, shared_cta: 50.0},
+            cta_expression={"PRM2": 50.0, shared_cta: 50.0},
             patient_sex="female",
             sex_eligibility="all_adult",
             score_presentation=False,
@@ -115,16 +116,16 @@ def test_personalized_targets_admits_sex_safe_reproductive_and_filters_ineligibl
             drop_weak_tier=False,
             show_progress=False,
         )
-    assert list(res_f["peptide"]) == ["PABPCPEP1"]  # BGOVERLAP excluded by self-background!
-    assert list(res_f["source"]) == ["PABPC3"]
+    assert list(res_f["peptide"]) == ["PRM2PEPT1"]  # BGOVERLAP excluded by self-background!
+    assert list(res_f["source"]) == ["PRM2"]
     assert res_f.attrs["patient_sex"] == "female"
     assert res_f.attrs["sex_eligibility"] == "all_adult"
 
-    # In a male patient under all_adult, PABPC3 (Male-restricted) is NOT admitted.
-    with pytest.warns(UserWarning, match="PABPC3"):
+    # In a male patient under all_adult, PRM2 (Male-restricted) is NOT admitted.
+    with pytest.warns(UserWarning, match="PRM2"):
         res_m = personalized_targets(
             hla_alleles=["HLA-A*02:01"],
-            cta_expression={"PABPC3": 50.0},
+            cta_expression={"PRM2": 50.0},
             patient_sex="male",
             sex_eligibility="all_adult",
             score_presentation=False,
@@ -161,8 +162,9 @@ def test_catalog_ctas_sex_cli_filter(tmp_path):
     assert data["sex_eligibility"] == "all_adult"
     assert data["shown"] == 5
     assert all("sex_restriction_class" in row for row in data["ctas"])
+    assert all("sex_restriction_code" in row for row in data["ctas"])
 
-    bad = subprocess.run(
+    dog_ok = subprocess.run(
         [
             sys.executable,
             "-m",
@@ -173,10 +175,18 @@ def test_catalog_ctas_sex_cli_filter(tmp_path):
             "dog",
             "--sex",
             "female",
+            "--top",
+            "5",
+            "--json",
         ],
         capture_output=True,
         text=True,
         env=env,
     )
-    assert bad.returncode == 1
-    assert "not yet available" in bad.stderr.lower()
+    assert dog_ok.returncode == 0, dog_ok.stderr
+    dog_data = json.loads(dog_ok.stdout)
+    assert dog_data["species"] == "dog"
+    assert dog_data["sex"] == "female"
+    assert dog_data["total"] >= 1
+    assert dog_data["shown"] == 5
+    assert all("sex_restriction_code" in row for row in dog_data["ctas"])

@@ -39,11 +39,13 @@ def test_resolve_species_context_human_mouse_dog_and_transgenic():
     assert dog.pyensembl_species == "canis_familiaris"
     assert dog.assembly == "ROS_Cfam_1.0"
 
-    # Default Ensembl release follows OncoRef's species reference registry (mouse -> 115; human/dog -> 112),
-    # while explicit values (including None) are preserved.
+    # Default Ensembl release follows OncoRef's species reference registry
+    # (mouse -> 115, dog -> 98 CanFam3.1, human -> 112), while explicit values
+    # (including None) are preserved.
     assert resolve_species_context("mouse").ensembl_release == 115
+    assert resolve_species_context("dog").ensembl_release == 98
+    assert resolve_species_context("dog").assembly == "CanFam3.1"
     assert resolve_species_context("human").ensembl_release == 112
-    assert resolve_species_context("dog").ensembl_release == 112
     assert resolve_species_context("mouse", ensembl_release=112).ensembl_release == 112
     assert resolve_species_context("mouse", ensembl_release=None).ensembl_release is None
 
@@ -92,15 +94,17 @@ def test_species_mismatch_and_human_catalog_transfer_rejected():
     with pytest.raises(ValueError, match="Human HOTSPOT_MUTATIONS"):
         target_peptides(cta=False, mutations=True, host_species="mouse")
 
-    # Unevaluated species (dog) must still refuse human CTA catalog transfer.
-    with pytest.raises(ValueError, match="Human OncoRef CTA"):
-        personalized_targets(
+    # Evaluated dog catalog must NOT admit human-only CTA symbols like MAGEA4.
+    with pytest.warns(UserWarning, match="MAGEA4.*not in OncoRef Canis lupus familiaris CTA"):
+        dog_human_sym = personalized_targets(
             hla_alleles=["DLA-88*508:01"],
-            cta_expression={"PRAME": 50.0},
+            cta_expression={"MAGEA4": 50.0},
             host_species="dog",
             score_presentation=False,
             skip_ms_evidence=True,
+            show_progress=False,
         )
+    assert dog_human_sym.empty
 
     # Evaluated mouse catalog must NOT admit human-only CTA symbols like PRAME.
     with pytest.warns(UserWarning, match="PRAME.*not in OncoRef Mus musculus CTA"):
@@ -113,6 +117,61 @@ def test_species_mismatch_and_human_catalog_transfer_rejected():
             show_progress=False,
         )
     assert mouse_human_sym.empty
+
+
+def test_personalized_targets_native_dog_cta_workflow(monkeypatch):
+    """Offline canine (Canis lupus familiaris, Ensembl 98 CanFam3.1, DLA-88*508:01)
+    CTA workflow using OncoRef >= 1.52.0 evaluated dog catalog."""
+
+    def fake_gene_peptides(gene_ids, ensembl_release=112, lengths=(8, 9, 10, 11), **kwargs):
+        assert ensembl_release == 98
+        assert kwargs.get("species") == "canis_familiaris"
+        return pd.DataFrame(
+            [
+                {
+                    "gene_name": "NAA11",
+                    "gene_id": next(iter(gene_ids)),
+                    "transcript_id": "ENSCAFT_NAA11",
+                    "peptide": "CANINEPEP",
+                    "length": 9,
+                    "start": 1,
+                    "end": 9,
+                    "n_flank": "",
+                    "c_flank": "",
+                },
+                {
+                    "gene_name": "NAA11",
+                    "gene_id": next(iter(gene_ids)),
+                    "transcript_id": "ENSCAFT_NAA11",
+                    "peptide": "DOGSELFPP",
+                    "length": 9,
+                    "start": 10,
+                    "end": 18,
+                    "n_flank": "",
+                    "c_flank": "",
+                },
+            ]
+        )
+
+    monkeypatch.setattr("tsarina.peptides.gene_peptides", fake_gene_peptides)
+
+    out = personalized_targets(
+        hla_alleles=["DLA-88*508:01"],
+        cta_expression={"NAA11": 40.0},
+        host_species="dog",
+        patient_sex="female",
+        lengths=(9,),
+        host_proteins={"DOG_SELF": "AAADOGSELFPPAAA"},
+        score_presentation=False,
+        skip_ms_evidence=True,
+        drop_weak_tier=False,
+        show_progress=False,
+    )
+    assert list(out["peptide"]) == ["CANINEPEP"]
+    assert list(out["source"]) == ["NAA11"]
+    assert out.attrs["ensembl_release"] == 98
+    assert out.attrs["species_context"]["host_taxon"] == 9615
+    assert out.attrs["patient_sex"] == "female"
 
 
 def test_mouse_h2_offline_workflow_across_cta_viral_and_mutation():

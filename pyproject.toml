@@ -37,10 +37,11 @@ dependencies = [
     # and OPENVAX_DATA_CACHE / offline / verify / prune helpers (2.15.0+).
     "hitlist>=2.15.0",
     "mhcgnomes>=3.20.0",
-    # Rebuilt cross-species target selection catalog (evaluated human & mouse
-    # CTAs), GLOBOCAN 2024 world burden with mixed-cohort scope, Ensembl 115
-    # mouse host reference, curated cancer fusions, and sex-restricted CTAs.
-    "oncoref>=1.49.0",
+    # Rebuilt cross-species target selection catalog (evaluated human, mouse,
+    # and canine CTAs), unified 4-way CTA-M/F/MF/P sex restriction, clinical
+    # organ/epitope clearance, 1-mm near-self coverage, GLOBOCAN 2024 world
+    # burden, curated cancer fusions, and Ensembl 115/98 host references.
+    "oncoref>=1.52.0",
     "pandas>=3",
     "numpy",
     "tqdm",
