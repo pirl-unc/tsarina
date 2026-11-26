@@ -1,3 +1,14 @@
+# OncoRef 1.52+ CTA safety caveats & 1-aa near-self screening in personalize & panel (1.57.0) (2026-11-26)
+
+Fixes #259.
+
+- [x] Add `tsarina/near_self.py` with `annotate_cta_safety_caveats()` (nuclear snRNA-seq/promoter-spillover caution, epitope-scoped clinical clearance vs unverified epitopes such as non-`SLLMWITQC` `CTAG2`, and `unsafe_near_self_1mm_pct >= 40%`), `screen_near_self_1mm()`, and `annotate_near_self_1mm()` powered by `oncoref.peptide_subtraction.PeptideIndex` with exact 1-aa Hamming distance (`HAMMING_1MM_POLICY`).
+- [x] Wire CTA safety caveats (`unsafe_near_self_1mm_pct`, `clinical_cleared_epitope`, `cta_safety_note`) and optional per-peptide 1-aa near-self screening/gating (`screen_near_self_1mm`, `max_near_self_1mm_matches`, `near_self_background`) into `personalized_targets()` / `tsarina personalize` and `spanning_pmhc_set()` / `tsarina panel`, with compact `1mm_self` column and table footnotes.
+- [x] Export `annotate_cta_safety_caveats`, `annotate_near_self_1mm`, and `screen_near_self_1mm` from top-level `tsarina`; remove obsolete `scripts/regenerate_hpa_cancer_prevalence.py` entry from `MANIFEST.in`.
+- [x] Add comprehensive unit tests in `tests/test_near_self_and_caveats.py`, update `tests/test_spanning.py`, `docs/personalized-targets.md`, and `docs/panel-design.md`, and bump `tsarina/version.py` to `1.57.0`.
+- [x] Pass `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh` (866 passed, 7 skipped, 1 warning), and `mkdocs build --strict`.
+- [ ] Open PR (`Fixes #259`), wait for CI, squash-merge, deploy `1.57.0` to PyPI from clean `main`, and verify SHA256 digests.
+
 # Delegate HPA cancer RNA/IHC prevalence to OncoRef & fix Pandas4Warning (1.56.0) (2026-11-26)
 
 Fixes #258.

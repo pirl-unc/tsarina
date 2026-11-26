@@ -110,6 +110,11 @@ if TYPE_CHECKING:
     from .ms_attribution import attribute_ms_evidence, summarize_ms_attribution
     from .ms_evidence import annotate_ms_detectability, cta_healthy_tissue_ms_hits
     from .mutations import HOTSPOT_MUTATIONS, mutant_peptides
+    from .near_self import (
+        annotate_cta_safety_caveats,
+        annotate_near_self_1mm,
+        screen_near_self_1mm,
+    )
     from .personalize import personalized_targets
     from .scoring import score_affinity, score_presentation
     from .spanning import spanning_pmhc_set
@@ -193,7 +198,9 @@ _LAZY = {
     "VITAL_TISSUE_MS_NAMES": (".tiers", "VITAL_TISSUE_MS_NAMES"),
     "VaccineConfig": (".vaccine_construct", "VaccineConfig"),
     "allele_prediction_capability": (".species", "allele_prediction_capability"),
+    "annotate_cta_safety_caveats": (".near_self", "annotate_cta_safety_caveats"),
     "annotate_ms_detectability": (".ms_evidence", "annotate_ms_detectability"),
+    "annotate_near_self_1mm": (".near_self", "annotate_near_self_1mm"),
     "attribute_ms_evidence": (".ms_attribution", "attribute_ms_evidence"),
     "cancer_fusions": (".fusions", "cancer_fusions"),
     "cta_cancer_expression_features": (".cancer_expression", "cta_cancer_expression_features"),
@@ -214,6 +221,7 @@ _LAZY = {
     "resolve_species_context": (".species", "resolve_species_context"),
     "score_affinity": (".scoring", "score_affinity"),
     "score_presentation": (".scoring", "score_presentation"),
+    "screen_near_self_1mm": (".near_self", "screen_near_self_1mm"),
     "spanning_pmhc_set": (".spanning", "spanning_pmhc_set"),
     "summarize_ms_attribution": (".ms_attribution", "summarize_ms_attribution"),
     "target_peptides": (".targets", "target_peptides"),
@@ -292,7 +300,9 @@ __all__ = [
     "VaccineConfig",
     "__version__",
     "allele_prediction_capability",
+    "annotate_cta_safety_caveats",
     "annotate_ms_detectability",
+    "annotate_near_self_1mm",
     "attribute_ms_evidence",
     "cancer_fusions",
     "cta_cancer_expression_features",
@@ -313,6 +323,7 @@ __all__ = [
     "resolve_species_context",
     "score_affinity",
     "score_presentation",
+    "screen_near_self_1mm",
     "spanning_pmhc_set",
     "summarize_ms_attribution",
     "target_peptides",

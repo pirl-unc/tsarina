@@ -47,9 +47,13 @@ rank, `tumor_prevalence_panel_score`, combines:
 - cancer-type breadth using a 5% within-type sample-prevalence floor; and
 - HPA cancer IHC as a weak tie-breaker.
 
-These bundled prevalence features establish the scan order. Live public-MS
-support and safety are recalculated from the current observations index in a
-later stage.
+These OncoRef HPA v25.1 cancer prevalence features establish the scan order.
+Live public-MS support and safety are recalculated from the current
+observations index in a later stage. Long-format panel outputs also attach
+OncoRef CTA safety caveats (`unsafe_near_self_1mm_pct`,
+`clinical_cleared_epitope`, `cta_safety_note`) and support optional per-peptide
+1-aa Hamming near-self screening (`--screen-near-self`, `--max-near-self-1mm`,
+`--near-self-background Unsafe|Unsafe|Other`).
 
 Change the initial ranking with:
 

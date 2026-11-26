@@ -320,6 +320,36 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
             "Rollup is on by default."
         ),
     )
+    safety.add_argument(
+        "--screen-near-self",
+        dest="screen_near_self_1mm",
+        action="store_true",
+        help=(
+            "Screen surviving peptides for 1-aa Hamming-distance near-self matches "
+            "against OncoRef's Unsafe proteome (adds near_self_1mm_count, "
+            "near_self_1mm_genes, near_self_1mm_peptides)."
+        ),
+    )
+    safety.add_argument(
+        "--max-near-self-1mm",
+        dest="max_near_self_1mm_matches",
+        type=int,
+        default=None,
+        help=(
+            "Drop peptides with more than N 1-aa near-self matches in OncoRef's "
+            "Unsafe proteome (e.g. 0 for strict zero 1-mm near-self). Implies "
+            "--screen-near-self."
+        ),
+    )
+    safety.add_argument(
+        "--near-self-background",
+        choices=("Unsafe", "Unsafe|Other"),
+        default="Unsafe",
+        help=(
+            "OncoRef exclusion background for 1-aa near-self screening: "
+            "'Unsafe' (default) or conservative 'Unsafe|Other'."
+        ),
+    )
 
     evidence = p.add_argument_group("MS evidence and presentation scoring")
     evidence.add_argument(
@@ -420,6 +450,12 @@ def handle(args: argparse.Namespace) -> None:
         extra_kwargs["require_host_exclusive_fusions"] = getattr(
             args, "require_host_exclusive_fusions", True
         )
+    if getattr(args, "screen_near_self_1mm", False) or (
+        getattr(args, "max_near_self_1mm_matches", None) is not None
+    ):
+        extra_kwargs["screen_near_self_1mm"] = True
+        extra_kwargs["max_near_self_1mm_matches"] = getattr(args, "max_near_self_1mm_matches", None)
+        extra_kwargs["near_self_background"] = getattr(args, "near_self_background", "Unsafe")
 
     try:
         df = personalized_targets(

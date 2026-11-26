@@ -82,6 +82,9 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "source_detail",
     "source_tpm",
     "flag_reason",
+    "unsafe_near_self_1mm_pct",
+    "clinical_cleared_epitope",
+    "cta_safety_note",
     "ms_evidence_status",
     "ms_attribution_tier",
     "ms_hit_count",
@@ -101,6 +104,12 @@ _OUTPUT_COLUMNS: tuple[str, ...] = (
     "tier",
     "tier_label",
     "tier_reason",
+)
+
+_NEAR_SELF_OUTPUT_COLUMNS: tuple[str, ...] = (
+    "near_self_1mm_count",
+    "near_self_1mm_genes",
+    "near_self_1mm_peptides",
 )
 
 
@@ -255,6 +264,8 @@ def format_table(df: pd.DataFrame) -> str:
         columns.append(("ms_attr", "ms_attribution_tier"))
     if {"ms_in_cancer", "ms_in_healthy_tissue"} & set(df.columns):
         columns.append(("ms_safety", None))
+    if "near_self_1mm_count" in df.columns:
+        columns.append(("1mm_self", "near_self_1mm_count"))
     if "tier_reason" in df.columns:
         columns.append(("reason", "tier_reason"))
 
@@ -263,7 +274,7 @@ def format_table(df: pd.DataFrame) -> str:
             return _format_ms_safety(row)
         if pd.isna(value):
             return ""
-        if header == "ms_hits":
+        if header in ("ms_hits", "1mm_self"):
             return f"{int(value)}"
         if header in ("affinity_nM", "pct_rank"):
             return f"{float(value):.2f}"
@@ -304,6 +315,25 @@ def format_table(df: pd.DataFrame) -> str:
             lines.append(
                 f"Note: {n_cys} zero-MS peptide(s) contain Cys (unmodified MS under-detects "
                 "Cys oxidation/cysteinylation; see ms_detectability_note in --format csv)."
+            )
+    if "cta_safety_note" in df.columns:
+        safety_notes = df["cta_safety_note"].fillna("").astype(str).str.strip()
+        n_safety = int(safety_notes.ne("").sum())
+        if n_safety > 0:
+            lines.append("")
+            lines.append(
+                f"Note: {n_safety} row(s) carry OncoRef CTA safety caveats (nuclear snRNA-seq, "
+                "epitope-scoped clinical clearance, or >=40% 1-mm near-self overlap; "
+                "see cta_safety_note in --format csv)."
+            )
+    if "near_self_1mm_count" in df.columns:
+        mm1_counts = pd.to_numeric(df["near_self_1mm_count"], errors="coerce").fillna(0)
+        n_mm1 = int(mm1_counts.gt(0).sum())
+        if n_mm1 > 0:
+            lines.append("")
+            lines.append(
+                f"Note: {n_mm1} peptide(s) have 1-aa near-self matches in the Unsafe proteome "
+                "(see near_self_1mm_genes / near_self_1mm_peptides in --format csv)."
             )
     return "\n".join(lines)
 
@@ -450,6 +480,10 @@ def personalized_targets(
     custom_targets: pd.DataFrame | None = None,
     host_proteins: dict[str, str] | list[str] | None = None,
     capability_table: pd.DataFrame | None = None,
+    screen_near_self_1mm: bool = False,
+    max_near_self_1mm_matches: int | None = None,
+    near_self_background: str = "Unsafe",
+    near_self_background_proteins: pd.DataFrame | dict[str, str] | Iterable[str] | None = None,
 ) -> pd.DataFrame:
     """Build a personalized, tier-ranked target list for a single patient.
 
@@ -566,6 +600,23 @@ def personalized_targets(
             f"ms_evidence_scope must be one of {sorted(VALID_EVIDENCE_SCOPES)}, "
             f"got {ms_evidence_scope!r}"
         )
+
+    run_near_self_screen = bool(screen_near_self_1mm or max_near_self_1mm_matches is not None)
+    if run_near_self_screen:
+        from .near_self import VALID_NEAR_SELF_BACKGROUNDS
+
+        if near_self_background not in VALID_NEAR_SELF_BACKGROUNDS:
+            raise ValueError(
+                f"near_self_background must be one of {VALID_NEAR_SELF_BACKGROUNDS}, "
+                f"got {near_self_background!r}"
+            )
+        if max_near_self_1mm_matches is not None and max_near_self_1mm_matches < 0:
+            raise ValueError(
+                f"max_near_self_1mm_matches must be >= 0, got {max_near_self_1mm_matches!r}"
+            )
+    output_columns = list(_OUTPUT_COLUMNS) + (
+        list(_NEAR_SELF_OUTPUT_COLUMNS) if run_near_self_screen else []
+    )
 
     norm_patient_sex: str | None = None
     norm_sex_eligibility = "all_adult"
@@ -1080,13 +1131,18 @@ def personalized_targets(
 
     if not frames:
         return _with_selection_provenance(
-            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
+            pd.DataFrame(columns=output_columns),
             resolved_ensembl_release,
             species_context=ctx,
             allele_capabilities=allele_caps,
             ms_evidence_scope=ms_evidence_scope,
             patient_sex=norm_patient_sex,
             sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
+            near_self_meta=(
+                {"near_self_1mm_screened": True, "near_self_background": near_self_background}
+                if run_near_self_screen
+                else None
+            ),
         )
 
     combined = pd.concat(frames, ignore_index=True)
@@ -1144,13 +1200,18 @@ def personalized_targets(
 
     if combined.empty:
         return _with_selection_provenance(
-            pd.DataFrame(columns=list(_OUTPUT_COLUMNS)),
+            pd.DataFrame(columns=output_columns),
             resolved_ensembl_release,
             species_context=ctx,
             allele_capabilities=allele_caps,
             ms_evidence_scope=ms_evidence_scope,
             patient_sex=norm_patient_sex,
             sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
+            near_self_meta=(
+                {"near_self_1mm_screened": True, "near_self_background": near_self_background}
+                if run_near_self_screen
+                else None
+            ),
         )
 
     # ── Topiary presentation scoring ────────────────────────────────────
@@ -1180,13 +1241,45 @@ def personalized_targets(
             if col not in combined.columns:
                 combined[col] = pd.NA
 
-    # ── Tier assignment & detectability caveats ─────────────────────────
+    # ── Tier assignment, detectability & OncoRef safety caveats ─────────
     from .ms_evidence import annotate_ms_detectability
+    from .near_self import annotate_cta_safety_caveats
 
     combined = _assign_tiers(combined)
     combined = annotate_ms_detectability(combined)
+    combined = annotate_cta_safety_caveats(
+        combined,
+        source_col="source",
+        peptide_col="peptide",
+        category_col="category",
+        species=ctx.host_species,
+    )
     if drop_weak_tier:
         combined = combined[combined["tier"] < 4].reset_index(drop=True)
+
+    near_self_meta: dict[str, object] | None = None
+    if run_near_self_screen:
+        from .near_self import annotate_near_self_1mm
+
+        _report(
+            f"Screening {combined['peptide'].nunique()} peptide(s) for 1-aa near-self matches "
+            f"against OncoRef {near_self_background} proteome..."
+        )
+        combined = annotate_near_self_1mm(
+            combined,
+            peptide_col="peptide",
+            ensembl_release=resolved_ensembl_release,
+            species=ctx.host_species,
+            background=near_self_background,
+            background_proteins=near_self_background_proteins,
+            max_matches=max_near_self_1mm_matches,
+        )
+        near_self_meta = {
+            "near_self_1mm_screened": True,
+            "near_self_background": near_self_background,
+            "near_self_max_matches": max_near_self_1mm_matches,
+            "near_self_contract_id": combined.attrs.get("near_self_contract_id"),
+        }
 
     # ── Deterministic sort ──────────────────────────────────────────────
     sort_cols = ["tier", "ms_hit_count", "presentation_percentile", "peptide", "best_allele"]
@@ -1197,18 +1290,19 @@ def personalized_targets(
         available, ascending=ascending, na_position="last", kind="mergesort"
     ).reset_index(drop=True)
 
-    for col in _OUTPUT_COLUMNS:
+    for col in output_columns:
         if col not in combined.columns:
             combined[col] = pd.NA
     _report(f"Done: {len(combined)} target row(s).")
     return _with_selection_provenance(
-        combined[list(_OUTPUT_COLUMNS)],
+        combined[output_columns],
         resolved_ensembl_release,
         species_context=ctx,
         allele_capabilities=allele_caps,
         ms_evidence_scope=ms_evidence_scope,
         patient_sex=norm_patient_sex,
         sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
+        near_self_meta=near_self_meta,
     )
 
 
@@ -1221,6 +1315,7 @@ def _with_selection_provenance(
     ms_evidence_scope: str = "all",
     patient_sex: str | None = None,
     sex_eligibility: str | None = None,
+    near_self_meta: dict[str, object] | None = None,
 ):
     from .cta_selection import selection_provenance
 
@@ -1236,6 +1331,8 @@ def _with_selection_provenance(
     if patient_sex is not None:
         frame.attrs["patient_sex"] = patient_sex
         frame.attrs["sex_eligibility"] = sex_eligibility
+    if near_self_meta:
+        frame.attrs.update(near_self_meta)
     return frame
 
 
