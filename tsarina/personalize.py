@@ -473,6 +473,12 @@ def personalized_targets(
     mhc_species: str | None = None,
     patient_sex: str | None = None,
     sex_eligibility: str = "all_adult",
+    host_context: object | None = None,
+    pregnant: bool = False,
+    lactating: bool = False,
+    protect_tissues: Iterable[str] = (),
+    accept_loss_tissues: Iterable[str] = (),
+    absent_tissues: Iterable[str] = (),
     fusions: Iterable[dict] | pd.DataFrame | None = None,
     require_host_exclusive_fusions: bool = True,
     ms_evidence_scope: str = "all",
@@ -631,6 +637,47 @@ def personalized_targets(
         ctx_kwargs["ensembl_release"] = ensembl_release
     ctx = resolve_species_context(host_species, **ctx_kwargs)
     resolved_ensembl_release = int(ctx.ensembl_release) if ctx.ensembl_release is not None else 112
+
+    has_host_flags = any(
+        (
+            bool(pregnant),
+            bool(lactating),
+            bool(protect_tissues),
+            bool(accept_loss_tissues),
+            bool(absent_tissues),
+        )
+    )
+    if host_context is not None and has_host_flags:
+        raise ValueError(
+            "Pass either host_context or individual host flags "
+            "(pregnant/lactating/protect_tissues/accept_loss_tissues/absent_tissues), not both."
+        )
+    resolved_host = None
+    if host_context is not None:
+        from oncoref.host_context import HostContext as _HostContext
+        from oncoref.species import resolve_species as _resolve_oncoref_species
+
+        if not isinstance(host_context, _HostContext):
+            raise ValueError("host_context must be an oncoref.host_context.HostContext instance")
+        expected_species = _resolve_oncoref_species(ctx.host_species).name
+        if host_context.species != expected_species:
+            raise ValueError(
+                f"host_context.species={host_context.species!r} does not match "
+                f"host_species={expected_species!r}"
+            )
+        resolved_host = host_context
+    elif has_host_flags:
+        from .cta_selection import build_host_context
+
+        resolved_host = build_host_context(
+            patient_sex=norm_patient_sex,
+            pregnant=pregnant,
+            lactating=lactating,
+            protect_tissues=protect_tissues,
+            accept_loss_tissues=accept_loss_tissues,
+            absent_tissues=absent_tissues,
+            species=ctx.host_species,
+        )
     if hla_alleles:
         validate_alleles_for_species(hla_alleles, ctx.mhc_species)
     allele_caps = allele_prediction_capability(
@@ -707,6 +754,26 @@ def personalized_targets(
             for gid in members
             if gid
         }
+        host_passed_entity_ids: set[str] | None = None
+        host_fail_by_key: dict[str, str] = {}
+        if resolved_host is not None and resolved_host.protected:
+            host_assessed = CTA_selection(
+                category=("CTA", "Reproductive Antigen only"),
+                species=ctx.host_species,
+                host_context=resolved_host,
+            )
+            host_passed_entity_ids = set(
+                host_assessed.loc[host_assessed["pass_host"].astype(bool), "entity_id"]
+            )
+            for row in host_assessed.loc[~host_assessed["pass_host"].astype(bool)].itertuples(
+                index=False
+            ):
+                label = str(getattr(row, "label", "") or "").strip()
+                status = str(getattr(row, "host_status", "excluded") or "excluded")
+                reasons = str(getattr(row, "host_reasons", "") or "").strip()
+                msg = f"HostContext {status}" + (f" ({reasons})" if reasons else "")
+                if label:
+                    host_fail_by_key[label.casefold()] = msg
         eligible_by_key: dict[str, tuple[str, tuple[str, ...]]] = {}
         sex_eligible_entity_ids: set[str] | None = None
         if norm_patient_sex is not None:
@@ -718,12 +785,19 @@ def personalized_targets(
             )
             sex_eligible_entity_ids = set(sex_df["entity_id"])
             for row in sex_df.itertuples(index=False):
+                if (
+                    host_passed_entity_ids is not None
+                    and row.entity_id not in host_passed_entity_ids
+                ):
+                    continue
                 label = str(getattr(row, "label", "") or "").strip()
                 members = getattr(row, "gene_ids", ()) or ()
                 if label and members:
                     eligible_by_key[label.casefold()] = (label, tuple(str(g) for g in members))
         for row in species_ctas.itertuples(index=False):
             if sex_eligible_entity_ids is not None and row.entity_id not in sex_eligible_entity_ids:
+                continue
+            if host_passed_entity_ids is not None and row.entity_id not in host_passed_entity_ids:
                 continue
             label = str(getattr(row, "label", "") or "").strip()
             members = getattr(row, "gene_ids", ()) or ()
@@ -735,17 +809,21 @@ def personalized_targets(
         id_to_label: dict[str, str] = {}
         for gene, raw_tpm in cta_expression.items():
             tpm = float("nan") if raw_tpm is None else float(raw_tpm)
-            hit = eligible_by_key.get(str(gene).strip().casefold())
+            gene_key = str(gene).strip().casefold()
+            hit = eligible_by_key.get(gene_key)
             if hit is None:
-                reason = (
-                    f"not in OncoRef {ctx.host_species} CTA"
-                    + (
-                        f" / {norm_patient_sex} ({norm_sex_eligibility}) eligible"
-                        if norm_patient_sex is not None
-                        else ""
+                if gene_key in host_fail_by_key:
+                    reason = host_fail_by_key[gene_key]
+                else:
+                    reason = (
+                        f"not in OncoRef {ctx.host_species} CTA"
+                        + (
+                            f" / {norm_patient_sex} ({norm_sex_eligibility}) eligible"
+                            if norm_patient_sex is not None
+                            else ""
+                        )
+                        + " set"
                     )
-                    + " set"
-                )
                 warnings.warn(f"--cta {gene} dropped: {reason}", UserWarning, stacklevel=2)
                 continue
             if not pd.isna(tpm) and tpm < min_cta_tpm:
@@ -851,6 +929,40 @@ def personalized_targets(
                     f"(OncoRef sex_restriction_class: {sex_cls})"
                 )
             valid_ctas &= sex_eligible
+
+        if resolved_host is not None and resolved_host.protected:
+            from .cta_selection import CTA_selection, selection_gene_table
+
+            host_assessed = CTA_selection(
+                category=("CTA", "Reproductive Antigen only"),
+                species="human",
+                host_context=resolved_host,
+            )
+            passed_entities = set(
+                host_assessed.loc[host_assessed["pass_host"].astype(bool), "entity_id"]
+            )
+            fail_by_entity: dict[str, str] = {}
+            for row in host_assessed.loc[~host_assessed["pass_host"].astype(bool)].itertuples(
+                index=False
+            ):
+                status = str(getattr(row, "host_status", "excluded") or "excluded")
+                reasons = str(getattr(row, "host_reasons", "") or "").strip()
+                fail_by_entity[str(row.entity_id)] = f"HostContext {status}" + (
+                    f" ({reasons})" if reasons else ""
+                )
+            sel_genes = selection_gene_table()
+            host_passed_symbols = set(
+                sel_genes.loc[sel_genes["selection_entity_id"].isin(passed_entities), "Symbol"]
+            )
+            host_fail_by_symbol = {
+                str(row.Symbol): fail_by_entity[str(row.selection_entity_id)]
+                for row in sel_genes.itertuples(index=False)
+                if str(row.selection_entity_id) in fail_by_entity
+            }
+            for gene in set(cta_expression) & ((valid_ctas | sex_repro_ctas) - host_passed_symbols):
+                drop_reasons[gene] = host_fail_by_symbol.get(gene, "excluded by HostContext")
+            valid_ctas &= host_passed_symbols
+            sex_repro_ctas &= host_passed_symbols
 
         outside_panel = set(cta_expression) - strict_ctas - clinical_target_ctas - sex_repro_ctas
         if outside_panel:
@@ -1138,6 +1250,7 @@ def personalized_targets(
             ms_evidence_scope=ms_evidence_scope,
             patient_sex=norm_patient_sex,
             sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
+            host_context=resolved_host,
             near_self_meta=(
                 {"near_self_1mm_screened": True, "near_self_background": near_self_background}
                 if run_near_self_screen
@@ -1207,6 +1320,7 @@ def personalized_targets(
             ms_evidence_scope=ms_evidence_scope,
             patient_sex=norm_patient_sex,
             sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
+            host_context=resolved_host,
             near_self_meta=(
                 {"near_self_1mm_screened": True, "near_self_background": near_self_background}
                 if run_near_self_screen
@@ -1302,6 +1416,7 @@ def personalized_targets(
         ms_evidence_scope=ms_evidence_scope,
         patient_sex=norm_patient_sex,
         sex_eligibility=norm_sex_eligibility if norm_patient_sex is not None else None,
+        host_context=resolved_host,
         near_self_meta=near_self_meta,
     )
 
@@ -1315,6 +1430,7 @@ def _with_selection_provenance(
     ms_evidence_scope: str = "all",
     patient_sex: str | None = None,
     sex_eligibility: str | None = None,
+    host_context=None,
     near_self_meta: dict[str, object] | None = None,
 ):
     from .cta_selection import selection_provenance
@@ -1331,6 +1447,8 @@ def _with_selection_provenance(
     if patient_sex is not None:
         frame.attrs["patient_sex"] = patient_sex
         frame.attrs["sex_eligibility"] = sex_eligibility
+    if host_context is not None:
+        frame.attrs["host_context"] = host_context.as_dict()
     if near_self_meta:
         frame.attrs.update(near_self_meta)
     return frame

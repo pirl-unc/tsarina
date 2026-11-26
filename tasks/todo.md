@@ -1,3 +1,15 @@
+# Composable OncoRef HostContext & 4-way --sex-code filtering across human, mouse, and dog (1.58.0) (2026-11-26)
+
+Fixes #260.
+
+- [x] Add `SEX_RESTRICTION_CODES`, `HostContext` re-export, `build_host_context()`, and 4-way `sex_code` + `host_context`/`filter_host` support on `CTA_selection()`, `CTA_sex_restricted_antigens()`, `CTA_sex_eligible_gene_ids()`, and `CTA_sex_eligible_gene_names()` across human, mouse, and dog (`tsarina/cta_selection.py`).
+- [x] Wire composable `HostContext` (`host_context`, `pregnant`, `lactating`, `protect_tissues`, `accept_loss_tissues`, `absent_tissues`) into `personalized_targets()` (human + evaluated mouse/dog, recording `df.attrs["host_context"]` provenance) and CLI flags (`--pregnant`, `--lactating`, `--protect-tissue`, `--allow-tissue`, `--absent-tissue`) on `tsarina personalize` and `tsarina catalog ctas`.
+- [x] Add `--sex-code` filtering (`CTA-M`/`F`/`MF`/`P`, `RA-*-only`, case-insensitive & comma-separated) to `tsarina catalog ctas`, avoiding default `category="CTA"` shadowing when `RA-*-only` codes are requested.
+- [x] Export `HostContext`, `SEX_RESTRICTION_CODES`, and `build_host_context` from top-level `tsarina`.
+- [x] Add unit tests in `tests/test_host_context_and_sex_codes.py`, update `docs/personalized-targets.md` and `docs/ecosystem-and-api.md`, and bump `tsarina/version.py` to `1.58.0`.
+- [x] Pass `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh` (871 passed, 7 skipped, 1 warning, 83% coverage), and `mkdocs build --strict`.
+- [ ] Open PR (`Fixes #260`), wait for CI, squash-merge, deploy `1.58.0` to PyPI from clean `main`, and verify SHA256 digests.
+
 # OncoRef 1.52+ CTA safety caveats & 1-aa near-self screening in personalize & panel (1.57.0) (2026-11-26)
 
 Fixes #259.

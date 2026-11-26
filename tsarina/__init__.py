@@ -69,11 +69,14 @@ if TYPE_CHECKING:
     )
     from .cta_selection import (
         CTA_TIERS,
+        SEX_RESTRICTION_CODES,
         CTA_selection,
         CTA_selection_coverage,
         CTA_sex_eligible_gene_ids,
         CTA_sex_eligible_gene_names,
         CTA_sex_restricted_antigens,
+        HostContext,
+        build_host_context,
     )
     from .evidence import CTA_detailed_evidence, CTA_evidence
     from .evidence_store import evidence_store_provenance, load_evidence_store_ms_hits
@@ -187,6 +190,7 @@ _LAZY = {
     "EXTENDED_REPRODUCTIVE_TISSUES": (".tissues", "EXTENDED_REPRODUCTIVE_TISSUES"),
     "HOTSPOT_MUTATIONS": (".mutations", "HOTSPOT_MUTATIONS"),
     "HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS": (".tissues", "HPA_ADAPTIVE_PROTEIN_RNA_THRESHOLDS"),
+    "HostContext": (".cta_selection", "HostContext"),
     "IEDB27_AB": (".alleles", "IEDB27_AB"),
     "MS_RESTRICTION_VALUES": (".tiers", "MS_RESTRICTION_VALUES"),
     "PANEL_DEFINITIONS": (".alleles", "PANEL_DEFINITIONS"),
@@ -194,6 +198,7 @@ _LAZY = {
     "RESTRICTION_VALUES": (".tiers", "RESTRICTION_VALUES"),
     "RNA_RESTRICTION_LEVELS": (".tiers", "RNA_RESTRICTION_LEVELS"),
     "SAFETY_TISSUE_GROUPS": (".tiers", "SAFETY_TISSUE_GROUPS"),
+    "SEX_RESTRICTION_CODES": (".cta_selection", "SEX_RESTRICTION_CODES"),
     "SpeciesContext": (".species", "SpeciesContext"),
     "VITAL_TISSUE_MS_NAMES": (".tiers", "VITAL_TISSUE_MS_NAMES"),
     "VaccineConfig": (".vaccine_construct", "VaccineConfig"),
@@ -202,6 +207,7 @@ _LAZY = {
     "annotate_ms_detectability": (".ms_evidence", "annotate_ms_detectability"),
     "annotate_near_self_1mm": (".near_self", "annotate_near_self_1mm"),
     "attribute_ms_evidence": (".ms_attribution", "attribute_ms_evidence"),
+    "build_host_context": (".cta_selection", "build_host_context"),
     "cancer_fusions": (".fusions", "cancer_fusions"),
     "cta_cancer_expression_features": (".cancer_expression", "cta_cancer_expression_features"),
     "cta_healthy_tissue_ms_hits": (".ms_evidence", "cta_healthy_tissue_ms_hits"),
@@ -261,6 +267,7 @@ __all__ = [
     "RESTRICTION_VALUES",
     "RNA_RESTRICTION_LEVELS",
     "SAFETY_TISSUE_GROUPS",
+    "SEX_RESTRICTION_CODES",
     "VITAL_TISSUE_MS_NAMES",
     "CTA_by_axes",
     "CTA_by_tier",
@@ -296,6 +303,7 @@ __all__ = [
     "CTA_testis_restricted_gene_names",
     "CTA_unfiltered_gene_ids",
     "CTA_unfiltered_gene_names",
+    "HostContext",
     "SpeciesContext",
     "VaccineConfig",
     "__version__",
@@ -304,6 +312,7 @@ __all__ = [
     "annotate_ms_detectability",
     "annotate_near_self_1mm",
     "attribute_ms_evidence",
+    "build_host_context",
     "cancer_fusions",
     "cta_cancer_expression_features",
     "cta_healthy_tissue_ms_hits",
