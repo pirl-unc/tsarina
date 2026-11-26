@@ -1,10 +1,23 @@
+# Adopt OncoRef 1.52.0: 4-way sex restriction, clinical clearance, 1-mm near-self metrics, MANE/canonical transcript alignment, and evaluated canine catalog (1.55.0) (2026-11-26)
+
+- [x] Bump `pyproject.toml` dependency floor to `oncoref>=1.52.0` and bump `tsarina/version.py` to `1.55.0`.
+- [x] Project OncoRef 1.52.0 target-selection evidence columns into `CTA_selection()` / `CTA_evidence()` (`selection_sex_restriction_class`, `selection_sex_restriction_code`, `selection_rare_cell_status`, `selection_nuclear_rna_caution`, `selection_clinical_clearance_scope`, `selection_clinical_cleared_organs`, `selection_clinical_cleared_epitopes`, `selection_clinical_hla_alleles`, `selection_clinical_cleared_transcripts`, `selection_clinical_unverified_isoforms`, `selection_exact_unique_9mers`, `selection_safe_2mm_9mers`, `selection_unsafe_near_self_1mm_pct`) and enrich `evidence_flags` with `nuclear_caution:*` and `clinical_clearance:*`.
+- [x] Prefer OncoRef `representative_transcripts` (when present in the requested Ensembl release, e.g. `CTAG2` LAGE-1a `ENST00000369585` carrying `SLLMWITQC` over longer unverified LAGE-1b `ENST00000247306`) in `tsarina.peptides.gene_peptides()`, falling back to longest coding transcript.
+- [x] Resolve `dog` default Ensembl release (`98`, CanFam3.1) from `oncoref.canine.references.registered_references()` in `tsarina/species.py` (matching `mouse -> 115`), unlocking native canine CTA & sex-restricted workflows across `CTA_selection`, `CTA_sex_restricted_antigens`, `personalized_targets`, and `tsarina catalog ctas --species dog`.
+- [x] Surface `sex_restriction_code`, `unsafe_near_self_1mm_pct`, and `clinical_cleared_epitopes` in `tsarina catalog ctas` (`tsarina/cli_catalog.py`) and update CLI help text for evaluated human/mouse/dog catalogs.
+- [x] Regenerate `tsarina/data/gene-ms-safety-evidence.csv` and `.meta.json` against `oncoref 1.52.0` (`oncoref.target-selection.2026-11-26.1`) using read-only `~/.hitlist` observations so `tsarina status` reports `MS overlay: current` and `test_ms_overlay_was_computed_for_the_installed_selection` passes.
+- [x] Update affected tests and add regression tests for OncoRef 1.52.0 adjudications (`CTAG2`, `PLAC1`, `DUX4`, `NUTM1`, `PRM1`, `LALBA`, `PRM2`, `SP7`), `CTAG2` LAGE-1a transcript selection, near-self 1-mm + clinical clearance columns, and evaluated canine CTA + sex-restricted workflows.
+- [x] Update `README.md`, `docs/index.md`, `docs/ecosystem-and-api.md`, `docs/curation.md`, and `docs/personalized-targets.md` for `oncoref>=1.52.0`, 4-way `CTA-M`/`CTA-F`/`CTA-MF`/`CTA-P` + `RA-*-only`, evaluated canine CTAs, and `CTAG2` clinical clearance.
+- [x] Verify `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh` (846 passed, 7 skipped, 82% coverage), and `mkdocs build --strict`.
+- [ ] Confirm `oncoref>=1.52.0` is live on PyPI, open PR, wait for CI, squash-merge, deploy `1.53.0` to PyPI from clean `main`, and verify SHA256 digests.
+
 # Website navigation, ecosystem map, and up-to-date docs/README (1.52.1) (2026-11-23)
 
 - [x] Add missing core guides (`Ecosystem & Python API`, `Personalized targets`, `CTA panel design`, `Data and evidence`) to `mkdocs.yml` `nav:`.
 - [x] Add `docs/ecosystem-and-api.md` documenting how `tsarina` connects to `oncoref`, `hitlist`, `pyensembl`, `orfdata`, `mhcgnomes`, and predictors (`mhcflurry`/`mhctools`/`topiary`/`pepsickle`/`dnachisel`), plus a grouped Python API map and CLI reference.
 - [x] Update `README.md`, `docs/index.md`, `docs/data-and-evidence.md`, and `docs/personalized-targets.md` for accurate dependency floors (`oncoref>=1.49.0`, `hitlist>=2.12.0`), auto-fetching `iedb`/`cedar`, live Hitlist `src_healthy_*` flags, Cys MS-detectability caveats, `status`/`catalog`, `--sex`, fusions, `orfdata` viral subsets, and evaluated mouse CTAs.
 - [x] Bump version to `1.52.1`.
-- [ ] Verify `mkdocs build --strict`, `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.52.1` to PyPI.
+- [x] Verify `mkdocs build --strict`, `./format.sh`, `./lint.sh`, full `./test.sh`, PR CI, squash-merge, and deploy `1.52.1` to PyPI.
 
 # CLI help grouping & structured Python REPL API map (1.52.0) (2026-11-23)
 

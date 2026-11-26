@@ -48,15 +48,20 @@ def test_foundational_cta_helpers_are_direct_oncoref_aliases():
 
 
 def test_rebuilt_target_selection_governs_current_policy_with_historical_evidence_retained():
-    # Under OncoRef's rebuilt target_selection policy, MAGEC2 is admitted as CTA
-    # while CTAG2 and GAGE10 are held in Other:Review pending review.
+    # Under OncoRef >= 1.52.0 target_selection policy, MAGEC2 and clinically
+    # cleared CTAG2 (LAGE-1a SLLMWITQC) are admitted as CTA while GAGE10 stays
+    # held in Other:Review pending review.
     assert "MAGEC2" in CTA_gene_names()
-    assert "CTAG2" not in CTA_gene_names()
-    assert "CTAG2" not in CTA_excluded_gene_names()
-    assert (
-        CTA_evidence().set_index("Symbol").loc["CTAG2", "selection_classification"]
-        == "Other:Review"
-    )
+    assert "CTAG2" in CTA_gene_names()
+    assert "GAGE10" not in CTA_gene_names()
+    assert "GAGE10" not in CTA_excluded_gene_names()
+    ev = CTA_evidence().set_index("Symbol")
+    assert ev.loc["GAGE10", "selection_classification"] == "Other:Review"
+    assert ev.loc["CTAG2", "selection_classification"] == "CTA"
+    assert ev.loc["CTAG2", "selection_clinical_clearance_scope"] == "epitope"
+    assert "SLLMWITQC" in ev.loc["CTAG2", "selection_clinical_cleared_epitopes"]
+    assert "ENST00000369585" in ev.loc["CTAG2", "selection_clinical_cleared_transcripts"]
+    assert "ENST00000247306" in ev.loc["CTAG2", "selection_clinical_unverified_isoforms"]
     assert CTA_hpa_evidence is oncoref_cta.cta_evidence
     assert set(CTA_selection()["entity_id"]) == set(oncoref_target_selection.results()["entity_id"])
     assert set(CTA_selection()["policy_id"].unique()) == {oncoref_target_selection.POLICY_ID}

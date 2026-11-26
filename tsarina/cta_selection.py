@@ -81,6 +81,8 @@ def _row_evidence_flags(row) -> tuple[str, ...]:
     for prefix, attr in (
         ("cta_tier", "cta_tier"),
         ("rare_cell", "rare_cell_status"),
+        ("nuclear_caution", "nuclear_rna_caution"),
+        ("clinical_clearance", "clinical_clearance_scope"),
         ("literature", "literature_effect"),
         ("expression_bounds", "expression_bounds_status"),
     ):
@@ -237,7 +239,7 @@ def CTA_sex_restricted_antigens(
 ) -> pd.DataFrame:
     """Return OncoRef's sex-restricted antigen catalog, optionally filtered for a patient sex.
 
-    Works for any OncoRef-evaluated species (``"human"``, ``"mouse"``).
+    Works for any OncoRef-evaluated species (``"human"``, ``"mouse"``, ``"dog"``).
 
     Parameters
     ----------
@@ -246,13 +248,13 @@ def CTA_sex_restricted_antigens(
         reproductive/CTA entities with both female and male eligibility flags).
     eligibility
         ``"all_adult"`` (default — zero normal expression in any adult tissue of
-        that sex, e.g. male-restricted & embryo/placenta-only for female patients)
-        or ``"sex_organ_only"`` (permits non-vital sex-organ expression).
+        that sex, e.g. male-restricted & pregnancy/peripartum-only for female
+        patients) or ``"sex_organ_only"`` (permits non-vital sex-organ expression).
     include_reproductive_only
         Include ``Reproductive Antigen only`` entities alongside ``CTA`` entities
         (default ``True``).
     species
-        Species name resolved via OncoRef (default ``"human"``; also ``"mouse"``).
+        Species name resolved via OncoRef (default ``"human"``; also ``"mouse"``, ``"dog"``).
     """
     elig = _normalize_sex_eligibility(eligibility)
     species_key = str(species).strip().lower()
@@ -346,6 +348,18 @@ def _selection_gene_table() -> pd.DataFrame:
     rows = []
     for decision in _human_target_selection().to_dict("records"):
         identities = {item["gene_id"]: item for item in decision["gene_identities"]}
+        cleared_organs = _parse_json_tuple(decision.get("clinical_cleared_organs"))
+        cleared_epitopes = _parse_json_tuple(decision.get("clinical_cleared_epitopes"))
+        cleared_alleles = _parse_json_tuple(decision.get("clinical_hla_alleles"))
+        cleared_transcripts = tuple(
+            t.split(".")[0] for t in _parse_json_tuple(decision.get("clinical_cleared_transcripts"))
+        )
+        unverified_isoforms = tuple(
+            t.split(".")[0] for t in _parse_json_tuple(decision.get("clinical_unverified_isoforms"))
+        )
+        rep_transcripts = tuple(
+            t.split(".")[0] for t in _parse_json_tuple(decision.get("representative_transcripts"))
+        )
         for gene_id in decision["gene_ids"]:
             identity = identities[gene_id]
             rows.append(
@@ -376,6 +390,28 @@ def _selection_gene_table() -> pd.DataFrame:
                             "source_snapshot_id",
                         )
                     },
+                    "selection_sex_restriction_class": _clean_text(
+                        decision.get("sex_restriction_class")
+                    ),
+                    "selection_sex_restriction_code": _clean_text(
+                        decision.get("sex_restriction_code")
+                    ),
+                    "selection_rare_cell_status": _clean_text(decision.get("rare_cell_status")),
+                    "selection_nuclear_rna_caution": _clean_text(
+                        decision.get("nuclear_rna_caution")
+                    ),
+                    "selection_clinical_clearance_scope": _clean_text(
+                        decision.get("clinical_clearance_scope")
+                    ),
+                    "selection_clinical_cleared_organs": cleared_organs,
+                    "selection_clinical_cleared_epitopes": cleared_epitopes,
+                    "selection_clinical_hla_alleles": cleared_alleles,
+                    "selection_clinical_cleared_transcripts": cleared_transcripts,
+                    "selection_clinical_unverified_isoforms": unverified_isoforms,
+                    "selection_representative_transcripts": rep_transcripts,
+                    "selection_exact_unique_9mers": decision.get("exact_unique_9mers"),
+                    "selection_safe_2mm_9mers": decision.get("safe_2mm_9mers"),
+                    "selection_unsafe_near_self_1mm_pct": decision.get("unsafe_near_self_1mm_pct"),
                 }
             )
     frame = pd.DataFrame(rows)
@@ -389,6 +425,30 @@ def _selection_gene_table() -> pd.DataFrame:
     ):
         frame[col] = frame[col].fillna(False).astype(bool)
     return frame
+
+
+@lru_cache(maxsize=1)
+def selection_representative_transcripts() -> dict[str, tuple[str, ...]]:
+    """Map human Ensembl gene ID to unversioned OncoRef representative transcripts.
+
+    Clinically cleared transcripts (e.g. ``CTAG2`` LAGE-1a ``ENST00000369585``
+    carrying ``SLLMWITQC``) take precedence ahead of general representative
+    transcripts so downstream peptide enumeration avoids unverified longer
+    isoforms (such as ``CTAG2`` LAGE-1b ``ENST00000247306``).
+    """
+    frame = _selection_gene_table()
+    mapping: dict[str, tuple[str, ...]] = {}
+    for row in frame.itertuples(index=False):
+        preferred: list[str] = []
+        for tid in getattr(row, "selection_clinical_cleared_transcripts", ()) or ():
+            if tid and tid not in preferred:
+                preferred.append(tid)
+        for tid in getattr(row, "selection_representative_transcripts", ()) or ():
+            if tid and tid not in preferred:
+                preferred.append(tid)
+        if preferred:
+            mapping[row.Ensembl_Gene_ID] = tuple(preferred)
+    return mapping
 
 
 def selection_gene_table() -> pd.DataFrame:

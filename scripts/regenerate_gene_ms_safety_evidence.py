@@ -44,6 +44,7 @@ def compute_overlay(
     previous: pd.DataFrame | None = None,
     ensembl_release: int = 112,
     evidence_package: str | Path | None = None,
+    auto_build: bool = True,
 ) -> tuple[pd.DataFrame, dict]:
     """Return the overlay rows and the counts describing how they were derived."""
     from tsarina.gene_sets import CTA_gene_ids, CTA_target_candidate_gene_ids
@@ -61,6 +62,7 @@ def compute_overlay(
         "mhc_class": "I",
         "classify_source": True,
         "drop_binding_assays": True,
+        "auto_build": auto_build,
     }
     if evidence_package is not None:
         hit_kwargs["evidence_package"] = evidence_package
@@ -163,6 +165,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional verified Hitlist 2.x EvidenceStore package directory.",
     )
+    parser.add_argument(
+        "--no-auto-build",
+        action="store_true",
+        help="Read the existing Hitlist observations parquet strictly read-only without rebuilding.",
+    )
     args = parser.parse_args(argv)
 
     overlay_path = args.output_dir / OVERLAY_NAME
@@ -175,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
         previous,
         ensembl_release=args.ensembl_release,
         evidence_package=args.evidence_package,
+        auto_build=not args.no_auto_build,
     )
     meta = build_meta(counts, args.ensembl_release, evidence_package=args.evidence_package)
 

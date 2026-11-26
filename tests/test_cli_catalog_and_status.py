@@ -65,13 +65,21 @@ def test_catalog_overview_and_subcommands(tmp_path):
     cta_data = json.loads(ctas.stdout)
     assert cta_data["shown"] == 5
     assert all(row["tier"] == "core" for row in cta_data["ctas"])
+    assert all("sex_restriction_code" in row for row in cta_data["ctas"])
 
-    mouse = _run("catalog", "ctas", "--species", "mouse", "--json", cache_dir=tmp_path)
-    assert mouse.returncode == 0, mouse.stderr
-    mouse_data = json.loads(mouse.stdout)
-    assert mouse_data["total"] >= 1
-    assert mouse_data["coverage"]["selection_status"] == "evaluated"
-    assert all(row["category"] == "CTA" for row in mouse_data["ctas"])
+    all_human = _run("catalog", "ctas", "--top", "500", "--json", cache_dir=tmp_path)
+    assert all_human.returncode == 0, all_human.stderr
+    human_by_label = {row["label"]: row for row in json.loads(all_human.stdout)["ctas"]}
+    assert "SLLMWITQC" in human_by_label["CTAG2"].get("clinical_cleared_epitopes", [])
+    assert float(human_by_label["MAGEA6"]["unsafe_near_self_1mm_pct"]) > 50.0
+
+    for sp in ("mouse", "dog"):
+        sp_res = _run("catalog", "ctas", "--species", sp, "--json", cache_dir=tmp_path)
+        assert sp_res.returncode == 0, sp_res.stderr
+        sp_data = json.loads(sp_res.stdout)
+        assert sp_data["total"] >= 1
+        assert sp_data["coverage"]["selection_status"] == "evaluated"
+        assert all(row["category"] == "CTA" for row in sp_data["ctas"])
 
     panels = _run("catalog", "panels", cache_dir=tmp_path)
     assert panels.returncode == 0, panels.stderr

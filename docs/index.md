@@ -2,7 +2,7 @@
 
 Tsarina ranks peptide-MHC candidates from cancer-testis antigens (CTAs),
 curated cancer fusions, oncogenic viruses, and recurrent hotspot mutations. It
-supports single-patient target selection (human and mouse), population CTA
+supports single-patient target selection (human, mouse, and dog), population CTA
 panels, public MS safety lookup, and shared CTA vaccine constructs.
 
 ## Workflows
@@ -94,14 +94,16 @@ classification, preflight checks, and the evidence model.
 
 ## Target types
 
-### Cancer-testis antigens (human and mouse)
+### Cancer-testis antigens (human, mouse, and dog)
 
 CTAs are normally restricted to reproductive tissues but reactivated in tumors.
-OncoRef supplies current protein-level selection decisions across human (327
-CTAs) and evaluated mouse (20 CTAs), biological sex-restricted eligibility
-(`--sex female|male`), and historical HPA-derived restriction axes. Tsarina
-adds tumor prevalence, public-MS safety evidence (including sex-specific
-reproductive flags), peptide enumeration, and MHC scoring.
+OncoRef supplies current protein-level selection decisions across evaluated
+human (325 CTAs), mouse (12 CTAs), and dog (54 CTAs) catalogs, 4-way
+biological sex-restricted eligibility (`CTA-M`/`F`/`MF`/`P` and `RA-*-only`,
+`--sex female|male`), clinical organ/epitope clearance, 1-mm near-self metrics,
+and historical HPA-derived restriction axes. Tsarina adds tumor prevalence,
+public-MS safety evidence (including sex-specific reproductive flags),
+canonical-transcript peptide enumeration, and MHC scoring.
 
 ### Curated cancer fusions
 

@@ -88,20 +88,51 @@ def test_nonhuman_cta_selection_delegates_to_species_catalog():
     assert "ensembl115" in mouse_cov.get("registered_references", [])
 
     dog_cov = CTA_selection_coverage(species="dog")
-    assert dog_cov["selection_status"] == "pending_reconciled_panels"
+    assert dog_cov["selection_status"] == "evaluated"
+    assert dog_cov["counts"]["CTA"] >= 1
+    assert "CTA-M" in dog_cov.get("sex_restricted_counts", {})
 
     human_cov = CTA_selection_coverage(species="human")
     assert isinstance(human_cov, dict) and human_cov
 
 
-def test_oncoref_146_curation_reclassifications():
+def test_oncoref_152_curation_reclassifications_and_evidence_fields():
     ev = CTA_evidence().set_index("Symbol")
-    assert ev.loc["SP7", "selection_category"] == "Other"
-    assert ev.loc["SP7", "selection_subtype"] == "Unscreened tissue"
-    assert "SP7" not in CTA_cancer_antigen_gene_names()
-    for sym in ("RGSL1", "OOSP4B"):
+    for sym in ("SP7", "RGSL1", "OOSP4B"):
         assert ev.loc[sym, "selection_category"] == "Unsafe"
         assert sym not in CTA_gene_names()
+
+    # OncoRef 1.52.0 adjudications (#764-#769, #784-#787)
+    for sym in ("CTAG2", "PLAC1", "DUX4", "NUTM1", "PRM1", "LALBA"):
+        assert ev.loc[sym, "selection_category"] == "CTA", sym
+        assert sym in CTA_gene_names()
+    assert ev.loc["PLAC1", "selection_rare_cell_status"] == "nuclear_only"
+    assert ev.loc["PLAC1", "selection_nuclear_rna_caution"]
+    assert ev.loc["DUX4", "selection_rare_cell_status"] == "nuclear_only"
+    assert ev.loc["DUX4", "selection_sex_restriction_code"] == "CTA-P"
+    assert ev.loc["LALBA", "selection_cta_tier"] == "extended_only"
+    assert ev.loc["LALBA", "selection_sex_restriction_code"] == "CTA-F"
+    assert ev.loc["PRM2", "selection_category"] == "Reproductive Antigen only"
+    assert ev.loc["PRM2", "selection_sex_restriction_code"] == "RA-M-only"
+    assert float(ev.loc["MAGEA6", "selection_unsafe_near_self_1mm_pct"]) > 50.0
+
+
+def test_ctag2_gene_peptides_prefers_clinically_cleared_lage1a_isoform():
+    import pytest
+
+    try:
+        from pyensembl import EnsemblRelease
+
+        EnsemblRelease(112).gene_by_id("ENSG00000126890")
+    except Exception as exc:
+        pytest.skip(f"pyensembl release 112 data unavailable: {exc}")
+
+    from tsarina.peptides import gene_peptides
+
+    peps = gene_peptides(["ENSG00000126890"], ensembl_release=112, lengths=(9,))
+    assert not peps.empty
+    assert set(peps["transcript_id"]) == {"ENST00000369585"}
+    assert "SLLMWITQC" in set(peps["peptide"])
 
 
 def test_current_partition_retains_every_nonselected_category_in_background(monkeypatch):

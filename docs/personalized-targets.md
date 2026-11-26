@@ -18,8 +18,8 @@ whole-exome discovery of private neoantigens.
 
 | Input | Required | Format | Effect |
 |---|---|---|---|
-| MHC class I alleles | Yes | Allele names such as `HLA-A*02:01` (or `H-2-Kb` with `--species mouse`) | Defines the presentation-scoring space |
-| CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed current-policy CTAs (human or evaluated mouse) |
+| MHC class I alleles | Yes | Allele names such as `HLA-A*02:01` (`H-2-Kb` for `--species mouse`, `DLA-88*508:01` for `--species dog`) | Defines the presentation-scoring space |
+| CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed current-policy CTAs (evaluated human, mouse, or dog) |
 | Patient sex (`--sex`) | No | `female` or `male` (+ `--sex-eligibility all_adult\|sex_organ_only`) | Filters CTAs and admits sex-safe reproductive antigens (RNA + sex-aware MS safety) |
 | Mutations | No | Supported labels such as `KRAS G12D` | Adds host-exclusive mutation-spanning shared neoantigens |
 | Fusions (`--fusion` / `--fusions`) | No | Inline `LABEL:NTERM\|CTERM` or CSV/TSV/JSON breakpoints | Adds host-exclusive junction-spanning fusion neoantigens |
@@ -165,17 +165,20 @@ Env/Rec/Np9 antigens. Neither `--cta` nor the supported `--virus` inputs ingest
 HERV locus-expression results; see the
 [endogenous-retrovirus coverage limits](curation.md#coverage-limits-endogenous-retrovirus-antigens).
 
-Under OncoRef's rebuilt `target_selection` policy, CTAG2/LAGE-1 is classified
-`Other:Review` rather than `CTA`; when explicitly requested, it follows the
-flagged clinical-target compatibility path with visible decision rationale and
-historical HPA annotations rather than the default CTA exclusivity path.
+Under OncoRef >=1.52.0, `CTAG2` (LAGE-1) is admitted as a current `CTA`
+(`core`) via epitope-scoped clinical organ clearance (`SLLMWITQC` on LAGE-1a
+`ENST00000369585`, while LAGE-1b `ENST00000247306` remains flagged in
+`selection_clinical_unverified_isoforms`). Tsarina's `gene_peptides()` prefers
+OncoRef's representative / clinically cleared transcript when present in the
+requested Ensembl release so `CTAG2` enumerates LAGE-1a (`SLLMWITQC`).
 
-For an explicitly requested gene outside the current set, the existing
-historical clinical-target compatibility path remains available. Such a gene
-appears with `category="cta_flagged"` and the current decision rationale in
-`flag_reason`. Its peptides are generated directly from sequence without the
-CTA peptide-overlap screen; the flag states this limitation. A current CTA
-rejected by an optional confidence filter cannot re-enter through this path.
+For an explicitly requested gene outside the current set (such as `MAGEA3` or
+`GAGE10`), the existing historical clinical-target compatibility path remains
+available. Such a gene appears with `category="cta_flagged"` and the current
+decision rationale in `flag_reason`. Its peptides are generated directly from
+sequence without the CTA peptide-overlap screen; the flag states this
+limitation. A current CTA rejected by an optional confidence filter cannot
+re-enter through this path.
 
 The optional mTEC filter and minimum measured tumor TPM apply to both current
 and flagged targets. Missing tumor TPM means no measurement was supplied;

@@ -20,7 +20,6 @@ import subprocess
 import sys
 
 import pandas as pd
-import pytest
 
 import tsarina
 
@@ -35,51 +34,51 @@ def _run_cli(*args, cache_dir):
     )
 
 
-def test_mouse_sex_restricted_antigens_and_gene_helpers():
-    all_mouse = tsarina.CTA_sex_restricted_antigens(species="mouse")
-    assert len(all_mouse) >= 100
-    assert {"entity_id", "label", "gene_ids", "category", "sex_restriction_class"} <= set(
-        all_mouse.columns
-    )
+def test_mouse_and_dog_sex_restricted_antigens_and_gene_helpers():
+    for sp, prefix in (("mouse", "ENSMUSG"), ("dog", "ENSCAFG")):
+        all_rows = tsarina.CTA_sex_restricted_antigens(species=sp)
+        assert len(all_rows) >= 100
+        assert {
+            "entity_id",
+            "label",
+            "gene_ids",
+            "category",
+            "sex_restriction_class",
+            "sex_restriction_code",
+        } <= set(all_rows.columns)
 
-    fem_ids = tsarina.CTA_sex_eligible_gene_ids("female", species="mouse")
-    male_ids = tsarina.CTA_sex_eligible_gene_ids("male", species="mouse")
-    fem_names = tsarina.CTA_sex_eligible_gene_names("female", species="mouse")
-    male_names = tsarina.CTA_sex_eligible_gene_names("male", species="mouse")
+        fem_ids = tsarina.CTA_sex_eligible_gene_ids("female", species=sp)
+        male_ids = tsarina.CTA_sex_eligible_gene_ids("male", species=sp)
+        fem_names = tsarina.CTA_sex_eligible_gene_names("female", species=sp)
+        male_names = tsarina.CTA_sex_eligible_gene_names("male", species=sp)
 
-    assert fem_ids and all(g.startswith("ENSMUSG") for g in fem_ids)
-    assert male_ids and all(g.startswith("ENSMUSG") for g in male_ids)
-    assert fem_names and male_names
-    assert fem_names != male_names
-
-    # Unevaluated species (dog) raises a clear ValueError
-    with pytest.raises(ValueError, match="not yet available"):
-        tsarina.CTA_sex_restricted_antigens(sex="female", species="dog")
+        assert fem_ids and all(g.startswith(prefix) for g in fem_ids)
+        assert male_ids and all(g.startswith(prefix) for g in male_ids)
+        assert fem_names and male_names
+        assert fem_names != male_names
 
 
-def test_cli_catalog_ctas_mouse_sex_and_dog_rejection(tmp_path):
-    r_mouse = _run_cli(
-        "catalog",
-        "ctas",
-        "--species",
-        "mouse",
-        "--sex",
-        "female",
-        "--top",
-        "10",
-        "--json",
-        cache_dir=tmp_path,
-    )
-    assert r_mouse.returncode == 0, r_mouse.stderr
-    payload = json.loads(r_mouse.stdout)
-    assert payload["species"] == "mouse"
-    assert payload["sex"] == "female"
-    assert payload["total"] >= 1
-    assert all("sex_restriction_class" in row for row in payload["ctas"])
-
-    r_dog = _run_cli("catalog", "ctas", "--species", "dog", "--sex", "female", cache_dir=tmp_path)
-    assert r_dog.returncode == 1
-    assert "not yet available" in r_dog.stderr.lower()
+def test_cli_catalog_ctas_mouse_and_dog_sex(tmp_path):
+    for sp in ("mouse", "dog"):
+        r = _run_cli(
+            "catalog",
+            "ctas",
+            "--species",
+            sp,
+            "--sex",
+            "female",
+            "--top",
+            "10",
+            "--json",
+            cache_dir=tmp_path,
+        )
+        assert r.returncode == 0, r.stderr
+        payload = json.loads(r.stdout)
+        assert payload["species"] == sp
+        assert payload["sex"] == "female"
+        assert payload["total"] >= 1
+        assert all("sex_restriction_class" in row for row in payload["ctas"])
+        assert all("sex_restriction_code" in row for row in payload["ctas"])
 
 
 def test_personalized_targets_native_mouse_cta_and_sex_eligibility(monkeypatch):
