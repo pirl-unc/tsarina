@@ -248,6 +248,35 @@ def _configure_parser(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
             "affinity percentile rank. Requires the external NetMHCpan backend."
         ),
     )
+    ms_group.add_argument(
+        "--screen-near-self",
+        dest="screen_near_self_1mm",
+        action="store_true",
+        help=(
+            "Screen selected panel peptides for 1-aa Hamming-distance near-self matches "
+            "against OncoRef's Unsafe proteome (adds near_self_1mm_count, "
+            "near_self_1mm_genes, near_self_1mm_peptides in long output)."
+        ),
+    )
+    ms_group.add_argument(
+        "--max-near-self-1mm",
+        dest="max_near_self_1mm_matches",
+        type=int,
+        default=None,
+        help=(
+            "Drop selected panel peptides with more than N 1-aa near-self matches in "
+            "OncoRef's Unsafe proteome (e.g. 0). Implies --screen-near-self."
+        ),
+    )
+    ms_group.add_argument(
+        "--near-self-background",
+        choices=("Unsafe", "Unsafe|Other"),
+        default="Unsafe",
+        help=(
+            "OncoRef exclusion background for 1-aa near-self screening: "
+            "'Unsafe' (default) or conservative 'Unsafe|Other'."
+        ),
+    )
     add_iedb_cedar_args(ms_group)
 
     out_group = p.add_argument_group("Grouping and output formatting")
@@ -421,6 +450,9 @@ def handle(args: argparse.Namespace) -> None:
         progress_bar=progress_bar,
         score_chunk_size=args.score_chunk_size,
         progress_file=sys.stderr,
+        screen_near_self_1mm=getattr(args, "screen_near_self_1mm", False),
+        max_near_self_1mm_matches=getattr(args, "max_near_self_1mm_matches", None),
+        near_self_background=getattr(args, "near_self_background", "Unsafe"),
     )
 
     if args.format == "table":
@@ -625,6 +657,29 @@ def format_panel_table(df) -> str:
             f"\n\nNote: {n_cys} zero-MS panel peptide(s) contain Cys (unmodified elution MS "
             "under-detects Cys oxidation/cysteinylation; see ms_detectability_note in CSV)."
         )
+    safety_notes = (
+        out["cta_safety_note"].fillna("").astype(str).str.strip()
+        if "cta_safety_note" in out.columns
+        else None
+    )
+    if safety_notes is not None and safety_notes.ne("").any():
+        n_safety = int(safety_notes.ne("").sum())
+        table += (
+            f"\n\nNote: {n_safety} panel row(s) carry OncoRef CTA safety caveats "
+            "(nuclear snRNA-seq, epitope-scoped clinical clearance, or >=40% 1-mm "
+            "near-self overlap; see cta_safety_note in CSV)."
+        )
+    if "near_self_1mm_count" in out.columns:
+        n_mm1 = sum(
+            1
+            for value in out["near_self_1mm_count"]
+            if value is not None and value == value and int(value) > 0
+        )
+        if n_mm1 > 0:
+            table += (
+                f"\n\nNote: {n_mm1} panel row(s) have 1-aa near-self matches in the Unsafe "
+                "proteome (see near_self_1mm_genes / near_self_1mm_peptides in CSV)."
+            )
     return table
 
 

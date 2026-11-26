@@ -287,6 +287,9 @@ _LONG_OUTPUT_COLUMNS: tuple[str, ...] = (
     "ms_in_cancer",
     "ms_in_healthy_tissue",
     "ms_detectability_note",
+    "unsafe_near_self_1mm_pct",
+    "clinical_cleared_epitope",
+    "cta_safety_note",
     "presentation_percentile",
     "presentation_score",
     "affinity_nm",
@@ -352,6 +355,10 @@ def spanning_pmhc_set(
     progress_bar: bool = False,
     score_chunk_size: int | None = None,
     progress_file: TextIO | None = None,
+    screen_near_self_1mm: bool = False,
+    max_near_self_1mm_matches: int | None = None,
+    near_self_background: str = "Unsafe",
+    near_self_background_proteins: pd.DataFrame | dict[str, str] | Iterable[str] | None = None,
 ) -> pd.DataFrame:
     """Build a CTA x HLA pMHC panel matrix.
 
@@ -775,11 +782,40 @@ def spanning_pmhc_set(
             f"Grouped {grouped_member_count} redundant CTA member(s) with identical selected pMHCs.",
         )
 
+    run_near_self_screen = bool(screen_near_self_1mm or max_near_self_1mm_matches is not None)
+    if run_near_self_screen:
+        from .near_self import VALID_NEAR_SELF_BACKGROUNDS, annotate_near_self_1mm
+
+        if near_self_background not in VALID_NEAR_SELF_BACKGROUNDS:
+            raise ValueError(
+                f"near_self_background must be one of {VALID_NEAR_SELF_BACKGROUNDS}, "
+                f"got {near_self_background!r}"
+            )
+        if max_near_self_1mm_matches is not None and max_near_self_1mm_matches < 0:
+            raise ValueError(
+                f"max_near_self_1mm_matches must be >= 0, got {max_near_self_1mm_matches!r}"
+            )
+        if not selected.empty:
+            selected = annotate_near_self_1mm(
+                selected,
+                peptide_col="peptide",
+                ensembl_release=ensembl_release,
+                species="human",
+                background=near_self_background,
+                background_proteins=near_self_background_proteins,
+                max_matches=max_near_self_1mm_matches,
+            )
+
     if output_format == "wide":
         out = _to_wide(selected, output_cta_list, allele_list)
     else:
-        out = _to_long(selected, output_cta_list, allele_list)
-    return _attach_panel_attrs(
+        out = _to_long(
+            selected,
+            output_cta_list,
+            allele_list,
+            include_near_self=run_near_self_screen,
+        )
+    out = _attach_panel_attrs(
         out,
         output_cta_list,
         allele_list,
@@ -793,6 +829,11 @@ def spanning_pmhc_set(
         cta_groups=cta_groups,
         ensembl_release=ensembl_release,
     )
+    if run_near_self_screen:
+        out.attrs["near_self_1mm_screened"] = True
+        out.attrs["near_self_background"] = near_self_background
+        out.attrs["near_self_max_matches"] = max_near_self_1mm_matches
+    return out
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -2323,6 +2364,9 @@ def _candidate_rows(
                 "ms_in_cancer": bool(evidence.get("ms_in_cancer", False)),
                 "ms_in_healthy_tissue": bool(evidence.get("ms_in_healthy_tissue", False)),
                 "ms_detectability_note": "",
+                "unsafe_near_self_1mm_pct": pd.NA,
+                "clinical_cleared_epitope": False,
+                "cta_safety_note": "",
                 "presentation_percentile": percentile,
                 "presentation_score": getattr(row, "presentation_score", pd.NA),
                 "affinity_nm": getattr(row, "affinity_nm", pd.NA),
@@ -2389,10 +2433,18 @@ def _to_long(
     selected: pd.DataFrame,
     cta_list: list[str],
     allele_list: list[str],
+    *,
+    include_near_self: bool = False,
 ) -> pd.DataFrame:
     from .ms_evidence import annotate_ms_detectability
+    from .near_self import annotate_cta_safety_caveats
 
-    columns = [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell"]
+    near_self_cols = (
+        ["near_self_1mm_count", "near_self_1mm_genes", "near_self_1mm_peptides"]
+        if include_near_self
+        else []
+    )
+    columns = [*_LONG_OUTPUT_COLUMNS, "peptide_rank_in_cell", *near_self_cols]
     if selected.empty:
         return pd.DataFrame(columns=columns)
     cta_order = {gene: i for i, gene in enumerate(cta_list)}
@@ -2404,6 +2456,16 @@ def _to_long(
         columns=["_cta_order", "_allele_order"]
     )
     out = annotate_ms_detectability(out)
+    out = annotate_cta_safety_caveats(
+        out,
+        source_col="cta",
+        peptide_col="peptide",
+        category_col=None,
+        species="human",
+    )
+    for col in near_self_cols:
+        if col not in out.columns:
+            out[col] = 0 if col == "near_self_1mm_count" else ""
     return out[columns].reset_index(drop=True)
 
 

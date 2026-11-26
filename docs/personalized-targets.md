@@ -140,6 +140,10 @@ allele.
 | `source_detail` | Ensembl gene ID, viral protein accession, or mutation string |
 | `source_tpm` | Patient tumor RNA expression for CTA rows |
 | `flag_reason` | Why OncoRef does not admit this gene to the current CTA set, for `cta_flagged` rows only |
+| `unsafe_near_self_1mm_pct` | Percentage of exact-unique 9-mers within 1 aa of OncoRef's `Unsafe` proteome (CTA rows) |
+| `clinical_cleared_epitope` | `True` when the peptide matches an OncoRef clinically cleared epitope (e.g. `CTAG2` `SLLMWITQC`, `MAGEA4` `GVYDGREHTV`, `PRAME` `SLLQHLIGL`) |
+| `cta_safety_note` | Concise OncoRef CTA caveat (`nuclear_rna_caution`, unverified epitope outside epitope-scoped clearance, or `>=40%` 1-mm near-self overlap) |
+| `near_self_1mm_count`, `near_self_1mm_genes`, `near_self_1mm_peptides` | Optional per-peptide 1-aa Hamming near-self matches when `--screen-near-self` or `--max-near-self-1mm` is enabled |
 | `ms_hit_count` | Number of aggregated public MS observations |
 | `ms_alleles`, `ms_allele_count` | Observed HLA restrictions and their count |
 | `ms_in_cancer` | Whether public cancer MS evidence exists |
