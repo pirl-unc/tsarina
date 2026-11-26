@@ -265,6 +265,53 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     safety.add_argument(
+        "--pregnant",
+        action="store_true",
+        help=(
+            "Protect embryo, placenta, and lactating mammary compartments via "
+            "OncoRef HostContext; excludes pregnancy/lactation antigens and "
+            "unscreened embryonic loci."
+        ),
+    )
+    safety.add_argument(
+        "--lactating",
+        action="store_true",
+        help=(
+            "Protect lactating mammary/breast compartment via OncoRef HostContext; "
+            "excludes lactation antigens such as LALBA, CSN2, and BTN1A1."
+        ),
+    )
+    safety.add_argument(
+        "--protect-tissue",
+        dest="protect_tissues",
+        action="append",
+        default=[],
+        help=(
+            "Reproductive compartment(s) to protect via OncoRef HostContext; "
+            "repeatable or comma-separated, e.g. --protect-tissue ovary,uterus."
+        ),
+    )
+    safety.add_argument(
+        "--allow-tissue",
+        dest="accept_loss_tissues",
+        action="append",
+        default=[],
+        help=(
+            "Reproductive compartment(s) with accepted tissue loss in OncoRef "
+            "HostContext; repeatable or comma-separated."
+        ),
+    )
+    safety.add_argument(
+        "--absent-tissue",
+        dest="absent_tissues",
+        action="append",
+        default=[],
+        help=(
+            "Reproductive compartment(s) absent in this host, e.g. post-resection "
+            "or opposite-sex organ, in OncoRef HostContext; repeatable or comma-separated."
+        ),
+    )
+    safety.add_argument(
         "--min-cta-tpm",
         type=float,
         default=2.0,
@@ -456,6 +503,22 @@ def handle(args: argparse.Namespace) -> None:
         extra_kwargs["screen_near_self_1mm"] = True
         extra_kwargs["max_near_self_1mm_matches"] = getattr(args, "max_near_self_1mm_matches", None)
         extra_kwargs["near_self_background"] = getattr(args, "near_self_background", "Unsafe")
+    if any(
+        (
+            getattr(args, "pregnant", False),
+            getattr(args, "lactating", False),
+            getattr(args, "protect_tissues", None),
+            getattr(args, "accept_loss_tissues", None),
+            getattr(args, "absent_tissues", None),
+        )
+    ):
+        extra_kwargs["pregnant"] = bool(getattr(args, "pregnant", False))
+        extra_kwargs["lactating"] = bool(getattr(args, "lactating", False))
+        extra_kwargs["protect_tissues"] = _flatten_multi(getattr(args, "protect_tissues", []) or [])
+        extra_kwargs["accept_loss_tissues"] = _flatten_multi(
+            getattr(args, "accept_loss_tissues", []) or []
+        )
+        extra_kwargs["absent_tissues"] = _flatten_multi(getattr(args, "absent_tissues", []) or [])
 
     try:
         df = personalized_targets(

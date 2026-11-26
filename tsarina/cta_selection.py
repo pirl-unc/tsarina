@@ -15,10 +15,27 @@ from functools import lru_cache
 
 import pandas as pd
 from oncoref import antigen_sets, gene_identity_catalog, target_selection
+from oncoref import host_context as _oncoref_host_context
+from oncoref.host_context import HostContext
 from oncoref.species import for_species as _oncoref_for_species
 
 _HUMAN_SPECIES_ALIASES = frozenset({"human", "homo_sapiens", "homo sapiens", "9606"})
 CTA_TIERS = target_selection.CTA_TIERS
+
+#: Canonical 4-way OncoRef sex-restriction codes across human, mouse, and dog.
+SEX_RESTRICTION_CODES: tuple[str, ...] = (
+    "CTA-M",
+    "CTA-F",
+    "CTA-MF",
+    "CTA-P",
+    "RA-M-only",
+    "RA-F-only",
+    "RA-MF-only",
+    "RA-P-only",
+)
+_SEX_RESTRICTION_CODE_BY_LOWER: dict[str, str] = {
+    code.lower(): code for code in SEX_RESTRICTION_CODES
+}
 
 
 def _parse_json_tuple(value) -> tuple[str, ...]:
@@ -205,6 +222,74 @@ def _normalize_sex_eligibility(eligibility: str) -> str:
     return token
 
 
+def _normalize_sex_codes(sex_code: str | Iterable[str]) -> tuple[str, ...]:
+    """Normalize one or more 4-way OncoRef sex-restriction codes (case-insensitive)."""
+    raw_items: list[str] = []
+    if isinstance(sex_code, str):
+        raw_items.extend(part.strip() for part in sex_code.split(",") if part.strip())
+    else:
+        for item in sex_code:
+            for part in str(item).split(","):
+                token = part.strip()
+                if token:
+                    raw_items.append(token)
+    if not raw_items:
+        raise ValueError(f"sex_code must specify at least one code from {SEX_RESTRICTION_CODES}.")
+    normalized: list[str] = []
+    for item in raw_items:
+        canonical = _SEX_RESTRICTION_CODE_BY_LOWER.get(item.lower())
+        if canonical is None:
+            raise ValueError(
+                f"Unsupported sex_restriction_code {item!r}; expected one of {SEX_RESTRICTION_CODES}."
+            )
+        if canonical not in normalized:
+            normalized.append(canonical)
+    return tuple(normalized)
+
+
+def build_host_context(
+    *,
+    patient_sex: str | None = None,
+    pregnant: bool = False,
+    lactating: bool = False,
+    protect_tissues: Iterable[str] = (),
+    accept_loss_tissues: Iterable[str] = (),
+    absent_tissues: Iterable[str] = (),
+    species: str = "human",
+) -> HostContext | None:
+    """Build a composable OncoRef :class:`HostContext` for human, mouse, or dog.
+
+    Translates high-level biological state and compartment choices directly via
+    :func:`oncoref.host_context.from_legacy`. Returns ``None`` when no host
+    constraints are requested.
+    """
+    profile = "all"
+    if patient_sex is not None:
+        norm_sex = _normalize_patient_sex(patient_sex)
+        profile = "female-patient" if norm_sex == "female" else "male-patient"
+
+    def _flat(values: Iterable[str]) -> tuple[str, ...]:
+        if isinstance(values, str):
+            values = [values]
+        out: list[str] = []
+        for item in values:
+            for part in str(item).split(","):
+                token = part.strip()
+                if token:
+                    out.append(token)
+        return tuple(out)
+
+    return _oncoref_host_context.from_legacy(
+        profile=profile,
+        pregnant=bool(pregnant),
+        lactating=bool(lactating),
+        allow_tissues=_flat(accept_loss_tissues),
+        protect_tissues=_flat(protect_tissues),
+        absent_tissues=_flat(absent_tissues),
+        species=species,
+    )
+
+
 @lru_cache(maxsize=8)
 def _sex_restricted_table(species_key: str) -> pd.DataFrame:
     if species_key in _HUMAN_SPECIES_ALIASES:
@@ -235,6 +320,7 @@ def CTA_sex_restricted_antigens(
     sex: str | None = None,
     eligibility: str = "all_adult",
     include_reproductive_only: bool = True,
+    sex_code: str | Iterable[str] | None = None,
     species: str = "human",
 ) -> pd.DataFrame:
     """Return OncoRef's sex-restricted antigen catalog, optionally filtered for a patient sex.
@@ -253,6 +339,10 @@ def CTA_sex_restricted_antigens(
     include_reproductive_only
         Include ``Reproductive Antigen only`` entities alongside ``CTA`` entities
         (default ``True``).
+    sex_code
+        Optional 4-way OncoRef ``sex_restriction_code`` filter (single code or
+        iterable/comma-separated codes from :data:`SEX_RESTRICTION_CODES`, e.g.
+        ``"CTA-F"``, ``("CTA-M", "CTA-P")``, or ``"RA-M-only"``).
     species
         Species name resolved via OncoRef (default ``"human"``; also ``"mouse"``, ``"dog"``).
     """
@@ -265,6 +355,12 @@ def CTA_sex_restricted_antigens(
         norm_sex = _normalize_patient_sex(sex)
         col = f"{norm_sex}_{elig}_eligible"
         df = df.loc[df[col].astype(bool)]
+    if sex_code is not None:
+        codes = set(_normalize_sex_codes(sex_code))
+        if "sex_restriction_code" in df.columns:
+            df = df.loc[df["sex_restriction_code"].isin(codes)]
+        else:
+            df = df.iloc[:0]
     return df.copy().reset_index(drop=True)
 
 
@@ -273,6 +369,7 @@ def CTA_sex_eligible_gene_ids(
     *,
     eligibility: str = "all_adult",
     include_reproductive_only: bool = True,
+    sex_code: str | Iterable[str] | None = None,
     species: str = "human",
 ) -> set[str]:
     """Return Ensembl gene IDs eligible for a patient of ``sex`` under ``eligibility``."""
@@ -280,6 +377,7 @@ def CTA_sex_eligible_gene_ids(
         sex=sex,
         eligibility=eligibility,
         include_reproductive_only=include_reproductive_only,
+        sex_code=sex_code,
         species=species,
     )
     if str(species).strip().lower() in _HUMAN_SPECIES_ALIASES:
@@ -298,6 +396,7 @@ def CTA_sex_eligible_gene_names(
     *,
     eligibility: str = "all_adult",
     include_reproductive_only: bool = True,
+    sex_code: str | Iterable[str] | None = None,
     species: str = "human",
 ) -> set[str]:
     """Return gene symbols eligible for a patient of ``sex`` under ``eligibility``."""
@@ -305,6 +404,7 @@ def CTA_sex_eligible_gene_names(
         sex=sex,
         eligibility=eligibility,
         include_reproductive_only=include_reproductive_only,
+        sex_code=sex_code,
         species=species,
     )
     if str(species).strip().lower() in _HUMAN_SPECIES_ALIASES:
@@ -322,12 +422,38 @@ def CTA_sex_eligible_gene_names(
     return names
 
 
-def CTA_selection(category: str | Iterable[str] | None = None, *, species: str = "human"):
+def CTA_selection(
+    category: str | Iterable[str] | None = None,
+    *,
+    species: str = "human",
+    sex_code: str | Iterable[str] | None = None,
+    host_context: HostContext | None = None,
+    filter_host: bool = False,
+):
     """Return detached current OncoRef selection decisions.
 
     Uses OncoRef's unified cross-species :mod:`oncoref.target_selection` catalog
     across human, mouse, and canine, enriched with normalized gene-ID tuples and
     provenance receipts.
+
+    Parameters
+    ----------
+    category
+        Optional OncoRef category or iterable of categories (e.g. ``"CTA"``,
+        ``("CTA", "Reproductive Antigen only")``).
+    species
+        Species name resolved via OncoRef (default ``"human"``; also ``"mouse"``, ``"dog"``).
+    sex_code
+        Optional 4-way ``sex_restriction_code`` filter (e.g. ``"CTA-F"``,
+        ``("CTA-M", "CTA-P")``, ``"RA-M-only"``).
+    host_context
+        Optional :class:`oncoref.host_context.HostContext` to evaluate via
+        :func:`oncoref.host_context.assess`, attaching ``host_status``,
+        ``host_protected_max_tpm``, ``host_limiting_compartment``, ``host_reasons``,
+        ``host_unknown_compartments``, and ``pass_host`` columns.
+    filter_host
+        When ``True`` and ``host_context`` is supplied, keep only rows with
+        ``pass_host == True``.
     """
     key = str(species).strip().lower()
     if key in _HUMAN_SPECIES_ALIASES:
@@ -340,7 +466,30 @@ def CTA_selection(category: str | Iterable[str] | None = None, *, species: str =
             frame = frame.loc[frame["category"].eq(category)]
         else:
             frame = frame.loc[frame["category"].isin(set(category))]
-    return frame.copy().reset_index(drop=True)
+    if sex_code is not None:
+        codes = set(_normalize_sex_codes(sex_code))
+        if "sex_restriction_code" in frame.columns:
+            frame = frame.loc[frame["sex_restriction_code"].isin(codes)]
+        else:
+            frame = frame.iloc[:0]
+
+    out = frame.copy().reset_index(drop=True)
+    if host_context is not None:
+        if not isinstance(host_context, HostContext):
+            raise ValueError("host_context must be an oncoref.host_context.HostContext instance")
+        resolved_species = _oncoref_for_species(key).species.name
+        if host_context.species != resolved_species:
+            raise ValueError(
+                f"host_context.species={host_context.species!r} does not match "
+                f"species={resolved_species!r}"
+            )
+        assessment = _oncoref_host_context.assess(out, host_context)
+        for col in assessment.columns:
+            out[col] = assessment[col].to_numpy()
+        if filter_host:
+            out = out.loc[out["pass_host"].astype(bool)].reset_index(drop=True)
+        out.attrs["host_context"] = host_context.as_dict()
+    return out
 
 
 @lru_cache(maxsize=1)

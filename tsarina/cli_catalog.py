@@ -342,12 +342,51 @@ def _catalog_overview(args: argparse.Namespace) -> None:
 
 
 def _catalog_ctas(args: argparse.Namespace) -> None:
-    from .cta_selection import CTA_selection, CTA_selection_coverage, CTA_sex_restricted_antigens
+    from .cta_selection import (
+        CTA_selection,
+        CTA_selection_coverage,
+        CTA_sex_restricted_antigens,
+        _normalize_sex_codes,
+        build_host_context,
+    )
 
     species = args.species
     is_human = species.lower() in ("human", "homo sapiens", "homo_sapiens")
     sex = getattr(args, "sex", None)
     sex_elig = getattr(args, "sex_eligibility", "all_adult")
+    sex_code_raw = getattr(args, "sex_code", None)
+    sex_codes: tuple[str, ...] | None = None
+    if sex_code_raw:
+        try:
+            sex_codes = _normalize_sex_codes(sex_code_raw)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    has_host_flags = any(
+        (
+            bool(getattr(args, "pregnant", False)),
+            bool(getattr(args, "lactating", False)),
+            bool(getattr(args, "protect_tissues", None)),
+            bool(getattr(args, "accept_loss_tissues", None)),
+            bool(getattr(args, "absent_tissues", None)),
+        )
+    )
+    host_ctx = None
+    if has_host_flags:
+        try:
+            host_ctx = build_host_context(
+                patient_sex=sex,
+                pregnant=bool(getattr(args, "pregnant", False)),
+                lactating=bool(getattr(args, "lactating", False)),
+                protect_tissues=getattr(args, "protect_tissues", ()) or (),
+                accept_loss_tissues=getattr(args, "accept_loss_tissues", ()) or (),
+                absent_tissues=getattr(args, "absent_tissues", ()) or (),
+                species=species,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
 
     category = args.category
     coverage_info: dict[str, object] | None = None
@@ -355,18 +394,41 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
         coverage_info = CTA_selection_coverage(species=species)
     if sex is not None:
         try:
-            df = CTA_sex_restricted_antigens(sex=sex, eligibility=sex_elig, species=species)
+            df = CTA_sex_restricted_antigens(
+                sex=sex,
+                eligibility=sex_elig,
+                sex_code=sex_codes,
+                species=species,
+            )
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         if category is not None:
             df = df.loc[df["category"].eq(category)].copy()
+        if host_ctx is not None and not df.empty:
+            from oncoref import host_context as _oncoref_host_context
+
+            assessment = _oncoref_host_context.assess(df, host_ctx)
+            for col in assessment.columns:
+                df[col] = assessment[col].to_numpy()
+            df = df.loc[df["pass_host"].astype(bool)].copy()
     else:
-        if category is None and (
-            is_human or (coverage_info and coverage_info.get("selection_status") == "evaluated")
+        wants_ra_only = bool(sex_codes and any(code.startswith("RA-") for code in sex_codes))
+        if (
+            category is None
+            and not wants_ra_only
+            and (
+                is_human or (coverage_info and coverage_info.get("selection_status") == "evaluated")
+            )
         ):
             category = "CTA"
-        df = CTA_selection(category=category, species=species)
+        df = CTA_selection(
+            category=category,
+            species=species,
+            sex_code=sex_codes,
+            host_context=host_ctx,
+            filter_host=host_ctx is not None,
+        )
     if args.tier:
         if "cta_tier" in df.columns:
             df = df[df["cta_tier"] == args.tier].copy()
@@ -455,6 +517,10 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
         if sex is not None:
             payload["sex"] = sex
             payload["sex_eligibility"] = sex_elig
+        if sex_codes is not None:
+            payload["sex_codes"] = list(sex_codes)
+        if host_ctx is not None:
+            payload["host_context"] = host_ctx.as_dict()
         if not is_human:
             payload["coverage"] = (
                 coverage_info
@@ -761,6 +827,45 @@ def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentPa
         choices=("all_adult", "sex_organ_only"),
         default="all_adult",
         help="Eligibility policy when --sex is given (default: all_adult)",
+    )
+    p_ctas.add_argument(
+        "--sex-code",
+        default=None,
+        help=(
+            "Filter by 4-way OncoRef sex_restriction_code, single or comma-separated: "
+            "CTA-M, CTA-F, CTA-MF, CTA-P, RA-M-only, RA-F-only, RA-MF-only, RA-P-only"
+        ),
+    )
+    p_ctas.add_argument(
+        "--pregnant",
+        action="store_true",
+        help="Apply OncoRef HostContext protecting embryo, placenta, and lactating breast/mammary",
+    )
+    p_ctas.add_argument(
+        "--lactating",
+        action="store_true",
+        help="Apply OncoRef HostContext protecting lactating breast/mammary",
+    )
+    p_ctas.add_argument(
+        "--protect-tissue",
+        dest="protect_tissues",
+        action="append",
+        default=[],
+        help="Reproductive compartment(s) to protect via HostContext; repeatable or comma-separated",
+    )
+    p_ctas.add_argument(
+        "--allow-tissue",
+        dest="accept_loss_tissues",
+        action="append",
+        default=[],
+        help="Reproductive compartment(s) with accepted loss via HostContext",
+    )
+    p_ctas.add_argument(
+        "--absent-tissue",
+        dest="absent_tissues",
+        action="append",
+        default=[],
+        help="Reproductive compartment(s) absent in this host via HostContext",
     )
     p_ctas.add_argument("--top", type=int, default=50, help="Maximum rows to show (default 50)")
     p_ctas.add_argument("--json", action="store_true", help="Machine-readable JSON output")
