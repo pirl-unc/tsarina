@@ -228,9 +228,14 @@ def _attach_tcga_prevalence(df: pd.DataFrame) -> pd.DataFrame:
     if "Ensembl_Gene_ID" not in df.columns:
         return df
 
+    from oncoref.reference_data import ReferenceDataError
+
     from .cancer_expression import cta_tcga_expression_features
 
-    features = cta_tcga_expression_features()
+    try:
+        features = cta_tcga_expression_features()
+    except (FileNotFoundError, ValueError, OSError, ReferenceDataError):
+        features = pd.DataFrame()
     if features.empty:
         for column, default in _TCGA_PREVALENCE_NUMERIC_DEFAULTS.items():
             df[column] = default

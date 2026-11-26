@@ -1,21 +1,22 @@
 from pathlib import Path
 
-import pandas as pd
 from oncoref import cta_tissues as oncoref_tissues
 
 import tsarina
 import tsarina.tissues as tissues
-from tsarina import CTA_hpa_evidence
+from tsarina import hpa_cancer_ihc_prevalence, hpa_cancer_rna_prevalence
 
 
 def _package_data_dir() -> Path:
     return Path(tsarina.__file__).parent / "data"
 
 
-def test_package_contains_no_cta_definition_or_proteoform_fallback_table():
+def test_package_contains_no_cta_definition_proteoform_or_hpa_fallback_tables():
     names = {path.name for path in _package_data_dir().iterdir()}
     assert "cancer-testis-antigens.csv" not in names
     assert "proteoform-groups.csv" not in names
+    assert "hpa-cancer-rna-prevalence.csv" not in names
+    assert "hpa-cancer-ihc-prevalence.csv" not in names
 
 
 def test_cancer_prevalence_tables_are_features_not_cta_definitions():
@@ -29,15 +30,13 @@ def test_cancer_prevalence_tables_are_features_not_cta_definitions():
         "restriction",
         "restriction_confidence",
     }
-    canonical_ids = set(CTA_hpa_evidence().Ensembl_Gene_ID)
 
-    for filename in (
-        "hpa-cancer-rna-prevalence.csv",
-        "hpa-cancer-ihc-prevalence.csv",
+    for frame in (
+        hpa_cancer_rna_prevalence(gene_ids=["ENSG00000147381"]),
+        hpa_cancer_ihc_prevalence(gene_ids=["ENSG00000147381"]),
     ):
-        frame = pd.read_csv(_package_data_dir() / filename)
+        assert not frame.empty
         assert not (prohibited & set(frame.columns))
-        assert set(frame["gene_id"].astype(str).str.split(".").str[0]) <= canonical_ids
 
 
 def test_cta_tissue_definitions_are_direct_oncoref_exports():

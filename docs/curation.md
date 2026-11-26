@@ -137,8 +137,8 @@ ranking:
 |---|---|---|
 | Gene-level MS safety | `data/gene-ms-safety-evidence.csv` | No |
 | Live immunopeptidomics | IEDB/CEDAR through hitlist | No |
-| Cancer RNA prevalence | Derived HPA cancer-prevalence tables | No |
-| Cancer IHC prevalence | Derived HPA cancer-prevalence tables | No |
+| Cancer RNA prevalence | `oncoref.hpa_cancer_rna_prevalence()` (HPA v25.1) | No |
+| Cancer IHC prevalence | `oncoref.hpa_cancer_ihc_prevalence()` (HPA v25.1) | No |
 | pMHC prediction and scoring | Runtime | No |
 
 The static MS overlay has only this schema:
@@ -155,9 +155,11 @@ field, or proteoform definition. Tsarina left-joins these columns onto the
 oncoref evidence frame. Therefore, an overlay row for a non-CTA gene cannot
 enter the CTA universe.
 
-The HPA cancer-prevalence tables are feature caches for downstream ranking.
-They are restricted to oncoref gene IDs and contain no CTA membership or
-specificity fields.
+HPA cancer RNA and IHC prevalence tables are delegated directly to
+`oncoref.hpa_cancer_rna_prevalence()` and `oncoref.hpa_cancer_ihc_prevalence()`
+(HPA v25.1, genome-wide, covering 353/357 current CTAs for RNA and 195/357 for
+IHC) rather than bundled as stale CSVs in Tsarina. They supply downstream
+ranking features only and never change CTA membership.
 
 ## Restriction axes and API behavior
 
@@ -334,8 +336,7 @@ to Tsarina. The ownership audit followed this rule by filing
 RNA/protein restriction-confidence synthesis error instead of compensating
 locally.
 
-Tsarina's obsolete CTA regeneration and full reference-data commands have
-been removed. The remaining HPA cancer-prevalence features can be regenerated
-with `scripts/regenerate_hpa_cancer_prevalence.py`; that script takes its historical HPA gene
-universe from `oncoref.cta.cta_evidence()`; new current members can therefore
-lack these cached ranking features.
+Tsarina's obsolete CTA regeneration, HPA prevalence regeneration, and full
+reference-data commands have been removed; HPA cancer RNA/IHC prevalence is
+loaded directly from `oncoref.hpa_cancer_rna_prevalence()` and
+`oncoref.hpa_cancer_ihc_prevalence()`.

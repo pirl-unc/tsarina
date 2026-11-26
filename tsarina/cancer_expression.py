@@ -4,38 +4,133 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 
-"""Bundled HPA cancer-expression prevalence features for CTA ranking."""
+"""HPA cancer-expression prevalence features delegated to OncoRef."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from functools import lru_cache
-from os.path import dirname, join
 
+import oncoref
 import pandas as pd
 
-_DATA_DIR = join(dirname(__file__), "data")
-_RNA_PREVALENCE_CSV = join(_DATA_DIR, "hpa-cancer-rna-prevalence.csv")
-_IHC_PREVALENCE_CSV = join(_DATA_DIR, "hpa-cancer-ihc-prevalence.csv")
 _DEFAULT_RNA_THRESHOLD = 2.0
 _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
 _TCGA_COHORT = "TCGA"
 _TCGA_DEFAULT_THRESHOLDS = (1.0, 5.0)
+_TCGA_SUMMARY_CACHE: dict[tuple[float, ...], tuple[pd.DataFrame, pd.DataFrame]] = {}
 
 
 def _threshold_label(value: float) -> str:
     return f"{value:g}".replace(".", "_").replace("-", "minus_")
 
 
-@lru_cache(maxsize=1)
-def hpa_cancer_rna_prevalence() -> pd.DataFrame:
-    """Return bundled HPA TCGA/validation cancer RNA prevalence by gene/cancer."""
-    return pd.read_csv(_RNA_PREVALENCE_CSV)
+def _normalize_gene_ids(gene_ids: str | Iterable[str] | None) -> list[str] | None:
+    if gene_ids is None:
+        return None
+    if isinstance(gene_ids, str):
+        values = [gene_ids]
+    else:
+        values = list(gene_ids)
+    return [str(gene_id).split(".")[0] for gene_id in values]
 
 
 @lru_cache(maxsize=1)
-def hpa_cancer_ihc_prevalence() -> pd.DataFrame:
-    """Return bundled HPA cancer IHC prevalence by gene/cancer."""
-    return pd.read_csv(_IHC_PREVALENCE_CSV)
+def _ensembl_symbol_map() -> dict[str, str]:
+    from .cta_selection import selection_gene_table
+
+    genes = selection_gene_table()
+    if genes.empty:
+        return {}
+    ids = genes["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
+    symbols = genes["Symbol"].fillna("").astype(str)
+    return {gene_id: symbol for gene_id, symbol in zip(ids, symbols) if gene_id and symbol}
+
+
+def _attach_symbol(
+    frame: pd.DataFrame,
+    *,
+    fallback_column: str | None = None,
+) -> pd.DataFrame:
+    if frame.empty:
+        if "symbol" not in frame.columns:
+            out = frame.copy()
+            insert_at = 1 if "gene_id" in out.columns else 0
+            out.insert(insert_at, "symbol", pd.Series(dtype="object"))
+            return out
+        return frame
+    out = frame.copy()
+    gene_ids = out["gene_id"].astype(str).str.split(".").str[0]
+    symbol = gene_ids.map(_ensembl_symbol_map())
+    if fallback_column and fallback_column in out.columns:
+        fallback = out[fallback_column].replace("", pd.NA)
+        symbol = symbol.fillna(fallback)
+    symbol = symbol.fillna(gene_ids).astype(str)
+    if "symbol" in out.columns:
+        out["symbol"] = symbol
+    else:
+        insert_at = list(out.columns).index("gene_id") + 1
+        out.insert(insert_at, "symbol", symbol)
+    return out
+
+
+@lru_cache(maxsize=1)
+def _cached_hpa_cancer_rna_prevalence() -> pd.DataFrame:
+    return _attach_symbol(oncoref.hpa_cancer_rna_prevalence())
+
+
+@lru_cache(maxsize=1)
+def _cached_hpa_cancer_ihc_prevalence() -> pd.DataFrame:
+    return _attach_symbol(
+        oncoref.hpa_cancer_ihc_prevalence(),
+        fallback_column="hpa_gene_name",
+    )
+
+
+def hpa_cancer_rna_prevalence(
+    gene_ids: str | Iterable[str] | None = None,
+    *,
+    cohort: str | None = None,
+) -> pd.DataFrame:
+    """Return HPA TCGA/validation cancer RNA prevalence delegated to OncoRef.
+
+    Parameters
+    ----------
+    gene_ids : str or iterable of str, optional
+        Optional Ensembl gene ID(s) to subset (version suffixes stripped).
+        Defaults to all genes in OncoRef's HPA v25.1 cancer RNA table.
+    cohort : {"TCGA", "validation"}, optional
+        Optional cohort filter.
+    """
+    if cohort not in (None, "TCGA", "validation"):
+        raise ValueError("cohort must be 'TCGA', 'validation', or None")
+    if gene_ids is None and cohort is None:
+        return _cached_hpa_cancer_rna_prevalence()
+    normalized = _normalize_gene_ids(gene_ids)
+    frame = _cached_hpa_cancer_rna_prevalence()
+    if cohort is not None:
+        frame = frame.loc[frame["cohort"] == cohort]
+    if normalized is not None:
+        frame = frame.loc[frame["gene_id"].isin(set(normalized))]
+    return frame.copy()
+
+
+def hpa_cancer_ihc_prevalence(
+    gene_ids: str | Iterable[str] | None = None,
+) -> pd.DataFrame:
+    """Return HPA cancer IHC prevalence delegated to OncoRef.
+
+    Parameters
+    ----------
+    gene_ids : str or iterable of str, optional
+        Optional Ensembl gene ID(s) to subset (version suffixes stripped).
+        Defaults to all genes in OncoRef's HPA v25.1 cancer IHC table.
+    """
+    if gene_ids is None:
+        return _cached_hpa_cancer_ihc_prevalence()
+    normalized = _normalize_gene_ids(gene_ids)
+    frame = _cached_hpa_cancer_ihc_prevalence()
+    return frame.loc[frame["gene_id"].isin(set(normalized))].copy()
 
 
 def cta_cancer_expression_features(
@@ -125,7 +220,7 @@ def _rna_features(
     rna[count_col] = pd.to_numeric(rna[count_col], errors="coerce").fillna(0)
     rna["samples"] = pd.to_numeric(rna["samples"], errors="coerce").fillna(0)
     by_type = (
-        rna.groupby(["gene_id", "symbol", "cancer_type"], as_index=False)
+        rna.groupby(["gene_id", "symbol", "cancer_type"], as_index=False, sort=False)
         .agg(
             samples=("samples", "sum"),
             expressed_samples=(count_col, "sum"),
@@ -138,9 +233,15 @@ def _rna_features(
             )
         )
     )
+    by_type["_is_prevalent_cancer_type"] = (
+        pd.to_numeric(by_type["cancer_type_prevalence"], errors="coerce")
+        .ge(cancer_type_prevalence_floor)
+        .fillna(False)
+        .astype(int)
+    )
     if prevalence_col in rna.columns:
         by_label = (
-            rna.groupby(["gene_id", "symbol"], as_index=False)[prevalence_col]
+            rna.groupby(["gene_id", "symbol"], as_index=False, sort=False)[prevalence_col]
             .max()
             .rename(columns={prevalence_col: "cancer_rna_max_cohort_prevalence"})
         )
@@ -148,15 +249,12 @@ def _rna_features(
         by_label = pd.DataFrame(columns=["gene_id", "symbol", "cancer_rna_max_cohort_prevalence"])
 
     features = (
-        by_type.groupby(["gene_id", "symbol"], as_index=False)
+        by_type.groupby(["gene_id", "symbol"], as_index=False, sort=False)
         .agg(
             cancer_rna_total_samples=("samples", "sum"),
             cancer_rna_expressed_samples=("expressed_samples", "sum"),
             cancer_rna_cancer_type_count=("cancer_type", "nunique"),
-            cancer_rna_prevalent_cancer_type_count=(
-                "cancer_type_prevalence",
-                lambda values: int((values >= cancer_type_prevalence_floor).sum()),
-            ),
+            cancer_rna_prevalent_cancer_type_count=("_is_prevalent_cancer_type", "sum"),
             cancer_rna_mean_cancer_type_prevalence=("cancer_type_prevalence", "mean"),
             cancer_rna_max_cancer_type_prevalence=("cancer_type_prevalence", "max"),
             cancer_rna_max_ptpm=("max_ptpm", "max"),
@@ -209,18 +307,24 @@ def _ihc_features(
     ihc = ihc.copy()
     for column in ["total", "detected", "medium_high"]:
         ihc[column] = pd.to_numeric(ihc[column], errors="coerce").fillna(0)
-    by_gene = ihc.groupby(["gene_id", "symbol"], as_index=False).agg(
+    ihc["_is_detected_cancer_type"] = (
+        pd.to_numeric(ihc["prevalence_detected"], errors="coerce")
+        .ge(cancer_type_prevalence_floor)
+        .fillna(False)
+        .astype(int)
+    )
+    ihc["_is_medium_high_cancer_type"] = (
+        pd.to_numeric(ihc["prevalence_medium_high"], errors="coerce")
+        .ge(cancer_type_prevalence_floor)
+        .fillna(False)
+        .astype(int)
+    )
+    by_gene = ihc.groupby(["gene_id", "symbol"], as_index=False, sort=False).agg(
         cancer_ihc_total_samples=("total", "sum"),
         cancer_ihc_detected_samples=("detected", "sum"),
         cancer_ihc_medium_high_samples=("medium_high", "sum"),
-        cancer_ihc_detected_cancer_type_count=(
-            "prevalence_detected",
-            lambda values: int((values >= cancer_type_prevalence_floor).sum()),
-        ),
-        cancer_ihc_medium_high_cancer_type_count=(
-            "prevalence_medium_high",
-            lambda values: int((values >= cancer_type_prevalence_floor).sum()),
-        ),
+        cancer_ihc_detected_cancer_type_count=("_is_detected_cancer_type", "sum"),
+        cancer_ihc_medium_high_cancer_type_count=("_is_medium_high_cancer_type", "sum"),
     )
     by_gene["cancer_ihc_detected_sample_prevalence"] = by_gene[
         "cancer_ihc_detected_samples"
@@ -250,11 +354,19 @@ def cta_tcga_expression_features(
     counts of distinct TCGA cancer types contributing samples.
 
     The underlying TCGA expression measurements are the cohort=``TCGA`` rows
-    of HPA v23's ``cancer RNA-Seq`` tab, which republishes harmonized TCGA
+    of OncoRef's HPA cancer RNA-Seq table, which republishes harmonized TCGA
     Pan-Cancer pTPM values. Sample counts and 21 distinct TCGA project codes
     (BRCA, LUAD, ...) are preserved.
     """
+    if not thresholds:
+        raise ValueError("cta_tcga_expression_features requires at least one threshold")
+    sorted_thresholds = tuple(sorted(thresholds))
+
     rna = hpa_cancer_rna_prevalence() if rna_prevalence is None else rna_prevalence
+    cached = _TCGA_SUMMARY_CACHE.get(sorted_thresholds)
+    if rna_prevalence is None and cached is not None and cached[0] is rna:
+        return cached[1].copy()
+
     if rna.empty or "cohort" not in rna.columns:
         return pd.DataFrame(columns=["gene_id", "symbol"])
 
@@ -262,9 +374,6 @@ def cta_tcga_expression_features(
     if tcga.empty:
         return pd.DataFrame(columns=["gene_id", "symbol"])
 
-    if not thresholds:
-        raise ValueError("cta_tcga_expression_features requires at least one threshold")
-    sorted_thresholds = tuple(sorted(thresholds))
     threshold_labels = {t: _threshold_label(t) for t in sorted_thresholds}
 
     required = {"gene_id", "symbol", "cancer_type", "samples"}
@@ -345,4 +454,7 @@ def cta_tcga_expression_features(
     summary = summary.merge(tops, on=["gene_id", "symbol"], how="left")
     summary[top_type_col] = summary[top_type_col].fillna("")
     summary[top_prev_col] = summary[top_prev_col].fillna(0.0)
+    if rna_prevalence is None:
+        _TCGA_SUMMARY_CACHE[sorted_thresholds] = (rna, summary)
+        return summary.copy()
     return summary
