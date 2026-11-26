@@ -248,7 +248,14 @@ def rank_proteoforms(inputs: VaccineInputs):
         raise ValueError("CTA input set is empty")
     if set(inputs.cta_gene_ids) - set(inputs.gene_keys):
         raise ValueError("CTA genes are missing their proteoform expression keys")
-    burden = inputs.burden.set_index("burden_category", verify_integrity=True)
+    if inputs.burden["burden_category"].duplicated().any():
+        dups = sorted(
+            inputs.burden.loc[inputs.burden["burden_category"].duplicated(), "burden_category"]
+            .astype(str)
+            .unique()
+        )
+        raise ValueError(f"Duplicate burden_category entries: {dups}")
+    burden = inputs.burden.set_index("burden_category")
     missing = set(inputs.cohorts) - set(burden.index)
     if missing:
         raise ValueError(f"Unknown mortality categories: {sorted(missing)}")

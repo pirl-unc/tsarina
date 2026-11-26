@@ -1,10 +1,16 @@
+import warnings
+
 import pandas as pd
 import pytest
 
+from tsarina import CTA_gene_ids
 from tsarina.cancer_expression import (
     cta_cancer_expression_features,
     cta_tcga_expression_features,
+    hpa_cancer_ihc_prevalence,
+    hpa_cancer_rna_prevalence,
 )
+from tsarina.vaccine_inputs import Protein, VaccineInputs, rank_proteoforms
 
 
 def test_cta_cancer_expression_features_count_sample_and_cancer_type_prevalence():
@@ -125,3 +131,63 @@ def test_cta_cancer_expression_features_requires_requested_threshold():
             ihc_prevalence=pd.DataFrame(),
             rna_threshold=2.0,
         )
+
+
+def test_live_oncoref_hpa_prevalence_covers_current_ctas():
+    """Issue #258: HPA cancer RNA/IHC prevalence delegates to OncoRef v25.1."""
+    cta_ids = CTA_gene_ids()
+    rna = hpa_cancer_rna_prevalence()
+    ihc = hpa_cancer_ihc_prevalence()
+
+    assert "symbol" in rna.columns
+    assert "symbol" in ihc.columns
+    assert len(cta_ids & set(rna["gene_id"])) >= 350
+    assert len(cta_ids & set(ihc["gene_id"])) >= 190
+
+    tcga = cta_tcga_expression_features().set_index("symbol")
+    for symbol in ("PLAC1", "DUX4", "NUTM1", "PRM1", "LALBA", "FOXR2", "CTAG2", "MAGEA4"):
+        assert symbol in tcga.index
+        assert tcga.loc[symbol, "tcga_max_ptpm"] > 0.0
+    assert tcga.loc["PLAC1", "tcga_pan_prevalence_tpm_ge_1"] > 0.15
+
+    # Filtering by gene_ids and cohort works cleanly.
+    magea4_tcga = hpa_cancer_rna_prevalence(gene_ids=["ENSG00000147381.10"], cohort="TCGA")
+    assert not magea4_tcga.empty
+    assert set(magea4_tcga["gene_id"]) == {"ENSG00000147381"}
+    assert set(magea4_tcga["cohort"]) == {"TCGA"}
+    assert set(magea4_tcga["symbol"]) == {"MAGEA4"}
+
+
+def test_rank_proteoforms_has_no_pandas4_warning_and_rejects_duplicate_burden():
+    base_kwargs = {
+        "cta_gene_ids": {"G1"},
+        "gene_keys": {"G1": "P1"},
+        "proteins": [Protein("G1", "P1", "SYM1", "MAAAA")],
+        "prevalence": pd.DataFrame(
+            {
+                "proteoform_key": ["P1"],
+                "cancer_code": ["LUAD"],
+                "prevalence_p95": [0.25],
+                "n_samples": [100],
+            }
+        ),
+        "cohorts": {"lung": ["LUAD"]},
+    }
+    ok_inputs = VaccineInputs(
+        burden=pd.DataFrame({"burden_category": ["lung"], "world_mortality_pct": [18.0]}),
+        **base_kwargs,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rank_proteoforms(ok_inputs)
+    pandas4 = [w for w in caught if "verify_integrity" in str(w.message)]
+    assert not pandas4
+
+    dup_inputs = VaccineInputs(
+        burden=pd.DataFrame(
+            {"burden_category": ["lung", "lung"], "world_mortality_pct": [18.0, 12.0]}
+        ),
+        **base_kwargs,
+    )
+    with pytest.raises(ValueError, match="Duplicate burden_category"):
+        rank_proteoforms(dup_inputs)

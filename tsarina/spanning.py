@@ -1384,13 +1384,15 @@ def _add_cancer_expression_rank_columns(
     if "Ensembl_Gene_ID" not in df.columns:
         return df
     try:
+        from oncoref.reference_data import ReferenceDataError
+
         from .cancer_expression import cta_cancer_expression_features
 
         features = cta_cancer_expression_features(
             rna_threshold=cancer_rna_threshold,
             cancer_type_prevalence_floor=cancer_type_prevalence_floor,
         )
-    except (FileNotFoundError, ValueError):
+    except (FileNotFoundError, ValueError, OSError, ReferenceDataError):
         return df
     if features.empty or "gene_id" not in features.columns:
         return df
@@ -2463,10 +2465,12 @@ def _load_tcga_features_safely() -> pd.DataFrame | None:
     without the TCGA columns.
     """
     try:
+        from oncoref.reference_data import ReferenceDataError
+
         from .cancer_expression import cta_tcga_expression_features
 
         return cta_tcga_expression_features()
-    except (FileNotFoundError, ValueError):
+    except (FileNotFoundError, ValueError, OSError, ReferenceDataError):
         return None
 
 

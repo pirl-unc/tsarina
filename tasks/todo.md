@@ -1,3 +1,15 @@
+# Delegate HPA cancer RNA/IHC prevalence to OncoRef & fix Pandas4Warning (1.56.0) (2026-11-26)
+
+Fixes #258.
+
+- [x] Delegate `tsarina.cancer_expression.hpa_cancer_rna_prevalence()` and `hpa_cancer_ihc_prevalence()` to `oncoref.hpa_cancer_rna_prevalence()` and `oncoref.hpa_cancer_ihc_prevalence()` (HPA v25.1, genome-wide, covering 353/357 current CTAs for RNA and 195/357 for IHC) with canonical `symbol` mapping and optional `gene_ids`/`cohort` filtering.
+- [x] Vectorize `_rna_features()` and `_ihc_features()` prevalence counts and cache default `cta_tcga_expression_features()` aggregation; handle offline `ReferenceDataError` gracefully in `_attach_tcga_prevalence`, `_add_cancer_expression_rank_columns`, and `_load_tcga_features_safely`.
+- [x] Remove stale `tsarina/data/hpa-cancer-{rna,ihc}-prevalence.csv` (~2.15 MB), obsolete `scripts/regenerate_hpa_cancer_prevalence.py`, and `"data/hpa-*.csv"` from `pyproject.toml`; update `tests/test_oncoref_authority.py` and `docs/curation.md`.
+- [x] Replace deprecated `set_index("burden_category", verify_integrity=True)` in `tsarina/vaccine_inputs.py` with explicit duplicate validation to eliminate 22 `Pandas4Warning`s.
+- [x] Add regression tests in `tests/test_cancer_expression.py` and bump `tsarina/version.py` to `1.56.0`.
+- [x] Pass `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh` (859 passed, 7 skipped, 1 warning; 22 `Pandas4Warning`s eliminated), and `mkdocs build --strict`.
+- [ ] Open PR (`Fixes #258`), wait for CI, squash-merge, deploy `1.56.0` to PyPI from clean `main`, and verify SHA256 digests.
+
 # Adopt OncoRef 1.52.0: 4-way sex restriction, clinical clearance, 1-mm near-self metrics, MANE/canonical transcript alignment, and evaluated canine catalog (1.55.0) (2026-11-26)
 
 - [x] Bump `pyproject.toml` dependency floor to `oncoref>=1.52.0` and bump `tsarina/version.py` to `1.55.0`.
