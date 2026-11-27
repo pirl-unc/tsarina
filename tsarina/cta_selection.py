@@ -16,26 +16,16 @@ from functools import lru_cache
 import pandas as pd
 from oncoref import antigen_sets, gene_identity_catalog, target_selection
 from oncoref import host_context as _oncoref_host_context
-from oncoref.host_context import HostContext
+from oncoref.host_context import SEX_RESTRICTION_CODES, HostContext
 from oncoref.species import for_species as _oncoref_for_species
 
 _HUMAN_SPECIES_ALIASES = frozenset({"human", "homo_sapiens", "homo sapiens", "9606"})
 CTA_TIERS = target_selection.CTA_TIERS
 
-#: Canonical 4-way OncoRef sex-restriction codes across human, mouse, and dog.
-SEX_RESTRICTION_CODES: tuple[str, ...] = (
-    "CTA-M",
-    "CTA-F",
-    "CTA-MF",
-    "CTA-P",
-    "RA-M-only",
-    "RA-F-only",
-    "RA-MF-only",
-    "RA-P-only",
-)
 _SEX_RESTRICTION_CODE_BY_LOWER: dict[str, str] = {
     code.lower(): code for code in SEX_RESTRICTION_CODES
 }
+_ECTOPIC_ACTIVATION_MODES: frozenset[str] = frozenset({"ectopic", "ectopic_and_lineage_retained"})
 
 
 def _parse_json_tuple(value) -> tuple[str, ...]:
@@ -247,6 +237,11 @@ def _normalize_sex_codes(sex_code: str | Iterable[str]) -> tuple[str, ...]:
     return tuple(normalized)
 
 
+def host_compartments(species: str = "human") -> tuple[str, ...]:
+    """Return canonical OncoRef HostContext reproductive compartments for ``species``."""
+    return tuple(_oncoref_host_context.compartments(species=species))
+
+
 def build_host_context(
     *,
     patient_sex: str | None = None,
@@ -255,12 +250,13 @@ def build_host_context(
     protect_tissues: Iterable[str] = (),
     accept_loss_tissues: Iterable[str] = (),
     absent_tissues: Iterable[str] = (),
+    allow_incomplete_scope: bool = False,
     species: str = "human",
 ) -> HostContext | None:
     """Build a composable OncoRef :class:`HostContext` for human, mouse, or dog.
 
     Translates high-level biological state and compartment choices directly via
-    :func:`oncoref.host_context.from_legacy`. Returns ``None`` when no host
+    :func:`oncoref.host_context.for_host`. Returns ``None`` when no host
     constraints are requested.
     """
     profile = "all"
@@ -279,13 +275,14 @@ def build_host_context(
                     out.append(token)
         return tuple(out)
 
-    return _oncoref_host_context.from_legacy(
+    return _oncoref_host_context.for_host(
         profile=profile,
         pregnant=bool(pregnant),
         lactating=bool(lactating),
         allow_tissues=_flat(accept_loss_tissues),
         protect_tissues=_flat(protect_tissues),
         absent_tissues=_flat(absent_tissues),
+        allow_incomplete_scope=bool(allow_incomplete_scope),
         species=species,
     )
 
@@ -294,25 +291,34 @@ def build_host_context(
 def _sex_restricted_table(species_key: str) -> pd.DataFrame:
     if species_key in _HUMAN_SPECIES_ALIASES:
         raw = _oncoref_for_species("human").antigens.sex_restricted_antigens().copy()
-        sel = _human_target_selection()[["entity_id", "label", "gene_ids", "category", "cta_tier"]]
-        return raw.merge(sel, on="entity_id", how="left")
+        sel_full = _human_target_selection()
+    else:
+        sp = _oncoref_for_species(species_key)
+        cov = sp.antigens.target_selection_coverage()
+        status = cov.get("selection_status")
+        if status != "evaluated":
+            raise ValueError(
+                f"Sex-restricted antigen eligibility is not yet available for species "
+                f"{sp.species.name!r} (selection_status={status!r})."
+            )
+        raw = sp.antigens.sex_restricted_antigens().copy()
+        sel_full = _nonhuman_target_selection(species_key)
 
-    sp = _oncoref_for_species(species_key)
-    cov = sp.antigens.target_selection_coverage()
-    status = cov.get("selection_status")
-    if status != "evaluated":
-        raise ValueError(
-            f"Sex-restricted antigen eligibility is not yet available for species "
-            f"{sp.species.name!r} (selection_status={status!r})."
-        )
-    raw = sp.antigens.sex_restricted_antigens().copy()
-    sel_full = _nonhuman_target_selection(species_key)
-    keep_cols = [
+    extra_cols = [
         c
-        for c in ("entity_id", "label", "gene_ids", "category", "cta_tier")
-        if c in sel_full.columns
+        for c in (
+            "label",
+            "gene_ids",
+            "category",
+            "cta_tier",
+            "tumor_activation_mode",
+            "tumor_support",
+        )
+        if c in sel_full.columns and c not in raw.columns
     ]
-    return raw.merge(sel_full[keep_cols], on="entity_id", how="left")
+    if not extra_cols:
+        return raw
+    return raw.merge(sel_full[["entity_id", *extra_cols]], on="entity_id", how="left")
 
 
 def CTA_sex_restricted_antigens(
@@ -427,6 +433,8 @@ def CTA_selection(
     *,
     species: str = "human",
     sex_code: str | Iterable[str] | None = None,
+    ectopic_only: bool = False,
+    replicated_only: bool = False,
     host_context: HostContext | None = None,
     filter_host: bool = False,
 ):
@@ -446,6 +454,13 @@ def CTA_selection(
     sex_code
         Optional 4-way ``sex_restriction_code`` filter (e.g. ``"CTA-F"``,
         ``("CTA-M", "CTA-P")``, ``"RA-M-only"``).
+    ectopic_only
+        When ``True``, keep only rows with ectopic tumor activation
+        (``tumor_activation_mode`` in ``{"ectopic", "ectopic_and_lineage_retained"}``),
+        excluding purely ``lineage_retained`` targets.
+    replicated_only
+        When ``True``, keep only rows with multi-patient replicated tumor support
+        (``tumor_support == "replicated"``), excluding ``single_sample`` targets.
     host_context
         Optional :class:`oncoref.host_context.HostContext` to evaluate via
         :func:`oncoref.host_context.assess`, attaching ``host_status``,
@@ -470,6 +485,16 @@ def CTA_selection(
         codes = set(_normalize_sex_codes(sex_code))
         if "sex_restriction_code" in frame.columns:
             frame = frame.loc[frame["sex_restriction_code"].isin(codes)]
+        else:
+            frame = frame.iloc[:0]
+    if ectopic_only:
+        if "tumor_activation_mode" in frame.columns:
+            frame = frame.loc[frame["tumor_activation_mode"].isin(_ECTOPIC_ACTIVATION_MODES)]
+        else:
+            frame = frame.iloc[:0]
+    if replicated_only:
+        if "tumor_support" in frame.columns:
+            frame = frame.loc[frame["tumor_support"].eq("replicated")]
         else:
             frame = frame.iloc[:0]
 
@@ -509,6 +534,7 @@ def _selection_gene_table() -> pd.DataFrame:
         rep_transcripts = tuple(
             t.split(".")[0] for t in _parse_json_tuple(decision.get("representative_transcripts"))
         )
+        qualifying_cancers = _parse_json_tuple(decision.get("qualifying_cancer_codes"))
         for gene_id in decision["gene_ids"]:
             identity = identities[gene_id]
             rows.append(
@@ -545,6 +571,11 @@ def _selection_gene_table() -> pd.DataFrame:
                     "selection_sex_restriction_code": _clean_text(
                         decision.get("sex_restriction_code")
                     ),
+                    "selection_tumor_activation_mode": _clean_text(
+                        decision.get("tumor_activation_mode")
+                    ),
+                    "selection_tumor_support": _clean_text(decision.get("tumor_support")),
+                    "selection_qualifying_cancer_codes": qualifying_cancers,
                     "selection_rare_cell_status": _clean_text(decision.get("rare_cell_status")),
                     "selection_nuclear_rna_caution": _clean_text(
                         decision.get("nuclear_rna_caution")
@@ -576,28 +607,55 @@ def _selection_gene_table() -> pd.DataFrame:
     return frame
 
 
-@lru_cache(maxsize=1)
-def selection_representative_transcripts() -> dict[str, tuple[str, ...]]:
-    """Map human Ensembl gene ID to unversioned OncoRef representative transcripts.
+@lru_cache(maxsize=8)
+def _selection_representative_transcripts_for_species(
+    species_key: str,
+) -> dict[str, tuple[str, ...]]:
+    if species_key in _HUMAN_SPECIES_ALIASES:
+        frame = _selection_gene_table()
+        mapping: dict[str, tuple[str, ...]] = {}
+        for row in frame.itertuples(index=False):
+            preferred: list[str] = []
+            for tid in getattr(row, "selection_clinical_cleared_transcripts", ()) or ():
+                if tid and tid not in preferred:
+                    preferred.append(tid)
+            for tid in getattr(row, "selection_representative_transcripts", ()) or ():
+                if tid and tid not in preferred:
+                    preferred.append(tid)
+            if preferred:
+                mapping[row.Ensembl_Gene_ID] = tuple(preferred)
+        return mapping
 
-    Clinically cleared transcripts (e.g. ``CTAG2`` LAGE-1a ``ENST00000369585``
+    raw = _nonhuman_target_selection(species_key)
+    mapping = {}
+    for row in raw.itertuples(index=False):
+        members = getattr(row, "gene_ids", ()) or ()
+        rep_tx = tuple(
+            t.split(".")[0]
+            for t in _parse_json_tuple(getattr(row, "representative_transcripts", None))
+            if t
+        )
+        if not members or not rep_tx:
+            continue
+        for gid in members:
+            if gid:
+                mapping[str(gid)] = rep_tx
+    return mapping
+
+
+def selection_representative_transcripts(species: str = "human") -> dict[str, tuple[str, ...]]:
+    """Map Ensembl gene ID to unversioned OncoRef representative transcripts.
+
+    Supports human, mouse, and dog catalogs from OncoRef >=1.55.0. On human,
+    clinically cleared transcripts (e.g. ``CTAG2`` LAGE-1a ``ENST00000369585``
     carrying ``SLLMWITQC``) take precedence ahead of general representative
     transcripts so downstream peptide enumeration avoids unverified longer
     isoforms (such as ``CTAG2`` LAGE-1b ``ENST00000247306``).
     """
-    frame = _selection_gene_table()
-    mapping: dict[str, tuple[str, ...]] = {}
-    for row in frame.itertuples(index=False):
-        preferred: list[str] = []
-        for tid in getattr(row, "selection_clinical_cleared_transcripts", ()) or ():
-            if tid and tid not in preferred:
-                preferred.append(tid)
-        for tid in getattr(row, "selection_representative_transcripts", ()) or ():
-            if tid and tid not in preferred:
-                preferred.append(tid)
-        if preferred:
-            mapping[row.Ensembl_Gene_ID] = tuple(preferred)
-    return mapping
+    key = str(species).strip().lower()
+    if key not in _HUMAN_SPECIES_ALIASES:
+        key = _oncoref_for_species(key).species.name
+    return _selection_representative_transcripts_for_species(key)
 
 
 def selection_gene_table() -> pd.DataFrame:

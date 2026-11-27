@@ -68,12 +68,12 @@ gene-set helpers, most workflows only need the functions grouped below.
 
 | Entry point | Purpose |
 |---|---|
-| `CTA_selection(category=..., species=..., sex_code=..., host_context=..., filter_host=...)` | Current OncoRef CTA catalog across evaluated `human`, `mouse`, and `dog`, with 4-way `sex_code` and `HostContext` assessment/filtering |
+| `CTA_selection(category=..., species=..., sex_code=..., ectopic_only=..., replicated_only=..., host_context=..., filter_host=...)` | Current OncoRef CTA catalog across evaluated `human`, `mouse`, and `dog`, with 4-way `sex_code`, ectopic/replicated filters, and `HostContext` assessment/filtering |
 | `CTA_selection_coverage(species=...)` | Species readiness (`evaluated`), anatomy, category counts, and 4-way `sex_restricted_counts` |
 | `CTA_sex_restricted_antigens(sex=..., eligibility=..., sex_code=..., species=...)` | 4-way biological sex eligibility (`all_adult` or `sex_organ_only`) and `CTA-M`/`F`/`MF`/`P` + `RA-*-only` filtering for `human`, `mouse`, and `dog` |
 | `CTA_sex_eligible_gene_names(...)` / `CTA_sex_eligible_gene_ids(...)` | Eligible gene symbols or Ensembl IDs for a given `sex`, `eligibility`, `sex_code`, and `species` |
-| `HostContext` / `build_host_context(...)` / `SEX_RESTRICTION_CODES` | Composable OncoRef host-compartment protection (`pregnant`, `lactating`, `protect_tissues`, `accept_loss_tissues`, `absent_tissues`) |
-| `annotate_cta_safety_caveats(...)` / `screen_near_self_1mm(...)` / `annotate_near_self_1mm(...)` | OncoRef 1.52+ CTA safety caveats and 1-aa Hamming near-self screening against OncoRef `Unsafe` / `Unsafe\|Other` |
+| `HostContext` / `build_host_context(...)` / `host_compartments(species=...)` / `SEX_RESTRICTION_CODES` | Composable OncoRef host-compartment protection (`pregnant`, `lactating`, `protect_tissues`, `accept_loss_tissues`, `absent_tissues`, `allow_incomplete_scope`) and canonical per-species compartment discovery |
+| `annotate_cta_safety_caveats(...)` / `screen_near_self_1mm(...)` / `annotate_near_self_1mm(...)` | OncoRef 1.55+ CTA safety caveats and 1-aa Hamming near-self screening against OncoRef `Unsafe` / `Unsafe\|Other` |
 | `cancer_fusions(...)` / `fusion_junction_peptides(...)` | Filter OncoRef's 188 curated cancer fusions and enumerate host-exclusive breakpoint-spanning peptides |
 | `HOTSPOT_MUTATIONS` / `mutant_peptides(...)` | Curated driver hotspot mutations and host-exclusive mutant-spanning peptides |
 | `viral_peptides(...)` / `orfdata_viral_subsets()` / `orfdata_viral_peptides(...)` | Built-in UniProt oncogenic viruses and optional `orfdata` IARC GDC viral subsets / RefSeq viral ORFs |

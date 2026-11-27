@@ -1,10 +1,12 @@
 from pathlib import Path
 
 from oncoref import cta_tissues as oncoref_tissues
+from oncoref import host_context as oncoref_host_context
 
 import tsarina
+import tsarina.cta_selection as cta_selection
 import tsarina.tissues as tissues
-from tsarina import hpa_cancer_ihc_prevalence, hpa_cancer_rna_prevalence
+from tsarina import host_compartments, hpa_cancer_ihc_prevalence, hpa_cancer_rna_prevalence
 
 
 def _package_data_dir() -> Path:
@@ -51,3 +53,13 @@ def test_cta_tissue_definitions_are_direct_oncoref_exports():
     )
     for name in names:
         assert getattr(tissues, name) is getattr(oncoref_tissues, name)
+
+
+def test_host_context_codes_and_compartments_delegate_to_oncoref():
+    assert cta_selection.SEX_RESTRICTION_CODES is oncoref_host_context.SEX_RESTRICTION_CODES
+    assert tsarina.SEX_RESTRICTION_CODES is oncoref_host_context.SEX_RESTRICTION_CODES
+    for species in ("human", "mouse", "dog"):
+        assert host_compartments(species=species) == oncoref_host_context.compartments(
+            species=species
+        )
+        assert "testis" in host_compartments(species=species)

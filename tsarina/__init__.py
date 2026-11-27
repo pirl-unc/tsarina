@@ -77,6 +77,7 @@ if TYPE_CHECKING:
         CTA_sex_restricted_antigens,
         HostContext,
         build_host_context,
+        host_compartments,
     )
     from .evidence import CTA_detailed_evidence, CTA_evidence
     from .evidence_store import evidence_store_provenance, load_evidence_store_ms_hits
@@ -216,6 +217,7 @@ _LAZY = {
     "evidence_store_provenance": (".evidence_store", "evidence_store_provenance"),
     "fusion_junction_peptides": (".fusions", "fusion_junction_peptides"),
     "get_panel": (".alleles", "get_panel"),
+    "host_compartments": (".cta_selection", "host_compartments"),
     "hpa_cancer_ihc_prevalence": (".cancer_expression", "hpa_cancer_ihc_prevalence"),
     "hpa_cancer_rna_prevalence": (".cancer_expression", "hpa_cancer_rna_prevalence"),
     "load_evidence_store_ms_hits": (".evidence_store", "load_evidence_store_ms_hits"),
@@ -321,6 +323,7 @@ __all__ = [
     "evidence_store_provenance",
     "fusion_junction_peptides",
     "get_panel",
+    "host_compartments",
     "hpa_cancer_ihc_prevalence",
     "hpa_cancer_rna_prevalence",
     "load_evidence_store_ms_hits",

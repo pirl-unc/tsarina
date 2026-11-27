@@ -479,6 +479,7 @@ def personalized_targets(
     protect_tissues: Iterable[str] = (),
     accept_loss_tissues: Iterable[str] = (),
     absent_tissues: Iterable[str] = (),
+    allow_incomplete_scope: bool = False,
     fusions: Iterable[dict] | pd.DataFrame | None = None,
     require_host_exclusive_fusions: bool = True,
     ms_evidence_scope: str = "all",
@@ -645,12 +646,14 @@ def personalized_targets(
             bool(protect_tissues),
             bool(accept_loss_tissues),
             bool(absent_tissues),
+            bool(allow_incomplete_scope),
         )
     )
     if host_context is not None and has_host_flags:
         raise ValueError(
             "Pass either host_context or individual host flags "
-            "(pregnant/lactating/protect_tissues/accept_loss_tissues/absent_tissues), not both."
+            "(pregnant/lactating/protect_tissues/accept_loss_tissues/absent_tissues/"
+            "allow_incomplete_scope), not both."
         )
     resolved_host = None
     if host_context is not None:
@@ -676,6 +679,7 @@ def personalized_targets(
             protect_tissues=protect_tissues,
             accept_loss_tissues=accept_loss_tissues,
             absent_tissues=absent_tissues,
+            allow_incomplete_scope=allow_incomplete_scope,
             species=ctx.host_species,
         )
     if hla_alleles:
