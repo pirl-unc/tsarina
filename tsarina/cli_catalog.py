@@ -370,6 +370,7 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             bool(getattr(args, "protect_tissues", None)),
             bool(getattr(args, "accept_loss_tissues", None)),
             bool(getattr(args, "absent_tissues", None)),
+            bool(getattr(args, "allow_incomplete_scope", False)),
         )
     )
     host_ctx = None
@@ -382,12 +383,15 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
                 protect_tissues=getattr(args, "protect_tissues", ()) or (),
                 accept_loss_tissues=getattr(args, "accept_loss_tissues", ()) or (),
                 absent_tissues=getattr(args, "absent_tissues", ()) or (),
+                allow_incomplete_scope=bool(getattr(args, "allow_incomplete_scope", False)),
                 species=species,
             )
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
 
+    ectopic_only = bool(getattr(args, "ectopic_only", False))
+    replicated_only = bool(getattr(args, "replicated_only", False))
     category = args.category
     coverage_info: dict[str, object] | None = None
     if not is_human:
@@ -405,6 +409,18 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             sys.exit(1)
         if category is not None:
             df = df.loc[df["category"].eq(category)].copy()
+        if ectopic_only:
+            if "tumor_activation_mode" in df.columns:
+                df = df.loc[
+                    df["tumor_activation_mode"].isin({"ectopic", "ectopic_and_lineage_retained"})
+                ].copy()
+            else:
+                df = df.iloc[:0].copy()
+        if replicated_only:
+            if "tumor_support" in df.columns:
+                df = df.loc[df["tumor_support"].eq("replicated")].copy()
+            else:
+                df = df.iloc[:0].copy()
         if host_ctx is not None and not df.empty:
             from oncoref import host_context as _oncoref_host_context
 
@@ -426,6 +442,8 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             category=category,
             species=species,
             sex_code=sex_codes,
+            ectopic_only=ectopic_only,
+            replicated_only=replicated_only,
             host_context=host_ctx,
             filter_host=host_ctx is not None,
         )
@@ -487,6 +505,20 @@ def _catalog_ctas(args: argparse.Namespace) -> None:
             rec["sex_restriction_code"] = str(sex_code).strip()
         if sex is not None:
             rec["sex_restriction_class"] = str(getattr(row, "sex_restriction_class", "") or "")
+        act_mode = getattr(row, "tumor_activation_mode", None)
+        if (
+            act_mode is not None
+            and str(act_mode).strip()
+            and str(act_mode).strip().lower() != "nan"
+        ):
+            rec["tumor_activation_mode"] = str(act_mode).strip()
+        t_support = getattr(row, "tumor_support", None)
+        if (
+            t_support is not None
+            and str(t_support).strip()
+            and str(t_support).strip().lower() != "nan"
+        ):
+            rec["tumor_support"] = str(t_support).strip()
         near_self = getattr(row, "unsafe_near_self_1mm_pct", None)
         if near_self is not None:
             try:
@@ -866,6 +898,27 @@ def build_catalog_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentPa
         action="append",
         default=[],
         help="Reproductive compartment(s) absent in this host via HostContext",
+    )
+    p_ctas.add_argument(
+        "--allow-incomplete-scope",
+        dest="allow_incomplete_scope",
+        action="store_true",
+        help=(
+            "Allow HostContext to treat protected compartments lacking full developmental "
+            "atlas coverage as eligible when measured compartments are clean"
+        ),
+    )
+    p_ctas.add_argument(
+        "--ectopic-only",
+        dest="ectopic_only",
+        action="store_true",
+        help="Keep only CTAs with ectopic tumor activation, excluding purely lineage_retained loci",
+    )
+    p_ctas.add_argument(
+        "--replicated",
+        dest="replicated_only",
+        action="store_true",
+        help="Keep only CTAs with replicated multi-patient tumor support, excluding single_sample",
     )
     p_ctas.add_argument("--top", type=int, default=50, help="Maximum rows to show (default 50)")
     p_ctas.add_argument("--json", action="store_true", help="Machine-readable JSON output")

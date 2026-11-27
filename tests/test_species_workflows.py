@@ -121,7 +121,7 @@ def test_species_mismatch_and_human_catalog_transfer_rejected():
 
 def test_personalized_targets_native_dog_cta_workflow(monkeypatch):
     """Offline canine (Canis lupus familiaris, Ensembl 98 CanFam3.1, DLA-88*508:01)
-    CTA workflow using OncoRef >= 1.52.0 evaluated dog catalog."""
+    CTA workflow using OncoRef >= 1.55.0 evaluated dog catalog."""
 
     def fake_gene_peptides(gene_ids, ensembl_release=112, lengths=(8, 9, 10, 11), **kwargs):
         assert ensembl_release == 98
@@ -129,9 +129,9 @@ def test_personalized_targets_native_dog_cta_workflow(monkeypatch):
         return pd.DataFrame(
             [
                 {
-                    "gene_name": "NAA11",
+                    "gene_name": "PRAME",
                     "gene_id": next(iter(gene_ids)),
-                    "transcript_id": "ENSCAFT_NAA11",
+                    "transcript_id": "ENSCAFT_PRAME",
                     "peptide": "CANINEPEP",
                     "length": 9,
                     "start": 1,
@@ -140,9 +140,9 @@ def test_personalized_targets_native_dog_cta_workflow(monkeypatch):
                     "c_flank": "",
                 },
                 {
-                    "gene_name": "NAA11",
+                    "gene_name": "PRAME",
                     "gene_id": next(iter(gene_ids)),
-                    "transcript_id": "ENSCAFT_NAA11",
+                    "transcript_id": "ENSCAFT_PRAME",
                     "peptide": "DOGSELFPP",
                     "length": 9,
                     "start": 10,
@@ -157,7 +157,7 @@ def test_personalized_targets_native_dog_cta_workflow(monkeypatch):
 
     out = personalized_targets(
         hla_alleles=["DLA-88*508:01"],
-        cta_expression={"NAA11": 40.0},
+        cta_expression={"PRAME": 40.0},
         host_species="dog",
         patient_sex="female",
         lengths=(9,),
@@ -168,7 +168,7 @@ def test_personalized_targets_native_dog_cta_workflow(monkeypatch):
         show_progress=False,
     )
     assert list(out["peptide"]) == ["CANINEPEP"]
-    assert list(out["source"]) == ["NAA11"]
+    assert list(out["source"]) == ["PRAME"]
     assert out.attrs["ensembl_release"] == 98
     assert out.attrs["species_context"]["host_taxon"] == 9615
     assert out.attrs["patient_sex"] == "female"

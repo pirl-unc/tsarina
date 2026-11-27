@@ -21,7 +21,7 @@ whole-exome discovery of private neoantigens.
 | MHC class I alleles | Yes | Allele names such as `HLA-A*02:01` (`H-2-Kb` for `--species mouse`, `DLA-88*508:01` for `--species dog`) | Defines the presentation-scoring space |
 | CTA expression | No | Gene symbol → tumor RNA TPM | Retains expressed current-policy CTAs (evaluated human, mouse, or dog) |
 | Patient sex (`--sex`) | No | `female` or `male` (+ `--sex-eligibility all_adult\|sex_organ_only`) | Filters CTAs and admits sex-safe reproductive antigens (RNA + sex-aware MS safety) |
-| Host context (`--pregnant`, `--lactating`, `--protect-tissue`, `--allow-tissue`, `--absent-tissue`) | No | Composable OncoRef `HostContext` flags across human, mouse, and dog | Protects specified reproductive/peripartum compartments (e.g. excludes `LALBA`/`CSN2`/`BTN1A1` under `--lactating`) |
+| Host context (`--pregnant`, `--lactating`, `--protect-tissue`, `--allow-tissue`, `--absent-tissue`, `--allow-incomplete-scope`) | No | Composable OncoRef `HostContext` flags across human, mouse, and dog | Protects specified reproductive/peripartum compartments (e.g. excludes `LALBA`/`CSN2`/`BTN1A1` under `--lactating`; `--allow-incomplete-scope` opts in when developmental compartments lack full atlas coverage) |
 | 1-aa near-self screen (`--screen-near-self`, `--max-near-self-1mm`) | No | Opt-in 1-aa Hamming screen against OncoRef `Unsafe` (`Unsafe\|Other`) | Annotates/gates peptides within 1 aa of normal-tissue proteins |
 | Mutations | No | Supported labels such as `KRAS G12D` | Adds host-exclusive mutation-spanning shared neoantigens |
 | Fusions (`--fusion` / `--fusions`) | No | Inline `LABEL:NTERM\|CTERM` or CSV/TSV/JSON breakpoints | Adds host-exclusive junction-spanning fusion neoantigens |

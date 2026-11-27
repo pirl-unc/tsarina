@@ -6,7 +6,7 @@ with target-selection evidence, but never maintains a second CTA universe.
 
 ## Current selection and historical evidence
 
-Tsarina 1.55 requires Python >=3.11, OncoRef >=1.52.0 and Hitlist >=2.15.0.
+Tsarina 1.59 requires Python >=3.11, OncoRef >=1.55.0 and Hitlist >=2.15.0.
 Default human membership is the `CTA` category from OncoRef's rebuilt
 set-based target catalog (`oncoref.target_selection.results()`), enriched with
 canonical gene identities from `oncoref.gene_identity_catalog()`. This
@@ -36,24 +36,29 @@ evidence = CTA_evidence()                 # One row per current member gene.
 historical = CTA_hpa_evidence()           # Original oncoref.cta HPA table.
 ```
 
-With OncoRef 1.52.0 (policy `oncoref.target-selection.2026-11-26.1`), the
+With OncoRef 1.55.0 (policy `oncoref.target-selection.2026-11-26.2`), the
 rebuilt human catalog classifies 19,893 reference protein groups (20,099 member
-genes) into **325 CTA** (357 gene loci: 269 `core` / 299 genes, 33
-`core_with_extended_exposure` / 34 genes, 23 `extended_only` / 24 genes),
-**95 Cancer Antigen only** (458 total CA genes), **143 Reproductive Antigen
-only** (501 total RA genes; 602 `CA|RA` target candidate genes), **1,081 Other**
+genes) into **322 CTA** (354 gene loci: 266 `core` / 296 genes, 33
+`core_with_extended_exposure` / 34 genes, 23 `extended_only` / 24 genes;
+214 `ectopic`, 97 `ectopic_and_lineage_retained`, 11 `lineage_retained`;
+248 `replicated`, 74 `single_sample`),
+**66 Cancer Antigen only** (426 total CA genes), **146 Reproductive Antigen
+only** (501 total RA genes; 573 `CA|RA` target candidate genes), **1,110 Other**
 (`Other:Review`, `Other:Expression`, `Other:Unscreened tissue`,
 `Other:Sequence`) and **18,249 Unsafe** (18,406 genes). Key adjudications in
-`2026-11-26.1` include `CTAG2` admitted as `CTA` (`core`, `CTA-MF`) via
+`2026-11-26.2` include `CTAG2` admitted as `CTA` (`core`, `CTA-MF`) via
 epitope-scoped clinical organ clearance (`SLLMWITQC` on LAGE-1a
 `ENST00000369585`), `PLAC1` and `DUX4` admitted as `CTA` (`core`, with
 `rare_cell_status="nuclear_only"` and `nuclear_rna_caution`), `NUTM1` and
 `PRM1` admitted as `CTA`, `LALBA` admitted as `CTA` (`extended_only`, `CTA-F`),
-`PRM2` in `Reproductive Antigen only` (`RA-M-only`), `GAGE10` held in
-`Other:Review`, and `SP7`, `MAGEA3`, `MAGEA12`, `SUN3` in `Unsafe`.
-Cross-species catalogs are also genome-wide evaluated for **mouse** (12 CTAs,
-317 sex-restricted antigens, Ensembl 115) and **dog** (54 CTAs, 475
-sex-restricted antigens, Ensembl 98 CanFam3.1).
+`PRM2` and chemosensory ORs (`OR1N1`, `OR4M2`, `OR10J1`) in `Reproductive Antigen
+only`, `GAGE10` held in `Other:Review`, and `SP7`, `MAGEA3`, `MAGEA12`, `SUN3`
+in `Unsafe`.
+Cross-species catalogs are also genome-wide evaluated for **mouse** (8 CTAs,
+311 sex-restricted antigens, Ensembl 115) and **dog** (118 CTAs across 19
+cohorts / 935 primary tumors including `PRAME` and `SSX6`, 431 sex-restricted
+antigens, Ensembl 98 CanFam3.1), both with `representative_transcripts`,
+`tumor_activation_mode`, and `tumor_support`.
 OncoRef's `target_selection.metadata()["release_ready"]` is currently `False`
 while three listed scientific reviews remain open (tumor-source comparability,
 read-level rare-cell mapping-risk confirmation, and hair-follicle IHC replay);
@@ -69,6 +74,8 @@ the upstream decision (including `selection_cta_tier`,
 `selection_classification`, `selection_is_cancer_antigen`,
 `selection_is_reproductive_antigen`, `selection_is_target_candidate`,
 `selection_sex_restriction_class`, `selection_sex_restriction_code`,
+`selection_tumor_activation_mode`, `selection_tumor_support`,
+`selection_qualifying_cancer_codes`,
 `selection_rare_cell_status`, `selection_nuclear_rna_caution`,
 `selection_clinical_clearance_scope`, `selection_clinical_cleared_organs`,
 `selection_clinical_cleared_epitopes`, `selection_clinical_hla_alleles`,
@@ -79,7 +86,7 @@ the upstream decision (including `selection_cta_tier`,
 supply symbols, with stable gene IDs used when a symbol is missing. Missing
 HPA measurements stay missing, with empty text or `NO_DATA` for unavailable
 restriction axes; they do not become zero or pass an HPA filter. There are
-41 selected CTA genes absent from the historical HPA table in OncoRef 1.52.0.
+41 selected CTA genes absent from the historical HPA table in OncoRef 1.55.0.
 
 `Unsafe`, `Other`, `Cancer Antigen only`, and `Reproductive Antigen only`
 decisions remain distinct. The rebuilt policy gives every protein a category

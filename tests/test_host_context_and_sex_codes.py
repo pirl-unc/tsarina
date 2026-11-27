@@ -19,7 +19,10 @@ from tsarina.cta_selection import (
     CTA_sex_restricted_antigens,
     HostContext,
     build_host_context,
+    host_compartments,
+    selection_representative_transcripts,
 )
+from tsarina.evidence import CTA_evidence
 from tsarina.personalize import personalized_targets
 
 
@@ -27,6 +30,7 @@ def test_top_level_exports_host_context_and_sex_codes():
     assert tsarina.HostContext is HostContext
     assert tsarina.SEX_RESTRICTION_CODES == SEX_RESTRICTION_CODES
     assert tsarina.build_host_context is build_host_context
+    assert tsarina.host_compartments is host_compartments
 
 
 def test_four_way_sex_code_filtering_across_human_mouse_and_dog():
@@ -289,3 +293,114 @@ def test_cli_catalog_sex_code_host_context_and_personalize_forwarding(monkeypatc
     assert captured["protect_tissues"] == ["ovary", "uterus"]
     assert captured["accept_loss_tissues"] == ["cervix"]
     assert captured["absent_tissues"] == ["testis"]
+    assert captured["allow_incomplete_scope"] is False
+
+
+def test_allow_incomplete_scope_ectopic_replicated_and_cross_species_transcripts(
+    monkeypatch, capsys
+):
+    # Pregnant fail-closed (default) vs allow_incomplete_scope=True
+    preg_closed = build_host_context(pregnant=True, species="human")
+    preg_open = build_host_context(pregnant=True, allow_incomplete_scope=True, species="human")
+    assert preg_closed is not None and preg_closed.allow_incomplete_scope is False
+    assert preg_open is not None and preg_open.allow_incomplete_scope is True
+
+    closed_ctas = CTA_selection(category="CTA", host_context=preg_closed, filter_host=True)
+    open_ctas = CTA_selection(category="CTA", host_context=preg_open, filter_host=True)
+    assert len(closed_ctas) == 0
+    assert len(open_ctas) >= 100
+    assert "NY-ESO-1" in set(open_ctas["label"])
+    assert "PLAC1" not in set(open_ctas["label"])
+
+    # ectopic_only and replicated_only filters across human, mouse, and dog
+    all_human = CTA_selection(category="CTA")
+    ectopic_human = CTA_selection(category="CTA", ectopic_only=True)
+    replicated_human = CTA_selection(category="CTA", replicated_only=True)
+    assert 0 < len(ectopic_human) < len(all_human)
+    assert set(ectopic_human["tumor_activation_mode"]) <= {
+        "ectopic",
+        "ectopic_and_lineage_retained",
+    }
+    assert 0 < len(replicated_human) < len(all_human)
+    assert set(replicated_human["tumor_support"]) == {"replicated"}
+
+    dog_ectopic = CTA_selection(category="CTA", species="dog", ectopic_only=True)
+    dog_replicated = CTA_selection(category="CTA", species="dog", replicated_only=True)
+    assert 0 < len(dog_ectopic) < len(CTA_selection(category="CTA", species="dog"))
+    assert 0 < len(dog_replicated) < len(CTA_selection(category="CTA", species="dog"))
+    assert "PRAME" in set(dog_ectopic["label"])
+
+    # Evidence table projects tumor_activation_mode / tumor_support / qualifying_cancer_codes
+    ev = CTA_evidence()
+    for col in (
+        "selection_tumor_activation_mode",
+        "selection_tumor_support",
+        "selection_qualifying_cancer_codes",
+    ):
+        assert col in ev.columns
+    cta_ev = ev.loc[ev["is_current_cta"]]
+    assert cta_ev["selection_tumor_activation_mode"].notna().all()
+    assert cta_ev["selection_tumor_support"].notna().all()
+
+    # Cross-species representative_transcripts are populated for human, mouse, and dog
+    for sp, prefix in (("human", "ENST"), ("mouse", "ENSMUST"), ("dog", "ENSCAFT")):
+        rep = selection_representative_transcripts(species=sp)
+        assert len(rep) > 0
+        sample_tx = next(iter(rep.values()))
+        assert all(tid.startswith(prefix) and "." not in tid for tid in sample_tx)
+
+    # CLI catalog ctas supports --ectopic-only, --replicated, and --pregnant --allow-incomplete-scope
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tsarina",
+            "catalog",
+            "ctas",
+            "--pregnant",
+            "--allow-incomplete-scope",
+            "--ectopic-only",
+            "--replicated",
+            "--top",
+            "200",
+            "--json",
+        ],
+    )
+    main()
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["host_context"]["allow_incomplete_scope"] is True
+    assert payload["total"] > 50
+    assert all(
+        row["tumor_activation_mode"] in {"ectopic", "ectopic_and_lineage_retained"}
+        for row in payload["ctas"]
+    )
+    assert all(row["tumor_support"] == "replicated" for row in payload["ctas"])
+
+    # personalize CLI forwards --allow-incomplete-scope
+    captured: dict[str, object] = {}
+
+    def fake_personalize(**kwargs):
+        captured.update(kwargs)
+        return pd.DataFrame(columns=["peptide", "category", "source"])
+
+    monkeypatch.setattr("tsarina.personalize.personalized_targets", fake_personalize)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tsarina",
+            "personalize",
+            "--hla",
+            "HLA-A*02:01",
+            "--cta",
+            "MAGEA4=10",
+            "--pregnant",
+            "--allow-incomplete-scope",
+            "--skip-ms-evidence",
+            "--no-score",
+        ],
+    )
+    main()
+    capsys.readouterr()
+    assert captured["pregnant"] is True
+    assert captured["allow_incomplete_scope"] is True

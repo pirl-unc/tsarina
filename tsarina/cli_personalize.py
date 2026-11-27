@@ -312,6 +312,16 @@ def build_parser(sub: argparse._SubParsersAction) -> argparse.ArgumentParser:
         ),
     )
     safety.add_argument(
+        "--allow-incomplete-scope",
+        dest="allow_incomplete_scope",
+        action="store_true",
+        help=(
+            "Allow HostContext to treat protected compartments lacking full developmental "
+            "atlas coverage, such as post-implantation embryo, as eligible when measured "
+            "compartments are clean; default fails closed."
+        ),
+    )
+    safety.add_argument(
         "--min-cta-tpm",
         type=float,
         default=2.0,
@@ -510,6 +520,7 @@ def handle(args: argparse.Namespace) -> None:
             getattr(args, "protect_tissues", None),
             getattr(args, "accept_loss_tissues", None),
             getattr(args, "absent_tissues", None),
+            getattr(args, "allow_incomplete_scope", False),
         )
     ):
         extra_kwargs["pregnant"] = bool(getattr(args, "pregnant", False))
@@ -519,6 +530,9 @@ def handle(args: argparse.Namespace) -> None:
             getattr(args, "accept_loss_tissues", []) or []
         )
         extra_kwargs["absent_tissues"] = _flatten_multi(getattr(args, "absent_tissues", []) or [])
+        extra_kwargs["allow_incomplete_scope"] = bool(
+            getattr(args, "allow_incomplete_scope", False)
+        )
 
     try:
         df = personalized_targets(

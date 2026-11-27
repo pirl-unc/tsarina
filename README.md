@@ -36,7 +36,7 @@ See: [documentation](docs/index.md) and [Ecosystem & Python API](docs/ecosystem-
 
 ## Install
 
-Requires Python 3.11 or newer, `oncoref>=1.52.0`, `hitlist>=2.15.0`, and `datacache>=1.38.0`.
+Requires Python 3.11 or newer, `oncoref>=1.55.0`, `hitlist>=2.15.0`, and `datacache>=1.38.0`.
 
 ```bash
 pip install tsarina

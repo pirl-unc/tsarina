@@ -150,15 +150,21 @@ def gene_peptides(
         if is_human
         else EnsemblRelease(ensembl_release, species=species)
     )
+    from .cta_selection import selection_representative_transcripts
+
     symbols: dict[str, str] = {}
     rep_transcripts_by_gene: dict[str, tuple[str, ...]] = {}
     if is_human:
-        from .cta_selection import selection_representative_transcripts
         from .loader import cta_dataframe
 
         evidence = cta_dataframe()
         symbols = dict(zip(evidence.Ensembl_Gene_ID, evidence.Symbol))
-        rep_transcripts_by_gene = selection_representative_transcripts()
+        rep_transcripts_by_gene = selection_representative_transcripts(species="human")
+    else:
+        try:
+            rep_transcripts_by_gene = selection_representative_transcripts(species=species)
+        except (ValueError, KeyError):
+            rep_transcripts_by_gene = {}
 
     rows: list[dict] = []
     for gene_id in _progress_iter(

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from functools import lru_cache
 
 import oncoref
 import pandas as pd
@@ -18,7 +17,7 @@ _DEFAULT_RNA_THRESHOLD = 2.0
 _DEFAULT_CANCER_TYPE_PREVALENCE_FLOOR = 0.05
 _TCGA_COHORT = "TCGA"
 _TCGA_DEFAULT_THRESHOLDS = (1.0, 5.0)
-_TCGA_SUMMARY_CACHE: dict[tuple[float, ...], tuple[pd.DataFrame, pd.DataFrame]] = {}
+_TCGA_SUMMARY_CACHE: dict[tuple[float, ...], pd.DataFrame] = {}
 
 
 def _threshold_label(value: float) -> str:
@@ -33,58 +32,6 @@ def _normalize_gene_ids(gene_ids: str | Iterable[str] | None) -> list[str] | Non
     else:
         values = list(gene_ids)
     return [str(gene_id).split(".")[0] for gene_id in values]
-
-
-@lru_cache(maxsize=1)
-def _ensembl_symbol_map() -> dict[str, str]:
-    from .cta_selection import selection_gene_table
-
-    genes = selection_gene_table()
-    if genes.empty:
-        return {}
-    ids = genes["Ensembl_Gene_ID"].astype(str).str.split(".").str[0]
-    symbols = genes["Symbol"].fillna("").astype(str)
-    return {gene_id: symbol for gene_id, symbol in zip(ids, symbols) if gene_id and symbol}
-
-
-def _attach_symbol(
-    frame: pd.DataFrame,
-    *,
-    fallback_column: str | None = None,
-) -> pd.DataFrame:
-    if frame.empty:
-        if "symbol" not in frame.columns:
-            out = frame.copy()
-            insert_at = 1 if "gene_id" in out.columns else 0
-            out.insert(insert_at, "symbol", pd.Series(dtype="object"))
-            return out
-        return frame
-    out = frame.copy()
-    gene_ids = out["gene_id"].astype(str).str.split(".").str[0]
-    symbol = gene_ids.map(_ensembl_symbol_map())
-    if fallback_column and fallback_column in out.columns:
-        fallback = out[fallback_column].replace("", pd.NA)
-        symbol = symbol.fillna(fallback)
-    symbol = symbol.fillna(gene_ids).astype(str)
-    if "symbol" in out.columns:
-        out["symbol"] = symbol
-    else:
-        insert_at = list(out.columns).index("gene_id") + 1
-        out.insert(insert_at, "symbol", symbol)
-    return out
-
-
-@lru_cache(maxsize=1)
-def _cached_hpa_cancer_rna_prevalence() -> pd.DataFrame:
-    return _attach_symbol(oncoref.hpa_cancer_rna_prevalence())
-
-
-@lru_cache(maxsize=1)
-def _cached_hpa_cancer_ihc_prevalence() -> pd.DataFrame:
-    return _attach_symbol(
-        oncoref.hpa_cancer_ihc_prevalence(),
-        fallback_column="hpa_gene_name",
-    )
 
 
 def hpa_cancer_rna_prevalence(
@@ -102,17 +49,14 @@ def hpa_cancer_rna_prevalence(
     cohort : {"TCGA", "validation"}, optional
         Optional cohort filter.
     """
-    if cohort not in (None, "TCGA", "validation"):
-        raise ValueError("cohort must be 'TCGA', 'validation', or None")
-    if gene_ids is None and cohort is None:
-        return _cached_hpa_cancer_rna_prevalence()
-    normalized = _normalize_gene_ids(gene_ids)
-    frame = _cached_hpa_cancer_rna_prevalence()
-    if cohort is not None:
-        frame = frame.loc[frame["cohort"] == cohort]
-    if normalized is not None:
-        frame = frame.loc[frame["gene_id"].isin(set(normalized))]
-    return frame.copy()
+    return oncoref.hpa_cancer_rna_prevalence(
+        gene_ids=_normalize_gene_ids(gene_ids),
+        cohort=cohort,
+        include_symbol=True,
+    )
+
+
+_DEFAULT_HPA_RNA_FN = hpa_cancer_rna_prevalence
 
 
 def hpa_cancer_ihc_prevalence(
@@ -126,11 +70,10 @@ def hpa_cancer_ihc_prevalence(
         Optional Ensembl gene ID(s) to subset (version suffixes stripped).
         Defaults to all genes in OncoRef's HPA v25.1 cancer IHC table.
     """
-    if gene_ids is None:
-        return _cached_hpa_cancer_ihc_prevalence()
-    normalized = _normalize_gene_ids(gene_ids)
-    frame = _cached_hpa_cancer_ihc_prevalence()
-    return frame.loc[frame["gene_id"].isin(set(normalized))].copy()
+    return oncoref.hpa_cancer_ihc_prevalence(
+        gene_ids=_normalize_gene_ids(gene_ids),
+        include_symbol=True,
+    )
 
 
 def cta_cancer_expression_features(
@@ -362,10 +305,13 @@ def cta_tcga_expression_features(
         raise ValueError("cta_tcga_expression_features requires at least one threshold")
     sorted_thresholds = tuple(sorted(thresholds))
 
+    use_cache = rna_prevalence is None and hpa_cancer_rna_prevalence is _DEFAULT_HPA_RNA_FN
+    if use_cache:
+        cached = _TCGA_SUMMARY_CACHE.get(sorted_thresholds)
+        if cached is not None:
+            return cached.copy()
+
     rna = hpa_cancer_rna_prevalence() if rna_prevalence is None else rna_prevalence
-    cached = _TCGA_SUMMARY_CACHE.get(sorted_thresholds)
-    if rna_prevalence is None and cached is not None and cached[0] is rna:
-        return cached[1].copy()
 
     if rna.empty or "cohort" not in rna.columns:
         return pd.DataFrame(columns=["gene_id", "symbol"])
@@ -454,7 +400,7 @@ def cta_tcga_expression_features(
     summary = summary.merge(tops, on=["gene_id", "symbol"], how="left")
     summary[top_type_col] = summary[top_type_col].fillna("")
     summary[top_prev_col] = summary[top_prev_col].fillna(0.0)
-    if rna_prevalence is None:
-        _TCGA_SUMMARY_CACHE[sorted_thresholds] = (rna, summary)
+    if use_cache:
+        _TCGA_SUMMARY_CACHE[sorted_thresholds] = summary
         return summary.copy()
     return summary

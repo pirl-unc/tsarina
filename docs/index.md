@@ -98,7 +98,7 @@ classification, preflight checks, and the evidence model.
 
 CTAs are normally restricted to reproductive tissues but reactivated in tumors.
 OncoRef supplies current protein-level selection decisions across evaluated
-human (325 CTAs), mouse (12 CTAs), and dog (54 CTAs) catalogs, 4-way
+human (322 CTAs), mouse (8 CTAs), and dog (118 CTAs) catalogs, 4-way
 biological sex-restricted eligibility (`CTA-M`/`F`/`MF`/`P` and `RA-*-only`,
 `--sex female|male`), clinical organ/epitope clearance, 1-mm near-self metrics,
 and historical HPA-derived restriction axes. Tsarina adds tumor prevalence,

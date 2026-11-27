@@ -1,3 +1,15 @@
+# Adopt OncoRef 1.55.0 (`2026-11-26.2`): `host_context.for_host`, `allow_incomplete_scope`, `host_compartments`, ectopic/replicated CTA filters, cross-species `representative_transcripts`, and cached HPA prevalence (1.59.0) (2026-11-27)
+
+- [x] Bump `pyproject.toml` dependency floor to `oncoref>=1.55.0` and bump `tsarina/version.py` to `1.59.0`.
+- [x] Adopt OncoRef 1.55.0 APIs in `tsarina/cta_selection.py`: import `SEX_RESTRICTION_CODES` directly from `oncoref.host_context`, add `host_compartments(species=...)`, switch `build_host_context()` from `from_legacy` to `for_host` with `allow_incomplete_scope: bool = False`, add `ectopic_only` and `replicated_only` filters on `CTA_selection()`, project `selection_tumor_activation_mode`/`selection_tumor_support`/`selection_qualifying_cancer_codes` onto `_selection_gene_table()`, and generalize `selection_representative_transcripts(species="human")` across human, mouse, and dog.
+- [x] Wire cross-species `selection_representative_transcripts(species=...)` into `tsarina/peptides.py` `gene_peptides()`.
+- [x] Simplify `tsarina/cancer_expression.py` to delegate directly to OncoRef 1.55.0's cached `hpa_cancer_rna_prevalence(..., include_symbol=True)` and `hpa_cancer_ihc_prevalence(..., include_symbol=True)` while preserving versioned-ID stripping and safe `_TCGA_SUMMARY_CACHE`.
+- [x] Wire `allow_incomplete_scope` into `personalized_targets()`, `tsarina personalize`, and `tsarina catalog ctas`; add `--ectopic-only` and `--replicated` (plus JSON fields) to `tsarina catalog ctas`; export `host_compartments` from top-level `tsarina`.
+- [x] Regenerate `tsarina/data/gene-ms-safety-evidence.csv` and `.meta.json` read-only (`--no-auto-build`) against `oncoref 1.55.0` (`oncoref.target-selection.2026-11-26.2`) so `tsarina status` reports `MS overlay: current`.
+- [x] Add regression tests in `tests/test_oncoref_authority.py`, `tests/test_host_context_and_sex_codes.py`, and update `tests/test_species_workflows.py`; update `docs/curation.md`, `docs/index.md`, `docs/personalized-targets.md`, `docs/ecosystem-and-api.md`, and `README.md`.
+- [x] Pass `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh` (873 passed, 7 skipped, 1 warning, 83% coverage), and `mkdocs build --strict`.
+- [ ] Open PR, wait for all CI checks, squash-merge, deploy `1.59.0` to PyPI from clean `main`, and verify SHA256 digests + Docs deploy.
+
 # Composable OncoRef HostContext & 4-way --sex-code filtering across human, mouse, and dog (1.58.0) (2026-11-26)
 
 Fixes #260.
@@ -8,7 +20,7 @@ Fixes #260.
 - [x] Export `HostContext`, `SEX_RESTRICTION_CODES`, and `build_host_context` from top-level `tsarina`.
 - [x] Add unit tests in `tests/test_host_context_and_sex_codes.py`, update `docs/personalized-targets.md` and `docs/ecosystem-and-api.md`, and bump `tsarina/version.py` to `1.58.0`.
 - [x] Pass `./format.sh`, `./lint.sh`, `TEST_SH_MAX=2 ./test.sh` (871 passed, 7 skipped, 1 warning, 83% coverage), and `mkdocs build --strict`.
-- [ ] Open PR (`Fixes #260`), wait for CI, squash-merge, deploy `1.58.0` to PyPI from clean `main`, and verify SHA256 digests.
+- [x] Open PR (`Fixes #260`), wait for CI, squash-merge, deploy `1.58.0` to PyPI from clean `main`, and verify SHA256 digests.
 
 # OncoRef 1.52+ CTA safety caveats & 1-aa near-self screening in personalize & panel (1.57.0) (2026-11-26)
 
